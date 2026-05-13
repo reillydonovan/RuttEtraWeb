@@ -68,19 +68,76 @@ export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, be
   void loopCheckbox;
 
   inputGroup.body.appendChild(fileWrap);
+
+  // Status line — shows the live state of the input attempt + any errors so
+  // the user isn't confused when, say, the browser silently denies mic
+  // permission. Hidden when there's nothing to say.
+  const statusLine = document.createElement('div');
+  statusLine.className = 'rw-hint';
+  statusLine.style.marginTop = '4px';
+  statusLine.style.whiteSpace = 'pre-wrap';
+  statusLine.style.color = 'var(--re-text-dim)';
+  statusLine.textContent = '';
+  inputGroup.body.appendChild(statusLine);
+
   root.appendChild(inputGroup.root);
 
+  // Helper to translate the assorted DOMException names from getUserMedia /
+  // getDisplayMedia into actionable copy.
+  const explainMediaError = (err: unknown, source: 'mic' | 'tab'): string => {
+    const name = (err as { name?: string }).name ?? '';
+    const message = (err as { message?: string }).message ?? String(err);
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      return source === 'mic'
+        ? `Microphone blocked by the browser. Click the lock icon in the address bar → Site settings → set Microphone to "Allow", then reload.`
+        : `Tab capture blocked. The browser denied screen/tab capture; check the lock icon in the address bar.`;
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return source === 'mic'
+        ? `No microphone found. Plug one in and try again.`
+        : `No capturable tab/screen found.`;
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return `Audio device is in use by another app. Close other tabs/apps using the ${source}, then retry.`;
+    }
+    if (name === 'AbortError') {
+      return `${source === 'mic' ? 'Microphone' : 'Tab capture'} request was aborted.`;
+    }
+    if (name === 'OverconstrainedError') {
+      return `${source === 'mic' ? 'Microphone' : 'Tab'} doesn't support the requested constraints.`;
+    }
+    return `${source === 'mic' ? 'Microphone' : 'Tab capture'} failed: ${name || message}`;
+  };
+
   // Wire input source changes.
-  let lastKind: AudioInputKind = 'none';
+  //
+  // Initialize `lastKind` to the *current* persisted value so the immediate
+  // subscribe-fire (Settings.subscribe replays the current value) doesn't
+  // silently try to auto-start mic / tab on page load — those require a
+  // user gesture in Chrome and would fail before the user has clicked
+  // anything. The user's first dropdown change is what activates input.
+  let lastKind: AudioInputKind = settings.get('audioInputKind');
+  // If the persisted source needs a gesture, reset to 'none' so the dropdown
+  // doesn't lie about what's actually running.
+  if (lastKind === 'mic' || lastKind === 'tab') {
+    queueMicrotask(() => settings.set('audioInputKind', 'none'));
+  }
+  fileWrap.style.display = lastKind === 'file' ? '' : 'none';
+
   settings.subscribe('audioInputKind', async (kind) => {
     if (kind === lastKind) return;
     lastKind = kind;
     fileWrap.style.display = kind === 'file' ? '' : 'none';
+    statusLine.textContent = '';
     try {
       if (kind === 'mic') {
+        statusLine.textContent = 'Requesting microphone…';
         await fft.start('mic');
+        statusLine.textContent = 'Microphone connected.';
       } else if (kind === 'tab') {
+        statusLine.textContent = 'Requesting tab/system audio…';
         await fft.start('tab');
+        statusLine.textContent = 'Tab audio connected.';
       } else if (kind === 'file') {
         await fft.start('file');
         if (audioEl.src) fft.attachAudioElement(audioEl);
@@ -89,6 +146,8 @@ export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, be
       }
     } catch (err) {
       console.warn('audio start failed', err);
+      const source = kind === 'tab' ? 'tab' : 'mic';
+      statusLine.textContent = explainMediaError(err, source);
       settings.set('audioInputKind', 'none');
     }
   });
