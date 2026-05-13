@@ -1,0 +1,52 @@
+# =============================================================
+# Rutt/Etra Web - LiteSpeed / Apache caching policy for Hostinger
+# =============================================================
+# Vite copies this file from public/ into dist/, so it ships at the
+# site root. Without it, Hostinger's LiteSpeed defaults to a 7-day
+# Cache-Control on every JS/HTML request, which means a freshly
+# uploaded build is invisible to anyone who visited within the last
+# week - their browser keeps using the old PWA shell + old service
+# worker registration script.
+#
+# Two rules:
+#   1. SW + entry-point files (sw.js, registerSW.js, index.html,
+#      manifest.webmanifest) -> never cache. These are how the browser
+#      learns about a new build.
+#   2. Content-hashed bundles in /assets/ -> cache forever, immutable.
+#      A new build mints new filenames, so this is safe and fast.
+# =============================================================
+
+<IfModule mod_headers.c>
+  # ---------- 1. Never-cache the update channel ----------
+  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # ---------- 2. Long-cache content-hashed assets ----------
+  # Vite hashes filenames like index-xhWOdNUm.js, so file contents
+  # are pinned to the URL forever - safe to mark immutable.
+  <FilesMatch "\.(js|css|woff2?|svg|glsl|png|jpg|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # The never-cache block is listed first and FilesMatch is order-
+  # sensitive in some Apache builds, so explicitly re-set the
+  # entry-point headers below to defeat the long-cache rule above
+  # if the cascade falls through.
+  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# SPA fallback: if Hostinger ever serves the app at a sub-path
+# (e.g. /synth/), make sure deep links resolve to index.html.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

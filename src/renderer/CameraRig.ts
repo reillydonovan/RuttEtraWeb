@@ -50,6 +50,7 @@ export class CameraRig {
 
     this.bindKeyboard();
     this.bindSettings();
+    this.bindTouch();
   }
 
   /**
@@ -143,6 +144,63 @@ export class CameraRig {
     this.camera.fov = v.fov;
     this.camera.lookAt(v.targetX, v.targetY, v.targetZ);
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Touch-only gestures on the canvas:
+   *   - double-tap (within 320ms) → resetView()
+   *   - long-press (600ms hold) → "peek" mode: dispatches `re-peek-start`
+   *     / `re-peek-end` events on document (host toggles UI hidden class)
+   */
+  private bindTouch(): void {
+    const el = this.domElement;
+    let lastTapAt = 0;
+    let pressTimer: number | null = null;
+    let peeking = false;
+    let downX = 0, downY = 0;
+
+    const startPeek = () => {
+      if (peeking) return;
+      peeking = true;
+      document.dispatchEvent(new CustomEvent('re-peek-start'));
+    };
+    const endPeek = () => {
+      if (!peeking) return;
+      peeking = false;
+      document.dispatchEvent(new CustomEvent('re-peek-end'));
+    };
+
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      downX = e.clientX; downY = e.clientY;
+      const now = performance.now();
+      if (now - lastTapAt < 320) {
+        // Double-tap: reset view.
+        this.resetView();
+        lastTapAt = 0;
+      } else {
+        lastTapAt = now;
+      }
+      // Arm long-press for peek.
+      if (pressTimer != null) clearTimeout(pressTimer);
+      pressTimer = window.setTimeout(() => {
+        pressTimer = null;
+        startPeek();
+      }, 600);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8 && pressTimer != null) {
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+    });
+    const cancel = () => {
+      if (pressTimer != null) { clearTimeout(pressTimer); pressTimer = null; }
+      endPeek();
+    };
+    el.addEventListener('pointerup',     cancel);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('pointerleave',  cancel);
   }
 
   private bindKeyboard(): void {

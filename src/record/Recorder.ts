@@ -107,6 +107,16 @@ export class CanvasRecorder {
     this.recorder = rec;
     this.startTime = performance.now();
     this.emit('recording');
+
+    // Best-effort wake lock + haptic confirmation. Both are no-ops on
+    // unsupported platforms. Imported lazily to keep the static graph small.
+    void Promise.all([
+      import('../platform/WakeLock'),
+      import('../platform/HapticFeedback'),
+    ]).then(([{ wakeLock }, { haptic }]) => {
+      void wakeLock().acquire();
+      haptic('success');
+    }).catch(() => { /* ignore */ });
   }
 
   stop(): void {
@@ -131,6 +141,15 @@ export class CanvasRecorder {
     this.outStream = null;
     this.recorder = null;
     this.emit('idle');
+
+    // Release wake lock + tap haptic.
+    void Promise.all([
+      import('../platform/WakeLock'),
+      import('../platform/HapticFeedback'),
+    ]).then(([{ wakeLock }, { haptic }]) => {
+      void wakeLock().release();
+      haptic('tap');
+    }).catch(() => { /* ignore */ });
   }
 
   private emit(s: 'idle' | 'recording' | 'finalizing'): void {

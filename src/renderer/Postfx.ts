@@ -99,6 +99,7 @@ export class PostFX {
   private fsQuad: THREE.Mesh;
   private fsScene: THREE.Scene;
   private fsCamera: THREE.OrthographicCamera;
+  private bloomRTDivisor = 1;
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -110,7 +111,7 @@ export class PostFX {
   ) {
     this.composer = new EffectComposer(renderer);
     this.composer.setSize(width, height);
-    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.composer.setPixelRatio(renderer.getPixelRatio());
 
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
@@ -178,10 +179,19 @@ export class PostFX {
   }
 
   resize(width: number, height: number): void {
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.composer.setSize(width, height);
-    this.bloom.resolution.set(width, height);
+    // Bloom resolution is divided by `bloomRTDivisor` set via setBloomRTDivisor.
+    this.bloom.resolution.set(width / this.bloomRTDivisor, height / this.bloomRTDivisor);
     (this.crt.uniforms.uResolution.value as THREE.Vector2).set(width, height);
     this.feedbackRT.setSize(width, height);
+  }
+
+  /** Set bloom render-target divisor (1=full, 2=half, 4=quarter). */
+  setBloomRTDivisor(div: number): void {
+    if (div < 1) div = 1;
+    this.bloomRTDivisor = div;
+    // Re-apply current size on next tick — caller usually invokes resize().
   }
 
   setCamera(camera: THREE.Camera): void {

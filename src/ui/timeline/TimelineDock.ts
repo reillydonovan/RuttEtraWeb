@@ -54,12 +54,12 @@ export class TimelineDock {
   private build(): void {
     this.host.innerHTML = '';
 
-    // Mini-strip handle for hidden mode.
+    // Mini-strip handle for hidden mode. Restores last visible dock side.
     this.mini = document.createElement('div');
     this.mini.className = 'rw-tl-mini';
-    this.mini.textContent = '▲ SHOW TIMELINE';
+    this.refreshMiniLabel();
     this.mini.addEventListener('click', () => {
-      this.settings.set('timelineDock', 'bottom');
+      this.settings.set('timelineDock', this.settings.get('timelineLastDock'));
     });
     this.host.appendChild(this.mini);
 
@@ -105,10 +105,15 @@ export class TimelineDock {
       this.inspector.render();
     };
 
-    // Settings -> dock state
+    // Settings -> dock state. Whenever a *visible* dock is chosen we record
+    // it as the "last visible" side so toggling out of hidden returns to
+    // the side the user prefers.
     this.settings.subscribe('timelineDock', (v) => {
+      if (v === 'top' || v === 'bottom') this.settings.set('timelineLastDock', v);
       this.applyDockState(v, this.settings.get('timelineHeight'));
+      this.refreshMiniLabel();
     });
+    this.settings.subscribe('timelineLastDock', () => this.refreshMiniLabel());
     this.settings.subscribe('timelineHeight', (h) => {
       this.applyDockState(this.settings.get('timelineDock'), h);
     });
@@ -162,10 +167,20 @@ export class TimelineDock {
     if (dock === 'hidden') {
       this.host.style.height = ``;
       this.mini.style.display = '';
+      // Place the mini handle on the same side the user last had the dock.
+      const last = this.settings.get('timelineLastDock');
+      this.host.dataset.miniSide = last;
     } else {
       this.host.style.height = `${Math.max(140, Math.min(600, height))}px`;
       this.mini.style.display = 'none';
+      this.host.dataset.miniSide = dock;
     }
+  }
+
+  /** Reflect the last visible dock side in the mini-handle's label. */
+  private refreshMiniLabel(): void {
+    const last = this.settings.get('timelineLastDock');
+    this.mini.textContent = last === 'top' ? '▼ SHOW TIMELINE' : '▲ SHOW TIMELINE';
   }
 
   setZoom(z: number): void {

@@ -45,28 +45,75 @@ const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
 export function createModulationSection(settings: SettingsStore, matrix: ModMatrix): HTMLElement {
   const root = document.createElement('div');
 
-  const jsGroup = group('Joystick (XY pad + scroll Z)');
+  const jsGroup = group('Joystick (XY pad + Z)');
+  // Live readouts above the pad.
+  const xyzReadout = document.createElement('div');
+  xyzReadout.className = 'rw-joystick-readouts';
+  const xR = document.createElement('span'); xR.textContent = 'X: 0.00';
+  const yR = document.createElement('span'); yR.textContent = 'Y: 0.00';
+  const zR = document.createElement('span'); zR.textContent = 'Z: 0.00';
+  xyzReadout.append(xR, yR, zR);
+  jsGroup.body.appendChild(xyzReadout);
+
+  // Lock-axis selector (compact mode one-handed use; hidden on desktop).
+  const lockRow = document.createElement('div');
+  lockRow.className = 'rw-joystick-lock';
+  const lockSel = document.createElement('select');
+  lockSel.className = 'rw-select';
+  for (const o of [
+    { v: 'none', l: 'Lock: none' },
+    { v: 'x',    l: 'Lock: X only' },
+    { v: 'y',    l: 'Lock: Y only' },
+  ]) {
+    const opt = document.createElement('option');
+    opt.value = o.v; opt.textContent = o.l;
+    lockSel.appendChild(opt);
+  }
+  lockRow.appendChild(lockSel);
+  jsGroup.body.appendChild(lockRow);
+
+  // Layout: pad + vertical Z slider beside it.
+  const padWrap = document.createElement('div');
+  padWrap.className = 'rw-joystick-wrap';
   const pad = document.createElement('div');
   pad.className = 'rw-joystick';
   const knob = document.createElement('div');
   knob.className = 'knob';
   knob.style.left = '50%'; knob.style.top = '50%';
   pad.appendChild(knob);
+
+  const zSlider = document.createElement('input');
+  zSlider.type = 'range';
+  zSlider.min = '-1'; zSlider.max = '1'; zSlider.step = '0.01';
+  zSlider.value = '0';
+  zSlider.className = 'rw-joystick-z';
+  zSlider.setAttribute('aria-label', 'Joystick Z axis');
+  // CSS rotates -90deg to make it visually vertical.
+  padWrap.append(pad, zSlider);
+  jsGroup.body.appendChild(padWrap);
+
   let jx = 0, jy = 0, jz = 0;
   let dragging = false;
   function setKnob(nx: number, ny: number) {
     knob.style.left = `${(nx * 0.5 + 0.5) * 100}%`;
     knob.style.top  = `${(ny * 0.5 + 0.5) * 100}%`;
   }
+  function emit() {
+    matrix.setJoystick(jx, jy, jz);
+    xR.textContent = `X: ${jx.toFixed(2)}`;
+    yR.textContent = `Y: ${jy.toFixed(2)}`;
+    zR.textContent = `Z: ${jz.toFixed(2)}`;
+  }
   function onMove(e: PointerEvent) {
     if (!dragging) return;
     const r = pad.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width)  * 2 - 1;
     const y = ((e.clientY - r.top)  / r.height) * 2 - 1;
-    jx = Math.max(-1, Math.min(1, x));
-    jy = Math.max(-1, Math.min(1, -y));
+    const lock = lockSel.value;
+    if (lock !== 'y') jx = Math.max(-1, Math.min(1,  x));
+    if (lock !== 'x') jy = Math.max(-1, Math.min(1, -y));
     setKnob(jx, -jy);
-    matrix.setJoystick(jx, jy, jz);
+    emit();
   }
   pad.addEventListener('pointerdown', (e) => {
     dragging = true;
@@ -81,13 +128,13 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   pad.addEventListener('wheel', (e) => {
     e.preventDefault();
     jz = Math.max(-1, Math.min(1, jz + (e.deltaY < 0 ? 0.05 : -0.05)));
-    matrix.setJoystick(jx, jy, jz);
-    zReadout.textContent = `Z: ${jz.toFixed(2)}`;
+    zSlider.value = String(jz);
+    emit();
   }, { passive: false });
-  jsGroup.body.appendChild(pad);
-  const zReadout = readout();
-  zReadout.textContent = 'Z: 0.00';
-  jsGroup.body.appendChild(zReadout);
+  zSlider.addEventListener('input', () => {
+    jz = parseFloat(zSlider.value);
+    emit();
+  });
   root.appendChild(jsGroup.root);
 
   const audioGroup = group('Audio Interface (mic)');

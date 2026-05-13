@@ -1,25 +1,19 @@
 /**
- * Floating "?" Help button + first-run auto-open helper.
+ * First-run auto-open helper for the Help tab.
  *
- * The button lives at the bottom-left so it doesn't collide with the right-
- * docked panel or the timeline strip at the bottom. It's hidden in
- * `body.viewer-mode`.
+ * The previously-floating "?" button has been retired — desktop users open
+ * the Help tab in the control panel; compact (mobile) users tap the "?"
+ * button in the top strip, which opens a dedicated help sheet.
  */
 
 import { SettingsStore } from '../../state/Settings';
 
-export function mountHelpFab(settings: SettingsStore): void {
-  if (document.getElementById('help-fab')) return;
-  const btn = document.createElement('button');
-  btn.id = 'help-fab';
-  btn.type = 'button';
-  btn.textContent = '?';
-  btn.title = 'Open help / manual';
-  btn.addEventListener('click', () => {
-    settings.set('panelTab', 'help');
-    settings.set('panelCollapsed', false);
-  });
-  document.body.appendChild(btn);
+/** Compatibility no-op. The standalone help FAB has been removed. */
+export function mountHelpFab(_settings: SettingsStore): void {
+  // Intentionally empty. Kept exported so existing dynamic-import call sites
+  // continue to work without further plumbing.
+  void _settings;
+  document.getElementById('help-fab')?.remove();
 }
 
 export function maybeAutoOpenHelp(settings: SettingsStore): void {

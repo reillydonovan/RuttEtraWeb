@@ -36,6 +36,10 @@ export class ControlPanel {
   private tabPanes: Record<TabId, TabPane>;
   private activeTab: TabId;
   private collapsed = false;
+  /** Section wrapper elements indexed by title (used by ResponsivePanel). */
+  private sectionsByTitle = new Map<string, HTMLElement>();
+  /** Original tab assignment for each section title (so a re-parent can restore it). */
+  private sectionTab = new Map<string, TabId>();
 
   constructor(host: HTMLElement, private settings: SettingsStore) {
     this.root = host;
@@ -101,11 +105,14 @@ export class ControlPanel {
     }
     this.applyActiveTab();
 
+    // Always re-apply on every change. We deliberately don't early-return on
+    // `v === this.activeTab` because external callers (e.g. the help FAB,
+    // ResponsivePanel) may set the same value to *force* a re-sync if the
+    // visual state has drifted.
     settings.subscribe('panelTab', (v) => {
-      if (v && v !== this.activeTab) {
-        this.activeTab = v;
-        this.applyActiveTab();
-      }
+      if (!v) return;
+      this.activeTab = v;
+      this.applyActiveTab();
     });
 
     this.root.append(title, tabs, body);
@@ -134,7 +141,28 @@ export class ControlPanel {
 
     wrap.append(head, body);
     this.tabPanes[tabId].pane.appendChild(wrap);
+    this.sectionsByTitle.set(section.title, wrap);
+    this.sectionTab.set(section.title, tabId);
     return wrap;
+  }
+
+  /** Look up a section wrapper by title (used by ResponsivePanel for re-parenting). */
+  getSection(title: string): HTMLElement | null {
+    return this.sectionsByTitle.get(title) ?? null;
+  }
+
+  /** Re-attach a previously detached section back into its original tab pane. */
+  reattachSection(title: string): void {
+    const wrap = this.sectionsByTitle.get(title);
+    const tab  = this.sectionTab.get(title);
+    if (!wrap || !tab) return;
+    if (wrap.parentElement === this.tabPanes[tab].pane) return;
+    this.tabPanes[tab].pane.appendChild(wrap);
+  }
+
+  /** All known section titles in registration order. */
+  sectionTitles(): string[] {
+    return Array.from(this.sectionsByTitle.keys());
   }
 
   // -------------------- internals --------------------
@@ -144,12 +172,18 @@ export class ControlPanel {
     button.type = 'button';
     button.className = 'rw-tab';
     button.textContent = label;
-    button.addEventListener('click', () => {
-      if (this.activeTab === id) return;
+    button.dataset.tab = id;
+    // Use both pointerup (snappy on desktop) and click (keyboard activation,
+    // accessibility). The click handler is the source of truth and always
+    // re-applies state — even if `activeTab === id` already — so a "stuck"
+    // visual state can be unstuck by re-clicking the same tab.
+    const handle = (ev: Event): void => {
+      ev.preventDefault();
       this.activeTab = id;
       this.settings.set('panelTab', id);
       this.applyActiveTab();
-    });
+    };
+    button.addEventListener('click', handle);
     const pane = document.createElement('div');
     pane.className = 'rw-tab-pane';
     return { id, label, button, pane };

@@ -1,0 +1,498 @@
+/* ============================================================
+   Rutt/Etra Web — Mobile-first responsive layer
+   ============================================================ */
+
+/* dvh-aware fullscreen base. Overrides panel.css' 100% baseline. */
+html, body, #app {
+  height: 100vh;        /* fallback */
+  height: 100dvh;
+  width: 100%;
+}
+
+/* Kill double-tap zoom + native pull-to-refresh + swipe-back. */
+body {
+  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Canvas owns all touch gestures (OrbitControls). */
+#stage {
+  touch-action: none;
+}
+
+/* ---------- Hide compact-only chrome by default (desktop) ---------- */
+#top-strip,
+#tab-bar { display: none; }
+
+/* ============================================================
+   COMPACT MODE
+   ============================================================ */
+
+body[data-layout="compact"] #panel-root,
+body[data-layout="compact"] .compact-hidden { display: none; }
+
+body[data-layout="compact"] #help-fab { display: none; }
+
+body[data-layout="compact"] #stage {
+  position: fixed; inset: 0;
+}
+
+/* Top strip ---------------------------------------------------------- */
+#top-strip {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right))
+           0                        max(8px, env(safe-area-inset-left));
+  background: linear-gradient(to bottom, rgba(8,14,8,0.96), rgba(8,14,8,0.78));
+  border-bottom: 1px solid var(--re-line);
+  font-family: var(--re-mono);
+  color: var(--re-text);
+}
+body[data-layout="compact"] #top-strip { display: flex; }
+
+.rw-top-preset {
+  flex: 1;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+  min-height: 36px;
+  text-align: left;
+  overflow: hidden;
+}
+.rw-top-preset:hover, .rw-top-preset:focus-visible {
+  border-color: var(--re-accent); color: var(--re-accent);
+  outline: none;
+}
+.rw-top-icon {
+  color: var(--re-accent);
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.rw-top-preset-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rw-top-actions { display: flex; gap: 4px; }
+.rw-top-btn {
+  min-width: 44px; min-height: 36px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.rw-top-btn:hover, .rw-top-btn:focus-visible {
+  border-color: var(--re-accent); color: var(--re-accent); outline: none;
+}
+.rw-top-btn.on {
+  background: var(--re-accent); color: #000;
+  border-color: var(--re-accent);
+}
+.rw-top-rec.on {
+  background: var(--re-warn); color: #000; border-color: var(--re-warn);
+  animation: rw-top-rec-pulse 1s ease-in-out infinite;
+}
+.rw-top-help { font-size: 18px; }
+@keyframes rw-top-rec-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,92,92,0.7); }
+  50%     { box-shadow: 0 0 0 6px rgba(255,92,92,0);   }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rw-top-rec.on { animation: none; }
+}
+
+/* Tab bar ------------------------------------------------------------ */
+#tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  height: calc(56px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(to top, rgba(8,14,8,0.96), rgba(8,14,8,0.78));
+  border-top: 1px solid var(--re-line);
+  font-family: var(--re-mono);
+}
+body[data-layout="compact"] #tab-bar { display: flex; }
+
+.rw-tabbar-btn {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  border-top: 2px solid transparent;
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  cursor: pointer;
+  padding: 4px 2px;
+  min-height: 44px;
+  transition: color 100ms;
+}
+.rw-tabbar-btn:hover, .rw-tabbar-btn:focus-visible {
+  color: var(--re-accent); outline: none;
+}
+.rw-tabbar-btn.active {
+  color: var(--re-accent);
+  border-top-color: var(--re-accent);
+  text-shadow: var(--re-glow);
+}
+.rw-tabbar-ico { font-size: 13px; letter-spacing: 0.04em; }
+.rw-tabbar-lbl { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Bottom sheet ------------------------------------------------------- */
+.rw-sheet-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 40;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.rw-sheet-backdrop.open { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .rw-sheet-backdrop { transition: none; }
+}
+
+.rw-sheet-host {
+  position: fixed; inset: 0;
+  z-index: 41;
+  pointer-events: none;
+}
+.rw-sheet-scroller {
+  position: absolute; inset: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+  scroll-behavior: smooth;
+}
+.rw-sheet-spacer {
+  scroll-snap-align: start;
+  pointer-events: none;
+}
+.rw-sheet-spacer-30 { height: 40vh; height: 40dvh; }
+.rw-sheet-spacer-60 { height: 30vh; height: 30dvh; }
+
+.rw-sheet-body {
+  scroll-snap-align: start;
+  position: relative;
+  min-height: 90vh;
+  min-height: 90dvh;
+  background: var(--re-panel);
+  border-top: 1px solid var(--re-line);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.55);
+  display: flex; flex-direction: column;
+}
+.rw-sheet-handle {
+  flex-shrink: 0;
+  position: sticky; top: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px 6px;
+  background: var(--re-panel);
+  border-bottom: 1px solid var(--re-line);
+  z-index: 2;
+}
+.rw-sheet-grip {
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  width: 36px; height: 4px;
+  background: var(--re-line-hi);
+  border-radius: 2px;
+}
+.rw-sheet-title {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--re-accent);
+  text-shadow: var(--re-glow);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.rw-sheet-close {
+  background: transparent;
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  width: 32px; height: 32px;
+  font-family: var(--re-mono);
+  font-size: 18px;
+  cursor: pointer;
+}
+.rw-sheet-close:hover, .rw-sheet-close:focus-visible {
+  border-color: var(--re-accent); color: var(--re-accent); outline: none;
+}
+.rw-sheet-body-content {
+  padding: 8px 10px calc(20px + env(safe-area-inset-bottom));
+  font-family: var(--re-mono);
+  color: var(--re-text);
+  flex: 1 1 auto;
+}
+.rw-sheet-sections .rw-section { margin-bottom: 8px; }
+
+/* Compact: leave canvas room above tab bar / below top strip */
+body[data-layout="compact"] {
+  --rw-top-strip-h: calc(48px + env(safe-area-inset-top));
+  --rw-tab-bar-h:   calc(56px + env(safe-area-inset-bottom));
+}
+/* Timeline is desktop-only for now: keep the sequencer logic running but
+   hide the dock + mini-handle entirely on compact. */
+body[data-layout="compact"] #timeline-dock { display: none !important; }
+
+/* ============================================================
+   PEEK MODE (long-press camera) — hide all UI temporarily
+   ============================================================ */
+body.peeking #panel-root,
+body.peeking #top-strip,
+body.peeking #tab-bar,
+body.peeking #timeline-dock,
+body.peeking #help-fab,
+body.peeking .rw-sheet-host,
+body.peeking .rw-sheet-backdrop {
+  visibility: hidden;
+}
+
+/* ============================================================
+   STANDARD MODE (768..1919)
+   Slightly larger touch targets where existing widgets allow.
+   ============================================================ */
+body[data-layout="standard"] .rw-section-head {
+  min-height: 44px;
+}
+
+/* ============================================================
+   Help section in compact mode — horizontal scroll-snap sub-tabs,
+   sticky search, full body height (90% sheet handles outer height).
+   ============================================================ */
+body[data-layout="compact"] .rw-help-subtabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--re-panel);
+  padding-bottom: 4px;
+}
+body[data-layout="compact"] .rw-help-subtab {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  font-size: 14px;
+  padding: 10px 14px;
+  min-height: 44px;
+}
+body[data-layout="compact"] .rw-help-search {
+  position: sticky;
+  top: 44px;
+  z-index: 2;
+  font-size: 14px;
+  padding: 10px;
+  min-height: 44px;
+  margin: 0;
+}
+body[data-layout="compact"] .rw-help-body {
+  max-height: none;
+}
+
+/* ============================================================
+   Toast (used by FrameBudgetWatcher etc.)
+   ============================================================ */
+#rw-toast-host {
+  position: fixed;
+  z-index: 60;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+  max-width: min(420px, 92vw);
+  width: 100%;
+  align-items: center;
+}
+.rw-toast {
+  pointer-events: auto;
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: var(--re-glow), 0 4px 16px rgba(0,0,0,0.5);
+  animation: rw-toast-in 200ms ease-out;
+}
+@keyframes rw-toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rw-toast { animation: none; }
+}
+.rw-toast-btn {
+  background: rgba(95,255,133,0.1);
+  border: 1px solid var(--re-accent);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  padding: 4px 8px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.rw-toast-dismiss {
+  background: transparent; border: none;
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+.rw-toast-dismiss:hover { color: var(--re-warn); }
+
+/* ============================================================
+   Debug overlay (?debug=layout)
+   ============================================================ */
+#rw-debug {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  right: calc(8px + env(safe-area-inset-right));
+  z-index: 90;
+  background: rgba(0,0,0,0.7);
+  border: 1px dashed var(--re-line);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  padding: 4px 6px;
+  white-space: pre;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(0,0,0,0.6);
+  line-height: 1.3;
+}
+
+/* ============================================================
+   Tap-to-enable-audio overlay (iOS Safari WebAudio gesture gate)
+   ============================================================ */
+#rw-audio-gate {
+  position: fixed; inset: 0;
+  z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.65);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 16px;
+  text-shadow: var(--re-glow);
+  cursor: pointer;
+  text-align: center;
+  padding: 24px;
+}
+#rw-audio-gate small { color: var(--re-text-dim); display: block; margin-top: 8px; font-size: 13px; }
+
+/* ============================================================
+   Compact slider: stop-chips + tappable readout (no native drag)
+   ============================================================
+   Native <input type="range"> dragging inside a `scroll-snap-type: y
+   mandatory` bottom-sheet scroller is too unreliable on iOS Safari.
+   In compact mode we hide the native widget entirely and present a
+   row of value-target chips plus a single readout that always shows
+   the current value. The readout is itself a button — tapping it
+   opens the numeric input modal for fully custom values. */
+.rw-slider-stops, .rw-slider-readout { display: none; }
+
+body[data-layout="compact"] .rw-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-height: auto;
+}
+body[data-layout="compact"] .rw-slider input[type="range"],
+body[data-layout="compact"] .rw-slider .rw-num { display: none; }
+
+body[data-layout="compact"] .rw-slider-stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body[data-layout="compact"] .rw-slider-stop {
+  flex: 1 1 0;
+  min-width: 56px;
+  min-height: 40px;
+  padding: 0 6px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+body[data-layout="compact"] .rw-slider-stop:hover,
+body[data-layout="compact"] .rw-slider-stop:focus-visible {
+  border-color: var(--re-accent);
+  color: var(--re-accent);
+  outline: none;
+}
+body[data-layout="compact"] .rw-slider-stop.selected {
+  background: var(--re-accent);
+  border-color: var(--re-accent);
+  color: #000;
+  box-shadow: var(--re-glow);
+}
+body[data-layout="compact"] .rw-slider-readout {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  background: transparent;
+  border: 1px dashed var(--re-line);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+body[data-layout="compact"] .rw-slider-readout:hover,
+body[data-layout="compact"] .rw-slider-readout:focus-visible {
+  border-color: var(--re-accent);
+  outline: none;
+  text-shadow: var(--re-glow);
+}
+
+/* Slider rows in compact stack vertically (chips + readout), so the
+   label needs to top-align rather than vertical-center. */
+body[data-layout="compact"] .rw-row { align-items: start; }
+body[data-layout="compact"] .rw-row .rw-label { padding-top: 10px; }
+
+/* Toggle hint text wraps below the switch instead of clipping. */
+body[data-layout="compact"] .rw-toggle {
+  flex-wrap: wrap;
+  min-height: 44px;
+  align-content: center;
+}
+body[data-layout="compact"] .rw-toggle-txt {
+  white-space: normal;
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+body[data-layout="compact"] .rw-select { min-height: 44px; font-size: 14px; }
+body[data-layout="compact"] .rw-btn    { min-height: 44px; padding: 8px 12px; font-size: 13px; }

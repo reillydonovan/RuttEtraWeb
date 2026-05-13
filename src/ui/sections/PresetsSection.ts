@@ -10,6 +10,7 @@ import { Settings, SettingsStore, migrateSettings } from '../../state/Settings';
 import { PRESETS } from '../presets';
 import { row, group, button, textInput, readout } from '../widgets';
 import { exportEverything, importEverything } from '../../state/exportEverything';
+import { haptic } from '../../platform/HapticFeedback';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
 
@@ -52,6 +53,7 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
       const migrated = migrateSettings(p.values) as Partial<Settings>;
       delete (migrated as { _v?: number })._v;
       settings.patch(migrated);
+      haptic('click');
     }
   }, 'primary');
 
@@ -78,6 +80,7 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
       const migrated = migrateSettings(p.values) as Partial<Settings>;
       delete (migrated as { _v?: number })._v;
       settings.patch(migrated);
+      haptic('click');
     });
     chips.appendChild(c);
   }

@@ -26,11 +26,13 @@
 }
 #timeline-dock[data-dock="hidden"] {
   height: 22px !important;
-  bottom: 0;
-  top: auto;
   border-top: 1px solid var(--re-line);
 }
+#timeline-dock[data-dock="hidden"][data-mini-side="bottom"] { bottom: 0; top: auto; }
+#timeline-dock[data-dock="hidden"][data-mini-side="top"]    { top: 0; bottom: auto; }
+#timeline-dock[data-dock="hidden"]:not([data-mini-side]) { bottom: 0; top: auto; }
 #timeline-dock[data-dock="hidden"] .rw-tl-body { display: none; }
+#timeline-dock[data-dock="hidden"] .rw-tl-header { display: none; }
 
 /* Header strip with transport + actions */
 .rw-tl-header {
@@ -262,21 +264,7 @@
   .rw-tl-inspector { display: none; }
 }
 
-/* Help FAB */
-#help-fab {
-  position: fixed;
-  bottom: 16px; left: 16px;
-  z-index: 50;
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: rgba(8,14,8,0.92);
-  color: var(--re-accent);
-  border: 1px solid var(--re-accent);
-  font-family: var(--re-mono);
-  font-size: 22px;
-  cursor: pointer;
-  box-shadow: var(--re-glow);
-  transition: transform 100ms;
-}
-#help-fab:hover { transform: scale(1.08); }
-body.viewer-mode #help-fab { display: none; }
+/* Floating Help button retired — Help is reachable from the panel's Help
+   tab (desktop) or the top-strip "?" button (compact). The selectors below
+   keep any straggling element hidden in case migration leaves one behind. */
+#help-fab { display: none !important; }

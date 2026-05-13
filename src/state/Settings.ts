@@ -15,6 +15,7 @@
 export type ColorMode = 'grayscale' | 'phosphorGreen' | 'phosphorAmber' | 'phosphorCustom' | 'video';
 export type RenderMode = 'scanlines' | 'dots' | 'wireframe';
 export type CameraMode = 'orbit' | 'fly';
+export type PerformanceProfileId = 'quality' | 'balanced' | 'battery';
 
 export type ModSource =
   | 'ramp' | 'sine' | 'triangle' | 'square' | 'saw' | 'pulse'
@@ -230,8 +231,31 @@ export interface Settings {
 
   // ---------- Timeline / Sequencer (UI-state only; timeline data lives in its own store) ----------
   timelineDock: 'top' | 'bottom' | 'hidden';
+  /** Last *visible* dock position. Restored when toggling out of 'hidden'. */
+  timelineLastDock: 'top' | 'bottom';
   timelineHeight: number;
   activeTimelineId: string | null;
+
+  // ---------- Mobile / responsive layout (v4) ----------
+  /** Per-mode performance profile. Persisted across sessions. */
+  performanceProfile: {
+    compact:   PerformanceProfileId;
+    standard:  PerformanceProfileId;
+    expansive: PerformanceProfileId;
+  };
+  /** Multiplier on DPR-adjusted resolution. 0.5..1.5; default 1.0. */
+  renderScale: number;
+  /** Vibrate on keyframe-reached / preset-load. Touch devices default ON. */
+  hapticsEnabled: boolean;
+  /** Request screen wake-lock during recording / broadcasting. */
+  wakeLockOnRecord: boolean;
+  /** Touch-device camera facing mode for getUserMedia. */
+  cameraFacing: 'user' | 'environment';
+  /** Set to true on first user gesture so audio init can proceed. */
+  audioGestureUnlocked: boolean;
+  /** One-shot flag: true after we've auto-applied the mobile-first
+   *  default `colorMode = 'video'` on the first compact-mode boot. */
+  mobileColorAutoSet: boolean;
 
   // ---------- Recorder ----------
   recordIncludeMic: boolean;
@@ -400,9 +424,22 @@ export const DEFAULTS: Settings = {
   helpAutoOpen: true,
   helpActiveTab: 'quickstart',
 
-  timelineDock: 'bottom',
+  timelineDock: 'hidden',
+  timelineLastDock: 'bottom',
   timelineHeight: 220,
   activeTimelineId: null,
+
+  performanceProfile: {
+    compact:   'battery',
+    standard:  'balanced',
+    expansive: 'quality',
+  },
+  renderScale: 1.0,
+  hapticsEnabled: true,
+  wakeLockOnRecord: true,
+  cameraFacing: 'user',
+  audioGestureUnlocked: false,
+  mobileColorAutoSet: false,
 
   recordIncludeMic: false,
   recordBitrateMbps: 8,
@@ -440,7 +477,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 5;
 
 interface Versioned { _v?: number }
 
@@ -505,6 +542,38 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.timelineHeight  = (s.timelineHeight  as number  | undefined) ?? 220;
     s.activeTimelineId= (s.activeTimelineId as string | null | undefined) ?? null;
     s._v = 3;
+  }
+
+  // ---- v3 -> v4: Mobile-first responsive overhaul ----
+  if ((s._v ?? 1) < 4) {
+    // Carry the previous visible side into `timelineLastDock`, then force
+    // `timelineDock` to 'hidden' for everyone so the canvas isn't covered
+    // on first load after the upgrade. The user can re-show via the mini
+    // handle, which restores `timelineLastDock`.
+    const prevDock = s.timelineDock as Settings['timelineDock'] | undefined;
+    s.timelineLastDock = (s.timelineLastDock as Settings['timelineLastDock'] | undefined)
+      ?? (prevDock === 'top' ? 'top' : 'bottom');
+    s.timelineDock = 'hidden';
+    s.performanceProfile = (s.performanceProfile as Settings['performanceProfile'] | undefined) ?? {
+      compact:   'battery',
+      standard:  'balanced',
+      expansive: 'quality',
+    };
+    s.renderScale          = (s.renderScale          as number  | undefined) ?? 1.0;
+    s.hapticsEnabled       = (s.hapticsEnabled       as boolean | undefined) ?? true;
+    s.wakeLockOnRecord     = (s.wakeLockOnRecord     as boolean | undefined) ?? true;
+    s.cameraFacing         = (s.cameraFacing         as Settings['cameraFacing'] | undefined) ?? 'user';
+    s.audioGestureUnlocked = (s.audioGestureUnlocked as boolean | undefined) ?? false;
+    s._v = 4;
+  }
+
+  // ---- v4 -> v5: Mobile color-mode auto-apply flag ----
+  // We don't change colorMode here (existing users keep their picked
+  // phosphor look). main.ts applies `colorMode = 'video'` once on the
+  // first compact-mode boot when this flag is false, then sets it true.
+  if ((s._v ?? 1) < 5) {
+    s.mobileColorAutoSet = (s.mobileColorAutoSet as boolean | undefined) ?? false;
+    s._v = 5;
   }
 
   return s as Partial<Settings> & Versioned;

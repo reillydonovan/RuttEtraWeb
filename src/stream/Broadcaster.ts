@@ -30,6 +30,9 @@ export class Broadcaster {
   private micStream: MediaStream | null = null;
   private opts: BroadcasterOptions = { canvas: null as any };
 
+  /** Public read-only view of the current broadcast state. */
+  getState(): BroadcastState { return this.state; }
+
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
     fn(this.state, { id: this.id, viewers: this.viewers.size });
@@ -55,6 +58,13 @@ export class Broadcaster {
     this.peer.on('open', (id) => {
       this.id = id;
       this.setState('live');
+      void Promise.all([
+        import('../platform/WakeLock'),
+        import('../platform/HapticFeedback'),
+      ]).then(([{ wakeLock }, { haptic }]) => {
+        void wakeLock().acquire();
+        haptic('success');
+      }).catch(() => { /* ignore */ });
     });
     this.peer.on('error', (err) => {
       console.error('PeerJS error', err);
@@ -82,6 +92,9 @@ export class Broadcaster {
     this.streamCache = null;
     this.id = '';
     this.setState('idle');
+    void import('../platform/WakeLock').then(({ wakeLock }) => {
+      void wakeLock().release();
+    }).catch(() => { /* ignore */ });
   }
 
   shareURL(): string {

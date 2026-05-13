@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0e0a"/>
+  <!-- Maskable safe zone is the central 80% (~52px padding on each side at 512). -->
+  <g stroke="#5fff85" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.98" transform="translate(96 96) scale(0.625)">
+    <path d="M32 128 L160 96 L224 192 L320 64 L416 144 L480 112"/>
+    <path d="M32 224 L128 192 L224 288 L352 176 L480 224"/>
+    <path d="M32 320 L160 272 L256 368 L384 288 L480 336"/>
+    <path d="M32 416 L128 384 L256 448 L384 400 L480 432"/>
+  </g>
+</svg>

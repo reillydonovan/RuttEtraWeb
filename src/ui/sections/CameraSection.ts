@@ -12,12 +12,24 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   const root = document.createElement('div');
 
   const modeRow = group('Mode');
-  modeRow.body.append(
-    row('Mode', dropdown(settings, 'cameraMode', [
-      { value: 'orbit', label: 'Orbit (drag to rotate)' },
-      { value: 'fly',   label: 'Fly (WASD + mouse)' },
-    ])),
-  );
+  const modeDd = dropdown(settings, 'cameraMode', [
+    { value: 'orbit', label: 'Orbit (drag to rotate)' },
+    { value: 'fly',   label: 'Fly (WASD + mouse)' },
+  ]) as HTMLSelectElement;
+  // Fly mode is hidden + disabled on compact (no pointer-lock on phones).
+  const updateFlyOpt = () => {
+    const compact = document.body.dataset.layout === 'compact';
+    const flyOpt = Array.from(modeDd.options).find((o) => o.value === 'fly');
+    if (flyOpt) flyOpt.disabled = compact;
+    if (compact && settings.get('cameraMode') === 'fly') {
+      settings.set('cameraMode', 'orbit');
+    }
+  };
+  updateFlyOpt();
+  // Re-evaluate on layout-mode change.
+  const obs = new MutationObserver(updateFlyOpt);
+  obs.observe(document.body, { attributes: true, attributeFilter: ['data-layout'] });
+  modeRow.body.append(row('Mode', modeDd));
   root.appendChild(modeRow.root);
 
   const lens = group('Lens');

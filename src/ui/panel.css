@@ -409,6 +409,45 @@ html, body, #app {
   pointer-events: none;
 }
 
+/* Joystick: readouts + lock + Z slider */
+.rw-joystick-readouts {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.rw-joystick-readouts span { color: var(--re-text); }
+.rw-joystick-lock { display: flex; gap: 4px; margin-bottom: 4px; }
+.rw-joystick-lock select { flex: 1; }
+
+.rw-joystick-wrap {
+  display: grid;
+  grid-template-columns: 1fr 28px;
+  gap: 8px;
+  align-items: stretch;
+}
+.rw-joystick-wrap .rw-joystick { margin: 0; }
+
+/* Vertical Z slider — rotated, occupies the right column. */
+.rw-joystick-z {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 100%;
+  align-self: stretch;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  accent-color: var(--re-accent);
+  cursor: ns-resize;
+}
+body[data-layout="compact"] .rw-joystick-wrap {
+  grid-template-columns: 1fr 44px;
+}
+body[data-layout="compact"] .rw-joystick-z { width: 44px; }
+
 /* Recording indicator */
 .rw-rec-dot {
   display: inline-block;
@@ -430,13 +469,17 @@ body.viewer-mode #hud,
 body.viewer-mode #overlay { display: none !important; }
 body.viewer-mode #stage { background: #000; }
 
-/* Tab strip (Synth / I/O) */
+/* Tab strip (Synth / I/O / Help)
+   z-index 3 sits above the panel body (z-index 2) so nothing scrolling up
+   from inside a section can ever visually or interactively cover the tabs. */
 .rw-tabs {
   display: flex;
   border-bottom: 1px solid var(--re-line);
   background: rgba(0, 0, 0, 0.4);
   position: relative;
-  z-index: 2;
+  z-index: 3;
+  flex-shrink: 0;
+  isolation: isolate; /* own stacking context — keeps inner overflow off the tabs */
 }
 .rw-tab {
   flex: 1;
@@ -447,13 +490,21 @@ body.viewer-mode #stage { background: #000; }
   font-family: var(--re-mono);
   font-size: 14px;
   letter-spacing: 0.12em;
-  padding: 8px 0;
+  padding: 10px 4px;
+  min-height: 36px;
   cursor: pointer;
   text-transform: uppercase;
   transition: color 100ms, background 100ms;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 .rw-tab:last-child { border-right: none; }
 .rw-tab:hover { color: var(--re-accent); background: rgba(95,255,133,0.06); }
+.rw-tab:focus-visible {
+  outline: 1px dashed var(--re-accent);
+  outline-offset: -3px;
+}
 .rw-tab.active {
   color: var(--re-accent);
   background: rgba(95,255,133,0.10);
@@ -674,3 +725,62 @@ body.viewer-mode #stage { background: #000; }
   overflow-y: auto;
   padding: 4px 4px 12px;
 }
+
+/* Sheet picker (touch dropdown replacement) */
+.rw-sheet-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rw-sheet-picker-row {
+  font-family: var(--re-mono);
+  font-size: 14px;
+  color: var(--re-text);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--re-line);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+}
+.rw-sheet-picker-row:hover, .rw-sheet-picker-row:focus-visible {
+  border-color: var(--re-accent); color: var(--re-accent); outline: none;
+}
+.rw-sheet-picker-row.selected {
+  background: rgba(95,255,133,0.1);
+  border-color: var(--re-accent);
+  color: var(--re-accent);
+  text-shadow: var(--re-glow);
+}
+
+/* Numeric-input modal (long-press slider) */
+.rw-numeric-modal {
+  position: fixed; inset: 0;
+  z-index: 80;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6);
+  font-family: var(--re-mono);
+}
+.rw-numeric-modal-card {
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  padding: 14px 16px;
+  min-width: 240px;
+  box-shadow: var(--re-glow), 0 8px 24px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.rw-numeric-modal-title {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--re-accent);
+  text-transform: uppercase;
+}
+.rw-numeric-modal input {
+  font-family: var(--re-mono);
+  font-size: 18px;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+}
+.rw-numeric-modal-row { display: flex; gap: 6px; justify-content: flex-end; }

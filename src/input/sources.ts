@@ -57,15 +57,28 @@ export class VideoSourceManager {
       .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Camera ${i + 1}` }));
   }
 
-  async useWebcam(opts: { deviceId?: string; width?: number; height?: number; fps?: number } = {}): Promise<void> {
+  async useWebcam(opts: {
+    deviceId?: string;
+    width?: number;
+    height?: number;
+    fps?: number;
+    facingMode?: 'user' | 'environment';
+  } = {}): Promise<void> {
     this.stop();
+    // On touch devices, request the camera by `facingMode` rather than a
+    // pinned deviceId — many phones swap the active camera at runtime.
+    const videoConstraints: MediaTrackConstraints = {
+      width:  opts.width  ? { ideal: opts.width  } : undefined,
+      height: opts.height ? { ideal: opts.height } : undefined,
+      frameRate: opts.fps ? { ideal: opts.fps } : undefined,
+    };
+    if (opts.deviceId) {
+      videoConstraints.deviceId = { exact: opts.deviceId };
+    } else if (opts.facingMode) {
+      videoConstraints.facingMode = { ideal: opts.facingMode };
+    }
     const constraints: MediaStreamConstraints = {
-      video: {
-        deviceId: opts.deviceId ? { exact: opts.deviceId } : undefined,
-        width:  opts.width  ? { ideal: opts.width  } : undefined,
-        height: opts.height ? { ideal: opts.height } : undefined,
-        frameRate: opts.fps ? { ideal: opts.fps } : undefined,
-      },
+      video: videoConstraints,
       audio: false,
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -73,7 +86,12 @@ export class VideoSourceManager {
     await this.video.play().catch(() => {/* autoplay restrictions */});
     const track = stream.getVideoTracks()[0];
     const label = track?.label || 'Webcam';
-    this.update({ kind: 'webcam', label, stream });
+    // On iOS Safari, video.videoWidth/Height can lag behind the real frame
+    // size on portrait orientation. `getSettings()` gives us the truth.
+    const settings = track?.getSettings ? track.getSettings() : null;
+    const width  = settings?.width  ?? this.state.width;
+    const height = settings?.height ?? this.state.height;
+    this.update({ kind: 'webcam', label, stream, width, height });
   }
 
   async useScreen(opts: { fps?: number } = {}): Promise<void> {

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#0a0e0a"/>
+  <g stroke="#5fff85" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.98">
+    <path d="M12 48 L60 36 L84 72 L120 24 L156 54 L180 42"/>
+    <path d="M12 84 L48 72 L84 108 L132 66 L180 84"/>
+    <path d="M12 120 L60 102 L96 138 L144 108 L180 126"/>
+    <path d="M12 156 L48 144 L96 168 L144 150 L180 162"/>
+  </g>
+  <text x="96" y="184" font-family="VT323, monospace" font-size="14" fill="#5fff85" text-anchor="middle" opacity="0.7">RUTT/ETRA</text>
+</svg>
