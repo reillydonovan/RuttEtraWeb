@@ -1,0 +1,21 @@
+{
+  "name": "ruttetra-osc-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny UDP <-> WebSocket bridge so the browser can speak OSC.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "tsx server.ts"
+  },
+  "dependencies": {
+    "node-osc": "^9.1.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

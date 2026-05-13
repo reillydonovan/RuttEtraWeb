@@ -3,7 +3,7 @@
  * user preset (in localStorage), or export/import as JSON files.
  */
 
-import { Settings, SettingsStore } from '../../state/Settings';
+import { Settings, SettingsStore, migrateSettings } from '../../state/Settings';
 import { PRESETS } from '../presets';
 import { row, group, button, textInput, readout } from '../widgets';
 
@@ -42,7 +42,11 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
 
   const loadBtn = button('Load', () => {
     const p = PRESETS.find((x) => x.id === builtinSel.value);
-    if (p) settings.patch(p.values);
+    if (p) {
+      const migrated = migrateSettings(p.values) as Partial<Settings>;
+      delete (migrated as { _v?: number })._v;
+      settings.patch(migrated);
+    }
   }, 'primary');
 
   builtins.body.append(row('Preset', builtinSel), desc, loadBtn);
@@ -83,7 +87,11 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   const loadUserBtn = button('Load', () => {
     const list = loadUser();
     const p = list.find((x) => x.id === userSel.value);
-    if (p) settings.patch(p.values);
+    if (p) {
+      const migrated = migrateSettings(p.values) as Partial<Settings>;
+      delete (migrated as { _v?: number })._v;
+      settings.patch(migrated);
+    }
   }, 'primary');
   const delBtn = button('Delete', () => {
     const list = loadUser().filter((x) => x.id !== userSel.value);

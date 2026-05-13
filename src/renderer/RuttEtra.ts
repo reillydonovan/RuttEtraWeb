@@ -37,6 +37,10 @@ export class RuttEtraScene {
 
   private uniforms!: { [key: string]: THREE.IUniform };
 
+  private spectrumTexture: THREE.DataTexture | null = null;
+  private spectrumData: Float32Array = new Float32Array(32);
+  private spectrumBandCount = 32;
+
   constructor(private settings: SettingsStore, private video: HTMLVideoElement) {
     this.scene.add(this.group);
 
@@ -94,10 +98,40 @@ export class RuttEtraScene {
     }
   }
 
+  /**
+   * Push the latest FFT band values into the spectrum texture so the vertex
+   * shader can sample them. Call once per frame from main loop after
+   * `fft.tick()`. The bands array is treated as length-N R-channel data.
+   */
+  updateSpectrum(bands: Float32Array): void {
+    if (bands.length !== this.spectrumBandCount) {
+      this.ensureSpectrumTexture(bands.length);
+    }
+    this.spectrumData.set(bands);
+    if (this.spectrumTexture) this.spectrumTexture.needsUpdate = true;
+  }
+
   dispose(): void {
     this.material?.dispose();
     this.mesh?.geometry.dispose();
     this.videoTexture?.dispose();
+    this.spectrumTexture?.dispose();
+  }
+
+  private ensureSpectrumTexture(n: number): void {
+    const len = Math.max(1, n | 0);
+    this.spectrumBandCount = len;
+    this.spectrumData = new Float32Array(len);
+    this.spectrumTexture?.dispose();
+    const tex = new THREE.DataTexture(this.spectrumData as Float32Array<ArrayBuffer>, len, 1, THREE.RedFormat, THREE.FloatType);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    this.spectrumTexture = tex;
+    if (this.uniforms) this.uniforms.uSpectrum.value = tex;
   }
 
   // -------------------- internals --------------------
@@ -138,7 +172,14 @@ export class RuttEtraScene {
       uTint:         { value: PHOSPHOR_GREEN.clone() },
       uColorMode:    { value: 1 },
       uAlphaFalloff: { value: 0.4 },
+
+      uSpectrum:        { value: null },
+      uSpectrumAmount:  { value: 0.5 },
+      uSpectrumStride:  { value: 1.0 },
+      uSpectrumOn:      { value: 0 },
     };
+
+    this.ensureSpectrumTexture(this.spectrumBandCount);
 
     this.material = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
@@ -262,6 +303,15 @@ export class RuttEtraScene {
         this.material.depthWrite = false;
       }
     });
+
+    s.subscribe('audioSpectrum', (spec) => {
+      u.uSpectrumOn.value     = spec.enabled ? 1 : 0;
+      u.uSpectrumAmount.value = spec.amount;
+      u.uSpectrumStride.value = spec.stride;
+    });
+    s.subscribe('spectrumAmount', (v) => { u.uSpectrumAmount.value = v; });
+    s.subscribe('spectrumStride', (v) => { u.uSpectrumStride.value = v; });
+    s.subscribe('audioBandCount', (n) => this.ensureSpectrumTexture(n));
   }
 
   private applyTint(mode: ColorMode, customHex: string): void {

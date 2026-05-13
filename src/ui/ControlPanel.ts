@@ -1,24 +1,40 @@
 /**
  * The collapsible side panel that hosts every control section.
  *
- * Sections are added via `addSection(title, content)` and rendered as
- * a vertical accordion. The panel itself can dock left or right and
- * collapse to a thin strip — useful when recording or streaming so the
- * UI doesn't compete with the canvas.
+ * Sections are added via `addSection({ tab, title, body, ... })` and rendered
+ * as a vertical accordion within the chosen tab. The panel itself can dock
+ * left or right and collapse to a thin strip — useful when recording or
+ * streaming so the UI doesn't compete with the canvas.
+ *
+ * v2 adds a tab strip (Synth / I/O) above the body. The active tab is
+ * persisted to `settings.panelTab`.
  */
 
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
 
+export type TabId = 'synth' | 'io';
+
 export interface PanelSection {
   title: string;
   body: HTMLElement;
   initiallyOpen?: boolean;
+  tab?: TabId;
+}
+
+interface TabPane {
+  id: TabId;
+  label: string;
+  button: HTMLButtonElement;
+  pane: HTMLElement;
 }
 
 export class ControlPanel {
   readonly root: HTMLElement;
-  private body: HTMLElement;
+  private bodyHost: HTMLElement;
+  private tabsBar: HTMLElement;
+  private tabPanes: Record<TabId, TabPane>;
+  private activeTab: TabId;
   private collapsed = false;
 
   constructor(host: HTMLElement, private settings: SettingsStore) {
@@ -64,14 +80,38 @@ export class ControlPanel {
     actions.append(dockBtn, collapseBtn);
     title.appendChild(actions);
 
+    // Tab strip
+    const tabs = document.createElement('div');
+    tabs.className = 'rw-tabs';
+    this.tabsBar = tabs;
+
     const body = document.createElement('div');
     body.className = 'rw-panel-body';
-    this.body = body;
+    this.bodyHost = body;
 
-    this.root.append(title, body);
+    this.activeTab = settings.get('panelTab') || 'synth';
+    this.tabPanes = {
+      synth: this.makeTab('synth', 'Synth'),
+      io:    this.makeTab('io',    'I/O'),
+    };
+    for (const id of ['synth', 'io'] as TabId[]) {
+      tabs.appendChild(this.tabPanes[id].button);
+      body.appendChild(this.tabPanes[id].pane);
+    }
+    this.applyActiveTab();
+
+    settings.subscribe('panelTab', (v) => {
+      if (v && v !== this.activeTab) {
+        this.activeTab = v;
+        this.applyActiveTab();
+      }
+    });
+
+    this.root.append(title, tabs, body);
   }
 
   addSection(section: PanelSection): HTMLElement {
+    const tabId: TabId = section.tab ?? 'synth';
     const wrap = document.createElement('div');
     wrap.className = 'rw-section';
     if (!section.initiallyOpen) wrap.classList.add('collapsed');
@@ -92,7 +132,33 @@ export class ControlPanel {
     head.addEventListener('click', () => wrap.classList.toggle('collapsed'));
 
     wrap.append(head, body);
-    this.body.appendChild(wrap);
+    this.tabPanes[tabId].pane.appendChild(wrap);
     return wrap;
+  }
+
+  // -------------------- internals --------------------
+
+  private makeTab(id: TabId, label: string): TabPane {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'rw-tab';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      if (this.activeTab === id) return;
+      this.activeTab = id;
+      this.settings.set('panelTab', id);
+      this.applyActiveTab();
+    });
+    const pane = document.createElement('div');
+    pane.className = 'rw-tab-pane';
+    return { id, label, button, pane };
+  }
+
+  private applyActiveTab(): void {
+    for (const t of Object.values(this.tabPanes)) {
+      const isActive = t.id === this.activeTab;
+      t.button.classList.toggle('active', isActive);
+      t.pane.classList.toggle('active', isActive);
+    }
   }
 }

@@ -1,50 +1,50 @@
 /**
- * Modulation matrix UI — 4 slots, each can be a Ramp, Waveform, Audio, or
- * Joystick generator routed to any DCU/post-fx parameter.
+ * Modulation matrix UI — 4 slots, each can be a Ramp, Waveform, Audio band,
+ * Beat, MIDI / OSC source, or Joystick generator routed to any DCU/post-fx
+ * parameter.
  *
- * Also includes the joystick pad and the audio-enable toggle.
+ * Includes the joystick pad and the audio enable button.
+ *
+ * v2 additions per slot:
+ *   - Conditional Band Index field for `audioBand` source.
+ *   - Clock Sync toggle + Division dropdown (replaces Frequency when sync is on).
+ *   - MIDI Out group (channel + CC) for echoing the slot value to a controller.
  */
 
-import { ModSlot, ModSource, ModTarget, SettingsStore, DEFAULT_MOD_SLOT } from '../../state/Settings';
+import { ClockDivision, ModSlot, ModSource, ModTarget, SettingsStore } from '../../state/Settings';
 import { ModMatrix } from '../../modulation/ModMatrix';
+import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { row, group, button, readout } from '../widgets';
+import { TARGETS } from '../targets';
 
 const SOURCES: { v: ModSource; l: string }[] = [
-  { v: 'sine',      l: 'Sine' },
-  { v: 'triangle',  l: 'Triangle' },
-  { v: 'square',    l: 'Square' },
-  { v: 'saw',       l: 'Saw' },
-  { v: 'pulse',     l: 'Pulse (duty)' },
-  { v: 'ramp',      l: 'Ramp' },
-  { v: 'audio',     l: 'Audio (mic)' },
-  { v: 'joystickX', l: 'Joystick X' },
-  { v: 'joystickY', l: 'Joystick Y' },
-  { v: 'joystickZ', l: 'Joystick Z (scroll)' },
+  { v: 'sine',         l: 'Sine' },
+  { v: 'triangle',     l: 'Triangle' },
+  { v: 'square',       l: 'Square' },
+  { v: 'saw',          l: 'Saw' },
+  { v: 'pulse',        l: 'Pulse (duty)' },
+  { v: 'ramp',         l: 'Ramp' },
+  { v: 'audio',        l: 'Audio (envelope)' },
+  { v: 'audioBand',    l: 'Audio Band [n]' },
+  { v: 'beat',         l: 'Beat' },
+  { v: 'midiCC',       l: 'MIDI CC' },
+  { v: 'midiNote',     l: 'MIDI Note' },
+  { v: 'midiVelocity', l: 'MIDI Velocity' },
+  { v: 'midiClock',    l: 'MIDI Clock' },
+  { v: 'osc',          l: 'OSC' },
+  { v: 'joystickX',    l: 'Joystick X' },
+  { v: 'joystickY',    l: 'Joystick Y' },
+  { v: 'joystickZ',    l: 'Joystick Z (scroll)' },
 ];
 
-const TARGETS: { v: ModTarget | 'none'; l: string }[] = [
+const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
   { v: 'none', l: '— none —' },
-  { v: 'hPos', l: 'H Position' }, { v: 'vPos', l: 'V Position' },
-  { v: 'hSize', l: 'H Size' },   { v: 'vSize', l: 'V Size' },
-  { v: 'aspect', l: 'Aspect' },
-  { v: 'zPush', l: 'Z Push' },   { v: 'zBias', l: 'Z Bias' },
-  { v: 'intensity', l: 'Intensity' }, { v: 'focus', l: 'Focus' },
-  { v: 'hCenter', l: 'H Center' }, { v: 'vCenter', l: 'V Center' },
-  { v: 'hSpin', l: 'H Spin' },     { v: 'vSpin', l: 'V Spin' },
-  { v: 'hLinearity', l: 'H Linearity' }, { v: 'vLinearity', l: 'V Linearity' },
-  { v: 'skip', l: 'Skip' },
-  { v: 'threshold', l: 'Threshold' }, { v: 'contrast', l: 'Contrast' }, { v: 'gamma', l: 'Gamma' },
-  { v: 'bloomIntensity', l: 'Bloom Intensity' }, { v: 'bloomRadius', l: 'Bloom Radius' },
-  { v: 'scanlineIntensity', l: 'Scanline Intensity' },
-  { v: 'chromaAmount', l: 'Chroma Amount' },
-  { v: 'feedbackDecay', l: 'Feedback Decay' },
-  { v: 'cameraFov', l: 'Camera FOV' },
+  ...TARGETS,
 ];
 
 export function createModulationSection(settings: SettingsStore, matrix: ModMatrix): HTMLElement {
   const root = document.createElement('div');
 
-  // Joystick pad
   const jsGroup = group('Joystick (XY pad + scroll Z)');
   const pad = document.createElement('div');
   pad.className = 'rw-joystick';
@@ -64,7 +64,7 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
     const x = ((e.clientX - r.left) / r.width)  * 2 - 1;
     const y = ((e.clientY - r.top)  / r.height) * 2 - 1;
     jx = Math.max(-1, Math.min(1, x));
-    jy = Math.max(-1, Math.min(1, -y)); // invert Y so up = positive
+    jy = Math.max(-1, Math.min(1, -y));
     setKnob(jx, -jy);
     matrix.setJoystick(jx, jy, jz);
   }
@@ -90,7 +90,6 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   jsGroup.body.appendChild(zReadout);
   root.appendChild(jsGroup.root);
 
-  // Audio enable
   const audioGroup = group('Audio Interface (mic)');
   const audioBtn = document.createElement('button');
   audioBtn.className = 'rw-btn';
@@ -108,15 +107,17 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
     }
   });
   audioGroup.body.appendChild(audioBtn);
+  const audioHint = document.createElement('div');
+  audioHint.className = 'rw-hint';
+  audioHint.textContent = 'For full FFT control, use the Audio panel under the I/O tab.';
+  audioGroup.body.appendChild(audioHint);
   root.appendChild(audioGroup.root);
 
-  // Slots
   const slots = settings.get('modSlots');
   for (let i = 0; i < slots.length; i++) {
     root.appendChild(createSlot(settings, matrix, i));
   }
 
-  // Retrigger ramps
   root.appendChild(button('Retrigger Ramps', () => matrix.retriggerRamps()));
 
   return root;
@@ -133,7 +134,6 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
     if (patch.target && patch.target !== 'none') matrix.recaptureBase(patch.target);
   };
 
-  // Enabled
   const en = document.createElement('input');
   en.type = 'checkbox';
   en.checked = get().enabled;
@@ -145,7 +145,6 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
   enLabel.append(en, sw, tx);
   g.body.appendChild(row('On/Off', enLabel));
 
-  // Source
   const srcSel = document.createElement('select');
   srcSel.className = 'rw-select';
   for (const s of SOURCES) {
@@ -157,10 +156,9 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
   srcSel.addEventListener('change', () => update({ source: srcSel.value as ModSource }));
   g.body.appendChild(row('Source', srcSel));
 
-  // Target
   const tgtSel = document.createElement('select');
   tgtSel.className = 'rw-select';
-  for (const t of TARGETS) {
+  for (const t of TARGET_OPTS) {
     const o = document.createElement('option');
     o.value = t.v as string;
     o.textContent = t.l;
@@ -170,11 +168,44 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
   tgtSel.addEventListener('change', () => update({ target: tgtSel.value as ModTarget | 'none' }));
   g.body.appendChild(row('Target', tgtSel));
 
-  // Numeric controls — small bespoke sliders that read the slot
   g.body.appendChild(numRow('Amount', () => get().amount, (v) => update({ amount: v }), -2, 2, 0.001));
-  g.body.appendChild(numRow('Frequency', () => get().frequency, (v) => update({ frequency: v }), 0.001, 20, 0.001));
+
+  // Frequency / Clock-sync toggle.
+  const freqRow = numRow('Frequency', () => get().frequency, (v) => update({ frequency: v }), 0.001, 20, 0.001);
+  g.body.appendChild(freqRow);
+
+  const syncLabel = document.createElement('label');
+  syncLabel.className = 'rw-toggle';
+  const syncCb = document.createElement('input'); syncCb.type = 'checkbox';
+  const syncSw = document.createElement('span'); syncSw.className = 'rw-toggle-sw';
+  const syncTx = document.createElement('span'); syncTx.className = 'rw-toggle-txt'; syncTx.textContent = 'sync to MIDI clock';
+  syncLabel.append(syncCb, syncSw, syncTx);
+  syncCb.checked = get().clockSync;
+  syncCb.addEventListener('change', () => update({ clockSync: syncCb.checked }));
+  g.body.appendChild(row('Clock Sync', syncLabel));
+
+  const divSel = document.createElement('select');
+  divSel.className = 'rw-select';
+  for (const d of ALL_DIVISIONS) {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    divSel.appendChild(o);
+  }
+  divSel.value = get().clockDivision;
+  divSel.addEventListener('change', () => update({ clockDivision: divSel.value as ClockDivision }));
+  const divisionRow = row('Division', divSel);
+  g.body.appendChild(divisionRow);
+
+  const applyClockVisibility = () => {
+    const synced = get().clockSync;
+    freqRow.style.display    = synced ? 'none' : '';
+    divisionRow.style.display = synced ? '' : 'none';
+  };
+  applyClockVisibility();
+  syncCb.addEventListener('change', applyClockVisibility);
+
   g.body.appendChild(numRow('Phase', () => get().phase, (v) => update({ phase: v }), 0, 1, 0.001));
-  g.body.appendChild(numRow('Duty', () => get().duty, (v) => update({ duty: v }), 0.05, 0.95, 0.001));
+  g.body.appendChild(numRow('Duty',  () => get().duty,  (v) => update({ duty: v }),  0.05, 0.95, 0.001));
   g.body.appendChild(numRow('Ramp Time', () => get().rampTimeSec, (v) => update({ rampTimeSec: v }), 0.05, 600, 0.05));
 
   const rampSel = document.createElement('select');
@@ -187,6 +218,30 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
   rampSel.value = get().rampMode;
   rampSel.addEventListener('change', () => update({ rampMode: rampSel.value as ModSlot['rampMode'] }));
   g.body.appendChild(row('Ramp Mode', rampSel));
+
+  // Conditional band index (only for `audioBand` source).
+  const bandRow = numRow('Band Index', () => get().bandIndex, (v) => update({ bandIndex: Math.round(v) }), 0, 127, 1);
+  g.body.appendChild(bandRow);
+  const applyBandVisibility = () => {
+    bandRow.style.display = get().source === 'audioBand' ? '' : 'none';
+  };
+  applyBandVisibility();
+  srcSel.addEventListener('change', applyBandVisibility);
+
+  // MIDI Out group (collapsed by default).
+  const moutGroup = group('MIDI Out');
+  const moutEn = document.createElement('label');
+  moutEn.className = 'rw-toggle';
+  const moutCb = document.createElement('input'); moutCb.type = 'checkbox';
+  const moutSw = document.createElement('span'); moutSw.className = 'rw-toggle-sw';
+  const moutTx = document.createElement('span'); moutTx.className = 'rw-toggle-txt'; moutTx.textContent = 'send CC';
+  moutEn.append(moutCb, moutSw, moutTx);
+  moutCb.checked = get().midiOutEnabled;
+  moutCb.addEventListener('change', () => update({ midiOutEnabled: moutCb.checked }));
+  moutGroup.body.appendChild(row('Enable', moutEn));
+  moutGroup.body.appendChild(numRow('Channel', () => get().midiOutChannel, (v) => update({ midiOutChannel: Math.round(v) }), 1, 16, 1));
+  moutGroup.body.appendChild(numRow('CC',      () => get().midiOutCC,      (v) => update({ midiOutCC:      Math.round(v) }), 0, 127, 1));
+  g.body.appendChild(moutGroup.root);
 
   return g.root;
 }

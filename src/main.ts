@@ -27,6 +27,15 @@ import { createGeometrySection } from './ui/sections/GeometrySection';
 import { createPresetsSection } from './ui/sections/PresetsSection';
 import { createRecordSection } from './ui/sections/RecordSection';
 import { createShareSection } from './ui/sections/ShareSection';
+import { createMidiSection } from './ui/sections/MidiSection';
+import { createAudioSection } from './ui/sections/AudioSection';
+import { createOscSection } from './ui/sections/OscSection';
+import { MidiClock } from './midi/MidiClock';
+import { MidiMapping } from './midi/MidiMapping';
+import { MidiManager } from './midi/MidiManager';
+import { FFTAnalyzer } from './audio/FFTAnalyzer';
+import { BeatDetector } from './audio/BeatDetector';
+import { OscClient } from './osc/OscClient';
 
 const params = new URLSearchParams(window.location.search);
 const viewTarget = params.get('view');
@@ -51,7 +60,6 @@ async function bootSynth(): Promise<void> {
   const panelHost = document.getElementById('panel-root') as HTMLElement;
   const hud = document.getElementById('hud') as HTMLElement;
 
-  // Renderer
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -65,18 +73,39 @@ async function bootSynth(): Promise<void> {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
 
-  // Sources
   const source = new VideoSourceManager(video);
 
-  // Scene + camera
   const ruttEtra = new RuttEtraScene(settings, video);
   const cameraRig = new CameraRig(settings, canvas);
   const postfx = new PostFX(renderer, ruttEtra.scene, cameraRig.camera, settings, window.innerWidth, window.innerHeight);
 
-  // Modulation matrix
-  const matrix = new ModMatrix(settings);
+  // I/O subsystems — constructed before the matrix so we can pass them in.
+  const midiClock = new MidiClock();
+  const midiMapping = new MidiMapping(settings);
+  const midiManager = new MidiManager(settings, midiClock, midiMapping);
 
-  // When a preset changes the default view, snap to it.
+  const fft = new FFTAnalyzer();
+  const beat = new BeatDetector(fft);
+  // Apply persisted FFT params eagerly so initial UI labels match.
+  fft.setFftSize(settings.get('audioFftSize'));
+  fft.setBandCount(settings.get('audioBandCount'));
+  fft.setSpacing(settings.get('audioBandSpacing'));
+  fft.setBandShape({
+    attackMs:    settings.get('audioAttackMs'),
+    releaseMs:   settings.get('audioReleaseMs'),
+    gain:        settings.get('audioGain'),
+    floor:       settings.get('audioFloor'),
+    thresholdDb: settings.get('audioThresholdDb'),
+  });
+  beat.setEnabled(settings.get('beatEnabled'));
+  beat.setSensitivity(settings.get('beatSensitivity'));
+
+  const osc = new OscClient(settings);
+
+  const matrix = new ModMatrix(settings, {
+    fft, beat, midiClock, midiMapping, midiManager, osc,
+  });
+
   let lastDefault = JSON.stringify(settings.get('defaultView'));
   settings.subscribe('defaultView', (v) => {
     const cur = JSON.stringify(v);
@@ -85,11 +114,9 @@ async function bootSynth(): Promise<void> {
     cameraRig.applySavedView(v);
   });
 
-  // Recorder + broadcaster
   const recorder = new CanvasRecorder(canvas);
   const broadcaster = new Broadcaster();
 
-  // Refresh video texture & texel uniform when source metadata loads
   video.addEventListener('loadedmetadata', () => {
     ruttEtra.attachVideo();
   });
@@ -101,19 +128,22 @@ async function bootSynth(): Promise<void> {
     }
   });
 
-  // Build UI
+  // Build UI — Synth tab gets the existing sections, I/O tab gets MIDI/Audio/OSC.
   const panel = new ControlPanel(panelHost, settings);
-  panel.addSection({ title: 'Source',           body: createSourceSection(settings, source),       initiallyOpen: true });
-  panel.addSection({ title: 'Display Control Unit', body: createDcuSection(settings),               initiallyOpen: true });
-  panel.addSection({ title: 'Camera',           body: createCameraSection(settings, cameraRig) });
-  panel.addSection({ title: 'Color / Post FX',  body: createColorPostFxSection(settings) });
-  panel.addSection({ title: 'Modulation',       body: createModulationSection(settings, matrix) });
-  panel.addSection({ title: 'Geometry',         body: createGeometrySection(settings) });
-  panel.addSection({ title: 'Presets',          body: createPresetsSection(settings) });
-  panel.addSection({ title: 'Record',           body: createRecordSection(settings, recorder) });
-  panel.addSection({ title: 'Share',            body: createShareSection(settings, broadcaster, canvas) });
+  panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
+  panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
+  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationSection(settings, matrix) });
+  panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
+  panel.addSection({ tab: 'synth', title: 'Presets',               body: createPresetsSection(settings) });
+  panel.addSection({ tab: 'synth', title: 'Record',                body: createRecordSection(settings, recorder) });
+  panel.addSection({ tab: 'synth', title: 'Share',                 body: createShareSection(settings, broadcaster, canvas) });
 
-  // Start button -> webcam
+  panel.addSection({ tab: 'io', title: 'MIDI',  body: createMidiSection(settings, midiManager),  initiallyOpen: true });
+  panel.addSection({ tab: 'io', title: 'Audio', body: createAudioSection(settings, fft, beat),   initiallyOpen: true });
+  panel.addSection({ tab: 'io', title: 'OSC',   body: createOscSection(settings, osc) });
+
   startBtn.addEventListener('click', async () => {
     try {
       await source.useWebcam({
@@ -131,7 +161,6 @@ async function bootSynth(): Promise<void> {
     }
   });
 
-  // Resize handling
   function resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -143,10 +172,8 @@ async function bootSynth(): Promise<void> {
   window.addEventListener('resize', resize);
   resize();
 
-  // Keep the post-fx camera reference in sync if it ever changes
   postfx.setCamera(cameraRig.camera);
 
-  // Render loop
   const clock = new THREE.Clock();
   let frames = 0;
   let fpsClock = performance.now();
@@ -156,8 +183,12 @@ async function bootSynth(): Promise<void> {
     const dt = clock.getDelta();
     const t = clock.elapsedTime;
 
+    midiClock.tick(dt);
+    fft.tick(dt);
+    beat.tick(dt);
     matrix.tick(dt);
     cameraRig.tick(dt);
+    ruttEtra.updateSpectrum(fft.bands);
     ruttEtra.tick(dt, t);
     postfx.render(dt);
 
@@ -180,7 +211,6 @@ async function bootSynth(): Promise<void> {
 // Viewer mode
 // -----------------------------------------------------------------
 function bootViewer(targetId: string): void {
-  // Replace body content with a single fullscreen video element.
   document.body.classList.add('viewer-mode');
   const v = document.createElement('video');
   v.autoplay = true;
@@ -214,7 +244,6 @@ function bootViewer(targetId: string): void {
 
   v.addEventListener('playing', () => { status.textContent = ''; });
 
-  // Tap to unmute (browsers block autoplay-with-audio without gesture).
   document.body.addEventListener('click', () => {
     v.muted = false;
     v.play().catch(() => {});

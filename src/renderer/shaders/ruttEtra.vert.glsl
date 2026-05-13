@@ -48,6 +48,11 @@ uniform float uRows;           // total row count for skip math
 
 uniform float uTime;           // seconds (for any time-driven shader effects)
 
+uniform sampler2D uSpectrum;       // 1xN texture of FFT bands (R channel)
+uniform float     uSpectrumAmount; // gain applied to spectrum -> Z
+uniform float     uSpectrumStride; // rows-per-band scaling (>=1 stretches band across N rows)
+uniform float     uSpectrumOn;     // 0 or 1
+
 varying float vLum;
 varying vec2  vUv;
 varying float vAlive;          // 1 = visible, 0 = dropped (Skip)
@@ -82,6 +87,16 @@ void main() {
   // 4. Z push / bias / invert
   float zRaw = mix(l, 1.0 - l, step(0.5, uZInvert));
   float z = zRaw * uZPush + uZBias;
+
+  // 4b. Optional spectrum-driven additive Z. The spectrum is a 1D texture
+  //     with N bands; each row picks a u-coordinate based on its index and
+  //     `uSpectrumStride` (1.0 = each band stretched across stride rows).
+  if (uSpectrumOn > 0.5) {
+    float row = floor(uv.y * (uRows - 1.0) + 0.5);
+    float u = clamp(row * uSpectrumStride / max(uRows, 1.0), 0.0, 0.9999);
+    float spec = texture2D(uSpectrum, vec2(u, 0.5)).r;
+    z += spec * uSpectrumAmount;
+  }
 
   // 5. Linearity bow on the base position
   vec3 p = position;

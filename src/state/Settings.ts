@@ -5,13 +5,28 @@
  * mutate it via `set(key, value)` and observe it via `subscribe(key, fn)` or
  * `subscribeAll(fn)`. All state is debounced-persisted to localStorage.
  *
- * Keys are flat (dot-free) strings so they can be used as modulation targets.
+ * Keys are flat (dot-free) strings so they can be used as modulation targets
+ * and as binding destinations from MIDI / OSC.
+ *
+ * Persistence is versioned: each saved snapshot carries `_v` and is run
+ * through `migrateSettings()` at load and import time.
  */
 
 export type ColorMode = 'grayscale' | 'phosphorGreen' | 'phosphorAmber' | 'phosphorCustom' | 'video';
 export type RenderMode = 'scanlines' | 'dots' | 'wireframe';
 export type CameraMode = 'orbit' | 'fly';
-export type ModSource = 'ramp' | 'sine' | 'triangle' | 'square' | 'saw' | 'pulse' | 'audio' | 'joystickX' | 'joystickY' | 'joystickZ';
+
+export type ModSource =
+  | 'ramp' | 'sine' | 'triangle' | 'square' | 'saw' | 'pulse'
+  | 'audio' | 'audioBand' | 'beat'
+  | 'midiCC' | 'midiNote' | 'midiVelocity' | 'midiClock'
+  | 'osc'
+  | 'joystickX' | 'joystickY' | 'joystickZ';
+
+export type ClockDivision =
+  | '1/1' | '1/2' | '1/4' | '1/8' | '1/16' | '1/32'
+  | '1/4.' | '1/8.' | '1/16.'      // dotted
+  | '1/4T' | '1/8T' | '1/16T';     // triplet
 
 export interface ModSlot {
   enabled: boolean;
@@ -25,6 +40,17 @@ export interface ModSlot {
   rampMode: 'up' | 'down' | 'triangle' | 'hold';
   rampHold: boolean;
   rampPosition: number;
+
+  // v2 additions
+  bandIndex: number;            // for 'audioBand'
+  clockSync: boolean;           // override frequency with clock division
+  clockDivision: ClockDivision;
+  midiOutEnabled: boolean;
+  midiOutChannel: number;       // 1..16
+  midiOutCC: number;            // 0..127
+  // For 'midiCC' / 'midiNote' / 'midiVelocity' / 'osc' sources we read whatever
+  // is being captured by the binding registry. The slot itself doesn't pin a
+  // channel — bindings handle that.
 }
 
 export type ModTarget =
@@ -35,7 +61,10 @@ export type ModTarget =
   | 'threshold' | 'contrast' | 'gamma'
   | 'bloomIntensity' | 'bloomRadius'
   | 'scanlineIntensity' | 'chromaAmount' | 'feedbackDecay'
-  | 'cameraFov';
+  | 'cameraFov'
+  // v2: I/O-routable targets
+  | 'audioGain' | 'audioFloor' | 'beatSensitivity'
+  | 'spectrumAmount' | 'spectrumStride';
 
 export interface CameraView {
   posX: number; posY: number; posZ: number;
@@ -43,6 +72,60 @@ export interface CameraView {
   upX: number; upY: number; upZ: number;
   fov: number;
 }
+
+// --------------------------------------------------------------------
+// I/O bindings (MIDI + OSC)
+// --------------------------------------------------------------------
+
+export type BindingCurve = 'linear' | 'exp' | 'log' | 'inverted';
+
+export interface MidiBinding {
+  id: string;
+  type: 'cc' | 'note' | 'cc14';
+  channel: number;             // 0 = omni, 1..16 = specific channel
+  controller: number;          // CC number, note number, or MSB CC for 14-bit
+  controllerLsb?: number;      // LSB CC for 14-bit
+  target: string;              // settings key (e.g. 'zPush')
+  curve: BindingCurve;
+  min: number;
+  max: number;
+  velocityScale?: number;      // for 'note' bindings
+  glideMs?: number;
+  noteMode?: 'last' | 'polyAvg';
+}
+
+export interface OscBinding {
+  id: string;
+  address: string;             // e.g. '/dcu/zpush'
+  argIndex: number;            // which numeric arg of the message
+  target: string;              // settings key
+  curve: BindingCurve;
+  min: number;
+  max: number;
+  // outgoing: when target changes, send a message back through bridge
+  echo?: boolean;
+}
+
+// --------------------------------------------------------------------
+// Audio
+// --------------------------------------------------------------------
+
+export type AudioInputKind = 'mic' | 'file' | 'tab' | 'none';
+export type FftSize = 512 | 1024 | 2048 | 4096;
+export type BandCount = 8 | 16 | 32 | 64 | 128;
+export type BandSpacing = 'linear' | 'log' | 'mel';
+
+export interface AudioSpectrumRouting {
+  enabled: boolean;
+  amount: number;              // 0..2
+  stride: number;              // 0.1..4 (rows-per-band scaling)
+  attackMs: number;
+  releaseMs: number;
+}
+
+// --------------------------------------------------------------------
+// Settings
+// --------------------------------------------------------------------
 
 export interface Settings {
   // ---------- Source ----------
@@ -55,81 +138,81 @@ export interface Settings {
   requestedFps: number;
 
   // ---------- DCU (native Rutt/Etra controls) ----------
-  hPos: number;          // -2..2
-  vPos: number;          // -2..2
-  hSize: number;         // -2..2 (negative inverts)
-  vSize: number;         // -2..2 (negative inverts)
-  aspect: number;        // 0.25..4
-  aspectLock: boolean;   // when true, hSize and vSize stay linked
+  hPos: number;
+  vPos: number;
+  hSize: number;
+  vSize: number;
+  aspect: number;
+  aspectLock: boolean;
 
-  zPush: number;         // 0..4
-  zBias: number;         // -2..2
+  zPush: number;
+  zBias: number;
   zInvert: boolean;
 
-  intensity: number;     // 0..2
-  focus: number;         // 0..1 (0 = sharp, 1 = soft)
+  intensity: number;
+  focus: number;
 
-  hCenter: number;       // -1..1 rotation pivot X
-  vCenter: number;       // -1..1 rotation pivot Y
+  hCenter: number;
+  vCenter: number;
 
-  hReverse: boolean;     // flip across horizontal axis
-  vReverse: boolean;     // flip across vertical axis
-  hSpin: number;         // continuous rotation around H axis (radians)
-  vSpin: number;         // continuous rotation around V axis (radians)
-  hSpinRate: number;     // optional auto-spin rate
+  hReverse: boolean;
+  vReverse: boolean;
+  hSpin: number;
+  vSpin: number;
+  hSpinRate: number;
   vSpinRate: number;
 
-  rotate90: boolean;     // Display 0/90 switch
+  rotate90: boolean;
 
-  scanRate: number;      // number of scan lines (rows)
-  cols: number;          // samples per row
+  scanRate: number;
+  cols: number;
 
-  hLinearity: number;    // -1..1 bow
-  vLinearity: number;    // -1..1 bow
+  hLinearity: number;
+  vLinearity: number;
 
-  skip: number;          // 0..0.95 — drop fraction of lines
-  threshold: number;     // 0..1 luminance key
-  contrast: number;      // 0..4
-  gamma: number;         // 0.2..4
+  skip: number;
+  threshold: number;
+  contrast: number;
+  gamma: number;
 
   // ---------- Color & Post FX ----------
   colorMode: ColorMode;
-  customTint: string;          // hex
-  backgroundColor: string;     // hex
+  customTint: string;
+  backgroundColor: string;
 
   bloomEnabled: boolean;
-  bloomIntensity: number;      // 0..3
-  bloomRadius: number;         // 0..2
-  bloomThreshold: number;      // 0..1
+  bloomIntensity: number;
+  bloomRadius: number;
+  bloomThreshold: number;
 
   scanlineEnabled: boolean;
-  scanlineIntensity: number;   // 0..1
-  scanlineDensity: number;     // 100..2000
+  scanlineIntensity: number;
+  scanlineDensity: number;
 
   chromaEnabled: boolean;
-  chromaAmount: number;        // 0..0.02
+  chromaAmount: number;
 
   vignetteEnabled: boolean;
-  vignetteAmount: number;      // 0..1
+  vignetteAmount: number;
 
   feedbackEnabled: boolean;
-  feedbackDecay: number;       // 0..1 (1 = no decay, 0 = instant)
+  feedbackDecay: number;
 
   // ---------- Geometry ----------
   renderMode: RenderMode;
   thickLines: boolean;
-  lineWidth: number;           // px when thickLines is on
+  lineWidth: number;
 
   // ---------- Camera ----------
   cameraMode: CameraMode;
-  cameraFov: number;           // 10..120
-  cameraNear: number;          // 0.001..2
-  cameraFar: number;           // 5..200
+  cameraFov: number;
+  cameraNear: number;
+  cameraFar: number;
   autoOrbit: boolean;
-  autoOrbitSpeed: number;      // rad/sec
-  flySpeed: number;            // units/sec
-  flyBoost: number;            // multiplier when shift held
-  defaultView: CameraView;     // saved reset target
+  autoOrbitSpeed: number;
+  flySpeed: number;
+  flyBoost: number;
+  defaultView: CameraView;
 
   // ---------- Modulation ----------
   modSlots: ModSlot[];
@@ -137,6 +220,7 @@ export interface Settings {
   // ---------- UI ----------
   panelDock: 'left' | 'right';
   panelCollapsed: boolean;
+  panelTab: 'synth' | 'io';
   hudVisible: boolean;
 
   // ---------- Recorder ----------
@@ -144,7 +228,40 @@ export interface Settings {
   recordBitrateMbps: number;
   recordPreferredFormat: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
   recordFps: number;
+
+  // ---------- MIDI (v2) ----------
+  midiInputId: string;
+  midiOutputId: string;
+  midiBindings: MidiBinding[];
+
+  // ---------- OSC (v2) ----------
+  oscBridgeUrl: string;
+  oscAutoConnect: boolean;
+  oscBindings: OscBinding[];
+
+  // ---------- Audio / FFT (v2) ----------
+  audioInputKind: AudioInputKind;
+  audioFftSize: FftSize;
+  audioBandCount: BandCount;
+  audioBandSpacing: BandSpacing;
+  audioAttackMs: number;
+  audioReleaseMs: number;
+  audioGain: number;            // master gain applied to band values
+  audioFloor: number;           // values below this clamp to 0
+  audioThresholdDb: number;     // dB floor in the analyser
+  audioMonitor: boolean;        // route audio to speakers (default OFF)
+  audioSpectrum: AudioSpectrumRouting;
+  beatEnabled: boolean;
+  beatSensitivity: number;      // multiplier on adaptive threshold
+
+  // Routable convenience targets (mirror audioSpectrum sub-keys for ModTarget)
+  spectrumAmount: number;
+  spectrumStride: number;
 }
+
+// --------------------------------------------------------------------
+// Defaults
+// --------------------------------------------------------------------
 
 export const DEFAULT_VIEW: CameraView = {
   posX: 0, posY: 0.4, posZ: 2.6,
@@ -165,13 +282,27 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   rampMode: 'up',
   rampHold: false,
   rampPosition: 0,
+  bandIndex: 0,
+  clockSync: false,
+  clockDivision: '1/4',
+  midiOutEnabled: false,
+  midiOutChannel: 1,
+  midiOutCC: 1,
+};
+
+export const DEFAULT_SPECTRUM: AudioSpectrumRouting = {
+  enabled: false,
+  amount: 0.5,
+  stride: 1.0,
+  attackMs: 30,
+  releaseMs: 200,
 };
 
 export const DEFAULTS: Settings = {
   sourceKind: 'none',
   deviceId: '',
   mirrorH: true,
-  mirrorV: false,
+  mirrorV: true,
   requestedWidth: 640,
   requestedHeight: 480,
   requestedFps: 30,
@@ -210,7 +341,8 @@ export const DEFAULTS: Settings = {
   customTint: '#5fff85',
   backgroundColor: '#050807',
 
-  bloomEnabled: true,
+  // Bloom OFF by default per v2 spec.
+  bloomEnabled: false,
   bloomIntensity: 0.85,
   bloomRadius: 0.6,
   bloomThreshold: 0.15,
@@ -251,15 +383,107 @@ export const DEFAULTS: Settings = {
 
   panelDock: 'right',
   panelCollapsed: false,
+  panelTab: 'synth',
   hudVisible: true,
 
   recordIncludeMic: false,
   recordBitrateMbps: 8,
   recordPreferredFormat: 'auto',
   recordFps: 60,
+
+  midiInputId: '',
+  midiOutputId: '',
+  midiBindings: [],
+
+  oscBridgeUrl: 'ws://localhost:8080',
+  oscAutoConnect: false,
+  oscBindings: [],
+
+  audioInputKind: 'none',
+  audioFftSize: 2048,
+  audioBandCount: 32,
+  audioBandSpacing: 'log',
+  audioAttackMs: 25,
+  audioReleaseMs: 180,
+  audioGain: 1.0,
+  audioFloor: 0.02,
+  audioThresholdDb: -90,
+  audioMonitor: false,
+  audioSpectrum: { ...DEFAULT_SPECTRUM },
+  beatEnabled: false,
+  beatSensitivity: 1.4,
+
+  spectrumAmount: 0.5,
+  spectrumStride: 1.0,
 };
 
+// --------------------------------------------------------------------
+// Persistence + migration
+// --------------------------------------------------------------------
+
 const STORAGE_KEY = 'ruttetra.settings.v1';
+const CURRENT_VERSION = 2;
+
+interface Versioned { _v?: number }
+
+/**
+ * Forward-compatible migration. Each step is idempotent — re-running on an
+ * already-migrated object produces no changes.
+ */
+export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
+  if (!rawIn || typeof rawIn !== 'object') return { _v: CURRENT_VERSION };
+  const raw = rawIn as Partial<Settings> & Versioned & Record<string, unknown>;
+  const v = raw._v ?? 1;
+  let s: Partial<Settings> & Versioned & Record<string, unknown> = { ...raw };
+
+  // ---- v1 -> v2: I/O subsystems ----
+  if (v < 2) {
+    s.midiInputId   = (s.midiInputId   as string | undefined) ?? '';
+    s.midiOutputId  = (s.midiOutputId  as string | undefined) ?? '';
+    s.midiBindings  = (s.midiBindings  as MidiBinding[] | undefined) ?? [];
+    s.oscBridgeUrl  = (s.oscBridgeUrl  as string | undefined) ?? 'ws://localhost:8080';
+    s.oscAutoConnect= (s.oscAutoConnect as boolean | undefined) ?? false;
+    s.oscBindings   = (s.oscBindings   as OscBinding[] | undefined) ?? [];
+
+    s.audioInputKind   = (s.audioInputKind   as AudioInputKind | undefined) ?? 'none';
+    s.audioFftSize     = (s.audioFftSize     as FftSize        | undefined) ?? 2048;
+    s.audioBandCount   = (s.audioBandCount   as BandCount      | undefined) ?? 32;
+    s.audioBandSpacing = (s.audioBandSpacing as BandSpacing    | undefined) ?? 'log';
+    s.audioAttackMs    = (s.audioAttackMs    as number         | undefined) ?? 25;
+    s.audioReleaseMs   = (s.audioReleaseMs   as number         | undefined) ?? 180;
+    s.audioGain        = (s.audioGain        as number         | undefined) ?? 1.0;
+    s.audioFloor       = (s.audioFloor       as number         | undefined) ?? 0.02;
+    s.audioThresholdDb = (s.audioThresholdDb as number         | undefined) ?? -90;
+    s.audioMonitor     = (s.audioMonitor     as boolean        | undefined) ?? false;
+    s.audioSpectrum    = (s.audioSpectrum    as AudioSpectrumRouting | undefined) ?? { ...DEFAULT_SPECTRUM };
+    s.beatEnabled      = (s.beatEnabled      as boolean        | undefined) ?? false;
+    s.beatSensitivity  = (s.beatSensitivity  as number         | undefined) ?? 1.4;
+    s.spectrumAmount   = (s.spectrumAmount   as number         | undefined) ?? 0.5;
+    s.spectrumStride   = (s.spectrumStride   as number         | undefined) ?? 1.0;
+    s.panelTab         = (s.panelTab         as 'synth' | 'io' | undefined) ?? 'synth';
+
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as Partial<ModSlot>[]).map((slot) => ({
+        ...DEFAULT_MOD_SLOT,
+        ...slot,
+        bandIndex:      slot.bandIndex      ?? 0,
+        clockSync:      slot.clockSync      ?? false,
+        clockDivision:  slot.clockDivision  ?? '1/4',
+        midiOutEnabled: slot.midiOutEnabled ?? false,
+        midiOutChannel: slot.midiOutChannel ?? 1,
+        midiOutCC:      slot.midiOutCC      ?? 1,
+      })) as ModSlot[];
+    }
+
+    s._v = 2;
+  }
+
+  return s as Partial<Settings> & Versioned;
+}
+
+// --------------------------------------------------------------------
+// Store
+// --------------------------------------------------------------------
 
 type Listener<K extends keyof Settings> = (value: Settings[K], key: K) => void;
 type AnyListener = (value: unknown, key: keyof Settings) => void;
@@ -275,7 +499,6 @@ export class SettingsStore {
     this.state = mergeDeep(DEFAULTS, persisted ?? {}, initial ?? {});
   }
 
-  /** Read-only snapshot of the entire state. */
   get all(): Readonly<Settings> {
     return this.state;
   }
@@ -291,7 +514,6 @@ export class SettingsStore {
     this.scheduleSave();
   }
 
-  /** Bulk-update many keys at once (skips equality check). */
   patch(partial: Partial<Settings>): void {
     let changed = false;
     for (const k of Object.keys(partial) as (keyof Settings)[]) {
@@ -306,7 +528,6 @@ export class SettingsStore {
     if (changed) this.scheduleSave();
   }
 
-  /** Replace state entirely (used for preset load). */
   replaceAll(next: Partial<Settings>): void {
     const merged = mergeDeep(DEFAULTS, next);
     for (const k of Object.keys(merged) as (keyof Settings)[]) {
@@ -337,18 +558,18 @@ export class SettingsStore {
     return () => this.allListeners.delete(fn);
   }
 
-  /** Export a JSON-serializable snapshot. */
+  /** Export a JSON-serializable snapshot, stamped with the current version. */
   export(): string {
-    return JSON.stringify(this.state, null, 2);
+    return JSON.stringify({ ...this.state, _v: CURRENT_VERSION }, null, 2);
   }
 
-  /** Import from a JSON string (preset). */
+  /** Import from JSON; runs migration before merging. */
   import(json: string): void {
-    const parsed = JSON.parse(json) as Partial<Settings>;
-    this.replaceAll(parsed);
+    const parsed = JSON.parse(json) as unknown;
+    const migrated = migrateSettings(parsed);
+    this.replaceAll(migrated);
   }
 
-  /** Reset everything to defaults. */
   reset(): void {
     this.replaceAll(DEFAULTS);
   }
@@ -364,7 +585,7 @@ export class SettingsStore {
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...this.state, _v: CURRENT_VERSION }));
       } catch {
         /* localStorage might be full or disabled — silently ignore */
       }
@@ -374,7 +595,12 @@ export class SettingsStore {
   static loadPersisted(): Partial<Settings> | null {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      return s ? (JSON.parse(s) as Partial<Settings>) : null;
+      if (!s) return null;
+      const raw = JSON.parse(s) as unknown;
+      const migrated = migrateSettings(raw);
+      // Strip the `_v` so it doesn't leak into typed Settings keys.
+      const { _v: _ignore, ...rest } = migrated as { _v?: number } & Partial<Settings>;
+      return rest;
     } catch {
       return null;
     }

@@ -2,6 +2,8 @@
 
 A browser-based recreation of the **Rutt/Etra Scan Processor** — the legendary 1973 analog video synthesizer designed by Steve Rutt and Bill Etra. This implementation runs entirely in the browser with no backend required. Feed it a webcam, a video file, or your screen, and it renders the iconic scan-line effect where scan lines are displaced along the Z axis in proportion to the brightness of each pixel.
 
+It also speaks **Web MIDI**, **multi-band FFT audio reactivity**, and **OSC over WebSocket** out of the box.
+
 ---
 
 ## Quick start
@@ -25,11 +27,16 @@ npm run build
 
 ## Features
 
+The control panel is split into two tabs:
+
+- **Synth** — the original scan-processor: source, DCU, camera, color, post-FX, modulation, geometry, presets, record, share.
+- **I/O** — MIDI, Audio (FFT), OSC. New in v2.
+
 ### Video sources
 - **Webcam** — pick any attached camera from a device dropdown. Click *Refresh* after granting camera permission to see correct device labels.
 - **Screen capture** — use `getDisplayMedia` to synthesize a window, tab, or entire display.
 - **Video file** — drag a file onto the picker to loop local video through the effect.
-- Mirror H / Mirror V toggles apply before synthesis.
+- Mirror H / Mirror V toggles apply before synthesis. Both default to on so webcam input feels right immediately.
 
 ### Display Control Unit — full native Rutt/Etra control set
 
@@ -47,12 +54,42 @@ Every knob from the original [Rutt Electrophysics hardware brochure](https://vas
 
 ### Modulation system
 
-Emulates the original Ramp Generator, Waveform Generator (oscillator), Audio Interface, and Joystick modules. Four independent slots can each target any DCU or post-FX parameter:
+Emulates the original Ramp Generator, Waveform Generator (oscillator), Audio Interface, and Joystick modules. Four independent slots can each target any DCU or post-FX parameter. v2 adds new sources, MIDI clock-sync per slot, and per-slot MIDI-out:
 
-- **Sources** — Sine, Triangle, Square, Saw, Pulse (with duty cycle), Ramp (up / down / triangle / hold), Audio (mic envelope follower), Joystick X / Y / Z
-- **Routing** — any source → any target; multiple slots can sum into the same target (matching the hardware Summing Amplifier)
+- **Sources** — Sine, Triangle, Square, Saw, Pulse (with duty cycle), Ramp (up / down / triangle / hold), Audio (envelope), Audio Band [n], Beat, MIDI CC, MIDI Note, MIDI Velocity, MIDI Clock, OSC, Joystick X / Y / Z
+- **Routing** — any source → any target; multiple slots sum into the same target (matching the hardware Summing Amplifier)
+- **Clock Sync** — when on, the slot's frequency slider is replaced by a Division dropdown (`1/1 1/2 1/4 1/8 1/16 1/32` plus dotted and triplet variants). Tempo is taken from incoming MIDI clock.
+- **MIDI Out** — each slot can additionally emit its current value as a CC on a chosen channel/CC pair, turning the synth into a modulation source for external gear
 - **Joystick pad** — click-and-drag 2D pad in the Modulation panel, scroll wheel for Z axis
-- **Mic envelope follower** — enable once with the *Enable Mic* button; follow the beat, melody, or any audio input
+
+### MIDI (I/O tab)
+
+- **Web MIDI** device pickers for input and output, persisted across sessions and auto-reattached on USB reconnect.
+- **MIDI clock receiver** with a smoothed BPM readout and a flashing beat indicator. Handles 24-PPQ, start/stop/continue, and exposes `phase01` / `beatPulse` to the modulation matrix.
+- **Learn table** — click *Learn*, wiggle a knob on your controller, drop the resulting binding into any Settings target with a curve (linear / exp / log / inverted) and min/max range.
+- **14-bit CC** is supported — pair an MSB CC with its LSB partner (CC + 32 by default) for 16384-step resolution.
+- **MIDI Out** — driven by the per-slot config in the Modulation section.
+- Safari falls back to a polite "Web MIDI not available" notice — the rest of the app keeps working.
+
+### FFT audio reactivity (I/O tab)
+
+- **Inputs** — microphone, audio file (drag-drop with built-in transport + loop toggle), or tab/system audio capture.
+- **Configurable** FFT size (512–4096), band count (8–128), and band spacing (linear / logarithmic / mel).
+- **Per-band attack/release/gain/floor/threshold** smoothing, applied frame-aware.
+- **Live visualizer** drawn on a small `<canvas>` showing every band in real time.
+- **Spectrum -> Z displacement** routing — the band array is uploaded as a `RedFormat`/`FloatType` `DataTexture` each frame; the vertex shader samples it per row, adding a per-band Z term so audio literally pushes scan lines into the screen. Tunable amount and stride.
+- **Beat detector** — spectral flux on the bass bands with an adaptive threshold and a decaying pulse, exposed as the `beat` mod source.
+- **Monitor** toggle (off by default, with a feedback warning) routes the analyzed signal to your speakers.
+
+The original `audio` mod source is preserved — it now reads `FFTAnalyzer.getEnvelope()` so existing presets and slots keep working unchanged.
+
+### OSC bridge (I/O tab)
+
+- **WebSocket client** in the browser; **UDP &harr; WebSocket bridge** in `tools/osc-bridge/`.
+- The bridge is a tiny Node script (`node-osc` + `ws`) that translates each OSC packet to JSON and back. See [`tools/osc-bridge/README.md`](tools/osc-bridge/README.md) for protocol details and TouchOSC / Max / SuperCollider examples.
+- **Learn table** identical to the MIDI side — click *Learn*, send a message from TouchOSC, target picker fills in.
+- **Auto-reconnect** with exponential backoff (1 s → 30 s) so unplugging and replugging the bridge is painless.
+- **Copy TouchOSC layout** button generates a starter JSON listing one fader per binding and copies it to your clipboard.
 
 ### Free-flight 3D camera
 
@@ -70,7 +107,7 @@ Emulates the original Ramp Generator, Waveform Generator (oscillator), Audio Int
 
 - **Color modes** — Grayscale · Phosphor Green (P1) · Phosphor Amber · Custom Tint · Sampled Video
 - **Background color** picker
-- **Bloom** (UnrealBloomPass) — intensity, radius, threshold
+- **Bloom** (UnrealBloomPass) — intensity, radius, threshold. Off by default in v2 to keep raw scan lines crisp; flip it on for the classic glow.
 - **Scanline overlay** — intensity, density
 - **Chromatic aberration** — radial RGB split
 - **Vignette** — edge darkening
@@ -90,7 +127,7 @@ Seven built-in presets load with a single click. Each captures all DCU, color/FX
 | Burn-In | Long-exposure feedback trails |
 | Diving | Camera tucked inside the raster in fly mode |
 
-**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files.
+**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files. The format is versioned (`_v: 2`) and v1 presets are auto-migrated on load — old files keep working, missing v2 fields are filled with sensible defaults.
 
 ### Recording
 
@@ -119,29 +156,54 @@ In the *Share* section:
 
 ---
 
+## OSC bridge quick start
+
+```bash
+cd tools/osc-bridge
+npm install
+npm run dev          # runs server.ts via tsx, no build step
+```
+
+Default ports: UDP `8000` in (from your controller), UDP `9000` out (back to your controller), WebSocket `8080` (the synth). Override with `UDP_IN_PORT`, `UDP_OUT_HOST`, `UDP_OUT_PORT`, `WS_PORT` env vars.
+
+In the synth's **I/O &rarr; OSC** panel, set the bridge URL to `ws://localhost:8080` and click **Connect**.
+
+---
+
 ## Project structure
 
 ```
 src/
 ├── main.ts                     entry — routes synth vs ?view=<id> (viewer mode)
-├── state/Settings.ts           typed params store, subscribe/notify, localStorage
+├── state/Settings.ts           typed params store, subscribe/notify, localStorage, v2 migration
 ├── input/sources.ts            webcam / screen / file source manager
 ├── renderer/
-│   ├── RuttEtra.ts             scene, LineSegments grid, ShaderMaterial, render loop
+│   ├── RuttEtra.ts             scene, LineSegments grid, ShaderMaterial, spectrum DataTexture
 │   ├── CameraRig.ts            Orbit + Fly modes, FOV, reset/save view
 │   ├── Postfx.ts               EffectComposer: feedback, bloom, CRT pass
 │   └── shaders/
-│       ├── ruttEtra.vert.glsl  full DCU vertex pipeline
+│       ├── ruttEtra.vert.glsl  full DCU vertex pipeline + spectrum-driven Z term
 │       └── ruttEtra.frag.glsl  color modes + intensity + alpha falloff
-├── modulation/ModMatrix.ts     Ramp, Waveform, AudioFollower, Joystick, routing
+├── modulation/ModMatrix.ts     Ramp, Waveform, FFT, Beat, MIDI/OSC sources, MIDI-out emission
+├── midi/
+│   ├── MidiManager.ts          requestMIDIAccess, device pickers, sendCC (7- and 14-bit)
+│   ├── MidiMapping.ts          binding registry, learn(), curves, last-value cache
+│   └── MidiClock.ts            24-PPQ clock receiver, bpm + phase + beatPulse + divisionToHz
+├── audio/
+│   ├── FFTAnalyzer.ts          AnalyserNode wrapper, banding (linear/log/mel), per-band smoothing
+│   └── BeatDetector.ts         spectral flux on bass bands, adaptive threshold
+├── osc/OscClient.ts            WebSocket OSC client, learn(), auto-reconnect
 ├── record/Recorder.ts          MediaRecorder wrapper, codec detection, download
 ├── stream/
 │   ├── Broadcaster.ts          PeerJS broadcaster + QR share URL
 │   └── Viewer.ts               ?view=<id> fullscreen viewer with auto-reconnect
 └── ui/
-    ├── ControlPanel.ts         collapsible dock-able panel shell
+    ├── ControlPanel.ts         collapsible dock-able panel shell with Synth / I/O tabs
     ├── widgets.ts              reusable form controls (slider, toggle, dropdown…)
-    ├── panel.css               retro CRT theme — VT323 font, glow, scanlines
+    ├── widgets/
+    │   └── LearnBinding.ts     shared learn-table primitive used by MIDI + OSC
+    ├── targets.ts              shared list of routable Settings keys
+    ├── panel.css               retro CRT theme — VT323 font, glow, scanlines, tab strip
     ├── presets.ts              built-in preset definitions
     └── sections/               one file per panel section
         ├── SourceSection.ts
@@ -152,7 +214,16 @@ src/
         ├── GeometrySection.ts
         ├── PresetsSection.ts
         ├── RecordSection.ts
-        └── ShareSection.ts
+        ├── ShareSection.ts
+        ├── MidiSection.ts      (I/O tab)
+        ├── AudioSection.ts     (I/O tab)
+        └── OscSection.ts       (I/O tab)
+
+tools/
+└── osc-bridge/                 standalone Node workspace (own package.json)
+    ├── package.json
+    ├── server.ts               UDP <-> WebSocket OSC bridge
+    └── README.md
 ```
 
 ---
@@ -160,10 +231,24 @@ src/
 ## Technology
 
 - [Vite](https://vitejs.dev/) + vanilla TypeScript — no framework, fully static output
-- [three.js](https://threejs.org/) — WebGL rendering, EffectComposer, OrbitControls, PointerLockControls
+- [three.js](https://threejs.org/) — WebGL rendering, EffectComposer, OrbitControls, PointerLockControls, DataTexture
 - [PeerJS](https://peerjs.com/) — WebRTC signaling (zero backend)
 - [qrcode](https://www.npmjs.com/package/qrcode) — QR code generation for share URLs
-- Browser APIs — `getUserMedia`, `getDisplayMedia`, `enumerateDevices`, `MediaRecorder`, `captureStream`, Web Audio API
+- Browser APIs — Web MIDI, Web Audio (`AnalyserNode`), `getUserMedia`, `getDisplayMedia`, `enumerateDevices`, `MediaRecorder`, `captureStream`
+- OSC bridge (separate workspace) — [node-osc](https://www.npmjs.com/package/node-osc) + [ws](https://www.npmjs.com/package/ws)
+
+---
+
+## Browser support
+
+| Feature | Chrome / Edge / Opera | Firefox | Safari |
+|---|---|---|---|
+| Core synth + camera + recording | ✅ | ✅ | ✅ |
+| WebRTC streaming | ✅ | ✅ | ✅ |
+| Web MIDI | ✅ | ⚠️ flag | ❌ (graceful fallback) |
+| Tab audio capture | ✅ | ⚠️ partial | ❌ |
+| Mic / file audio | ✅ | ✅ | ✅ |
+| OSC bridge | ✅ | ✅ | ✅ |
 
 ---
 
@@ -172,7 +257,6 @@ src/
 - RTMP push to YouTube / Twitch (requires an ffmpeg backend bridging WebRTC → RTMP)
 - Virtual webcam output for OBS / Zoom (requires a native helper app)
 - Mobile-first layout (works on large tablets; desktop is the primary target)
-- Audio-reactive modulation with beat detection (the mic follower in the modulation system is a good starting point)
 
 ---
 

@@ -112,9 +112,15 @@ html, body, #app {
   box-shadow: 10px 0 30px rgba(0,0,0,0.4);
 }
 #panel-root[data-dock="right"] { right: 0; }
-#panel-root.collapsed { width: 36px; }
+#panel-root.collapsed { width: 40px; }
 #panel-root.collapsed .rw-panel-body { display: none; }
+#panel-root.collapsed .rw-tabs { display: none; }
 #panel-root.collapsed .rw-panel-title-text { display: none; }
+/* When collapsed there's only ~16px of horizontal space inside the title:
+   hide the dock-toggle and keep the expand toggle centered + clickable. */
+#panel-root.collapsed .rw-panel-title { padding: 8px 4px; justify-content: center; }
+#panel-root.collapsed .rw-panel-actions { gap: 0; }
+#panel-root.collapsed .rw-panel-actions button:first-child { display: none; }
 
 .rw-panel-title {
   display: flex; align-items: center; justify-content: space-between;
@@ -423,6 +429,123 @@ body.viewer-mode #panel-root,
 body.viewer-mode #hud,
 body.viewer-mode #overlay { display: none !important; }
 body.viewer-mode #stage { background: #000; }
+
+/* Tab strip (Synth / I/O) */
+.rw-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--re-line);
+  background: rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 2;
+}
+.rw-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--re-line);
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  padding: 8px 0;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 100ms, background 100ms;
+}
+.rw-tab:last-child { border-right: none; }
+.rw-tab:hover { color: var(--re-accent); background: rgba(95,255,133,0.06); }
+.rw-tab.active {
+  color: var(--re-accent);
+  background: rgba(95,255,133,0.10);
+  text-shadow: var(--re-glow);
+  box-shadow: inset 0 -2px 0 var(--re-accent);
+}
+.rw-tab-pane { display: none; }
+.rw-tab-pane.active { display: block; }
+
+/* Learn table (used by MIDI + OSC sections) */
+.rw-learn {
+  border: 1px solid var(--re-line);
+  margin: 6px 0;
+  background: rgba(0,0,0,0.25);
+}
+.rw-learn-head, .rw-learn-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1.5fr 1fr 60px 60px 28px;
+  gap: 4px;
+  padding: 4px 6px;
+  align-items: center;
+}
+.rw-learn-head {
+  font-size: 11px;
+  color: var(--re-text-dim);
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--re-line);
+  background: rgba(0,0,0,0.3);
+}
+.rw-learn-body { max-height: 260px; overflow-y: auto; }
+.rw-learn-row { border-top: 1px dashed rgba(95,255,133,0.10); font-size: 12px; }
+.rw-learn-row:first-child { border-top: none; }
+.rw-learn-row .rw-num { font-size: 12px; padding: 1px 3px; }
+.rw-learn-row .rw-select { font-size: 12px; padding: 1px 3px; }
+.rw-learn-row .rw-btn { padding: 2px 6px; font-size: 12px; }
+.rw-learn-src { font-size: 12px; color: var(--re-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rw-learn-empty {
+  padding: 10px 8px;
+  color: var(--re-text-dim);
+  font-size: 12px;
+  text-align: center;
+}
+.rw-learn-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--re-line);
+  background: rgba(0,0,0,0.3);
+}
+.rw-btn.learning {
+  border-color: var(--re-accent-2);
+  color: var(--re-accent-2);
+  animation: rw-pulse 0.6s ease-in-out infinite;
+}
+.rw-btn.shake { animation: rw-shake 0.35s ease-in-out; }
+@keyframes rw-shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+/* Spectrum / band visualizer canvas */
+.rw-vis {
+  display: block;
+  width: 100%;
+  height: 64px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--re-line);
+  margin: 4px 0;
+}
+
+/* MIDI status indicator */
+.rw-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--re-text-dim);
+}
+.rw-status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--re-text-dim);
+  transition: background 80ms, box-shadow 80ms;
+}
+.rw-status-dot.on  { background: var(--re-accent); box-shadow: var(--re-glow); }
+.rw-status-dot.warn{ background: var(--re-accent-2); }
+.rw-status-dot.err { background: var(--re-warn); }
 
 /* CRT scanline overlay on the panel itself for flavor */
 #panel-root::before {
