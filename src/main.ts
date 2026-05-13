@@ -36,6 +36,12 @@ import { MidiManager } from './midi/MidiManager';
 import { FFTAnalyzer } from './audio/FFTAnalyzer';
 import { BeatDetector } from './audio/BeatDetector';
 import { OscClient } from './osc/OscClient';
+import { Sequencer } from './sequencer/Sequencer';
+import { loadTimelines } from './sequencer/store';
+import { TimelineDock } from './ui/timeline/TimelineDock';
+import { createHelpSection } from './ui/sections/HelpSection';
+import { mountHelpFab, maybeAutoOpenHelp } from './ui/help/fab';
+import './ui/timeline/timeline.css';
 
 const params = new URLSearchParams(window.location.search);
 const viewTarget = params.get('view');
@@ -106,6 +112,18 @@ async function bootSynth(): Promise<void> {
     fft, beat, midiClock, midiMapping, midiManager, osc,
   });
 
+  const sequencer = new Sequencer(settings);
+  sequencer.attachMidiClock(midiClock);
+
+  // Restore last-active timeline (if any) before mounting the dock so the
+  // initial render shows it.
+  {
+    const list = loadTimelines();
+    const activeId = settings.get('activeTimelineId');
+    const tl = activeId ? list.find(x => x.id === activeId) : null;
+    if (tl) sequencer.load(tl);
+  }
+
   let lastDefault = JSON.stringify(settings.get('defaultView'));
   settings.subscribe('defaultView', (v) => {
     const cur = JSON.stringify(v);
@@ -137,12 +155,23 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationSection(settings, matrix) });
   panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
   panel.addSection({ tab: 'synth', title: 'Presets',               body: createPresetsSection(settings) });
-  panel.addSection({ tab: 'synth', title: 'Record',                body: createRecordSection(settings, recorder) });
+  panel.addSection({ tab: 'synth', title: 'Record',                body: createRecordSection(settings, recorder, sequencer) });
   panel.addSection({ tab: 'synth', title: 'Share',                 body: createShareSection(settings, broadcaster, canvas) });
 
   panel.addSection({ tab: 'io', title: 'MIDI',  body: createMidiSection(settings, midiManager),  initiallyOpen: true });
   panel.addSection({ tab: 'io', title: 'Audio', body: createAudioSection(settings, fft, beat),   initiallyOpen: true });
   panel.addSection({ tab: 'io', title: 'OSC',   body: createOscSection(settings, osc) });
+
+  // Help tab.
+  panel.addSection({ tab: 'help', title: 'Manual', body: createHelpSection(settings), initiallyOpen: true });
+
+  // Mount the horizontal timeline dock (lives in its own #timeline-dock host).
+  const timelineHost = document.getElementById('timeline-dock') as HTMLElement;
+  const timelineDock = new TimelineDock(timelineHost, settings, sequencer);
+
+  // Floating "?" button + first-run auto-open.
+  mountHelpFab(settings);
+  maybeAutoOpenHelp(settings);
 
   startBtn.addEventListener('click', async () => {
     try {
@@ -168,6 +197,7 @@ async function bootSynth(): Promise<void> {
     cameraRig.resize(w, h);
     postfx.resize(w, h);
     ruttEtra.setSize(w, h);
+    timelineDock.resize();
   }
   window.addEventListener('resize', resize);
   resize();
@@ -187,6 +217,7 @@ async function bootSynth(): Promise<void> {
     fft.tick(dt);
     beat.tick(dt);
     matrix.tick(dt);
+    sequencer.tick(dt);
     cameraRig.tick(dt);
     ruttEtra.updateSpectrum(fft.bands);
     ruttEtra.tick(dt, t);

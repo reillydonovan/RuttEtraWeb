@@ -13,7 +13,7 @@
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
 
-export type TabId = 'synth' | 'io';
+export type TabId = 'synth' | 'io' | 'help';
 
 export interface PanelSection {
   title: string;
@@ -93,8 +93,9 @@ export class ControlPanel {
     this.tabPanes = {
       synth: this.makeTab('synth', 'Synth'),
       io:    this.makeTab('io',    'I/O'),
+      help:  this.makeTab('help',  'Help'),
     };
-    for (const id of ['synth', 'io'] as TabId[]) {
+    for (const id of ['synth', 'io', 'help'] as TabId[]) {
       tabs.appendChild(this.tabPanes[id].button);
       body.appendChild(this.tabPanes[id].pane);
     }

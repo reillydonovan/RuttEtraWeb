@@ -220,8 +220,18 @@ export interface Settings {
   // ---------- UI ----------
   panelDock: 'left' | 'right';
   panelCollapsed: boolean;
-  panelTab: 'synth' | 'io';
+  panelTab: 'synth' | 'io' | 'help';
   hudVisible: boolean;
+
+  // ---------- Help ----------
+  helpSeen: boolean;
+  helpAutoOpen: boolean;
+  helpActiveTab: 'what' | 'quickstart' | 'controls' | 'shortcuts' | 'mod' | 'timeline' | 'tips' | 'about';
+
+  // ---------- Timeline / Sequencer (UI-state only; timeline data lives in its own store) ----------
+  timelineDock: 'top' | 'bottom' | 'hidden';
+  timelineHeight: number;
+  activeTimelineId: string | null;
 
   // ---------- Recorder ----------
   recordIncludeMic: boolean;
@@ -386,6 +396,14 @@ export const DEFAULTS: Settings = {
   panelTab: 'synth',
   hudVisible: true,
 
+  helpSeen: false,
+  helpAutoOpen: true,
+  helpActiveTab: 'quickstart',
+
+  timelineDock: 'bottom',
+  timelineHeight: 220,
+  activeTimelineId: null,
+
   recordIncludeMic: false,
   recordBitrateMbps: 8,
   recordPreferredFormat: 'auto',
@@ -422,7 +440,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 interface Versioned { _v?: number }
 
@@ -478,6 +496,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s._v = 2;
   }
 
+  // ---- v2 -> v3: Help panel + Timeline sequencer ----
+  if ((s._v ?? 1) < 3) {
+    s.helpSeen        = (s.helpSeen        as boolean | undefined) ?? false;
+    s.helpAutoOpen    = (s.helpAutoOpen    as boolean | undefined) ?? true;
+    s.helpActiveTab   = (s.helpActiveTab   as Settings['helpActiveTab'] | undefined) ?? 'quickstart';
+    s.timelineDock    = (s.timelineDock    as Settings['timelineDock']  | undefined) ?? 'bottom';
+    s.timelineHeight  = (s.timelineHeight  as number  | undefined) ?? 220;
+    s.activeTimelineId= (s.activeTimelineId as string | null | undefined) ?? null;
+    s._v = 3;
+  }
+
   return s as Partial<Settings> & Versioned;
 }
 
@@ -493,6 +522,7 @@ export class SettingsStore {
   private listeners = new Map<keyof Settings, Set<AnyListener>>();
   private allListeners = new Set<AnyListener>();
   private saveTimer: number | null = null;
+  private suppressAll = false;
 
   constructor(initial?: Partial<Settings>) {
     const persisted = SettingsStore.loadPersisted();
@@ -526,6 +556,45 @@ export class SettingsStore {
       }
     }
     if (changed) this.scheduleSave();
+  }
+
+  /**
+   * Hot-path batch update used by the sequencer.
+   *
+   * Writes every changed key, fires per-key subscribers ONCE per changed key
+   * (same as `patch`), but defers `subscribeAll` listeners to a single
+   * trailing call with a `Set` of changed keys — and only schedules one save.
+   *
+   * Compared to `patch()`, this avoids `subscribeAll` callbacks firing N times
+   * when the sequencer interpolates ~30 numeric params per frame.
+   */
+  batchUpdate(partial: Partial<Settings>): void {
+    const changedKeys = new Set<keyof Settings>();
+    for (const k of Object.keys(partial) as (keyof Settings)[]) {
+      const v = partial[k];
+      if (v === undefined) continue;
+      if (!Object.is(this.state[k], v)) {
+        (this.state as any)[k] = v;
+        changedKeys.add(k);
+      }
+    }
+    if (changedKeys.size === 0) return;
+    // Per-key listeners run individually so each control gets a chance to
+    // refresh its DOM, but we suppress subscribeAll fan-out during the burst.
+    this.suppressAll = true;
+    try {
+      for (const k of changedKeys) this.notify(k, this.state[k]);
+    } finally {
+      this.suppressAll = false;
+    }
+    // Single trailing all-listeners call.
+    for (const fn of this.allListeners) {
+      // We pick the last changed key as the "representative" key; subscribers
+      // typically just rebuild their state from the store, not from this arg.
+      const lastKey = [...changedKeys][changedKeys.size - 1];
+      fn(this.state[lastKey], lastKey);
+    }
+    this.scheduleSave();
   }
 
   replaceAll(next: Partial<Settings>): void {
@@ -577,7 +646,9 @@ export class SettingsStore {
   private notify<K extends keyof Settings>(key: K, value: Settings[K]): void {
     const set = this.listeners.get(key);
     if (set) for (const fn of set) (fn as Listener<K>)(value, key);
-    for (const fn of this.allListeners) fn(value, key);
+    if (!this.suppressAll) {
+      for (const fn of this.allListeners) fn(value, key);
+    }
   }
 
   private scheduleSave(): void {

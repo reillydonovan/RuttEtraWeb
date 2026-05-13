@@ -11,6 +11,8 @@ export interface RecordOptions {
   bitsPerSecond?: number;
   includeMic?: boolean;
   preferredFormat?: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
+  /** Optional slug prepended to the auto-generated filename (no extension). */
+  filenameHint?: string;
 }
 
 const FORMAT_CHAIN: { id: string; mime: string; ext: string }[] = [
@@ -28,6 +30,7 @@ export class CanvasRecorder {
   private chunks: BlobPart[] = [];
   private currentMime = '';
   private currentExt = 'webm';
+  private currentHint: string | null = null;
   private micStream: MediaStream | null = null;
   private outStream: MediaStream | null = null;
   private listeners = new Set<(state: 'idle' | 'recording' | 'finalizing') => void>();
@@ -69,6 +72,7 @@ export class CanvasRecorder {
   async start(opts: RecordOptions): Promise<void> {
     if (this.isRecording()) return;
     this.chunks = [];
+    this.currentHint = opts.filenameHint ?? null;
 
     const preferred = opts.preferredFormat ?? 'auto';
     const pick = pickFormat(preferred);
@@ -116,8 +120,9 @@ export class CanvasRecorder {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const hint = this.currentHint ? `${slugify(this.currentHint)}-` : '';
     a.href = url;
-    a.download = `ruttetra-${ts}.${this.currentExt}`;
+    a.download = `${hint}ruttetra-${ts}.${this.currentExt}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 
@@ -131,6 +136,10 @@ export class CanvasRecorder {
   private emit(s: 'idle' | 'recording' | 'finalizing'): void {
     for (const fn of this.listeners) fn(s);
   }
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 function pickFormat(pref: string): { mime: string; ext: string } | null {

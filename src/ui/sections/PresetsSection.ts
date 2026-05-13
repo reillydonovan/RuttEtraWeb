@@ -1,11 +1,17 @@
 /**
  * Presets section — load built-ins, save the current state to a named
  * user preset (in localStorage), or export/import as JSON files.
+ *
+ * Built-in preset chips are also draggable onto the Timeline dock to drop
+ * a keyframe with that preset's values (MIME `application/x-ruttetra-preset`).
  */
 
 import { Settings, SettingsStore, migrateSettings } from '../../state/Settings';
 import { PRESETS } from '../presets';
 import { row, group, button, textInput, readout } from '../widgets';
+import { exportEverything, importEverything } from '../../state/exportEverything';
+
+const PRESET_MIME = 'application/x-ruttetra-preset';
 
 const USER_KEY = 'ruttetra.userPresets.v1';
 
@@ -49,7 +55,34 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     }
   }, 'primary');
 
-  builtins.body.append(row('Preset', builtinSel), desc, loadBtn);
+  // Drag-anywhere chip strip — click to load, drag onto timeline to add kf.
+  const chips = document.createElement('div');
+  chips.className = 'rw-preset-chips';
+  for (const p of PRESETS) {
+    const c = document.createElement('div');
+    c.className = 'rw-preset-chip';
+    c.textContent = p.name;
+    c.title = `${p.description}\n(drag onto timeline to add keyframe)`;
+    c.draggable = true;
+    c.addEventListener('dragstart', (ev) => {
+      if (!ev.dataTransfer) return;
+      ev.dataTransfer.setData(PRESET_MIME, JSON.stringify(p));
+      ev.dataTransfer.setData('text/plain', p.name);
+      ev.dataTransfer.effectAllowed = 'copy';
+      c.classList.add('dragging');
+    });
+    c.addEventListener('dragend', () => c.classList.remove('dragging'));
+    c.addEventListener('click', () => {
+      builtinSel.value = p.id;
+      refreshBuiltinDesc();
+      const migrated = migrateSettings(p.values) as Partial<Settings>;
+      delete (migrated as { _v?: number })._v;
+      settings.patch(migrated);
+    });
+    chips.appendChild(c);
+  }
+
+  builtins.body.append(chips, row('Preset', builtinSel), desc, loadBtn);
   root.appendChild(builtins.root);
 
   // User presets
@@ -133,6 +166,45 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     if (confirm('Reset every setting to defaults?')) settings.reset();
   }, 'danger');
   root.appendChild(resetBtn);
+
+  // Backup & Restore (settings + user presets + timelines).
+  const backup = group('Backup & Restore');
+  const exportEverythingBtn = button('Export Everything', () => {
+    const json = exportEverything();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const a = document.createElement('a');
+    a.href = url; a.download = `ruttetra-backup-${ts}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  });
+  const importEverythingInp = document.createElement('input');
+  importEverythingInp.type = 'file';
+  importEverythingInp.accept = 'application/json,.json';
+  importEverythingInp.className = 'rw-text';
+  importEverythingInp.addEventListener('change', async () => {
+    const f = importEverythingInp.files?.[0];
+    if (!f) return;
+    if (!confirm('Import will overwrite local settings, user presets, and timelines. Continue?')) {
+      importEverythingInp.value = '';
+      return;
+    }
+    const text = await f.text();
+    try {
+      importEverything(text);
+      alert('Import complete. Reloading...');
+      location.reload();
+    } catch (e) {
+      alert(`Import failed: ${(e as Error).message}`);
+    }
+  });
+  backup.body.append(exportEverythingBtn, row('Restore', importEverythingInp));
+  const warn = readout();
+  warn.style.color = 'var(--re-text-dim)';
+  warn.textContent = 'Includes settings, user presets, timelines, MIDI/OSC bindings.';
+  backup.body.appendChild(warn);
+  root.appendChild(backup.root);
 
   return root;
 }

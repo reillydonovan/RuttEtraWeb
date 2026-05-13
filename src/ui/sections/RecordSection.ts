@@ -1,12 +1,21 @@
 /**
  * Record section — start/stop, format choice, optional mic, elapsed timer.
+ *
+ * Also exposes a "Record Timeline" button that drives the Sequencer through
+ * a one-shot pass and saves the result with a filename derived from the
+ * timeline name.
  */
 
 import { SettingsStore } from '../../state/Settings';
 import { CanvasRecorder } from '../../record/Recorder';
+import { Sequencer } from '../../sequencer/Sequencer';
 import { row, group, slider, toggle, dropdown, button, readout } from '../widgets';
 
-export function createRecordSection(settings: SettingsStore, recorder: CanvasRecorder): HTMLElement {
+export function createRecordSection(
+  settings: SettingsStore,
+  recorder: CanvasRecorder,
+  sequencer?: Sequencer,
+): HTMLElement {
   const root = document.createElement('div');
 
   const cfg = group('Configuration');
@@ -67,6 +76,79 @@ export function createRecordSection(settings: SettingsStore, recorder: CanvasRec
     requestAnimationFrame(tick);
   }
   tick();
+
+  // -------- Record Timeline -------------------------------------------------
+  if (sequencer) {
+    const tg = group('Record Timeline');
+    const timelineStatus = readout();
+    timelineStatus.textContent = 'no timeline loaded';
+
+    let savedLoop: boolean | null = null;
+    let armed = false; // true while a timeline-record run is in flight.
+
+    const recordTlBtn = button('Record Timeline', async () => {
+      const t = sequencer.timeline;
+      if (!t) {
+        timelineStatus.textContent = 'no timeline loaded';
+        return;
+      }
+      if (t.keyframes.length < 2) {
+        timelineStatus.textContent = 'need at least 2 keyframes';
+        return;
+      }
+      try {
+        sequencer.seek(0);
+        savedLoop = t.loop;
+        sequencer.setLoopOverride(false);
+        await recorder.start({
+          fps:             settings.get('recordFps'),
+          bitsPerSecond:   settings.get('recordBitrateMbps') * 1_000_000,
+          includeMic:      settings.get('recordIncludeMic'),
+          preferredFormat: settings.get('recordPreferredFormat'),
+          filenameHint:    t.name,
+        });
+        armed = true;
+        sequencer.play();
+        timelineStatus.textContent = `recording timeline "${t.name}"...`;
+      } catch (err) {
+        timelineStatus.textContent = `Error: ${(err as Error).message}`;
+        sequencer.setLoopOverride(null);
+      }
+    }, 'primary');
+
+    tg.body.append(recordTlBtn, timelineStatus);
+    root.appendChild(tg.root);
+
+    // When the sequencer reaches end (clamp + pause), auto-stop the recorder.
+    const prevHandler = sequencer.onPlayStateChange;
+    sequencer.onPlayStateChange = (playing: boolean) => {
+      prevHandler?.(playing);
+      if (armed && !playing) {
+        armed = false;
+        sequencer.setLoopOverride(null);
+        // Restore loop preference (it wasn't mutated, but be tidy).
+        savedLoop = null;
+        recorder.stop();
+        timelineStatus.textContent = 'finalizing...';
+        // Brief delay before clearing.
+        setTimeout(() => { timelineStatus.textContent = 'done'; }, 1500);
+      }
+    };
+
+    const refreshButton = () => {
+      const t = sequencer.timeline;
+      const ok = !!t && t.keyframes.length >= 2;
+      recordTlBtn.toggleAttribute('disabled', !ok || recorder.isRecording());
+      if (!t) timelineStatus.textContent = 'no timeline loaded';
+      else if (t.keyframes.length < 2) timelineStatus.textContent = 'need at least 2 keyframes';
+    };
+    const prevTimelineHandler = sequencer.onTimelineChange;
+    sequencer.onTimelineChange = (t) => {
+      prevTimelineHandler?.(t);
+      refreshButton();
+    };
+    refreshButton();
+  }
 
   // List supported codecs at the bottom for transparency
   const supported = CanvasRecorder.availableFormats();
