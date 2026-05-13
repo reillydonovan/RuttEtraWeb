@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0e0a" />
+    <title>RUTT/ETRA - Web Video Synthesizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="stage"></canvas>
+      <div id="overlay">
+        <div id="boot-message">
+          <div class="boot-line">RUTT/ETRA WEB SYNTHESIZER v0.1</div>
+          <div class="boot-line dim">awaiting video source...</div>
+          <button id="start-btn">REQUEST WEBCAM</button>
+        </div>
+      </div>
+      <aside id="panel-root"></aside>
+      <div id="hud"></div>
+      <video id="src-video" autoplay muted playsinline style="display:none"></video>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
