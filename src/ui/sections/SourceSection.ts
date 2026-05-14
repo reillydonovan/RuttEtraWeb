@@ -1,16 +1,70 @@
 /**
  * Source section — pick a video source (webcam / screen / file)
- * plus mirror toggles.
+ * plus mirror toggles and capture-quality settings.
  */
 
 import { SettingsStore } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
 import { row, group, toggle, button, readout } from '../widgets';
 
+const WEBCAM_RESOLUTIONS = [
+  { label: 'Auto (native)',   w: 0,    h: 0    },
+  { label: 'SD  (480p)',      w: 854,  h: 480  },
+  { label: 'HD  (720p)',      w: 1280, h: 720  },
+  { label: 'Full HD (1080p)', w: 1920, h: 1080 },
+  { label: '4K UHD (2160p)', w: 3840, h: 2160 },
+] as const;
+
 export function createSourceSection(settings: SettingsStore, source: VideoSourceManager): HTMLElement {
   const root = document.createElement('div');
 
-  // Webcam device selector
+  // ---- Capture Settings (resolution + fps for webcam) ----
+  const capGrp = group('Capture Settings');
+
+  const resSel = document.createElement('select');
+  resSel.className = 'rw-select';
+  for (const r of WEBCAM_RESOLUTIONS) {
+    const o = document.createElement('option');
+    o.value = `${r.w}x${r.h}`;
+    o.textContent = r.label;
+    resSel.appendChild(o);
+  }
+  // Sync dropdown to current stored values.
+  function syncResDropdown(): void {
+    const w = settings.get('requestedWidth');
+    const h = settings.get('requestedHeight');
+    const match = WEBCAM_RESOLUTIONS.find((r) => r.w === w && r.h === h);
+    resSel.value = match ? `${match.w}x${match.h}` : `${w}x${h}`;
+  }
+  syncResDropdown();
+  resSel.addEventListener('change', () => {
+    const [w, h] = resSel.value.split('x').map(Number);
+    settings.set('requestedWidth',  w);
+    settings.set('requestedHeight', h);
+  });
+
+  const fpsInp = document.createElement('input');
+  fpsInp.type = 'number'; fpsInp.min = '1'; fpsInp.max = '120'; fpsInp.step = '1';
+  fpsInp.className = 'rw-text'; fpsInp.style.width = '64px';
+  fpsInp.value = String(settings.get('requestedFps'));
+  fpsInp.addEventListener('change', () => {
+    const v = Math.max(1, Math.min(120, Math.round(+fpsInp.value) || 30));
+    fpsInp.value = String(v);
+    settings.set('requestedFps', v);
+  });
+
+  const capNote = readout();
+  capNote.style.color = 'var(--re-text-dim)';
+  capNote.textContent = '"Auto" lets the browser pick the camera\'s native resolution. Changes apply on next "Use Webcam".';
+
+  capGrp.body.append(
+    row('Resolution', resSel),
+    row('FPS',        fpsInp),
+    capNote,
+  );
+  root.appendChild(capGrp.root);
+
+  // ---- Webcam device selector ----
   const wc = group('Webcam');
 
   const select = document.createElement('select');

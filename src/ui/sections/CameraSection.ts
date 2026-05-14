@@ -1,11 +1,12 @@
 /**
  * Camera section — orbit/fly mode toggle, FOV/near/far, auto-orbit,
  * Reset View, Save Default View, and a numeric readout of the current
- * camera transform.
+ * camera transform. Also exposes the render-resolution selector.
  */
 
 import { SettingsStore } from '../../state/Settings';
 import { CameraRig } from '../../renderer/CameraRig';
+import { RESOLUTION_PRESETS } from '../../renderer/ResolutionManager';
 import { row, group, slider, toggle, dropdown, button, readout } from '../widgets';
 
 export function createCameraSection(settings: SettingsStore, rig: CameraRig): HTMLElement {
@@ -31,6 +32,9 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   obs.observe(document.body, { attributes: true, attributeFilter: ['data-layout'] });
   modeRow.body.append(row('Mode', modeDd));
   root.appendChild(modeRow.root);
+
+  // ---- Resolution group ----
+  root.appendChild(buildResolutionGroup(settings));
 
   const lens = group('Lens');
   lens.body.append(
@@ -114,4 +118,199 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   tick();
 
   return root;
+}
+
+// ---------------------------------------------------------------------------
+// Resolution group — self-contained so it doesn't clutter createCameraSection
+// ---------------------------------------------------------------------------
+
+function buildResolutionGroup(settings: SettingsStore): HTMLElement {
+  const grp = group('Resolution');
+  const isCompact = () => document.body.dataset.layout === 'compact';
+
+  // ========== Build ALL DOM elements first ==========
+  // (subscribe() fires its callback immediately, so every element that
+  //  refresh() touches must already exist before subscribe() is called.)
+
+  // ---- Resolution dropdown ----
+  const resSel = document.createElement('select');
+  resSel.className = 'rw-select';
+
+  function rebuildResOptions(): void {
+    const compact = isCompact();
+    const current = settings.get('renderResolutionId');
+    resSel.innerHTML = '';
+    for (const p of RESOLUTION_PRESETS) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.desktopOnly && compact
+        ? `${p.label} (desktop only)`
+        : p.label;
+      o.title = p.description;
+      if (p.desktopOnly && compact) o.disabled = true;
+      resSel.appendChild(o);
+    }
+    resSel.value = current;
+  }
+  rebuildResOptions();
+
+  // ---- Fit dropdown (hidden when 'match') ----
+  const fitSel = document.createElement('select');
+  fitSel.className = 'rw-select';
+  for (const [val, lbl] of [
+    ['letterbox', 'Letterbox'],
+    ['fill',      'Fill (crop)'],
+    ['stretch',   'Stretch'],
+  ] as [string, string][]) {
+    const o = document.createElement('option');
+    o.value = val; o.textContent = lbl;
+    fitSel.appendChild(o);
+  }
+  fitSel.value = settings.get('renderFitMode');
+  const fitRow = row('Fit', fitSel, 'how to display when aspect differs from window');
+
+  // ---- Warning element (GPU max exceeded) ----
+  const warnEl = document.createElement('div');
+  warnEl.className = 'rw-hint';
+  warnEl.style.color = 'var(--re-warn, #ffaa00)';
+  warnEl.style.display = 'none';
+
+  // ---- Custom size inputs ----
+  const customWrap = document.createElement('div');
+  customWrap.className = 'rw-btn-row';
+  customWrap.style.gap = '4px';
+  customWrap.style.flexWrap = 'wrap';
+
+  function numInput(settingKey: 'renderResolutionCustomW' | 'renderResolutionCustomH', placeholder: string): HTMLInputElement {
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.min = '256'; inp.max = '7680'; inp.step = '2';
+    inp.className = 'rw-text';
+    inp.placeholder = placeholder;
+    inp.style.width = '80px';
+    inp.value = String(settings.get(settingKey));
+    inp.addEventListener('change', () => {
+      const gl = document.querySelector('canvas')?.getContext('webgl2') as WebGL2RenderingContext | null;
+      const maxSize = gl ? gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) as number : 7680;
+      const v = Math.max(256, Math.min(maxSize, Math.round(+inp.value) || 256));
+      if (+inp.value > maxSize) {
+        warnEl.textContent = `⚠ Exceeds GPU max (${maxSize}px) — clamped.`;
+        warnEl.style.display = 'block';
+        setTimeout(() => { warnEl.style.display = 'none'; }, 5000);
+      }
+      inp.value = String(v);
+      settings.set(settingKey, v);
+    });
+    settings.subscribe(settingKey, (v) => { inp.value = String(v); });
+    return inp;
+  }
+
+  const wLabel = document.createElement('span');
+  wLabel.textContent = 'W'; wLabel.style.color = 'var(--re-text-dim)';
+  const hLabel = document.createElement('span');
+  hLabel.textContent = 'H'; hLabel.style.color = 'var(--re-text-dim)';
+  const wInp = numInput('renderResolutionCustomW', '1920');
+  const hInp = numInput('renderResolutionCustomH', '1080');
+  customWrap.append(wLabel, wInp, hLabel, hInp);
+
+  // ---- 4K performance note ----
+  const perfNote = document.createElement('div');
+  perfNote.className = 'rw-hint';
+  perfNote.style.color = 'var(--re-warn, #ffaa00)';
+  perfNote.style.display = 'none';
+  perfNote.textContent = '4K rendering is GPU-intensive. If framerate drops, try Render Scale 0.75 or lower.';
+
+  // ---- Live dimension readout ----
+  const dimReadout = readout();
+  dimReadout.style.marginTop = '2px';
+
+  // ========== Logic helpers ==========
+
+  function updateDimReadout(): void {
+    const id = settings.get('renderResolutionId');
+    if (id === 'match') {
+      const vp = document.getElementById('stage');
+      const w = vp?.clientWidth ?? window.innerWidth;
+      const h = vp?.clientHeight ?? window.innerHeight;
+      const g = gcd(w, h);
+      dimReadout.textContent = `${w}×${h} · ${w / g}:${h / g}`;
+      return;
+    }
+    if (id === 'custom') {
+      const cw = settings.get('renderResolutionCustomW');
+      const ch = settings.get('renderResolutionCustomH');
+      const g = gcd(cw, ch);
+      dimReadout.textContent = `${cw}×${ch} · ${cw / g}:${ch / g}`;
+      return;
+    }
+    const preset = RESOLUTION_PRESETS.find((p) => p.id === id);
+    if (preset && preset.width > 0) {
+      const g = gcd(preset.width, preset.height);
+      dimReadout.textContent = `${preset.width}×${preset.height} · ${preset.width / g}:${preset.height / g}`;
+    }
+  }
+
+  function refresh(): void {
+    const id = settings.get('renderResolutionId');
+    const matchMode = id === 'match';
+    const customMode = id === 'custom';
+    const highRes = id === 'uhd' || id === 'dci4k';
+
+    fitRow.style.display     = matchMode ? 'none' : '';
+    customWrap.style.display = customMode ? '' : 'none';
+
+    if (highRes) {
+      perfNote.style.display = 'block';
+      setTimeout(() => { perfNote.style.display = 'none'; }, 5000);
+    } else {
+      perfNote.style.display = 'none';
+    }
+
+    updateDimReadout();
+  }
+
+  // ========== Wire up event handlers + subscribes ==========
+  // All DOM elements above are fully constructed before any subscribe fires.
+
+  resSel.addEventListener('change', () => {
+    settings.set('renderResolutionId', resSel.value);
+    refresh();
+  });
+  // subscribe fires immediately — refresh() is safe to call now
+  settings.subscribe('renderResolutionId', (v) => { resSel.value = v; refresh(); });
+
+  fitSel.addEventListener('change', () => settings.set('renderFitMode', fitSel.value as 'letterbox' | 'fill' | 'stretch'));
+  settings.subscribe('renderFitMode', (v) => { fitSel.value = v; });
+
+  // ---- Poll readout in match-window mode (updates on window resize) ----
+  let prevW = 0, prevH = 0;
+  function pollMatchSize() {
+    if (settings.get('renderResolutionId') === 'match') {
+      const stage = document.getElementById('stage');
+      const w = stage?.clientWidth ?? 0;
+      const h = stage?.clientHeight ?? 0;
+      if (w !== prevW || h !== prevH) { prevW = w; prevH = h; updateDimReadout(); }
+    }
+    requestAnimationFrame(pollMatchSize);
+  }
+  pollMatchSize();
+
+  // ---- Rebuild options on layout mode change (compact ↔ standard) ----
+  const layoutObs = new MutationObserver(() => rebuildResOptions());
+  layoutObs.observe(document.body, { attributes: true, attributeFilter: ['data-layout'] });
+
+  grp.body.append(
+    row('Resolution', resSel),
+    fitRow,
+    customWrap,
+    warnEl,
+    perfNote,
+    dimReadout,
+  );
+
+  return grp.root;
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
 }

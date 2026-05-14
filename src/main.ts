@@ -18,6 +18,7 @@ import { VideoSourceManager } from './input/sources';
 import { RuttEtraScene } from './renderer/RuttEtra';
 import { CameraRig } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
+import { ResolutionManager } from './renderer/ResolutionManager';
 import { ModMatrix } from './modulation/ModMatrix';
 import { activeTargetsBus } from './modulation/ActiveTargetsBus';
 import type { GraphEngine } from './modulation/graph/GraphEngine';
@@ -90,6 +91,7 @@ async function bootSynth(): Promise<void> {
   const ruttEtra = new RuttEtraScene(settings, video);
   const cameraRig = new CameraRig(settings, canvas);
   const postfx = new PostFX(renderer, ruttEtra.scene, cameraRig.camera, settings, window.innerWidth, window.innerHeight);
+  const resolutionManager = new ResolutionManager(canvas, settings);
 
   // Hide panel/timeline while user "peeks" via long-press.
   document.addEventListener('re-peek-start', () => document.body.classList.add('peeking'));
@@ -360,6 +362,10 @@ async function bootSynth(): Promise<void> {
     debugOverlay.setRenderQuality(settings.get('renderScale'), perfMgr.snapshot().id);
     resize();
   });
+  settings.subscribe('renderResolutionId',     () => resize());
+  settings.subscribe('renderFitMode',          () => resize());
+  settings.subscribe('renderResolutionCustomW', () => resize());
+  settings.subscribe('renderResolutionCustomH', () => resize());
 
   // -------------------------- Audio gesture gate (iOS) ---------------------
   if (!settings.get('audioGestureUnlocked')) {
@@ -396,11 +402,10 @@ async function bootSynth(): Promise<void> {
     // clamped to the profile's renderScaleFloor lower bound.
     const userScale = Math.max(currentRenderScaleFloor, settings.get('renderScale'));
     const dpr = Math.min(window.devicePixelRatio, currentDprCap) * userScale;
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(w, h, false);
-    cameraRig.resize(w, h);
-    postfx.resize(w, h);
-    ruttEtra.setSize(w, h);
+    // ResolutionManager owns renderer/postfx/rig resize: it routes to the
+    // correct render-target size (match-window vs. fixed preset) and
+    // positions the canvas CSS for the chosen fit mode.
+    resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale);
     timelineDock?.resize();
   }
   function scheduleResize(): void {
@@ -463,7 +468,12 @@ async function bootSynth(): Promise<void> {
       frames = 0;
       fpsClock = now;
       const st = source.getState();
-      hud.textContent = `${fps.toFixed(0)} fps  ·  ${st.kind === 'none' ? 'no source' : `${st.kind} ${st.width}×${st.height}`}`;
+      const rW = resolutionManager.actualWidth;
+      const rH = resolutionManager.actualHeight;
+      const resId = settings.get('renderResolutionId');
+      const renderPart = (rW > 0 && resId !== 'match') ? `  ·  render ${rW}×${rH}` : '';
+      const srcPart = st.kind === 'none' ? 'no source' : `${st.kind} ${st.width}×${st.height}`;
+      hud.textContent = `${fps.toFixed(0)} fps  ·  ${srcPart}${renderPart}`;
     }
 
     requestAnimationFrame(frame);

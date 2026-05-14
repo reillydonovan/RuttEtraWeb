@@ -94,6 +94,10 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   flySpeed:         { description: 'Base movement speed in fly mode.', panel: 'Camera' },
   flyBoost:         { description: 'Hold Shift to multiply fly speed by this.', panel: 'Camera' },
   defaultView:      { description: 'Saved camera view used by the "Reset View [R]" button. Cleared by "Hard Reset Camera [Shift+R]".', panel: 'Camera' },
+  renderResolutionId:     { description: 'GPU render resolution, independent of window size. "Match Window" (default) tracks the display; SD/HD/4K presets lock the render target to a fixed pixel count. Recording output uses this resolution.', panel: 'Camera' },
+  renderFitMode:          { description: 'How to display the render target when its aspect ratio differs from the window. Letterbox = pixel-accurate with black bars (best for recording). Fill = no bars, edges cropped. Stretch = aspect-correct render scaled to fill window.', panel: 'Camera' },
+  renderResolutionCustomW: { description: 'Custom render width in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
+  renderResolutionCustomH: { description: 'Custom render height in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
 
   // ----- Modulation -----
   modSlots: { description: 'Up to 8 modulation slots. Each routes a signal source to a parameter.', panel: 'Modulation' },
@@ -328,6 +332,10 @@ const MD_TIPS = `
 - **Beginner view says my patch is too complex.** Open Advanced view to keep editing. Beginner only handles linear chains of source → optional 1-2 processors → binding.
 - **Camera rotation is unconstrained** — you can orbit completely over the top, underneath, or behind the raster. If the world ends up rolled at an awkward angle, click **Reset Up** in the Camera panel (or use **Hard Reset Camera** / \`Shift+R\` to fully clear it back to factory defaults).
 - **Camera got stuck or pointer-locked weird?** \`Shift+R\` is the escape hatch — it releases pointer lock, kills auto-orbit, switches back to Orbit mode, wipes any saved default, and snaps every value to factory defaults.
+- **Set Resolution to Full HD or 4K before recording** for consistent output dimensions regardless of your browser window size. The recorded video will be exactly the selected resolution.
+- **Render Scale is a multiplier on the chosen resolution.** 4K × 0.5 scale renders 1080p internally and upscales — fast performance recovery if your GPU is struggling, with no change to the recording dimension story.
+- **Letterbox fit guarantees pixel-accurate recording.** Fill or Stretch can crop or distort the render when the window doesn't match the preset's aspect ratio. Use Letterbox for predictable recording output.
+- **Custom resolution on mobile may be slow.** On compact/touch devices the Resolution dropdown caps selectable options at Full HD. Higher presets are still listed but grayed out.
 `;
 
 const MD_ABOUT = `

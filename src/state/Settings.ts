@@ -22,6 +22,7 @@ export type ModMode = 'classic' | 'graph' | 'both';
 export type RenderMode = 'scanlines' | 'dots' | 'wireframe';
 export type CameraMode = 'orbit' | 'fly';
 export type PerformanceProfileId = 'quality' | 'balanced' | 'battery';
+export type FitMode = 'letterbox' | 'fill' | 'stretch';
 
 export type ModSource =
   | 'ramp' | 'sine' | 'triangle' | 'square' | 'saw' | 'pulse'
@@ -220,6 +221,20 @@ export interface Settings {
   flySpeed: number;
   flyBoost: number;
   defaultView: CameraView;
+
+  // ---------- Render resolution ----------
+  /**
+   * Active resolution preset ID. `'match'` (default) tracks the canvas
+   * display size. Any other ID fixes the GPU render target at a specific
+   * pixel count, independent of window size.
+   */
+  renderResolutionId: string;
+  /** How to display the render target when its aspect differs from the window. */
+  renderFitMode: FitMode;
+  /** Custom width (pixels) — only used when `renderResolutionId === 'custom'`. */
+  renderResolutionCustomW: number;
+  /** Custom height (pixels) — only used when `renderResolutionId === 'custom'`. */
+  renderResolutionCustomH: number;
 
   // ---------- Modulation ----------
   modSlots: ModSlot[];
@@ -427,6 +442,11 @@ export const DEFAULTS: Settings = {
   flyBoost: 4,
   defaultView: { ...DEFAULT_VIEW },
 
+  renderResolutionId: 'match',
+  renderFitMode: 'letterbox',
+  renderResolutionCustomW: 1920,
+  renderResolutionCustomH: 1080,
+
   modSlots: [
     { ...DEFAULT_MOD_SLOT },
     { ...DEFAULT_MOD_SLOT },
@@ -498,7 +518,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
 
 interface Versioned { _v?: number }
 
@@ -606,6 +626,15 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.modMode  = (s.modMode  as ModMode    | undefined) ?? 'classic';
     s.modGraph = (s.modGraph as GraphPatch | null | undefined) ?? null;
     s._v = 6;
+  }
+
+  // ---- v6 -> v7: Render resolution selector ----
+  if ((s._v ?? 1) < 7) {
+    s.renderResolutionId     = (s.renderResolutionId     as string  | undefined) ?? 'match';
+    s.renderFitMode          = (s.renderFitMode          as FitMode | undefined) ?? 'letterbox';
+    s.renderResolutionCustomW = (s.renderResolutionCustomW as number | undefined) ?? 1920;
+    s.renderResolutionCustomH = (s.renderResolutionCustomH as number | undefined) ?? 1080;
+    s._v = 7;
   }
 
   return s as Partial<Settings> & Versioned;
