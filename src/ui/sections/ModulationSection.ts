@@ -466,6 +466,24 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
       if (clip) update({ ...clip });
     },
     reset: () => update({ ...DEFAULT_MOD_SLOT }),
+    softReset: () => {
+      // Type-defaults for params, identity output, amount=0; KEEP source +
+      // target + enabled. The user wants this for "snap a wonky LFO back
+      // to a known-good Sine 1Hz neutral state without losing my routing".
+      const cur = get();
+      update({
+        ...DEFAULT_MOD_SLOT,
+        source: cur.source,
+        target: cur.target,
+        enabled: cur.enabled,
+        amount: 0,
+      });
+    },
+    hardReset: () => {
+      // Full default + target='none' + amount=0. Slot stays in the list
+      // (delete is the X button); this just wipes its configuration.
+      update({ ...DEFAULT_MOD_SLOT, amount: 0, target: 'none' });
+    },
     midiClockState: () => matrix.slotMidiClockState(index),
     caps: {
       showEnable: true,

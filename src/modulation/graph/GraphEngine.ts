@@ -22,6 +22,7 @@
 
 import { OutputCurve, SettingsStore } from '../../state/Settings';
 import { activeTargetsBus } from '../ActiveTargetsBus';
+import { LiveValuesStore } from '../LiveValues';
 import { applyOutputStage, OutputStageParams } from '../outputStage';
 import './bootstrap';
 import { allDefs, getDef } from './registry';
@@ -31,33 +32,34 @@ import {
   NodeContext, NodeDeps, TargetBinding,
 } from './types';
 
-export interface GraphEngineDeps extends NodeDeps {}
+export interface GraphEngineDeps extends NodeDeps {
+  /**
+   * Required for the new "base + mod" architecture. The graph engine
+   * pushes per-frame contributions into the 'graph' namespace of the
+   * shared `LiveValuesStore`; it never writes directly to `Settings`.
+   */
+  liveValues: LiveValuesStore;
+}
 
 const ENGINE_ID = 'graph';
 
 export class GraphEngine {
   private compiled: CompiledPatch | null = null;
   private patch: GraphPatch = { nodes: [], bindings: [] };
-  private bases = new Map<string, number>();
-  /** ParamKeys we've already wired a `subscribe()` listener on. */
-  private baseSubscribed = new Set<string>();
-  /**
-   * True while `tick()` is calling `settings.batchUpdate()` to apply
-   * binding outputs. Used by the base-capture subscription to ignore
-   * self-writes — only external writes (slider drag, preset apply, MIDI
-   * in, sequencer keyframe) should update the manual base.
-   */
-  private writingFromTick = false;
   private joystick = { x: 0, y: 0, z: 0 };
   private startTime = performance.now() / 1000;
   private frame = 0;
   private deps: NodeDeps;
+  private liveValues: LiveValuesStore;
   /** Dev-mode hint: log a one-shot warning the first time we hit a cycle. */
   private warnedAboutCycle = false;
 
-  constructor(private settings: SettingsStore, deps: GraphEngineDeps = {}) {
-    this.deps = { ...deps };
-    this.installBaseCapture();
+  constructor(private settings: SettingsStore, deps: GraphEngineDeps) {
+    // Strip the LiveValuesStore out of `deps` before passing as NodeDeps —
+    // graph nodes don't need it, only the engine does.
+    const { liveValues, ...nodeDeps } = deps;
+    this.deps = { ...nodeDeps };
+    this.liveValues = liveValues;
   }
 
   // -------------------- public API --------------------
@@ -74,18 +76,6 @@ export class GraphEngine {
     }
     this.patch = patch;
     this.compiled = compile(patch);
-    // Re-capture bases on every `setPatch`. The user may have manually
-    // moved a slider since the last patch, so the previous base is
-    // probably stale. Tests rely on this behavior; production callers
-    // get a fresh "current value of the slider" capture too.
-    this.bases.clear();
-    for (const b of patch.bindings) {
-      if (!this.bases.has(b.paramKey)) {
-        const v = this.settings.get(b.paramKey as never) as unknown;
-        if (typeof v === 'number') this.bases.set(b.paramKey, v);
-      }
-      this.subscribeBase(b.paramKey);
-    }
     if (this.compiled.cycleEdges.length > 0 && !this.warnedAboutCycle) {
       this.warnedAboutCycle = true;
       // eslint-disable-next-line no-console
@@ -109,11 +99,13 @@ export class GraphEngine {
     this.joystick.z = z;
   }
 
-  /** Force-refresh a target's manual base value (called from UI on user edit). */
-  recaptureBase(paramKey: string): void {
-    const v = this.settings.get(paramKey as never) as unknown;
-    if (typeof v === 'number') this.bases.set(paramKey, v);
-  }
+  /**
+   * Legacy no-op kept so existing UI callsites compile. With the new
+   * base/live architecture, `Settings` always IS the base — there is no
+   * per-engine cached base anymore. Live values are recomputed each
+   * frame from `Settings.get(key) + sum(offsets)`.
+   */
+  recaptureBase(_paramKey: string): void { /* no-op since v9 */ }
 
   /**
    * Return the most-recent value of `nodeId.port`. Used by the Probe
@@ -146,15 +138,24 @@ export class GraphEngine {
   /**
    * Step the graph by `dt` seconds. Called once per frame from the main
    * render loop AFTER `matrix.tick()`. No-ops when mode is `'classic'`.
+   *
+   * v9 base/live split: never writes to `Settings`. Each frame we compute
+   * additive offsets and multiplicative factors per param, then push them
+   * into `LiveValuesStore` under namespace 'graph' via `setContributions`.
+   * Keys that drop out of the binding set (or whose Amount is zero, or
+   * whose source signal is zero) are CLEARED that frame — no stickiness.
    */
   tick(dt: number): void {
     const mode = this.settings.get('modMode');
     if (mode === 'classic' || mode == null) {
-      // Still publish (empty) targets so the bus reflects the disabled state.
+      // Bus stays empty so the activity LEDs go dark; clear our
+      // namespace so any stale offsets snap back to base immediately.
+      this.liveValues.setContributions(ENGINE_ID);
       activeTargetsBus.publish(ENGINE_ID, new Set());
       return;
     }
     if (!this.compiled) {
+      this.liveValues.setContributions(ENGINE_ID);
       activeTargetsBus.publish(ENGINE_ID, new Set());
       this.lastTickMs = 0;
       return;
@@ -213,8 +214,12 @@ export class GraphEngine {
       for (const k of Object.keys(inputBuf)) delete inputBuf[k];
     }
 
-    // 2. Apply bindings -> Settings (batched).
-    const sums = new Map<string, number>();
+    // 2. Apply bindings -> live offsets/factors.
+    //    Note: Output node has NO state. Every binding evaluates from
+    //    scratch from its current upstream signal — when amount is 0 or
+    //    the upstream is silent, the contribution is exactly 0, never a
+    //    cached "last value".
+    const offsets = new Map<string, number>();
     const factors = new Map<string, number>();
     for (const b of this.compiled.bindings) {
       const src = this.compiled.byId.get(b.sourceNodeId);
@@ -233,65 +238,20 @@ export class GraphEngine {
         const f = factors.get(b.paramKey) ?? 1;
         factors.set(b.paramKey, f * (1 + shaped * b.amount));
       } else {
-        sums.set(b.paramKey, (sums.get(b.paramKey) ?? 0) + shaped * b.amount);
+        offsets.set(b.paramKey, (offsets.get(b.paramKey) ?? 0) + shaped * b.amount);
       }
     }
 
-    const patch: Record<string, number> = {};
-    const touched = new Set<string>();
-    for (const [paramKey, sum] of sums) {
-      const base = this.bases.get(paramKey);
-      if (base == null) continue;
-      patch[paramKey] = base + sum;
-      touched.add(paramKey);
-    }
-    for (const [paramKey, factor] of factors) {
-      const base = this.bases.get(paramKey);
-      if (base == null) continue;
-      patch[paramKey] = (touched.has(paramKey) ? patch[paramKey] : base) * factor;
-      touched.add(paramKey);
-    }
-    if (Object.keys(patch).length > 0) {
-      this.writingFromTick = true;
-      try {
-        this.settings.batchUpdate(patch as never);
-      } finally {
-        this.writingFromTick = false;
-      }
-    }
+    // Push BOTH maps in one shot. Anything not in this set is cleared
+    // for the 'graph' namespace right now — no stale values, no
+    // stickiness. This is the bug fix.
+    this.liveValues.setContributions(ENGINE_ID, offsets, factors);
 
     activeTargetsBus.publish(ENGINE_ID, this.getActiveTargets());
     this.lastTickMs = performance.now() - tickStart;
   }
 
   // -------------------- internals --------------------
-
-  /**
-   * Watch for new bindings to capture the user's manual base value, and
-   * detect when the user drives a slider directly so we treat that as a
-   * new base (matches `ModMatrix.installBaseCapture`).
-   *
-   * Per-target subscriptions are wired lazily inside `setPatch()`; this
-   * hook stays for symmetry with `ModMatrix` and as a future seam.
-   */
-  private installBaseCapture(): void {
-    // Intentionally empty — per-paramKey subscriptions are added in
-    // `setPatch()` via `subscribeBase()`.
-  }
-
-  /**
-   * Subscribe once per paramKey so external writes (slider drag, preset
-   * apply, MIDI in) refresh the manual base. Self-writes from `tick()`
-   * are gated by `writingFromTick`.
-   */
-  private subscribeBase(paramKey: string): void {
-    if (this.baseSubscribed.has(paramKey)) return;
-    this.baseSubscribed.add(paramKey);
-    this.settings.subscribe(paramKey as never, (v: unknown) => {
-      if (this.writingFromTick) return;
-      if (typeof v === 'number') this.bases.set(paramKey, v);
-    });
-  }
 }
 
 // --------------------------------------------------------------------

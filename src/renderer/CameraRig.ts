@@ -24,6 +24,7 @@ import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { CameraView, CameraMode, SettingsStore } from '../state/Settings';
+import { LiveValuesStore } from '../modulation/LiveValues';
 
 /**
  * The original built-in starting position before any user customization.
@@ -75,7 +76,7 @@ export class CameraRig {
   private reusableQuat = new THREE.Quaternion();
   private moveDir = new THREE.Vector3();
 
-  constructor(private settings: SettingsStore, private domElement: HTMLElement) {
+  constructor(private settings: SettingsStore, private domElement: HTMLElement, private live: LiveValuesStore) {
     const s = settings.all;
 
     this.camera = new THREE.PerspectiveCamera(s.cameraFov, 1, s.cameraNear, s.cameraFar);
@@ -364,7 +365,9 @@ export class CameraRig {
   private bindSettings(): void {
     const s = this.settings;
     s.subscribe('cameraMode', (mode) => this.setMode(mode));
-    s.subscribe('cameraFov',  (fov) => {
+    // cameraFov is modulatable — read live so LFOs etc. can wobble it
+    // without overwriting the user's base FOV in Settings.
+    this.live.subscribe('cameraFov',  (fov) => {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     });

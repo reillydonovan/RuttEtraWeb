@@ -144,6 +144,19 @@ export interface SlotRowAdapter {
   paste(): void;
   /** Reset / delete this row. Wording differs (Classic resets, Graph deletes); the adapter decides. */
   reset(): void;
+  /**
+   * Soft reset (↻ button): set source-specific params back to type-defaults
+   * (LFO Rate=1Hz, Shape=sine, Depth=1, etc.), set Amount=0, set Output
+   * stage to identity. Source and Target dropdowns DO NOT change.
+   * The slot/binding remains enabled.
+   */
+  softReset(): void;
+  /**
+   * Hard reset (Shift+↻ button): everything `softReset()` does PLUS source
+   * back to default (Sine LFO) and target back to '(none)'. The slot
+   * remains in the list — it's a wipe, not a delete.
+   */
+  hardReset(): void;
 
   /** Optional dynamic flag: "row is too complex for Beginner view". */
   tooComplex?: boolean;
@@ -560,7 +573,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   tgtSel.addEventListener('change', () => adapter.target.set(tgtSel.value));
   header.appendChild(tgtSel);
 
-  // Copy / paste / reset
+  // Copy / paste / reset (per-patch ↻) / delete (X)
   let copyBtn: HTMLButtonElement | null = null;
   let pasteBtn: HTMLButtonElement | null = null;
   if (adapter.caps.showCopyPaste) {
@@ -568,8 +581,38 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     pasteBtn = buildIconBtn('Paste patch', 'V', () => adapter.paste());
     header.append(copyBtn, pasteBtn);
   }
+  // Soft reset (↻). Shift+click promotes to hard reset which also wipes
+  // source + target. The button doesn't delete the row — that's the
+  // job of the X button below. Keyboard: R / Shift+R when the row is
+  // focused dispatch the same actions.
+  const softResetBtn = buildIconBtn(
+    'Reset patch params (Shift: full reset including source/target)',
+    '↻',
+    () => adapter.softReset(),
+  );
+  softResetBtn.addEventListener('click', (ev) => {
+    // The base handler already ran — but we re-route on shift to call
+    // hardReset(). Use stopImmediatePropagation to swallow the default.
+    if (ev.shiftKey) { ev.stopImmediatePropagation(); ev.preventDefault(); adapter.hardReset(); }
+  }, true);
+  header.appendChild(softResetBtn);
+
   const delBtn = buildIconBtn(adapter.caps.resetLabel, 'X', () => adapter.reset());
   header.appendChild(delBtn);
+
+  // Make the row focusable so R / Shift+R can trigger reset without a
+  // mouse click, per the spec. Tab order matches column order.
+  card.tabIndex = 0;
+  card.addEventListener('keydown', (ev) => {
+    // Don't intercept while a child input has focus — typing 'R' in a
+    // number field shouldn't reset the patch.
+    const target = ev.target as HTMLElement | null;
+    if (target && target !== card && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
+    if (ev.key !== 'r' && ev.key !== 'R') return;
+    ev.preventDefault();
+    if (ev.shiftKey) adapter.hardReset();
+    else adapter.softReset();
+  });
 
   // No-clock badge — only relevant when source kind ties to MIDI clock.
   const noClock = el('span', 'rw-mod-noclock-badge', 'NO CLOCK');

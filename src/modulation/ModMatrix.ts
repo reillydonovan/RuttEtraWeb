@@ -26,7 +26,7 @@
  * and summed into the base value of its target Settings parameter.
  */
 
-import { ClockDivision, ModSlot, ModTarget, Settings, SettingsStore } from '../state/Settings';
+import { ClockDivision, ModSlot, ModTarget, SettingsStore } from '../state/Settings';
 import { FFTAnalyzer } from '../audio/FFTAnalyzer';
 import { BeatDetector } from '../audio/BeatDetector';
 import { MidiClock } from '../midi/MidiClock';
@@ -36,6 +36,7 @@ import { OscClient } from '../osc/OscClient';
 import { activeTargetsBus } from './ActiveTargetsBus';
 import { divisionToHz } from './tempo';
 import { applyOutputStage } from './outputStage';
+import { LiveValuesStore } from './LiveValues';
 
 /**
  * Diagnostic toggle. Set `localStorage.RW_MOD_DEBUG = '1'` (or open the
@@ -96,17 +97,19 @@ export interface ModMatrixDeps {
   midiMapping?: MidiMapping;
   midiManager?: MidiManager;
   osc?: OscClient;
+  /**
+   * Required for the new "base + mod" path. ModMatrix never writes to
+   * `Settings` directly anymore — every per-frame contribution is
+   * pushed into `LiveValuesStore` under the namespace 'classic'.
+   */
+  liveValues: LiveValuesStore;
 }
 
 export class ModMatrix {
   private startTime = performance.now() / 1000;
-  private bases = new Map<ModTarget, number>();
-  /** Targets we've already wired a `subscribe()` listener on. */
-  private baseSubscribed = new Set<ModTarget>();
-  /** True while `tick()` is calling `settings.set()`. Self-write guard. */
-  private writingFromTick = false;
   private joystick: JoystickState = { x: 0, y: 0, z: 0 };
   private slotStates: SlotState[] = [];
+  private liveValues: LiveValuesStore;
   /**
    * `performance.now()/1000` of the last `console.log` from the debug
    * sampler. Throttled to ~1Hz so the log isn't a firehose at 60fps.
@@ -120,14 +123,14 @@ export class ModMatrix {
   private midiManager: MidiManager | null;
   private osc: OscClient | null;
 
-  constructor(private settings: SettingsStore, deps: ModMatrixDeps = {}) {
+  constructor(private settings: SettingsStore, deps: ModMatrixDeps) {
     this.fft = deps.fft ?? null;
     this.beat = deps.beat ?? null;
     this.midiClock = deps.midiClock ?? null;
     this.midiMapping = deps.midiMapping ?? null;
     this.midiManager = deps.midiManager ?? null;
     this.osc = deps.osc ?? null;
-    this.installBaseCapture();
+    this.liveValues = deps.liveValues;
   }
 
   /** Wire a 2D pad into the joystick X/Y values (range -1..+1 per axis). */
@@ -187,18 +190,27 @@ export class ModMatrix {
     };
   }
 
-  /** Step the matrix; called every frame. */
+  /** Step the matrix; called every frame.
+   *
+   *  v9 base/live split: we no longer write `settings.set(target, base+sum)`.
+   *  Instead, we push our offsets to `LiveValuesStore` under the 'classic'
+   *  namespace via `setContributions()`. Keys whose contributions go to 0
+   *  (or whose slot is disabled, deleted, or has its target changed) are
+   *  cleared for that namespace this same frame — fixes the long-standing
+   *  "params stick at last modulated value" bug.
+   */
   tick(dtSec: number): void {
     const now = performance.now() / 1000 - this.startTime;
     const slots = this.settings.get('modSlots');
     const internalBpm = this.settings.get('internalBpm');
     const safeDt = Math.max(0, Math.min(0.5, dtSec));
 
-    const sums = new Map<ModTarget, number>();
+    const offsets = new Map<string, number>();
     const slotValues = new Array<number>(slots.length);
     const debug = debugLogEnabled();
     const wantSample = debug && (now - this.lastDebugLogTime) >= 1.0;
     const rawValues = wantSample ? new Array<number>(slots.length) : null;
+    const activeTargets = new Set<ModTarget>();
 
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
@@ -213,7 +225,8 @@ export class ModMatrix {
       slotValues[i] = shaped;
       if (rawValues) rawValues[i] = raw;
       const t = slot.target;
-      sums.set(t, (sums.get(t) ?? 0) + shaped * slot.amount);
+      activeTargets.add(t);
+      offsets.set(t as string, (offsets.get(t as string) ?? 0) + shaped * slot.amount);
     }
 
     if (wantSample && rawValues) {
@@ -232,17 +245,10 @@ export class ModMatrix {
       }
     }
 
-    this.writingFromTick = true;
-    try {
-      for (const [target, sum] of sums) {
-        const base = this.bases.get(target);
-        if (base == null) continue;
-        const next = base + sum;
-        this.settings.set(target as keyof Settings, next as never);
-      }
-    } finally {
-      this.writingFromTick = false;
-    }
+    // Push every active target's offset, AND clear any prior keys we've
+    // dropped (handled internally by setContributions). ModMatrix has no
+    // multiplicative contributions today, so factors stay empty.
+    this.liveValues.setContributions('classic', offsets);
 
     // MIDI-out: emit each enabled slot's value (-1..1 -> 0..1) as CC.
     if (this.midiManager) {
@@ -254,7 +260,7 @@ export class ModMatrix {
       }
     }
 
-    activeTargetsBus.publish('classic', new Set(sums.keys()));
+    activeTargetsBus.publish('classic', activeTargets);
   }
 
   // -------------------- generator math --------------------
@@ -489,37 +495,14 @@ export class ModMatrix {
   }
 
   /**
-   * Watch for the user changing a target value to update our base — but
-   * only if the change isn't coming from our own `tick()` write.
+   * Legacy no-op kept so existing UI callsites compile. With the new
+   * base/live architecture, `Settings` always IS the base and
+   * `LiveValuesStore` always pulls a fresh base each frame — there's no
+   * cached base to refresh. Deleting the call entirely is safe; this
+   * shim just lets us land the engine refactor without churning every
+   * UI file in the same PR.
    */
-  private installBaseCapture(): void {
-    this.settings.subscribe('modSlots', (slots) => {
-      const targets = new Set<ModTarget>();
-      for (const s of slots) if (s.enabled && s.target !== 'none') targets.add(s.target);
-      for (const t of targets) {
-        if (!this.bases.has(t)) {
-          const v = this.settings.get(t as keyof Settings) as unknown;
-          if (typeof v === 'number') this.bases.set(t, v);
-        }
-        this.subscribeBase(t);
-      }
-    });
-  }
-
-  private subscribeBase(target: ModTarget): void {
-    if (this.baseSubscribed.has(target)) return;
-    this.baseSubscribed.add(target);
-    this.settings.subscribe(target as keyof Settings, (v) => {
-      if (this.writingFromTick) return;
-      if (typeof v === 'number') this.bases.set(target, v);
-    });
-  }
-
-  /** Force-refresh the base value for a target (called from UI on user edit). */
-  recaptureBase(target: ModTarget): void {
-    const v = this.settings.get(target as keyof Settings) as unknown;
-    if (typeof v === 'number') this.bases.set(target, v);
-  }
+  recaptureBase(_target: ModTarget): void { /* no-op since v9 */ }
 
   /** Read-only access to the MIDI clock dependency (for UI badges). */
   getMidiClock(): MidiClock | null {

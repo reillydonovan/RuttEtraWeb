@@ -836,6 +836,33 @@ body.viewer-mode #stage { background: #000; }
    Modulation engine mode switch (Classic / Graph / Both)
    ============================================================ */
 
+.rw-mod-header-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 4px 0 10px 0;
+}
+.rw-mod-header-row .rw-mod-mode-switch {
+  flex: 1 1 auto;
+  margin: 0;
+}
+.rw-mod-reset-mod {
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding: 4px 10px;
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--re-line);
+  background: transparent;
+  color: var(--re-text);
+  cursor: pointer;
+}
+.rw-mod-reset-mod:hover {
+  background: var(--re-line);
+  color: var(--re-bg, #000);
+}
 .rw-mod-mode-switch {
   display: flex;
   gap: 0;

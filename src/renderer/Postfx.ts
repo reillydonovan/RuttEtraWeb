@@ -19,6 +19,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { SettingsStore } from '../state/Settings';
+import { LiveValuesStore } from '../modulation/LiveValues';
 
 const VERT = /* glsl */`
   varying vec2 vUv;
@@ -108,6 +109,7 @@ export class PostFX {
     private settings: SettingsStore,
     width: number,
     height: number,
+    private live: LiveValuesStore,
   ) {
     this.composer = new EffectComposer(renderer);
     this.composer.setSize(width, height);
@@ -220,23 +222,27 @@ export class PostFX {
 
   private bindSettings(): void {
     const s = this.settings;
+    const live = this.live;
 
+    // Modulatable: bloomIntensity, bloomRadius, scanlineIntensity,
+    // chromaAmount, feedbackDecay. Toggles + non-modulatable params
+    // stay on `settings.subscribe`.
     s.subscribe('bloomEnabled',   (v) => { this.bloom.enabled = v; });
-    s.subscribe('bloomIntensity', (v) => { this.bloom.strength = v; });
-    s.subscribe('bloomRadius',    (v) => { this.bloom.radius = v; });
+    live.subscribe('bloomIntensity', (v) => { this.bloom.strength = v; });
+    live.subscribe('bloomRadius',    (v) => { this.bloom.radius = v; });
     s.subscribe('bloomThreshold', (v) => { this.bloom.threshold = v; });
 
     s.subscribe('scanlineEnabled',   (v) => { this.crt.uniforms.uScanlineOn.value = v ? 1 : 0; });
-    s.subscribe('scanlineIntensity', (v) => { this.crt.uniforms.uScanlineIntensity.value = v; });
+    live.subscribe('scanlineIntensity', (v) => { this.crt.uniforms.uScanlineIntensity.value = v; });
     s.subscribe('scanlineDensity',   (v) => { this.crt.uniforms.uScanlineDensity.value = v; });
 
     s.subscribe('chromaEnabled', (v) => { this.crt.uniforms.uChromaOn.value = v ? 1 : 0; });
-    s.subscribe('chromaAmount',  (v) => { this.crt.uniforms.uChromaAmount.value = v; });
+    live.subscribe('chromaAmount',  (v) => { this.crt.uniforms.uChromaAmount.value = v; });
 
     s.subscribe('vignetteEnabled', (v) => { this.crt.uniforms.uVignetteOn.value = v ? 1 : 0; });
     s.subscribe('vignetteAmount',  (v) => { this.crt.uniforms.uVignetteAmount.value = v; });
 
     s.subscribe('feedbackEnabled', (v) => { this.feedbackPass.enabled = v; });
-    s.subscribe('feedbackDecay',   (v) => { this.feedbackPass.uniforms.uDecay.value = v; });
+    live.subscribe('feedbackDecay',   (v) => { this.feedbackPass.uniforms.uDecay.value = v; });
   }
 }

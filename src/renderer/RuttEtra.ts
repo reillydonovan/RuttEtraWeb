@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import vertSrc from './shaders/ruttEtra.vert.glsl?raw';
 import fragSrc from './shaders/ruttEtra.frag.glsl?raw';
 import { SettingsStore, ColorMode } from '../state/Settings';
+import { LiveValuesStore } from '../modulation/LiveValues';
 
 const COLOR_MODE_INDEX: Record<ColorMode, number> = {
   grayscale: 0,
@@ -41,7 +42,11 @@ export class RuttEtraScene {
   private spectrumData: Float32Array = new Float32Array(32);
   private spectrumBandCount = 32;
 
-  constructor(private settings: SettingsStore, private video: HTMLVideoElement) {
+  constructor(
+    private settings: SettingsStore,
+    private video: HTMLVideoElement,
+    private live: LiveValuesStore,
+  ) {
     this.scene.add(this.group);
 
     const bg = new THREE.Color(this.settings.get('backgroundColor'));
@@ -243,42 +248,48 @@ export class RuttEtraScene {
 
   private bindSettings(): void {
     const s = this.settings;
+    const live = this.live;
     const u = this.uniforms;
 
+    // Non-modulatable params keep using `settings.subscribe` directly.
+    // Modulatable params route through `live.subscribe` so the renderer
+    // sees `(base + sum_offsets) * product_factors` instead of just
+    // `Settings.get(key)`. The two reads are intentional — the UI knob
+    // continues to read/write the BASE via `settings`.
     s.subscribe('mirrorH', (v) => (u.uMirror.value as THREE.Vector2).setX(v ? 1 : 0));
     s.subscribe('mirrorV', (v) => (u.uMirror.value as THREE.Vector2).setY(v ? 1 : 0));
 
-    s.subscribe('focus',     (v) => { u.uFocus.value = v; });
-    s.subscribe('threshold', (v) => { u.uThreshold.value = v; });
-    s.subscribe('contrast',  (v) => { u.uContrast.value = v; });
-    s.subscribe('gamma',     (v) => { u.uGamma.value = v; });
+    live.subscribe('focus',     (v) => { u.uFocus.value = v; });
+    live.subscribe('threshold', (v) => { u.uThreshold.value = v; });
+    live.subscribe('contrast',  (v) => { u.uContrast.value = v; });
+    live.subscribe('gamma',     (v) => { u.uGamma.value = v; });
 
-    s.subscribe('zPush',   (v) => { u.uZPush.value = v; });
-    s.subscribe('zBias',   (v) => { u.uZBias.value = v; });
+    live.subscribe('zPush',   (v) => { u.uZPush.value = v; });
+    live.subscribe('zBias',   (v) => { u.uZBias.value = v; });
     s.subscribe('zInvert', (v) => { u.uZInvert.value = v ? 1 : 0; });
 
-    s.subscribe('hLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setX(v));
-    s.subscribe('vLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setY(v));
+    live.subscribe('hLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setX(v));
+    live.subscribe('vLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setY(v));
 
-    s.subscribe('aspect', (v) => { u.uAspect.value = v; });
-    s.subscribe('hSize',  (v) => (u.uSize.value as THREE.Vector2).setX(v));
-    s.subscribe('vSize',  (v) => (u.uSize.value as THREE.Vector2).setY(v));
+    live.subscribe('aspect', (v) => { u.uAspect.value = v; });
+    live.subscribe('hSize',  (v) => (u.uSize.value as THREE.Vector2).setX(v));
+    live.subscribe('vSize',  (v) => (u.uSize.value as THREE.Vector2).setY(v));
 
-    s.subscribe('hPos', (v) => (u.uPos.value as THREE.Vector2).setX(v));
-    s.subscribe('vPos', (v) => (u.uPos.value as THREE.Vector2).setY(v));
+    live.subscribe('hPos', (v) => (u.uPos.value as THREE.Vector2).setX(v));
+    live.subscribe('vPos', (v) => (u.uPos.value as THREE.Vector2).setY(v));
 
-    s.subscribe('hCenter', (v) => (u.uCenter.value as THREE.Vector2).setX(v));
-    s.subscribe('vCenter', (v) => (u.uCenter.value as THREE.Vector2).setY(v));
+    live.subscribe('hCenter', (v) => (u.uCenter.value as THREE.Vector2).setX(v));
+    live.subscribe('vCenter', (v) => (u.uCenter.value as THREE.Vector2).setY(v));
 
     s.subscribe('rotate90', (v) => { u.uRotate90.value = v ? 1 : 0; });
-    s.subscribe('hSpin',    (v) => { u.uHSpin.value = v; });
-    s.subscribe('vSpin',    (v) => { u.uVSpin.value = v; });
+    live.subscribe('hSpin', (v) => { u.uHSpin.value = v; });
+    live.subscribe('vSpin', (v) => { u.uVSpin.value = v; });
     s.subscribe('hReverse', (v) => { u.uHReverse.value = v ? 1 : 0; });
     s.subscribe('vReverse', (v) => { u.uVReverse.value = v ? 1 : 0; });
 
-    s.subscribe('skip', (v) => { u.uSkip.value = v; });
+    live.subscribe('skip', (v) => { u.uSkip.value = v; });
 
-    s.subscribe('intensity', (v) => { u.uIntensity.value = v; });
+    live.subscribe('intensity', (v) => { u.uIntensity.value = v; });
 
     s.subscribe('colorMode', (mode) => {
       u.uColorMode.value = COLOR_MODE_INDEX[mode];
@@ -309,8 +320,8 @@ export class RuttEtraScene {
       u.uSpectrumAmount.value = spec.amount;
       u.uSpectrumStride.value = spec.stride;
     });
-    s.subscribe('spectrumAmount', (v) => { u.uSpectrumAmount.value = v; });
-    s.subscribe('spectrumStride', (v) => { u.uSpectrumStride.value = v; });
+    live.subscribe('spectrumAmount', (v) => { u.uSpectrumAmount.value = v; });
+    live.subscribe('spectrumStride', (v) => { u.uSpectrumStride.value = v; });
     s.subscribe('audioBandCount', (n) => this.ensureSpectrumTexture(n));
   }
 

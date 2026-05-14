@@ -14,9 +14,15 @@
 import { AudioInputKind, BandCount, BandSpacing, FftSize, SettingsStore } from '../../state/Settings';
 import { FFTAnalyzer } from '../../audio/FFTAnalyzer';
 import { BeatDetector } from '../../audio/BeatDetector';
+import { LiveValuesStore } from '../../modulation/LiveValues';
 import { row, group, button, slider, dropdown, toggle } from '../widgets';
 
-export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, beat: BeatDetector): HTMLElement {
+export function createAudioSection(
+  settings: SettingsStore,
+  fft: FFTAnalyzer,
+  beat: BeatDetector,
+  live: LiveValuesStore,
+): HTMLElement {
   const root = document.createElement('div');
 
   // ---- Input picker ----
@@ -178,17 +184,20 @@ export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, be
   settings.subscribe('audioFftSize',     (n) => fft.setFftSize(n));
   settings.subscribe('audioBandCount',   (n) => fft.setBandCount(n));
   settings.subscribe('audioBandSpacing', (m) => fft.setSpacing(m));
+  // gain/floor are modulatable: pull from `live` so an LFO/Mod patch on
+  // audioGain actually changes the band shaper (otherwise the shaper
+  // would silently use the unmodulated base value).
   const reapplyShape = () => fft.setBandShape({
     attackMs:    settings.get('audioAttackMs'),
     releaseMs:   settings.get('audioReleaseMs'),
-    gain:        settings.get('audioGain'),
-    floor:       settings.get('audioFloor'),
+    gain:        live.getLive('audioGain'),
+    floor:       live.getLive('audioFloor'),
     thresholdDb: settings.get('audioThresholdDb'),
   });
   settings.subscribe('audioAttackMs',    reapplyShape);
   settings.subscribe('audioReleaseMs',   reapplyShape);
-  settings.subscribe('audioGain',        reapplyShape);
-  settings.subscribe('audioFloor',       reapplyShape);
+  live.subscribe('audioGain',            reapplyShape);
+  live.subscribe('audioFloor',           reapplyShape);
   settings.subscribe('audioThresholdDb', reapplyShape);
 
   // ---- Visualizer ----
@@ -221,7 +230,10 @@ export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, be
   specGroup.body.appendChild(row('Stride', slider(settings, 'spectrumStride', 0.1, 4, 0.01)));
 
   // Mirror spectrumAmount/spectrumStride into audioSpectrum so the renderer
-  // (which subscribes to audioSpectrum) sees changes from sliders too.
+  // (which subscribes to audioSpectrum) sees BASE changes from sliders too.
+  // We mirror the BASE value here, not the live value — `audioSpectrum`
+  // is a config object the user owns, and the renderer already
+  // re-overlays modulation via its `live.subscribe('spectrumAmount', ...)`.
   settings.subscribe('spectrumAmount', (v) => {
     const cur = settings.get('audioSpectrum');
     if (cur.amount !== v) settings.set('audioSpectrum', { ...cur, amount: v });
@@ -254,7 +266,8 @@ export function createAudioSection(settings: SettingsStore, fft: FFTAnalyzer, be
 
   setInterval(() => beatDot.classList.toggle('on', beat.pulse > 0.3), 30);
   settings.subscribe('beatEnabled',     (v) => beat.setEnabled(v));
-  settings.subscribe('beatSensitivity', (v) => beat.setSensitivity(v));
+  // beatSensitivity is modulatable.
+  live.subscribe('beatSensitivity', (v) => beat.setSensitivity(v));
 
   root.appendChild(beatGroup.root);
 

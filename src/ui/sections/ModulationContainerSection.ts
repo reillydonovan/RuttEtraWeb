@@ -12,6 +12,7 @@ import { ModMode, ModSlot, SettingsStore } from '../../state/Settings';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import type { VideoTap } from '../../modulation/graph/VideoTap';
 import { ModMatrix } from '../../modulation/ModMatrix';
+import { LiveValuesStore } from '../../modulation/LiveValues';
 import { createModulationSection } from './ModulationSection';
 import { button } from '../widgets';
 import { layoutManager } from '../layout/LayoutManager';
@@ -20,6 +21,9 @@ import { classicToGraph } from '../../modulation/graph/convert';
 export interface ModulationContainerDeps {
   settings: SettingsStore;
   matrix: ModMatrix;
+  /** Shared base/live router. Used by the global "Reset Mod" button to
+   *  force liveParams back to base in one tick. */
+  liveValues: LiveValuesStore;
   /**
    * Lazy access to the GraphEngine (constructed only when the user
    * touches the Graph or Both mode for the first time).
@@ -30,11 +34,17 @@ export interface ModulationContainerDeps {
 }
 
 export function createModulationContainerSection(deps: ModulationContainerDeps): HTMLElement {
-  const { settings, matrix } = deps;
+  const { settings, matrix, liveValues } = deps;
   const root = document.createElement('div');
   root.className = 'rw-mod-container';
 
-  // ---------- Mode switch ----------
+  // ---------- Mode switch + Reset Mod ----------
+  // The mode switch and the panic "Reset Mod" button share a header row
+  // so the button is reachable without scrolling no matter how many
+  // patches the user has expanded.
+  const headerRow = document.createElement('div');
+  headerRow.className = 'rw-mod-header-row';
+
   const switchEl = document.createElement('div');
   switchEl.className = 'rw-mod-mode-switch';
   switchEl.setAttribute('role', 'tablist');
@@ -57,7 +67,39 @@ export function createModulationContainerSection(deps: ModulationContainerDeps):
     buttons.set(m.id, b);
     switchEl.appendChild(b);
   }
-  root.appendChild(switchEl);
+  headerRow.appendChild(switchEl);
+
+  // Panic button: mute every patch (Amount=0) and force live params
+  // back to base in one tick. Doesn't delete patches — the user keeps
+  // their carefully-built routing, just stops it from doing anything.
+  const resetModBtn = document.createElement('button');
+  resetModBtn.type = 'button';
+  resetModBtn.className = 'rw-btn rw-mod-reset-mod';
+  resetModBtn.textContent = 'Reset Mod';
+  resetModBtn.title = 'Mute every patch (Amount=0) and snap modulated params back to base';
+  resetModBtn.addEventListener('click', () => {
+    // Classic: zero every slot's amount.
+    const slots = settings.get('modSlots');
+    settings.set('modSlots', slots.map((s) => ({ ...s, amount: 0 })));
+    // Graph: zero every binding's amount (without deleting routing).
+    const graph = settings.get('modGraph');
+    if (graph) {
+      const next = {
+        ...graph,
+        bindings: graph.bindings.map((b) => ({ ...b, amount: 0 })),
+      };
+      settings.set('modGraph', next);
+      void deps.getEngine().then((e) => e.setPatch(next));
+    }
+    // Snap live values back to base immediately. clearAll() drops every
+    // engine namespace's contributions so subscribers see live=base
+    // before the next animation frame; the engines will rebuild their
+    // (now-zero) contributions on the next tick.
+    liveValues.clearAll();
+  });
+  headerRow.appendChild(resetModBtn);
+
+  root.appendChild(headerRow);
 
   // ---------- Classic pane ----------
   const classicPane = document.createElement('div');

@@ -21,6 +21,8 @@ import { PostFX } from './renderer/Postfx';
 import { ResolutionManager } from './renderer/ResolutionManager';
 import { ModMatrix } from './modulation/ModMatrix';
 import { activeTargetsBus } from './modulation/ActiveTargetsBus';
+import { LiveValuesStore } from './modulation/LiveValues';
+import { attachModDebugOverlayIfRequested } from './modulation/ModDebugOverlay';
 import type { GraphEngine } from './modulation/graph/GraphEngine';
 import { ControlPanel } from './ui/ControlPanel';
 import { createSourceSection } from './ui/sections/SourceSection';
@@ -88,9 +90,17 @@ async function bootSynth(): Promise<void> {
 
   const source = new VideoSourceManager(video);
 
-  const ruttEtra = new RuttEtraScene(settings, video);
-  const cameraRig = new CameraRig(settings, canvas);
-  const postfx = new PostFX(renderer, ruttEtra.scene, cameraRig.camera, settings, window.innerWidth, window.innerHeight);
+  // Single shared "base + mod" router. Built before anything that
+  // subscribes to modulatable params so renderer code can register
+  // against `liveValues` from the very first frame. The store mirrors
+  // `Settings` for non-modulated keys and overlays per-engine
+  // contributions for modulated ones — see `src/modulation/LiveValues.ts`.
+  const liveValues = new LiveValuesStore(settings);
+  attachModDebugOverlayIfRequested(liveValues);
+
+  const ruttEtra = new RuttEtraScene(settings, video, liveValues);
+  const cameraRig = new CameraRig(settings, canvas, liveValues);
+  const postfx = new PostFX(renderer, ruttEtra.scene, cameraRig.camera, settings, window.innerWidth, window.innerHeight, liveValues);
   const resolutionManager = new ResolutionManager(canvas, settings);
 
   // Hide panel/timeline while user "peeks" via long-press.
@@ -154,6 +164,7 @@ async function bootSynth(): Promise<void> {
     midiMapping: io.midiMapping,
     midiManager: io.midiManager,
     osc:         io.osc,
+    liveValues,
   });
 
   // Lazy-construct the Graph engine. Classic-only users never touch the
@@ -176,6 +187,7 @@ async function bootSynth(): Promise<void> {
       midiManager: io.midiManager,
       osc:         io.osc,
       videoTap,
+      liveValues,
     });
     const persisted = settings.get('modGraph');
     if (persisted) graphEngine.setPatch(persisted);
@@ -238,7 +250,7 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
-  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
+  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, liveValues, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
   panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
   panel.addSection({ tab: 'synth', title: 'Presets',               body: createPresetsSection(settings) });
   panel.addSection({
@@ -283,7 +295,7 @@ async function bootSynth(): Promise<void> {
     panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, recorder, sequencer) });
     panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, canvas) });
     panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
-    panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat), initiallyOpen: true });
+    panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
   })();
 

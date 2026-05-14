@@ -465,11 +465,53 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
         });
       },
       reset: () => {
-        // Graph "reset" is delete the row.
         mutate((cur, _src, b) => {
           if (!b) return;
           cur.bindings = cur.bindings.filter((x) => x.id !== row.binding.id);
           cur.nodes = cur.nodes.filter((n) => n.id !== row.source.id);
+        });
+      },
+      softReset: () => {
+        // Type-defaults for the source node's params + identity output
+        // stage + amount=0. Source type, paramKey, and mode are kept —
+        // this is the "snap params back to neutral but keep my routing"
+        // affordance. Pulls each param's default from the registry so
+        // it stays accurate as the registry evolves.
+        mutate((_cur, src, b) => {
+          if (src) src.params = defaultsForNodeType(src.type);
+          if (b) {
+            b.amount = 0;
+            b.curve = undefined;
+            b.outputCurve = 'linear';
+            b.outputMin = -1;
+            b.outputMax = 1;
+            b.outputOffset = 0;
+            b.outputInvert = false;
+          }
+        });
+      },
+      hardReset: () => {
+        // Source back to default sine LFO, target back to "none". The
+        // binding stays in the patch — to fully delete the row, the user
+        // can click X. Hard reset is a "wipe my settings, keep the row".
+        mutate((_cur, src, b) => {
+          if (src) {
+            src.type = 'lfo';
+            src.params = defaultsForNodeType('lfo');
+            src.inputs = {};
+          }
+          if (b) {
+            b.paramKey = 'none';
+            b.amount = 0;
+            b.mode = 'additive';
+            b.sourcePort = undefined;
+            b.curve = undefined;
+            b.outputCurve = 'linear';
+            b.outputMin = -1;
+            b.outputMax = 1;
+            b.outputOffset = 0;
+            b.outputInvert = false;
+          }
         });
       },
       caps: {
@@ -498,6 +540,25 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
     if (c === 'log') return 'log';
     if (c === 'sCurve') return 's';
     return 'linear';
+  }
+
+  /**
+   * Pull a node's "type-default" params from the registry. Used by the
+   * per-row Reset (↻) button: clicking Reset wipes user-tuned params
+   * (LFO Rate=1, Shape=Sine, Depth=1, ...) and restores the spec defaults
+   * without dropping the row.
+   *
+   * Returns an empty params object if the registry doesn't have the type
+   * (defensive against stale presets after registry edits).
+   */
+  function defaultsForNodeType(type: NodeType): Record<string, number | string | boolean> {
+    const def = getDef(type);
+    if (!def) return {};
+    const out: Record<string, number | string | boolean> = {};
+    for (const [k, spec] of Object.entries(def.params)) {
+      out[k] = spec.default;
+    }
+    return out;
   }
 
   // Re-render whenever modGraph changes from outside (preset apply,

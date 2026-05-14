@@ -7,6 +7,8 @@ import '../bootstrap';
 import { GraphEngine } from '../GraphEngine';
 import { getDef } from '../registry';
 import { GraphPatch, NodeContext, NodeDef, NodeDeps, NodeType } from '../types';
+import { LiveValuesStore } from '../../LiveValues';
+import { SettingsStore } from '../../../state/Settings';
 
 let _idCounter = 0;
 export function nextId(prefix = 'n'): string {
@@ -89,13 +91,22 @@ export class FakeStore {
   }
 }
 
-/** Construct an engine with a stub Settings store and an arbitrary patch. */
+/** Construct an engine with a stub Settings store and an arbitrary patch.
+ *
+ *  v9: returns the `LiveValuesStore` too. The engine no longer writes to
+ *  Settings; tests should read modulated values via `live.getLive(key)`
+ *  instead of `store.state.key`. `store.state.key = X` still sets the
+ *  BASE, which is what the engine adds modulation to.
+ */
 export function makeEngine(patch: GraphPatch | null, deps: NodeDeps = {}): {
   engine: GraphEngine;
   store: FakeStore;
+  live: LiveValuesStore;
 } {
   const store = new FakeStore();
-  const engine = new GraphEngine(store as unknown as never, deps);
+  const settings = store as unknown as SettingsStore;
+  const live = new LiveValuesStore(settings);
+  const engine = new GraphEngine(settings, { ...deps, liveValues: live });
   if (patch) engine.setPatch(patch);
-  return { engine, store };
+  return { engine, store, live };
 }

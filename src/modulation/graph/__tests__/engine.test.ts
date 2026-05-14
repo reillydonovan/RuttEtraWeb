@@ -33,7 +33,7 @@ describe('topoSort', () => {
 
 describe('GraphEngine — bindings', () => {
   it('writes additive sum to base + signal*amount', () => {
-    const { engine, store } = makeEngine({
+    const { engine, store, live } = makeEngine({
       nodes: [{ id: 'lfo', type: 'constant', params: { value: 1 }, inputs: {} }],
       bindings: [{
         id: 'b', paramKey: 'zPush', sourceNodeId: 'lfo',
@@ -41,14 +41,14 @@ describe('GraphEngine — bindings', () => {
       }],
     });
     store.state.zPush = 0.9;
-    // Capture base by re-setting the patch (engine reads base on setPatch):
-    engine.setPatch(engine.getPatch());
     engine.tick(1 / 60);
-    expect(store.state.zPush).toBeCloseTo(0.9 + 0.5);
+    // v9: engine doesn't write Settings; modulated value lives in `live`.
+    expect(store.state.zPush).toBe(0.9);
+    expect(live.getLive('zPush')).toBeCloseTo(0.9 + 0.5);
   });
 
   it('multiple bindings to the same param sum (additive)', () => {
-    const { engine, store } = makeEngine({
+    const { engine, store, live } = makeEngine({
       nodes: [
         { id: 'a', type: 'constant', params: { value: 0.4 }, inputs: {} },
         { id: 'b', type: 'constant', params: { value: 0.3 }, inputs: {} },
@@ -59,13 +59,12 @@ describe('GraphEngine — bindings', () => {
       ],
     });
     store.state.zPush = 0;
-    engine.setPatch(engine.getPatch());
     engine.tick(1 / 60);
-    expect(store.state.zPush).toBeCloseTo(0.7);
+    expect(live.getLive('zPush')).toBeCloseTo(0.7);
   });
 
   it('multiplicative mode: base * (1 + signal*amount)', () => {
-    const { engine, store } = makeEngine({
+    const { engine, store, live } = makeEngine({
       nodes: [{ id: 'a', type: 'constant', params: { value: 1 }, inputs: {} }],
       bindings: [{
         id: 'b', paramKey: 'intensity', sourceNodeId: 'a',
@@ -73,21 +72,59 @@ describe('GraphEngine — bindings', () => {
       }],
     });
     store.state.intensity = 1;
-    engine.setPatch(engine.getPatch());
     engine.tick(1 / 60);
-    expect(store.state.intensity).toBeCloseTo(1.5);
+    expect(live.getLive('intensity')).toBeCloseTo(1.5);
   });
 
   it('classic mode short-circuits the engine', () => {
-    const { engine, store } = makeEngine({
+    const { engine, store, live } = makeEngine({
       nodes: [{ id: 'a', type: 'constant', params: { value: 1 }, inputs: {} }],
       bindings: [{ id: 'b', paramKey: 'zPush', sourceNodeId: 'a', amount: 1, mode: 'additive' }],
     });
     store.state.zPush = 0.9;
-    engine.setPatch(engine.getPatch());
     store.state.modMode = 'classic';
     engine.tick(1 / 60);
-    expect(store.state.zPush).toBe(0.9);
+    // No modulation contribution; live value equals base.
+    expect(live.getLive('zPush')).toBe(0.9);
+  });
+
+  it('amount=0 produces zero contribution (no stickiness)', () => {
+    const { engine, store, live } = makeEngine({
+      nodes: [{ id: 'a', type: 'constant', params: { value: 1 }, inputs: {} }],
+      bindings: [
+        { id: 'b', paramKey: 'zPush', sourceNodeId: 'a', amount: 0.5, mode: 'additive' },
+      ],
+    });
+    store.state.zPush = 0.2;
+    engine.tick(1 / 60);
+    expect(live.getLive('zPush')).toBeCloseTo(0.7);
+
+    // Drop amount to 0 — live snaps back to base immediately.
+    engine.setPatch({
+      ...engine.getPatch(),
+      bindings: [
+        { id: 'b', paramKey: 'zPush', sourceNodeId: 'a', amount: 0, mode: 'additive' },
+      ],
+    });
+    engine.tick(1 / 60);
+    expect(live.getLive('zPush')).toBeCloseTo(0.2);
+  });
+
+  it('removing a binding releases the param back to base', () => {
+    const { engine, store, live } = makeEngine({
+      nodes: [{ id: 'a', type: 'constant', params: { value: 1 }, inputs: {} }],
+      bindings: [
+        { id: 'b', paramKey: 'zPush', sourceNodeId: 'a', amount: 0.5, mode: 'additive' },
+      ],
+    });
+    store.state.zPush = 0.4;
+    engine.tick(1 / 60);
+    expect(live.getLive('zPush')).toBeCloseTo(0.9);
+
+    // Delete the binding entirely.
+    engine.setPatch({ ...engine.getPatch(), bindings: [] });
+    engine.tick(1 / 60);
+    expect(live.getLive('zPush')).toBeCloseTo(0.4);
   });
 });
 
@@ -96,7 +133,7 @@ describe('GraphEngine — feedback', () => {
     // Patch: A (delay) -> B (attenuator 0.9) -> back to A.in
     // Expected: starts at 0, slowly rings up driven by an injected constant
     // via a mixer with an external constant.
-    const { engine, store } = makeEngine({
+    const { engine, store, live } = makeEngine({
       nodes: [
         { id: 'C', type: 'constant',   params: { value: 0.1 }, inputs: {} },
         { id: 'M', type: 'mixer',      params: { gain1: 1, gain2: 0.9, gain3: 0, gain4: 0 }, inputs: { in1: 'C', in2: 'D' } },
@@ -107,11 +144,10 @@ describe('GraphEngine — feedback', () => {
       ],
     });
     store.state.zPush = 0;
-    engine.setPatch(engine.getPatch());
     let last = 0;
     for (let i = 0; i < 50; i++) {
       engine.tick(1 / 60);
-      last = store.state.zPush;
+      last = live.getLive('zPush');
     }
     // Closed-loop steady state of 0.1 / (1 - 0.9) = 1; the per-frame
     // delay-1 path makes the loop ring up slowly so the assertion just
