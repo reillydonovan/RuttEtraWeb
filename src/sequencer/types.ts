@@ -30,7 +30,6 @@ export interface Timeline {
   _v: 1;
   id: string;
   name: string;
-  bpm: number;
   beatsPerBar: number;
   lengthBars: number;
   loop: boolean;
@@ -40,6 +39,12 @@ export interface Timeline {
   /** Sorted ascending by `bar`. */
   keyframes: Keyframe[];
 }
+
+// NOTE: `Timeline.bpm` was removed in v8 — BPM is owned by the global
+// `Settings.internalBpm` (single shared source) and read by the sequencer
+// at tick time. The timeline-store migration collects any non-default
+// per-timeline BPMs and surfaces them via a one-time toast rather than
+// silently importing the value into `internalBpm`.
 
 /**
  * Default exclusion list. Camera (so the user can fly around during playback),
@@ -74,7 +79,6 @@ export function makeEmptyTimeline(name = 'Untitled', overrides: Partial<Timeline
     _v: 1,
     id: newTimelineId(),
     name,
-    bpm: 120,
     beatsPerBar: 4,
     lengthBars: 16,
     loop: true,

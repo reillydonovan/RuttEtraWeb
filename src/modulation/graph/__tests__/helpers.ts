@@ -66,6 +66,7 @@ export function runNode(
 export class FakeStore {
   state = {
     modMode: 'graph' as 'classic' | 'graph' | 'both',
+    internalBpm: 120,
     zPush: 1,
     scanRate: 240,
     intensity: 1,

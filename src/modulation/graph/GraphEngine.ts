@@ -20,8 +20,9 @@
  * via `setPatch(updatedClone)`.
  */
 
-import { SettingsStore } from '../../state/Settings';
+import { OutputCurve, SettingsStore } from '../../state/Settings';
 import { activeTargetsBus } from '../ActiveTargetsBus';
+import { applyOutputStage, OutputStageParams } from '../outputStage';
 import './bootstrap';
 import { allDefs, getDef } from './registry';
 import { topoSort } from './topo';
@@ -161,6 +162,9 @@ export class GraphEngine {
 
     const tickStart = performance.now();
     const safeDt = clampDt(dt);
+    // Refresh the shared BPM each frame so the Clock node sees the
+    // current `Settings.internalBpm` without subscribing to it.
+    this.deps.bpm = this.settings.get('internalBpm');
     const ctx: NodeContext = {
       timeSec: performance.now() / 1000 - this.startTime,
       dt: safeDt,
@@ -217,7 +221,14 @@ export class GraphEngine {
       if (!src) continue;
       const port = b.sourcePort ?? 'out';
       const raw = sanitize(src.outputs[port] ?? src.outputs['out'] ?? 0);
-      const shaped = applyCurve(raw, b.curve);
+      // Apply the shared output stage. Same five fields and same math
+      // as Classic ModSlot output stage (curve -> invert -> range ->
+      // offset). When the binding has none of these set the call is the
+      // identity transform, preserving pre-Stage-3 behaviour.
+      let shaped = applyOutputStage(raw, bindingOutputStage(b));
+      // Legacy `curve` field still applies if present and `outputCurve`
+      // wasn't set — old presets keep working.
+      if (b.curve && !b.outputCurve) shaped = applyLegacyCurve(shaped, b.curve);
       if (b.mode === 'multiplicative') {
         const f = factors.get(b.paramKey) ?? 1;
         factors.set(b.paramKey, f * (1 + shaped * b.amount));
@@ -344,16 +355,42 @@ function clampDt(dt: number): number {
   return Math.min(dt, 0.5);
 }
 
-function applyCurve(v: number, curve: CurveType | undefined): number {
+/**
+ * Legacy per-binding curve from the v1 graph patch format. Kept so old
+ * saved patches still load. New code uses the shared output stage via
+ * `applyOutputStage()` from `src/modulation/outputStage.ts`.
+ */
+function applyLegacyCurve(v: number, curve: CurveType | undefined): number {
   if (!curve || curve === 'linear') return v;
   if (curve === 'exp') return Math.sign(v) * Math.pow(Math.abs(v), 2);
   if (curve === 'log') return Math.sign(v) * Math.sqrt(Math.abs(v));
   if (curve === 'sCurve') {
-    // Smoothstep mapped to [-1, 1] preserving sign.
     const t = clamp01(Math.abs(v));
     return Math.sign(v) * (t * t * (3 - 2 * t));
   }
   return v;
+}
+
+/**
+ * Pull the output-stage-shaped subset out of a `TargetBinding`. Bindings
+ * without any output-stage fields produce a `null`, which `applyOutputStage`
+ * treats as identity.
+ */
+function bindingOutputStage(b: TargetBinding): Partial<OutputStageParams> | null {
+  if (
+    b.outputCurve === undefined &&
+    b.outputMin === undefined &&
+    b.outputMax === undefined &&
+    b.outputOffset === undefined &&
+    b.outputInvert === undefined
+  ) return null;
+  return {
+    outputCurve:  b.outputCurve as OutputCurve | undefined,
+    outputMin:    b.outputMin,
+    outputMax:    b.outputMax,
+    outputOffset: b.outputOffset,
+    outputInvert: b.outputInvert,
+  };
 }
 
 function clamp01(v: number): number {

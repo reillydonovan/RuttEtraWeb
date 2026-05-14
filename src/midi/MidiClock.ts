@@ -13,6 +13,11 @@
  */
 
 import { ClockDivision } from '../state/Settings';
+import { divisionToHz as pureDivisionToHz, divisionToBeats } from '../modulation/tempo';
+
+// Re-export the canonical helpers so legacy callers (e.g. ModulationSection)
+// can keep importing from `midi/MidiClock`.
+export { ALL_DIVISIONS, divisionToHz } from '../modulation/tempo';
 
 const PULSES_PER_QUARTER = 24;
 const PULSE_HISTORY = PULSES_PER_QUARTER * 2; // ~2 quarter notes for smoothing
@@ -75,12 +80,12 @@ export class MidiClock {
 
   /** Convert a clock division to Hz at the current BPM. */
   divisionToHz(div: ClockDivision): number {
-    return divisionToHz(div, this.bpm);
+    return pureDivisionToHz(div, this.bpm);
   }
 
   /** 0..1 phase for a given clock division (one revolution per division). */
   divisionPhase(div: ClockDivision): number {
-    const beats = beatsPerCycle(div);
+    const beats = divisionToBeats(div);
     // phase01 is one rev per quarter; scale to the division.
     return ((this.phase01 / beats) % 1 + 1) % 1;
   }
@@ -147,33 +152,5 @@ export class MidiClock {
   }
 }
 
-/** Beats per cycle for a given division (1 beat = quarter note). */
-function beatsPerCycle(div: ClockDivision): number {
-  switch (div) {
-    case '1/1':   return 4;
-    case '1/2':   return 2;
-    case '1/4':   return 1;
-    case '1/8':   return 0.5;
-    case '1/16':  return 0.25;
-    case '1/32':  return 0.125;
-    case '1/4.':  return 1.5;
-    case '1/8.':  return 0.75;
-    case '1/16.': return 0.375;
-    case '1/4T':  return 2 / 3;
-    case '1/8T':  return 1 / 3;
-    case '1/16T': return 1 / 6;
-  }
-}
-
-/** Hz of one full LFO cycle for a division at a given BPM. */
-export function divisionToHz(div: ClockDivision, bpm: number): number {
-  const beats = beatsPerCycle(div);
-  const beatsPerSec = bpm / 60;
-  return beatsPerSec / beats;
-}
-
-export const ALL_DIVISIONS: ClockDivision[] = [
-  '1/1', '1/2', '1/4', '1/8', '1/16', '1/32',
-  '1/4.', '1/8.', '1/16.',
-  '1/4T', '1/8T', '1/16T',
-];
+// `divisionToHz` and `ALL_DIVISIONS` are re-exported from
+// `src/modulation/tempo.ts` (see top of file). Single source of truth.

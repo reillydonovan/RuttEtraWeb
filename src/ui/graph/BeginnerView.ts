@@ -1,106 +1,176 @@
 /**
  * Beginner view — flat slot-row projection of a `GraphPatch`.
  *
- * Each row reads as `[source dropdown] -> [optional inline processor] ->
- * [amount] -> [target dropdown]`. Edits write minimal patch mutations
- * back to `settings.modGraph`; the GraphEngine's `setPatch` re-compiles
- * automatically.
+ * Each row is rendered by the **same** `SlotRow` component used by the
+ * Classic 4-slot matrix in `ModulationSection`. The row reads from a
+ * `SlotRowAdapter` that synthesizes a slot-like view of the underlying
+ * Graph data (one source node + one Output binding per row); writes
+ * mutate `node.params` / `binding.*` directly. Edits in either Classic
+ * or Graph beginner reflect through the same shared component.
  *
- * If the underlying patch is too complex to represent flatly (multiple
- * fan-out from one node, cycles, more than ~6 nodes), the view shows a
- * placeholder pointing the user to the Advanced view instead of trying
- * to misrepresent the patch.
+ * If a row's underlying structure is more complex than one-source ->
+ * one-binding (cycles, fan-out, multiple processors, etc.), the row
+ * shows a "too complex for Beginner view" placeholder for THAT row
+ * only — other rows still render normally.
+ *
+ * The Advanced view's binding inspector mutates the same TargetBinding
+ * fields. There is no parallel data structure for "beginner output stage".
  */
 
-import { SettingsStore } from '../../state/Settings';
+import { ClockDivision, ModTarget, OutputCurve, SettingsStore } from '../../state/Settings';
 import {
-  GraphNode, GraphPatch, NodeType, TargetBinding,
+  CurveType, GraphNode, GraphPatch, NodeType, TargetBinding,
 } from '../../modulation/graph/types';
 import { allDefs, getDef } from '../../modulation/graph/registry';
 import '../../modulation/graph/bootstrap';
 import { CLASSIC_SOURCE_NODE_TYPES } from '../../modulation/graph/convert';
+import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { TARGETS } from '../targets';
-import type { ModTarget } from '../../state/Settings';
 import { PatchSectionDeps } from '../sections/PatchSection';
+import {
+  canPaste, createSlotRow, getSlotClipboard, setSlotClipboard,
+  SlotRowAdapter, SourceKind,
+} from '../shared/SlotRow';
 
-const PROCESSOR_OPTS: NodeType[] = ['attenuator', 'inverter', 'mixer'];
+const MAX_BEGINNER_NODES = 6;
+
+interface BeginnerRow {
+  source: GraphNode;
+  /** Always 0 entries here — beginner rows are exactly one-source-one-output. */
+  processors: GraphNode[];
+  binding: TargetBinding;
+}
 
 interface SourceOption { type: NodeType; label: string; }
 
 function sourceOptions(): SourceOption[] {
   const out: SourceOption[] = [];
   for (const def of allDefs()) {
-    if (CLASSIC_SOURCE_NODE_TYPES.has(def.type) || def.category === 'Sources' || def.category === 'Audio' || def.category === 'Video' || def.category === 'Inputs') {
+    if (CLASSIC_SOURCE_NODE_TYPES.has(def.type)
+        || def.category === 'Sources' || def.category === 'Audio'
+        || def.category === 'Video' || def.category === 'Inputs') {
       out.push({ type: def.type, label: def.label });
     }
   }
-  // Stable alphabetical order per category.
   out.sort((a, b) => a.label.localeCompare(b.label));
   return out;
 }
 
-interface BeginnerRow {
-  source: GraphNode;
-  processors: GraphNode[];   // 0..2 chained processors between source and binding
-  binding: TargetBinding;
-}
+const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
+  { v: 'none', l: '— none —' },
+  ...TARGETS,
+];
 
-const MAX_BEGINNER_NODES = 6;
+const CURVE_OPTS: { v: OutputCurve; l: string }[] = [
+  { v: 'linear', l: 'Linear' },
+  { v: 'exp',    l: 'Exp' },
+  { v: 'log',    l: 'Log' },
+  { v: 's',      l: 'S-curve' },
+  { v: 'step',   l: 'Step' },
+];
+
+const RAMP_MODE_OPTS = [
+  { v: 'up',       l: 'up' },
+  { v: 'down',     l: 'down' },
+  { v: 'triangle', l: 'triangle' },
+  { v: 'one-shot', l: 'one-shot' },
+];
 
 /**
- * Try to deconstruct the current patch into beginner-style rows. Returns
- * `null` if the patch is too complex to represent.
+ * Try to deconstruct the current patch into beginner-style rows. Each
+ * row maps to one source node + one binding. Rows that don't fit this
+ * shape are tagged `tooComplex: true` so the row UI can show a
+ * placeholder for that row only — the rest still render normally.
  */
-function rowsFromPatch(patch: GraphPatch): BeginnerRow[] | null {
-  if (patch.nodes.length === 0) return [];
-  if (patch.nodes.length > MAX_BEGINNER_NODES) return null;
+function rowsFromPatch(patch: GraphPatch): { rows: Array<BeginnerRow & { tooComplex?: boolean; reason?: string }>; outOfBudget: boolean } {
+  if (patch.nodes.length > MAX_BEGINNER_NODES) {
+    return { rows: [], outOfBudget: true };
+  }
+  if (patch.bindings.length === 0) return { rows: [], outOfBudget: false };
 
-  // Build outgoing adjacency to detect fan-out (>1 outgoing edge from a node
-  // is a sign the patch isn't a clean linear chain).
   const outDeg = new Map<string, number>();
   for (const n of patch.nodes) for (const v of Object.values(n.inputs)) {
     if (v) outDeg.set(v, (outDeg.get(v) ?? 0) + 1);
   }
   for (const b of patch.bindings) outDeg.set(b.sourceNodeId, (outDeg.get(b.sourceNodeId) ?? 0) + 1);
 
-  const rows: BeginnerRow[] = [];
+  const rows: Array<BeginnerRow & { tooComplex?: boolean; reason?: string }> = [];
   for (const binding of patch.bindings) {
-    // Walk backwards from the binding through any single-input chain.
-    const chain: GraphNode[] = [];
-    let cursor: GraphNode | undefined = patch.nodes.find((n) => n.id === binding.sourceNodeId);
-    if (!cursor) return null;
-    chain.push(cursor);
-    while (cursor) {
-      const inputs: string[] = Object.values(cursor.inputs).filter((v): v is string => !!v);
-      if (inputs.length === 0) break;
-      if (inputs.length > 1) return null; // multi-input mid-chain -> too complex
-      const prevId: string = inputs[0];
-      const prev: GraphNode | undefined = patch.nodes.find((n) => n.id === prevId);
-      if (!prev) return null;
-      // If a processor in the chain has fan-out >1 the patch isn't linear.
-      if ((outDeg.get(prev.id) ?? 0) > 1) return null;
-      chain.push(prev);
-      cursor = prev;
-      if (chain.length > 4) return null; // source + up to 2 processors = chain length 3
+    const source = patch.nodes.find((n) => n.id === binding.sourceNodeId);
+    if (!source) {
+      rows.push({ source: { id: '', type: 'constant', inputs: {}, params: {} }, processors: [], binding, tooComplex: true, reason: 'Binding has no source node' });
+      continue;
     }
-    // Chain order: [binding source, ..., real source]. Reverse so source
-    // is first.
-    chain.reverse();
-    const source = chain[0];
-    const processors = chain.slice(1, chain.length);
-    if (processors.length > 2) return null;
-    rows.push({ source, processors, binding });
+    // For beginner view we require exactly one source -> one binding,
+    // with no processor nodes between them. Anything else is "too
+    // complex for THIS row".
+    const inputCount = Object.values(source.inputs).filter(Boolean).length;
+    if (inputCount > 0) {
+      rows.push({ source, processors: [], binding, tooComplex: true, reason: 'Source has upstream nodes — open Advanced view' });
+      continue;
+    }
+    if ((outDeg.get(source.id) ?? 0) > 1) {
+      rows.push({ source, processors: [], binding, tooComplex: true, reason: 'This source feeds multiple bindings — open Advanced view' });
+      continue;
+    }
+    rows.push({ source, processors: [], binding });
   }
-
-  // Make sure every node is accounted for.
-  const seen = new Set<string>();
-  for (const r of rows) { seen.add(r.source.id); for (const p of r.processors) seen.add(p.id); }
-  for (const n of patch.nodes) if (!seen.has(n.id)) return null;
-  return rows;
+  return { rows, outOfBudget: false };
 }
 
 function genId(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+}
+
+function clonePatch(p: GraphPatch): GraphPatch {
+  return {
+    nodes: p.nodes.map((n) => ({
+      id: n.id, type: n.type,
+      params: { ...n.params },
+      inputs: { ...n.inputs },
+      position: n.position ? { ...n.position } : undefined,
+    })),
+    bindings: p.bindings.map((b) => ({ ...b })),
+  };
+}
+
+/**
+ * Per-row expand state. Lives for the page lifetime keyed by binding id;
+ * never persisted (matches Classic's `modSlotExpanded` semantics — UI
+ * state only).
+ */
+const rowExpanded = new Map<string, boolean>();
+
+/** Map a Graph source NodeType to the shared SlotRow `SourceKind`. */
+function nodeTypeToKind(type: NodeType): SourceKind {
+  switch (type) {
+    case 'lfo':              return 'lfo';
+    case 'ramp':             return 'ramp';
+    case 'audio-envelope':   return 'audio';
+    case 'audio-band':       return 'audioBand';
+    case 'audio-onset':      return 'beat';
+    case 'midi-cc':
+    case 'midi-note':        return 'midiOther';
+    case 'osc-in':           return 'osc';
+    case 'clock':            return 'midiClock';
+    case 'joystick-x':
+    case 'joystick-y':
+    case 'joystick-z':       return 'joystick';
+    case 'constant':         return 'constant';
+    default:                 return 'unsupported';
+  }
+}
+
+/**
+ * Snapshot of a beginner row, used for the Copy/Paste clipboard. Stored
+ * shape-tagged so a Classic ModSlot in the clipboard isn't accidentally
+ * pasted into a Graph row (and vice versa).
+ */
+interface GraphRowSnapshot {
+  __kind: 'graphRow';
+  sourceType: NodeType;
+  sourceParams: Record<string, number | string | boolean>;
+  binding: TargetBinding;
 }
 
 export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): () => void {
@@ -111,7 +181,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
 
   const header = document.createElement('div');
   header.className = 'rw-beginner-header';
-  header.textContent = 'Quick patcher — source → optional processors → amount → target';
+  header.textContent = 'Beginner view — same expandable rows as Classic';
   root.appendChild(header);
 
   const rowsHost = document.createElement('div');
@@ -147,10 +217,9 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
   }
 
   /**
-   * Set to `true` for the synchronous duration of a continuous-input write
-   * (slider drag, numeric typing) so the `modGraph` subscription below
-   * doesn't tear down and rebuild the DOM mid-gesture — which would kill
-   * the slider's pointer capture and make it un-draggable.
+   * Continuous-input writes (slider drag) set this so the modGraph
+   * subscription doesn't tear down the DOM mid-gesture and break
+   * pointer capture.
    */
   let suppressRender = false;
 
@@ -165,17 +234,24 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
     if (!opts.skipRerender) render();
   }
 
+  /** Held adapters / refresh callbacks so we can re-render efficiently. */
+  let activeRefreshers: Array<() => void> = [];
+
   function render(): void {
     rowsHost.innerHTML = '';
+    activeRefreshers = [];
+
     const patch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
-    const rows = rowsFromPatch(patch);
-    if (rows == null) {
+    const { rows, outOfBudget } = rowsFromPatch(patch);
+
+    if (outOfBudget) {
       const note = document.createElement('div');
       note.className = 'rw-mod-graph-empty';
-      note.textContent = 'This patch is too complex for Beginner view — open Advanced view to edit.';
+      note.textContent = 'This patch has too many nodes for Beginner view — open Advanced view to edit.';
       rowsHost.appendChild(note);
       return;
     }
+
     if (rows.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rw-mod-graph-empty';
@@ -183,222 +259,272 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       rowsHost.appendChild(empty);
       return;
     }
-    for (let i = 0; i < rows.length; i++) {
-      rowsHost.appendChild(renderRow(rows[i], i));
+
+    for (const row of rows) {
+      rowsHost.appendChild(buildRowUi(row));
     }
   }
 
-  function renderRow(row: BeginnerRow, _index: number): HTMLElement {
-    const r = document.createElement('div');
-    r.className = 'rw-beginner-row';
-
-    // Source dropdown
-    const srcSel = document.createElement('select');
-    srcSel.className = 'rw-select';
-    for (const opt of sourceOptions()) {
-      const o = document.createElement('option');
-      o.value = opt.type;
-      o.textContent = opt.label;
-      srcSel.appendChild(o);
-    }
-    srcSel.value = row.source.type;
-    srcSel.addEventListener('change', () => {
+  function buildRowUi(row: BeginnerRow & { tooComplex?: boolean; reason?: string }): HTMLElement {
+    // Helpers that always reach the LATEST patch via settings, so writes
+    // don't stomp on each other when multiple sliders fire in quick
+    // succession.
+    const mutate = (
+      mutator: (cur: GraphPatch, src: GraphNode | undefined, b: TargetBinding | undefined) => void,
+      opts: { skipRerender?: boolean } = {},
+    ): void => {
       const cur = currentPatch();
-      const nxt = cur.nodes.find((n) => n.id === row.source.id);
-      if (!nxt) return;
-      const def = getDef(srcSel.value as NodeType);
-      if (!def) return;
-      nxt.type = srcSel.value as NodeType;
-      // Reset params to def defaults; previous params no longer apply.
-      nxt.params = {};
-      writePatch(cur);
-    });
-
-    // Inline processor button + chain (up to 2)
-    const procWrap = document.createElement('div');
-    procWrap.className = 'rw-beginner-procs';
-    for (const p of row.processors) procWrap.appendChild(procChip(p, row));
-    if (row.processors.length < 2) {
-      const addProc = document.createElement('button');
-      addProc.type = 'button';
-      addProc.className = 'rw-btn rw-beginner-add-proc';
-      addProc.textContent = '+';
-      addProc.title = 'Add a processor (attenuator / inverter / mixer)';
-      addProc.addEventListener('click', () => {
-        const cur = currentPatch();
-        const id = genId('p');
-        const newProc: GraphNode = { id, type: 'attenuator', inputs: { in: lastChainNode(cur, row).id }, params: {} };
-        cur.nodes.push(newProc);
-        // Re-route the binding's source to the new processor.
-        const b = cur.bindings.find((x) => x.id === row.binding.id);
-        if (b) b.sourceNodeId = id;
-        writePatch(cur);
-      });
-      procWrap.appendChild(addProc);
-    }
-
-    // Amount slider — built to match the standard `.rw-slider` widget so it
-    // looks and feels identical to the rest of the panel's sliders. Bound to
-    // `binding.amount` (not a Settings key), so we wire input/change directly
-    // instead of going through `SettingsStore`. step=0.001 → effectively
-    // continuous drag.
-    const amountWrap = document.createElement('div');
-    amountWrap.className = 'rw-slider rw-beginner-amount';
-    const amountInp = document.createElement('input');
-    amountInp.type = 'range';
-    amountInp.min = '-5'; amountInp.max = '5'; amountInp.step = '0.001';
-    amountInp.value = String(row.binding.amount);
-    const amountNum = document.createElement('input');
-    amountNum.type = 'number';
-    amountNum.min = '-5'; amountNum.max = '5'; amountNum.step = '0.001';
-    amountNum.value = row.binding.amount.toFixed(3);
-    amountNum.className = 'rw-num';
-    amountWrap.append(amountInp, amountNum);
-    // Live drag: write amount but skip the full re-render so the slider's
-    // pointer capture stays intact. The graph engine + binding data still
-    // update on every input event, so audio/visual feedback is immediate.
-    const writeAmount = (v: number, opts: { skipRerender?: boolean } = {}): void => {
-      const clamped = Math.max(-5, Math.min(5, v));
-      const cur = currentPatch();
+      const src = cur.nodes.find((n) => n.id === row.source.id);
       const b = cur.bindings.find((x) => x.id === row.binding.id);
-      if (b) b.amount = clamped;
+      mutator(cur, src, b);
       writePatch(cur, opts);
     };
-    amountInp.addEventListener('input', () => {
-      const v = +amountInp.value;
-      amountNum.value = v.toFixed(3);
-      writeAmount(v, { skipRerender: true });
-    });
-    amountNum.addEventListener('input', () => {
-      const v = parseFloat(amountNum.value);
-      if (!Number.isNaN(v)) {
-        amountInp.value = String(v);
-        writeAmount(v, { skipRerender: true });
-      }
-    });
 
-    // Target dropdown
-    const tgtSel = document.createElement('select');
-    tgtSel.className = 'rw-select';
-    for (const t of TARGETS) {
-      const o = document.createElement('option');
-      o.value = t.v as string;
-      o.textContent = t.l;
-      tgtSel.appendChild(o);
-    }
-    tgtSel.value = row.binding.paramKey;
-    tgtSel.addEventListener('change', () => {
-      const cur = currentPatch();
-      const b = cur.bindings.find((x) => x.id === row.binding.id);
-      if (b) b.paramKey = tgtSel.value as ModTarget;
-      writePatch(cur);
-    });
-
-    // Delete row
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'rw-btn rw-beginner-del';
-    del.textContent = '×';
-    del.title = 'Remove this patch row';
-    del.addEventListener('click', () => {
-      const cur = currentPatch();
-      cur.bindings = cur.bindings.filter((x) => x.id !== row.binding.id);
-      const ids = new Set([row.source.id, ...row.processors.map((p) => p.id)]);
-      cur.nodes = cur.nodes.filter((n) => !ids.has(n.id));
-      writePatch(cur);
-    });
-
-    r.append(
-      labeled('Source', srcSel),
-      procWrap,
-      labeled('Amount', amountWrap),
-      labeled('Target', tgtSel),
-      del,
-    );
-    return r;
-  }
-
-  function procChip(node: GraphNode, row: BeginnerRow): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'rw-beginner-proc';
-    const sel = document.createElement('select');
-    sel.className = 'rw-select';
-    for (const p of PROCESSOR_OPTS) {
-      const o = document.createElement('option');
-      o.value = p; o.textContent = labelFor(p);
-      sel.appendChild(o);
-    }
-    sel.value = node.type;
-    sel.addEventListener('change', () => {
-      const cur = currentPatch();
-      const target = cur.nodes.find((n) => n.id === node.id);
-      if (!target) return;
-      target.type = sel.value as NodeType;
-      target.params = {};
-      writePatch(cur);
-    });
-    const x = document.createElement('button');
-    x.type = 'button'; x.textContent = '×';
-    x.className = 'rw-btn rw-beginner-proc-x';
-    x.addEventListener('click', () => {
-      const cur = currentPatch();
-      cur.nodes = cur.nodes.filter((n) => n.id !== node.id);
-      // Re-thread: any node that had `node` as input now reads from
-      // `node.inputs.in` (fall back to the row's source).
-      const fallback = node.inputs.in ?? row.source.id;
-      for (const n of cur.nodes) for (const k of Object.keys(n.inputs)) {
-        if (n.inputs[k] === node.id) n.inputs[k] = fallback;
-      }
-      for (const b of cur.bindings) if (b.sourceNodeId === node.id) b.sourceNodeId = fallback;
-      writePatch(cur);
-    });
-    wrap.append(sel, x);
-    return wrap;
-  }
-
-  function lastChainNode(patch: GraphPatch, row: BeginnerRow): GraphNode {
-    if (row.processors.length === 0) {
-      return patch.nodes.find((n) => n.id === row.source.id)!;
-    }
-    return patch.nodes.find((n) => n.id === row.processors[row.processors.length - 1].id)!;
-  }
-
-  function labelFor(t: NodeType): string {
-    return getDef(t)?.label ?? t;
-  }
-
-  function labeled(label: string, control: HTMLElement): HTMLElement {
-    const w = document.createElement('div');
-    w.className = 'rw-beginner-cell';
-    const l = document.createElement('label');
-    l.className = 'rw-beginner-cell-label';
-    l.textContent = label;
-    w.append(l, control);
-    return w;
-  }
-
-  function clonePatch(p: GraphPatch): GraphPatch {
-    return {
-      nodes: p.nodes.map((n) => ({
-        id: n.id, type: n.type,
-        params: { ...n.params },
-        inputs: { ...n.inputs },
-        position: n.position ? { ...n.position } : undefined,
-      })),
-      bindings: p.bindings.map((b) => ({ ...b })),
+    const liveSource = (): GraphNode => {
+      const cur = settings.get('modGraph');
+      return cur?.nodes.find((n) => n.id === row.source.id) ?? row.source;
     };
+    const liveBinding = (): TargetBinding => {
+      const cur = settings.get('modGraph');
+      return cur?.bindings.find((x) => x.id === row.binding.id) ?? row.binding;
+    };
+    const liveParam = <T extends number | string | boolean>(k: string, fallback: T): T => {
+      const v = liveSource().params[k];
+      return (v ?? fallback) as T;
+    };
+
+    const adapter: SlotRowAdapter = {
+      // Graph rows don't have a per-row enable toggle — the binding's
+      // existence IS the enable state. Hidden via caps.
+      source: {
+        get: () => liveSource().type,
+        set: (v) => mutate((_cur, src) => {
+          if (!src) return;
+          src.type = v as NodeType;
+          src.params = {};
+        }),
+        options: sourceOptions().map((o) => ({ v: o.type, l: o.label })),
+      },
+      target: {
+        get: () => liveBinding().paramKey,
+        set: (v) => mutate((_cur, _src, b) => { if (b) b.paramKey = v as string; }),
+        options: TARGET_OPTS as ReadonlyArray<{ v: string; l: string }>,
+      },
+      amount: {
+        get: () => liveBinding().amount,
+        set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-5, Math.min(5, v)); }, { skipRerender: true }),
+        min: -5, max: 5, step: 0.001,
+      },
+      expanded: {
+        get: () => rowExpanded.get(row.binding.id) ?? false,
+        set: (v) => {
+          rowExpanded.set(row.binding.id, v);
+          // Re-render to apply expand state to the row.
+          render();
+        },
+      },
+      sourceKind: row.tooComplex ? 'unsupported' : nodeTypeToKind(liveSource().type),
+      tooComplex: !!row.tooComplex,
+      tooComplexReason: row.reason,
+
+      // -------------------- LFO group (shape: rate, phase, duty, bipolar) --------------------
+      lfo: {
+        frequency: {
+          get: () => liveParam<number>('rate', 1),
+          set: (v) => mutate((_c, src) => { if (src) src.params.rate = v; }, { skipRerender: true }),
+          min: 0.01, max: 30, step: 0.01,
+        },
+        phase: {
+          get: () => liveParam<number>('phase', 0),
+          set: (v) => mutate((_c, src) => { if (src) src.params.phase = v; }, { skipRerender: true }),
+          min: 0, max: 1, step: 0.001,
+        },
+        duty: {
+          get: () => liveParam<number>('duty', 0.5),
+          set: (v) => mutate((_c, src) => { if (src) src.params.duty = v; }, { skipRerender: true }),
+          min: 0.05, max: 0.95, step: 0.01,
+        },
+        bipolar: {
+          get: () => liveParam<boolean>('bipolar', true),
+          set: (v) => mutate((_c, src) => { if (src) src.params.bipolar = v; }),
+        },
+        // Graph LFO doesn't (yet) have sync mode — beginner view hides
+        // these by leaving them off the adapter.
+        // (No `syncMode` / `clockDivision` passed in.)
+        // shape selection lives in the source dropdown — if a user wants
+        // a different waveform, they pick a different node. Beginner
+        // view's LFO is always 'lfo' kind regardless of shape; shape is
+        // exposed as a separate enum at the param level instead.
+      },
+
+      // -------------------- Ramp group --------------------
+      ramp: {
+        timeSec: {
+          get: () => liveParam<number>('timeSec', 4),
+          set: (v) => mutate((_c, src) => { if (src) src.params.timeSec = v; }, { skipRerender: true }),
+          min: 0.05, max: 600, step: 0.05,
+        },
+        mode: {
+          get: () => liveParam<string>('mode', 'up'),
+          set: (v) => mutate((_c, src) => { if (src) src.params.mode = v; }),
+          options: RAMP_MODE_OPTS,
+        },
+        // Graph ramp uses 'one-shot' as a mode value — there's no separate
+        // loop boolean. Beginner view simply omits the loop adapter.
+      },
+
+      // -------------------- Audio group --------------------
+      audio: {
+        bandIndex: liveSource().type === 'audio-band' ? {
+          get: () => liveParam<number>('band', 0),
+          set: (v) => mutate((_c, src) => { if (src) src.params.band = Math.round(v); }, { skipRerender: true }),
+          min: 0, max: 127, step: 1,
+        } : undefined,
+        gain: {
+          get: () => liveParam<number>('gain', 1),
+          set: (v) => mutate((_c, src) => { if (src) src.params.gain = v; }, { skipRerender: true }),
+          min: 0, max: 4, step: 0.01,
+        },
+      },
+
+      // Joystick: graph nodes have no per-node smoothing/deadzone — the
+      // beginner row exposes only an "invert" toggle via the output
+      // stage instead. Adapter omits the joystick group.
+
+      constant: {
+        value: {
+          get: () => liveParam<number>('value', 0),
+          set: (v) => mutate((_c, src) => { if (src) src.params.value = v; }, { skipRerender: true }),
+          min: -1, max: 1, step: 0.001,
+        },
+      },
+
+      midiClock: {
+        clockDivision: {
+          get: () => liveParam<string>('division', '1/4'),
+          set: (v) => mutate((_c, src) => { if (src) src.params.division = v as ClockDivision; }),
+          options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
+        },
+      },
+
+      // -------------------- Output stage (writes to the BINDING) --------------------
+      output: {
+        curve: {
+          get: () => (liveBinding().outputCurve ?? mapLegacyCurve(liveBinding().curve)) as OutputCurve,
+          set: (v) => mutate((_c, _s, b) => {
+            if (!b) return;
+            b.outputCurve = v as OutputCurve;
+            // Drop the legacy curve field once the user touches the new
+            // one so they stack rather than fight.
+            delete b.curve;
+          }),
+          options: CURVE_OPTS,
+        },
+        min: {
+          get: () => liveBinding().outputMin ?? -1,
+          set: (v) => mutate((_c, _s, b) => { if (b) b.outputMin = v; }, { skipRerender: true }),
+          min: -2, max: 2, step: 0.001,
+        },
+        max: {
+          get: () => liveBinding().outputMax ?? 1,
+          set: (v) => mutate((_c, _s, b) => { if (b) b.outputMax = v; }, { skipRerender: true }),
+          min: -2, max: 2, step: 0.001,
+        },
+        offset: {
+          get: () => liveBinding().outputOffset ?? 0,
+          set: (v) => mutate((_c, _s, b) => { if (b) b.outputOffset = v; }, { skipRerender: true }),
+          min: -1, max: 1, step: 0.001,
+        },
+        invert: {
+          get: () => liveBinding().outputInvert ?? false,
+          set: (v) => mutate((_c, _s, b) => { if (b) b.outputInvert = v; }),
+        },
+      },
+
+      copy: () => {
+        const snap: GraphRowSnapshot = {
+          __kind: 'graphRow',
+          sourceType: liveSource().type,
+          sourceParams: { ...liveSource().params },
+          binding: { ...liveBinding() },
+        };
+        setSlotClipboard(snap);
+      },
+      paste: () => {
+        const snap = getSlotClipboard() as { __kind?: string } | null;
+        if (!snap || snap.__kind !== 'graphRow') return;
+        const g = snap as GraphRowSnapshot;
+        mutate((_c, src, b) => {
+          if (!src || !b) return;
+          src.type = g.sourceType;
+          src.params = { ...g.sourceParams };
+          // Preserve binding id + sourceNodeId; copy everything else.
+          const keepId = b.id;
+          const keepSrc = b.sourceNodeId;
+          Object.assign(b, g.binding, { id: keepId, sourceNodeId: keepSrc });
+        });
+      },
+      reset: () => {
+        // Graph "reset" is delete the row.
+        mutate((cur, _src, b) => {
+          if (!b) return;
+          cur.bindings = cur.bindings.filter((x) => x.id !== row.binding.id);
+          cur.nodes = cur.nodes.filter((n) => n.id !== row.source.id);
+        });
+      },
+      caps: {
+        showEnable: false,
+        showCopyPaste: true,
+        showMidiOut: false,
+        resetLabel: 'Remove patch',
+        showRampRetrigger: false,
+      },
+    };
+
+    // Hook paste-disabled state — only allow paste when clipboard is a
+    // graph-row snapshot (or a Classic ModSlot? for now we keep them
+    // separate to avoid silent type mismatches).
+    void canPaste;
+
+    const ui = createSlotRow(adapter);
+    activeRefreshers.push(ui.refresh);
+    return ui.root;
   }
 
-  // Re-render whenever `modGraph` changes (subscribe fires immediately
-  // with the current value, so this also performs the initial render).
-  // `suppressRender` lets continuous-input writes (slider drag) update
-  // state without nuking the DOM mid-gesture.
+  /** Map legacy v1 binding `curve` enum to the v8 `OutputCurve` value. */
+  function mapLegacyCurve(c: CurveType | undefined): OutputCurve {
+    if (!c || c === 'linear') return 'linear';
+    if (c === 'exp') return 'exp';
+    if (c === 'log') return 'log';
+    if (c === 'sCurve') return 's';
+    return 'linear';
+  }
+
+  // Re-render whenever modGraph changes from outside (preset apply,
+  // advanced view edit, MIDI learn, etc.). `suppressRender` lets
+  // continuous-input writes (slider drag) update state without nuking
+  // the DOM mid-gesture.
   const unsubscribe = settings.subscribe('modGraph', () => {
-    if (suppressRender) return;
+    if (suppressRender) {
+      // Even when we skip the rebuild, the active rows' refresh()
+      // callbacks need to run so the slider's number input stays in
+      // sync with the dragged range value.
+      for (const r of activeRefreshers) r();
+      return;
+    }
     render();
   });
+
+  render();
+
   return () => {
     unsubscribe();
     root.remove();
   };
 }
+
+// Re-export so callers that still import the old function name keep
+// working (kept minimal — there are none in the current tree, but
+// PatchSection imports `renderBeginnerView` directly, which is the
+// only consumer).
+export type { SettingsStore };

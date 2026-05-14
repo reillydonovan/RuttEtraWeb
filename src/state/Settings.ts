@@ -29,7 +29,20 @@ export type ModSource =
   | 'audio' | 'audioBand' | 'beat'
   | 'midiCC' | 'midiNote' | 'midiVelocity' | 'midiClock'
   | 'osc'
-  | 'joystickX' | 'joystickY' | 'joystickZ';
+  | 'joystickX' | 'joystickY' | 'joystickZ'
+  | 'constant';
+
+/**
+ * Per-slot sync mode (replaces the legacy `clockSync: boolean`).
+ *   'free'  — free-running rate from `slot.frequency`
+ *   'midi'  — locked to incoming MIDI clock; holds last-known rate when no
+ *             clock is being received (no silent fallback to internalBpm)
+ *   'tempo' — locked to the global `Settings.internalBpm` via clock division
+ */
+export type SyncMode = 'free' | 'midi' | 'tempo';
+
+/** Curve shapes applied at the per-slot output stage. */
+export type OutputCurve = 'linear' | 'exp' | 'log' | 's' | 'step';
 
 export type ClockDivision =
   | '1/1' | '1/2' | '1/4' | '1/8' | '1/16' | '1/32'
@@ -51,7 +64,11 @@ export interface ModSlot {
 
   // v2 additions
   bandIndex: number;            // for 'audioBand'
-  clockSync: boolean;           // override frequency with clock division
+  /**
+   * Sync mode replaces the legacy `clockSync: boolean` (v7 → v8).
+   * 'free' (def), 'midi', or 'tempo'.
+   */
+  syncMode: SyncMode;
   clockDivision: ClockDivision;
   midiOutEnabled: boolean;
   midiOutChannel: number;       // 1..16
@@ -59,6 +76,36 @@ export interface ModSlot {
   // For 'midiCC' / 'midiNote' / 'midiVelocity' / 'osc' sources we read whatever
   // is being captured by the binding registry. The slot itself doesn't pin a
   // channel — bindings handle that.
+
+  // ---------- v8 additions ----------
+  /** LFO internal amplitude before Amount stage. 0..1, default 1. */
+  lfoDepth: number;
+  /** When true, LFO output is remapped from -1..1 → 0..1. */
+  lfoUnipolar: boolean;
+
+  /** Audio envelope per-slot follower params. */
+  audioAttackMs: number;        // 1..1000, default 10
+  audioReleaseMs: number;       // 1..5000, default 100
+  audioGain: number;            // 0..4, default 1
+  audioFloor: number;           // 0..1, default 0 (noise gate)
+
+  /** Joystick post-read shaping (per slot). */
+  joystickSmoothMs: number;     // 0..500, default 0
+  joystickDeadzone: number;     // 0..0.5, default 0
+  joystickInvert: boolean;
+
+  /** Ramp behavior. When false, runs once and holds at end value. */
+  rampLoop: boolean;            // default true
+
+  /** Output stage — runs before `* amount` in the matrix tick. */
+  outputCurve: OutputCurve;     // default 'linear'
+  outputMin: number;            // default -1
+  outputMax: number;            // default 1
+  outputOffset: number;         // -1..1, default 0
+  outputInvert: boolean;        // default false
+
+  /** Constant source value, used only when source === 'constant'. */
+  constantValue: number;        // -1..1, default 0
 }
 
 export type ModTarget =
@@ -237,6 +284,22 @@ export interface Settings {
   renderResolutionCustomH: number;
 
   // ---------- Modulation ----------
+  /**
+   * Single shared internal BPM, consumed by:
+   *   - Classic LFO patches in Tempo sync mode
+   *   - The Timeline sequencer (replaces the legacy per-timeline `bpm`)
+   *   - The Graph `clock` node when source === 'internal'
+   * MIDI Clock-derived BPM is owned by `MidiClock` and read separately by
+   * any consumer in MIDI sync mode; it does NOT write here.
+   */
+  internalBpm: number;
+
+  /**
+   * Per-slot UI expand state. UI-only; excluded from preset export.
+   * Length matches `modSlots`.
+   */
+  modSlotExpanded: boolean[];
+
   modSlots: ModSlot[];
   /**
    * Active modulation engine(s). `'classic'` keeps the legacy 4-slot matrix
@@ -351,11 +414,33 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   rampHold: false,
   rampPosition: 0,
   bandIndex: 0,
-  clockSync: false,
+  syncMode: 'free',
   clockDivision: '1/4',
   midiOutEnabled: false,
   midiOutChannel: 1,
   midiOutCC: 1,
+
+  lfoDepth: 1,
+  lfoUnipolar: false,
+
+  audioAttackMs: 10,
+  audioReleaseMs: 100,
+  audioGain: 1,
+  audioFloor: 0,
+
+  joystickSmoothMs: 0,
+  joystickDeadzone: 0,
+  joystickInvert: false,
+
+  rampLoop: true,
+
+  outputCurve: 'linear',
+  outputMin: -1,
+  outputMax: 1,
+  outputOffset: 0,
+  outputInvert: false,
+
+  constantValue: 0,
 };
 
 export const DEFAULT_SPECTRUM: AudioSpectrumRouting = {
@@ -447,6 +532,9 @@ export const DEFAULTS: Settings = {
   renderResolutionCustomW: 1920,
   renderResolutionCustomH: 1080,
 
+  internalBpm: 120,
+  modSlotExpanded: [false, false, false, false],
+
   modSlots: [
     { ...DEFAULT_MOD_SLOT },
     { ...DEFAULT_MOD_SLOT },
@@ -518,9 +606,33 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 7;
+const CURRENT_VERSION = 8;
 
 interface Versioned { _v?: number }
+
+// --------------------------------------------------------------------
+// Transient migration notices
+// --------------------------------------------------------------------
+//
+// Some migrations need to surface info to the user (e.g. "we dropped your
+// per-timeline BPMs, restore them manually") rather than silently picking
+// a value. Migration code pushes user-facing strings here; the UI reads
+// and clears them on first paint and shows a one-time toast.
+//
+// Pure module state — does not persist across reloads. Intentional: the
+// notice is only meaningful for the migration that just ran.
+const _migrationNotices: string[] = [];
+
+export function pushMigrationNotice(msg: string): void {
+  _migrationNotices.push(msg);
+}
+
+export function consumeMigrationNotices(): string[] {
+  if (_migrationNotices.length === 0) return [];
+  const out = _migrationNotices.slice();
+  _migrationNotices.length = 0;
+  return out;
+}
 
 /**
  * Forward-compatible migration. Each step is idempotent — re-running on an
@@ -559,16 +671,23 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.panelTab         = (s.panelTab         as 'synth' | 'io' | undefined) ?? 'synth';
 
     if (Array.isArray(s.modSlots)) {
-      s.modSlots = (s.modSlots as Partial<ModSlot>[]).map((slot) => ({
-        ...DEFAULT_MOD_SLOT,
-        ...slot,
-        bandIndex:      slot.bandIndex      ?? 0,
-        clockSync:      slot.clockSync      ?? false,
-        clockDivision:  slot.clockDivision  ?? '1/4',
-        midiOutEnabled: slot.midiOutEnabled ?? false,
-        midiOutChannel: slot.midiOutChannel ?? 1,
-        midiOutCC:      slot.midiOutCC      ?? 1,
-      })) as ModSlot[];
+      s.modSlots = (s.modSlots as unknown[]).map((rawSlot) => {
+        const slot = (rawSlot ?? {}) as Record<string, unknown>;
+        // Preserve any legacy `clockSync` boolean here; the v7 → v8 step
+        // below converts it into the new `syncMode` enum and deletes the
+        // legacy field. Cast through `unknown` because legacy data carries
+        // fields that aren't on the current `ModSlot` type.
+        return {
+          ...DEFAULT_MOD_SLOT,
+          ...slot,
+          bandIndex:      (slot.bandIndex      as number  | undefined) ?? 0,
+          clockSync:      (slot.clockSync      as boolean | undefined) ?? false,
+          clockDivision:  (slot.clockDivision  as ClockDivision | undefined) ?? '1/4',
+          midiOutEnabled: (slot.midiOutEnabled as boolean | undefined) ?? false,
+          midiOutChannel: (slot.midiOutChannel as number  | undefined) ?? 1,
+          midiOutCC:      (slot.midiOutCC      as number  | undefined) ?? 1,
+        } as unknown as ModSlot;
+      });
     }
 
     s._v = 2;
@@ -635,6 +754,60 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.renderResolutionCustomW = (s.renderResolutionCustomW as number | undefined) ?? 1920;
     s.renderResolutionCustomH = (s.renderResolutionCustomH as number | undefined) ?? 1080;
     s._v = 7;
+  }
+
+  // ---- v7 -> v8: Classic patch inline controls + shared internalBpm ----
+  // - Convert legacy per-slot `clockSync: boolean` → `syncMode` enum and
+  //   delete the legacy field (no read-only retention; dead-but-read fields
+  //   rot — see master spec).
+  // - Add v8 ModSlot fields with defaults sourced from `DEFAULT_MOD_SLOT`.
+  // - Introduce `internalBpm` (default 120) and `modSlotExpanded` UI state.
+  //   We do NOT silently import any historical Timeline BPM here. The
+  //   timeline store migration in `sequencer/store.ts` collects non-120
+  //   values and pushes a `pushMigrationNotice` so the UI can surface a
+  //   one-time toast.
+  if ((s._v ?? 1) < 8) {
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as unknown[]).map((rawSlot) => {
+        const slot = (rawSlot ?? {}) as Record<string, unknown>;
+        const legacyClockSync = slot.clockSync;
+        const syncMode: SyncMode = (slot.syncMode as SyncMode | undefined)
+          ?? (legacyClockSync === true ? 'midi' : 'free');
+        // Build the v8 slot from defaults, then re-overlay incoming raw
+        // fields, then explicitly set the converted/new fields.
+        const next: ModSlot = {
+          ...DEFAULT_MOD_SLOT,
+          ...(slot as Partial<ModSlot>),
+          syncMode,
+          lfoDepth:      (slot.lfoDepth      as number  | undefined) ?? DEFAULT_MOD_SLOT.lfoDepth,
+          lfoUnipolar:   (slot.lfoUnipolar   as boolean | undefined) ?? DEFAULT_MOD_SLOT.lfoUnipolar,
+          audioAttackMs: (slot.audioAttackMs as number  | undefined) ?? DEFAULT_MOD_SLOT.audioAttackMs,
+          audioReleaseMs:(slot.audioReleaseMs as number | undefined) ?? DEFAULT_MOD_SLOT.audioReleaseMs,
+          audioGain:     (slot.audioGain     as number  | undefined) ?? DEFAULT_MOD_SLOT.audioGain,
+          audioFloor:    (slot.audioFloor    as number  | undefined) ?? DEFAULT_MOD_SLOT.audioFloor,
+          joystickSmoothMs: (slot.joystickSmoothMs as number  | undefined) ?? DEFAULT_MOD_SLOT.joystickSmoothMs,
+          joystickDeadzone: (slot.joystickDeadzone as number  | undefined) ?? DEFAULT_MOD_SLOT.joystickDeadzone,
+          joystickInvert:   (slot.joystickInvert   as boolean | undefined) ?? DEFAULT_MOD_SLOT.joystickInvert,
+          rampLoop:      (slot.rampLoop      as boolean | undefined) ?? DEFAULT_MOD_SLOT.rampLoop,
+          outputCurve:   (slot.outputCurve   as OutputCurve | undefined) ?? DEFAULT_MOD_SLOT.outputCurve,
+          outputMin:     (slot.outputMin     as number  | undefined) ?? DEFAULT_MOD_SLOT.outputMin,
+          outputMax:     (slot.outputMax     as number  | undefined) ?? DEFAULT_MOD_SLOT.outputMax,
+          outputOffset:  (slot.outputOffset  as number  | undefined) ?? DEFAULT_MOD_SLOT.outputOffset,
+          outputInvert:  (slot.outputInvert  as boolean | undefined) ?? DEFAULT_MOD_SLOT.outputInvert,
+          constantValue: (slot.constantValue as number  | undefined) ?? DEFAULT_MOD_SLOT.constantValue,
+        };
+        // Drop the legacy field so it doesn't rot on disk.
+        delete (next as unknown as Record<string, unknown>).clockSync;
+        return next;
+      });
+    }
+
+    s.internalBpm      = (s.internalBpm      as number    | undefined) ?? 120;
+    s.modSlotExpanded  = Array.isArray(s.modSlotExpanded)
+      ? (s.modSlotExpanded as boolean[]).slice()
+      : ((s.modSlots as ModSlot[] | undefined)?.map(() => false) ?? [false, false, false, false]);
+
+    s._v = 8;
   }
 
   return s as Partial<Settings> & Versioned;

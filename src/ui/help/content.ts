@@ -100,7 +100,28 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   renderResolutionCustomH: { description: 'Custom render height in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
 
   // ----- Modulation -----
-  modSlots: { description: 'Up to 8 modulation slots. Each routes a signal source to a parameter.', panel: 'Modulation' },
+  modSlots:        { description: 'Up to 4 modulation slots. Each routes a source through a per-slot output stage to a target parameter.', panel: 'Modulation' },
+  internalBpm:     { description: 'Global Tempo, shared by Timeline playback, Classic LFOs in Tempo sync mode, and the Graph Clock node. There is no per-timeline BPM in v8 — set it once here.', range: '20..300', panel: 'Modulation' },
+  modSlotExpanded: { description: 'UI-only: which slots are currently showing their expanded controls. Excluded from preset export.', panel: 'Modulation' },
+  // Per-slot fields (live inside `modSlots[i]`; documented at the slot level
+  // so the Controls tab can describe each row).
+  'modSlot.syncMode':      { description: 'How the LFO clock is generated: Free (slot Hz), MIDI (locked to incoming MIDI clock — holds last rate when silent, no fallback), or Tempo (locked to global Tempo BPM).', panel: 'Modulation' },
+  'modSlot.lfoDepth':      { description: 'LFO amplitude before the output stage. 1 = full swing, 0 = silent.', range: '0..1', panel: 'Modulation' },
+  'modSlot.lfoUnipolar':   { description: 'When ON, the LFO output is remapped from -1..+1 to 0..+1 (handy for parameters that dislike going negative, e.g. zPush below 0).', panel: 'Modulation' },
+  'modSlot.audioAttackMs': { description: 'Per-slot envelope follower attack on the audio source. Shorter = snappier, longer = smoother.', range: '1..1000 ms', panel: 'Modulation' },
+  'modSlot.audioReleaseMs':{ description: 'Per-slot envelope follower release on the audio source.', range: '1..5000 ms', panel: 'Modulation' },
+  'modSlot.audioGain':     { description: 'Multiplier on the audio envelope before clamping.', range: '0..4', panel: 'Modulation' },
+  'modSlot.audioFloor':    { description: 'Noise gate: any audio below this value clamps to 0 before the follower runs.', range: '0..1', panel: 'Modulation' },
+  'modSlot.joystickSmoothMs': { description: '1-pole low-pass on the joystick axis (per slot). Smooths jittery touchpad input.', range: '0..500 ms', panel: 'Modulation' },
+  'modSlot.joystickDeadzone': { description: 'Treat axis values within ±deadzone as exactly 0 (kills idle drift).', range: '0..0.5', panel: 'Modulation' },
+  'modSlot.joystickInvert':   { description: 'Flip the sign of the joystick axis read by this slot.', panel: 'Modulation' },
+  'modSlot.rampLoop':         { description: 'When OFF, the ramp runs once and holds at its end value (one-shot envelope). Useful for triggered sweeps.', panel: 'Modulation' },
+  'modSlot.outputCurve':      { description: 'Shape applied to the source value: Linear (no change), Exp (squashed near 0), Log (boosted near 0), S-curve (sigmoid), Step (3-level quantize).', panel: 'Modulation' },
+  'modSlot.outputMin':        { description: 'Lower bound of the output stage. Bipolar sources -1..+1 are remapped to [Min, Max].', range: '-2..2', panel: 'Modulation' },
+  'modSlot.outputMax':        { description: 'Upper bound of the output stage.', range: '-2..2', panel: 'Modulation' },
+  'modSlot.outputOffset':     { description: 'DC offset added after curve + range mapping.', range: '-1..1', panel: 'Modulation' },
+  'modSlot.outputInvert':     { description: 'Multiply the post-output-stage value by -1 right before the Amount knob.', panel: 'Modulation' },
+  'modSlot.constantValue':    { description: 'Value emitted by the Constant source. Useful as a static offset whose Amount can be modulated by another slot or by MIDI.', range: '-1..1', panel: 'Modulation' },
 
   // ----- MIDI -----
   midiInputId:    { description: 'Selected MIDI input device.', panel: 'MIDI' },
@@ -219,11 +240,47 @@ with the **Classic | Graph | Both** switch at the top.
 Each slot routes a **source** to a **target** with an **amount**.
 
 - **Sources**: sine / triangle / square / saw / pulse / ramp, audio envelope,
-  audio band, beat pulse, MIDI CC, MIDI note, MIDI clock division, OSC, joystick.
-- Tick **Sync** on a waveform slot to lock its rate to the MIDI clock.
+  audio band, beat pulse, MIDI CC, MIDI note, MIDI clock division, OSC,
+  joystick, and a **constant** source for fixed-value patches whose amount
+  you can modulate elsewhere.
+- Click the small **▶** next to a slot's source dropdown to expand its
+  source-specific controls (LFO depth, ramp loop, audio attack/release,
+  joystick smoothing, …) plus a shared **Output** stage (curve, min/max,
+  offset, invert).
+- The **Sync** dropdown on a waveform slot is **Free / MIDI / Tempo** — pick
+  Tempo to lock to the global **Tempo BPM** at the top of the panel; pick
+  MIDI to lock to incoming MIDI clock pulses.
 - Example: slot 1 → source **beat**, target **zPush**, amount **0.6**, then
   open the **Audio** panel, pick **mic**, and tap a kick. Relief jumps on every
   hit.
+
+## Tuning a Classic patch
+
+Every slot is a small voltage-control chain:
+
+  **source → (per-source shaping) → output stage → amount → target**
+
+The expanded body of a slot exposes each link:
+
+- **LFO sources** get **Depth**, **Unipolar**, and a **Sync mode** dropdown.
+  In *Free* mode the **Frequency (Hz)** knob is in charge; in *MIDI* or
+  *Tempo* the **Division** dropdown takes over (1/4, 1/8, dotted, triplet…).
+- **Ramp** has **Time**, **Mode**, and a **Loop** toggle. With Loop OFF the
+  ramp becomes a one-shot envelope — hit **Retrigger** in the slot body to
+  fire it again.
+- **Audio** sources have their own **Attack / Release / Gain / Floor**
+  follower so a kick-driven slot can use a fast envelope while a chord
+  slot uses a long one. The Floor knob is a noise gate.
+- **Joystick** sources get **Smooth (ms)**, **Deadzone**, and **Invert**.
+- The **Output** group works on every source: pick a **Curve** (linear /
+  exp / log / S / step), set the **Min/Max** range, add an **Offset**, and
+  optionally **Invert** before the Amount knob hits the target.
+- Click **C** to copy a slot, **V** to paste over the current slot, **X**
+  to reset the slot back to its factory defaults.
+
+If a slot is set to **MIDI** sync but no clock is being received, a
+**NO CLOCK** badge appears under that row — the slot HOLDS at its last
+known rate (no silent fallback to internal BPM).
 
 ## Graph in 90 seconds
 
@@ -336,6 +393,10 @@ const MD_TIPS = `
 - **Render Scale is a multiplier on the chosen resolution.** 4K × 0.5 scale renders 1080p internally and upscales — fast performance recovery if your GPU is struggling, with no change to the recording dimension story.
 - **Letterbox fit guarantees pixel-accurate recording.** Fill or Stretch can crop or distort the render when the window doesn't match the preset's aspect ratio. Use Letterbox for predictable recording output.
 - **Custom resolution on mobile may be slow.** On compact/touch devices the Resolution dropdown caps selectable options at Full HD. Higher presets are still listed but grayed out.
+- **There is one BPM.** The Tempo BPM at the top of the Modulation panel is shared by the Timeline, every Classic LFO in Tempo sync mode, and the Graph Clock node — change it once and it's reflected everywhere. The Timeline transport's BPM input is now just a window onto the same value.
+- **MIDI sync without a clock holds at the last known rate.** If you select MIDI sync on a slot but never plug a clock in (or your DAW stops sending one), the slot doesn't silently fall back to the internal BPM. The **NO CLOCK** badge under the slot warns you. Switch to Tempo sync if you want it to follow the global BPM, or to Free for a fixed Hz.
+- **One-shot ramps.** Turn the Ramp slot's **Loop** toggle off to make it run once and hold. Hit the slot's **Retrigger** button (or assign it via MIDI) whenever you want to fire the envelope again.
+- **Use the slot's Output stage to fit a parameter's range.** Set Min / Max to clamp the swing, Offset to bias the result around a non-zero rest value, and the Curve dropdown to bend the response without baking the curve into the source itself — handy when re-routing the same LFO to several params with different feels.
 `;
 
 const MD_ABOUT = `

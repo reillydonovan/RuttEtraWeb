@@ -42,6 +42,14 @@ export class TimelineTransport {
     this.el.className = 'rw-tl-header';
     this.build();
     this.refresh();
+    // Mirror the global BPM into the transport input whenever it changes
+    // anywhere (e.g. the Modulation panel's Tempo BPM control). The single
+    // shared source ensures all three places — Timeline, Classic LFO,
+    // Graph clock — stay in sync.
+    settings.subscribe('internalBpm', (v) => {
+      const s = String(v);
+      if (this.bpmInput && this.bpmInput.value !== s) this.bpmInput.value = s;
+    });
   }
 
   setZoom(z: number): void { this.zoom = z; }
@@ -215,15 +223,17 @@ export class TimelineTransport {
     }
     // Transport state
     this.playBtn.textContent = this.seq.isPlaying ? 'PAUSE' : 'PLAY';
+    // BPM is the global Settings.internalBpm (single shared source) — the
+    // timeline no longer owns its own value, so we always show the global
+    // BPM here regardless of whether a timeline is loaded.
+    this.bpmInput.value = String(this.settings.get('internalBpm'));
     if (t) {
-      this.bpmInput.value = String(t.bpm);
       this.lenInput.value = String(t.lengthBars);
       this.bpbInput.value = String(t.beatsPerBar);
       this.syncSel.value  = t.syncMode;
       this.loopBtn.classList.toggle('primary', t.loop);
       this.loopBtn.textContent = t.loop ? 'LOOP ON' : 'LOOP OFF';
     } else {
-      this.bpmInput.value = '120';
       this.lenInput.value = '16';
       this.bpbInput.value = '4';
       this.syncSel.value = 'internal';

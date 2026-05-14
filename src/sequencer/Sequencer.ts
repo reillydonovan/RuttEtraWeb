@@ -139,10 +139,16 @@ export class Sequencer {
     this.applyAtPlayhead();
   }
 
+  /**
+   * Set the global internal BPM. Routed to `Settings.internalBpm` (single
+   * shared source) since v8 — the Timeline no longer owns its own BPM.
+   * No-ops if the value is unchanged.
+   */
   setBpm(bpm: number): void {
-    if (!this.timeline) return;
-    this.timeline.bpm = Math.max(20, Math.min(400, bpm));
-    this.fireTimelineChange();
+    const clamped = Math.max(20, Math.min(400, bpm));
+    if (this.settings.get('internalBpm') !== clamped) {
+      this.settings.set('internalBpm', clamped);
+    }
   }
 
   /** Temporarily disable looping for this run (Record Timeline). */
@@ -352,8 +358,11 @@ export class Sequencer {
     const t = this.timeline;
     if (t.lengthBars <= 0) return;
 
-    // Determine current BPM.
-    let bpm = t.bpm;
+    // Determine current BPM. Internal sync reads the single shared
+    // `Settings.internalBpm`; MIDI sync follows the live MIDI clock and
+    // holds at the last received value when the clock is silent (no
+    // silent fallback to internal BPM — see master spec).
+    let bpm = this.settings.get('internalBpm');
     if (t.syncMode === 'midi' && this.midiClock && this.midiClock.bpm > 0) {
       bpm = this.midiClock.bpm;
     }

@@ -887,6 +887,131 @@ body.viewer-mode #stage { background: #000; }
   font-size: 13px;
 }
 
+/* ============================================================
+   v8 Classic patch slot — collapsible card with inline controls
+   ============================================================ */
+
+.rw-mod-slot {
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  margin: 8px 0;
+  background: rgba(0,0,0,0.18);
+}
+.rw-mod-slot.expanded {
+  border-color: var(--re-accent);
+  box-shadow: 0 0 0 1px rgba(95,255,133,0.12) inset;
+}
+
+/*
+ * Collapsed header row layout. Two rows by default so the target dropdown
+ * and amount slider don't get crushed at typical panel widths:
+ *
+ *   row 1: [en?] [source ▼] [▶] [C] [V] [X] [no-clock-badge]
+ *   row 2: [Amount slider .................] [Target ▼ ........]
+ *
+ * The two-row stack scales gracefully from ~280px to full width without
+ * cutting off content. Wider panels still see compact information density
+ * because each row is only one CSS line tall.
+ */
+.rw-mod-slot-row {
+  display: grid;
+  grid-template-columns:
+    auto      /* enable (32px when present) */
+    minmax(0, 1fr)  /* source */
+    32px      /* expand */
+    32px 32px 32px; /* C / V / X */
+  align-items: center;
+  gap: 6px 6px;
+  padding: 8px 8px;
+}
+.rw-mod-slot-row .rw-mod-slot-en { justify-self: center; margin: 0; width: 32px; }
+.rw-mod-slot-row .rw-select { font-size: 13px; min-width: 0; }
+.rw-mod-slot-row .rw-mod-slot-src { width: 100%; }
+.rw-mod-slot-row .rw-mod-slot-tgt { width: 100%; }
+
+/* Row 2: amount + target stacked below the header line. */
+.rw-mod-slot-amount {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.rw-mod-slot-amount::before {
+  content: 'AMT';
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--re-dim, rgba(95,255,133,0.55));
+  width: 32px;
+  text-align: center;
+  flex: 0 0 32px;
+}
+.rw-mod-slot-amount input[type="range"] { flex: 1 1 auto; min-width: 60px; }
+.rw-mod-slot-amount input[type="number"] { width: 56px; }
+
+.rw-mod-slot-row .rw-mod-slot-tgt {
+  grid-column: 1 / -1;
+}
+
+/* Hide the AMT label DOM if anything still emits it (legacy). */
+.rw-mod-slot-amount-label {
+  display: none;
+}
+
+.rw-mod-slot-iconbtn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.rw-mod-slot-expand {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.rw-mod-noclock-badge {
+  display: none;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 2px 6px;
+  background: rgba(255,176,71,0.12);
+  border: 1px solid var(--re-warn, #ffb047);
+  color: var(--re-warn, #ffb047);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  border-radius: 2px;
+}
+
+/* Expanded body — column of source-specific groups + shared output stage. */
+.rw-mod-slot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 10px 10px 10px;
+  border-top: 1px dashed var(--re-line);
+}
+.rw-mod-slot-body .rw-group { margin: 4px 0; }
+
+/* Generous tap target on the per-slot Retrigger button per spec. */
+.rw-mod-retrigger {
+  min-height: 48px;
+  margin-top: 4px;
+}
+
+/* Compact-mode bumps icon buttons up to 36px for tap-target ergonomics. */
+
+body[data-layout="compact"] .rw-mod-slot-iconbtn {
+  width: 36px;
+  height: 36px;
+}
+
 
  
  

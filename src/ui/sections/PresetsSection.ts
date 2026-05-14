@@ -198,7 +198,11 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     const name = nameInp.value.trim() || `Preset ${Date.now()}`;
     const id = `user-${Date.now()}`;
     const list = loadUser();
-    list.push({ id, name, values: { ...settings.all } });
+    // Strip UI-only fields so a user preset doesn't lock the receiver's
+    // panel state at apply time.
+    const values = { ...settings.all } as Partial<Settings> & Record<string, unknown>;
+    delete values.modSlotExpanded;
+    list.push({ id, name, values });
     saveUser(list);
     refreshUser();
     nameInp.value = '';
@@ -233,6 +237,11 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     // Importers fall back to whatever the receiver's own saved view is.
     const obj = JSON.parse(settings.export()) as Record<string, unknown>;
     if (isFactoryView(obj.defaultView as never)) delete obj.defaultView;
+    // `modSlotExpanded` is UI-only state (which Classic patch rows are
+    // currently expanded). Excluding it from the preset export keeps
+    // shared presets from forcing the receiver's expand-state to match
+    // the author's panel layout at export time.
+    delete obj.modSlotExpanded;
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

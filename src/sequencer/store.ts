@@ -15,6 +15,7 @@
 
 import { Timeline, makeEmptyTimeline, newTimelineId, newKeyframeId, DEFAULT_EXCLUDED_PARAMS } from './types';
 import { PRESETS } from '../ui/presets';
+import { pushMigrationNotice } from '../state/Settings';
 
 const STORAGE_KEY = 'ruttetra.timelines.v1';
 
@@ -133,21 +134,35 @@ export function importTimelineJson(json: string): Timeline {
 // ---------------------------------------------------------------------------
 
 function normalizeTimeline(raw: Partial<Timeline> & Record<string, unknown>): Timeline {
+  // v8: per-timeline `bpm` is removed. If a legacy timeline carries a
+  // non-default BPM, surface it as a migration notice (toast) so the user
+  // can manually restore it via the global Tempo control. We do NOT
+  // silently import the value — the master spec calls out silent
+  // value-picking as a smell.
+  const legacyBpm = raw.bpm;
+  if (typeof legacyBpm === 'number' && Number.isFinite(legacyBpm) && legacyBpm !== 120) {
+    const tlName = typeof raw.name === 'string' ? raw.name : 'Untitled';
+    pushMigrationNotice(`Timeline "${tlName}" had BPM ${Math.round(legacyBpm)}; set the global Tempo manually.`);
+  }
+  // Strip any stray fields that no longer exist on `Timeline` so the spread
+  // below doesn't carry them through.
+  const { bpm: _drop, ...rest } = raw as { bpm?: unknown } & Record<string, unknown>;
+  void _drop;
+
   const base = makeEmptyTimeline(typeof raw.name === 'string' ? raw.name : 'Imported');
   const t: Timeline = {
     ...base,
-    ...raw,
+    ...rest,
     _v: 1,
-    bpm: clampNum(raw.bpm as number, 20, 400, 120),
-    beatsPerBar: clampNum(raw.beatsPerBar as number, 1, 16, 4),
-    lengthBars: clampNum(raw.lengthBars as number, 1, 9999, 16),
-    loop: raw.loop !== false,
-    syncMode: raw.syncMode === 'midi' ? 'midi' : 'internal',
-    excludedParams: Array.isArray(raw.excludedParams)
-      ? (raw.excludedParams as string[])
+    beatsPerBar: clampNum(rest.beatsPerBar, 1, 16, 4),
+    lengthBars:  clampNum(rest.lengthBars,  1, 9999, 16),
+    loop: rest.loop !== false,
+    syncMode: rest.syncMode === 'midi' ? 'midi' : 'internal',
+    excludedParams: Array.isArray(rest.excludedParams)
+      ? (rest.excludedParams as string[])
       : [...DEFAULT_EXCLUDED_PARAMS],
-    keyframes: Array.isArray(raw.keyframes)
-      ? ((raw.keyframes as unknown[]).map((k) => normalizeKeyframe(k as Partial<Timeline['keyframes'][number]> & Record<string, unknown>)))
+    keyframes: Array.isArray(rest.keyframes)
+      ? ((rest.keyframes as unknown[]).map((k) => normalizeKeyframe(k as Partial<Timeline['keyframes'][number]> & Record<string, unknown>)))
       : [],
   };
   t.keyframes.sort((a, b) => a.bar - b.bar);

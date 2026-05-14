@@ -8,6 +8,8 @@
  */
 
 import { register } from '../registry';
+import { divisionToBeats, ALL_DIVISIONS } from '../../tempo';
+import type { ClockDivision } from '../../../state/Settings';
 
 const TWO_PI = Math.PI * 2;
 
@@ -174,7 +176,7 @@ register<ClockState>({
   type: 'clock',
   category: 'Sources',
   label: 'Clock',
-  description: 'Pulse generator at internal BPM or MIDI clock division.',
+  description: 'Pulse generator at internal BPM or MIDI clock division. Internal BPM is the global Tempo (shared with Timeline + Classic LFOs).',
   inputs: [],
   outputs: [
     { name: 'out',  kind: 'trigger' },
@@ -182,23 +184,26 @@ register<ClockState>({
   ],
   params: {
     source:   { kind: 'enum', options: ['internal', 'midi'], default: 'internal' },
-    bpm:      { kind: 'number', min: 20, max: 300, step: 0.1, default: 120 },
-    division: { kind: 'enum', options: ['1/1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/4.', '1/8.', '1/16.', '1/4T', '1/8T', '1/16T'], default: '1/4' },
+    division: { kind: 'enum', options: [...ALL_DIVISIONS], default: '1/4' },
     pulseMs:  { kind: 'number', min: 1, max: 200, step: 1, default: 16 },
   },
   init: () => ({ phase: 0, lastPulse: 0 }),
   tick(ctx, state, _ins, params, outputs) {
     const source = params.source as string;
-    let hz = 0;
+    const division = params.division as ClockDivision;
     let phase = 0;
     if (source === 'midi' && ctx.deps.midiClock) {
-      hz = ctx.deps.midiClock.divisionToHz(params.division as string);
-      phase = ctx.deps.midiClock.divisionPhase(params.division as string);
+      // MIDI sync: read live phase from the global MIDI clock. No fallback
+      // to internal BPM when the clock is silent — the node holds at its
+      // last value (state.phase remains where it was).
+      phase = ctx.deps.midiClock.divisionPhase(division);
       state.phase = phase;
     } else {
-      const bpm = +(params.bpm as number);
-      const beatsPerCycle = beatsForDivision(params.division as string);
-      hz = (bpm / 60) / Math.max(0.0001, beatsPerCycle);
+      // Internal sync: read shared `Settings.internalBpm` via NodeDeps so
+      // a single global Tempo control drives Timeline, Classic, and Graph.
+      const bpm = ctx.deps.bpm ?? 120;
+      const beatsPerCycle = divisionToBeats(division);
+      const hz = (bpm / 60) / Math.max(0.0001, beatsPerCycle);
       state.phase = (state.phase + hz * ctx.dt) % 1;
       if (state.phase < 0) state.phase += 1;
       phase = state.phase;
@@ -212,20 +217,5 @@ register<ClockState>({
   },
 });
 
-function beatsForDivision(div: string): number {
-  switch (div) {
-    case '1/1':   return 4;
-    case '1/2':   return 2;
-    case '1/4':   return 1;
-    case '1/8':   return 0.5;
-    case '1/16':  return 0.25;
-    case '1/32':  return 0.125;
-    case '1/4.':  return 1.5;
-    case '1/8.':  return 0.75;
-    case '1/16.': return 0.375;
-    case '1/4T':  return 2 / 3;
-    case '1/8T':  return 1 / 3;
-    case '1/16T': return 1 / 6;
-    default:      return 1;
-  }
-}
+// Legacy `beatsForDivision` was removed in v8; nodes use `divisionToBeats`
+// from `src/modulation/tempo.ts` (single source of truth).

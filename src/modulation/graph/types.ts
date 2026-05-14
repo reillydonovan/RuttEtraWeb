@@ -55,8 +55,26 @@ export interface TargetBinding {
   /** Defaults to the node's primary output port (`'out'`). */
   sourcePort?: string;
   amount: number;
+  /**
+   * Legacy "binding curve" (predates the shared output stage). Kept for
+   * backwards-compat so old saved patches still load; new code should
+   * use `outputCurve` instead. When both are present, `outputCurve`
+   * wins.
+   */
   curve?: CurveType;
   mode: BindingMode;
+  /**
+   * Output stage — same five fields as Classic `ModSlot.outputCurve` etc.
+   * All optional with sensible defaults applied at the engine boundary
+   * (curve='linear', min=-1, max=1, offset=0, invert=false). Beginner
+   * view's "Output" controls and Advanced view's binding inspector both
+   * write to these fields — there is NO parallel data structure.
+   */
+  outputCurve?: 'linear' | 'exp' | 'log' | 's' | 'step';
+  outputMin?: number;
+  outputMax?: number;
+  outputOffset?: number;
+  outputInvert?: boolean;
 }
 
 export interface GraphPatch {
@@ -108,6 +126,13 @@ export interface NodeDeps {
   osc?: OscLike | null;
   /** Stage 5: shared video readback service. Null until wired. */
   videoTap?: VideoTapLike | null;
+  /**
+   * Single shared internal BPM (mirrors `Settings.internalBpm`).
+   * Refreshed once per `GraphEngine.tick()` so the Clock node's
+   * `source: 'internal'` mode reads the same value as the Timeline
+   * sequencer and Classic LFO patches in Tempo sync mode.
+   */
+  bpm?: number;
 }
 
 // Minimal duck-typed interfaces so the engine stays decoupled from the

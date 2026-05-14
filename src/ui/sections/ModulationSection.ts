@@ -1,21 +1,30 @@
 /**
  * Modulation matrix UI — 4 slots, each can be a Ramp, Waveform, Audio band,
- * Beat, MIDI / OSC source, or Joystick generator routed to any DCU/post-fx
- * parameter.
+ * Beat, MIDI / OSC source, Joystick, or Constant generator routed to any
+ * DCU/post-fx parameter.
  *
- * Includes the joystick pad and the audio enable button.
+ * v8 layout — every slot is now a collapsible card with source-specific
+ * controls inline plus a shared "output stage" (curve / range / offset /
+ * invert). The joystick pad and the global Tempo BPM live above the slot
+ * list. See `panel.css` for the row layout classes.
  *
- * v2 additions per slot:
- *   - Conditional Band Index field for `audioBand` source.
- *   - Clock Sync toggle + Division dropdown (replaces Frequency when sync is on).
- *   - MIDI Out group (channel + CC) for echoing the slot value to a controller.
+ * This replaces the v2 layout (one row per knob, no expand affordance,
+ * `clockSync: boolean` toggle).
  */
 
-import { ClockDivision, ModSlot, ModSource, ModTarget, SettingsStore } from '../../state/Settings';
+import {
+  ClockDivision, ModSlot, ModSource, ModTarget, OutputCurve,
+  SettingsStore, SyncMode, DEFAULT_MOD_SLOT,
+  consumeMigrationNotices,
+} from '../../state/Settings';
 import { ModMatrix } from '../../modulation/ModMatrix';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
-import { row, group, button, readout } from '../widgets';
+import { group, button } from '../widgets';
 import { TARGETS } from '../targets';
+import {
+  createSlotRow, SlotRowAdapter, SourceKind,
+  getSlotClipboard, setSlotClipboard,
+} from '../shared/SlotRow';
 
 const SOURCES: { v: ModSource; l: string }[] = [
   { v: 'sine',         l: 'Sine' },
@@ -35,6 +44,13 @@ const SOURCES: { v: ModSource; l: string }[] = [
   { v: 'joystickX',    l: 'Joystick X' },
   { v: 'joystickY',    l: 'Joystick Y' },
   { v: 'joystickZ',    l: 'Joystick Z (scroll)' },
+  { v: 'constant',     l: 'Constant' },
+];
+
+const SYNC_MODES: { v: SyncMode; l: string }[] = [
+  { v: 'free',  l: 'Free (Hz)' },
+  { v: 'midi',  l: 'MIDI Clock' },
+  { v: 'tempo', l: 'Tempo (BPM)' },
 ];
 
 const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
@@ -42,11 +58,108 @@ const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
   ...TARGETS,
 ];
 
+const RAMP_MODES: ModSlot['rampMode'][] = ['up', 'down', 'triangle', 'hold'];
+
+const CURVES: { v: OutputCurve; l: string }[] = [
+  { v: 'linear', l: 'Linear' },
+  { v: 'exp',    l: 'Exp' },
+  { v: 'log',    l: 'Log' },
+  { v: 's',      l: 'S-curve' },
+  { v: 'step',   l: 'Step' },
+];
+
+/**
+ * One-shot guard — show the migration toast at most once per page load,
+ * even if the modulation section is re-mounted (e.g. after switching
+ * panel docks or layout modes).
+ */
+let _migrationToastShown = false;
+
 export function createModulationSection(settings: SettingsStore, matrix: ModMatrix): HTMLElement {
   const root = document.createElement('div');
 
+  // -----------------------------------------------------------------
+  // Joystick pad
+  // -----------------------------------------------------------------
+  root.appendChild(buildJoystick(matrix));
+
+  // -----------------------------------------------------------------
+  // Global Tempo BPM (single shared source — Timeline + Classic + Graph)
+  // -----------------------------------------------------------------
+  root.appendChild(buildTempoGroup(settings));
+
+  // -----------------------------------------------------------------
+  // Audio mic shortcut
+  // -----------------------------------------------------------------
+  const audioGroup = group('Audio Interface (mic)');
+  const audioBtn = document.createElement('button');
+  audioBtn.className = 'rw-btn';
+  audioBtn.textContent = 'Enable Mic';
+  let audioOn = false;
+  audioBtn.addEventListener('click', async () => {
+    audioOn = !audioOn;
+    try {
+      await matrix.setAudioEnabled(audioOn);
+      audioBtn.textContent = audioOn ? 'Disable Mic' : 'Enable Mic';
+      audioBtn.classList.toggle('primary', audioOn);
+    } catch (err) {
+      audioOn = false;
+      audioBtn.textContent = `Error: ${(err as Error).message}`;
+    }
+  });
+  audioGroup.body.appendChild(audioBtn);
+  const audioHint = document.createElement('div');
+  audioHint.className = 'rw-hint';
+  audioHint.textContent = 'For full FFT control, use the Audio panel under the I/O tab.';
+  audioGroup.body.appendChild(audioHint);
+  root.appendChild(audioGroup.root);
+
+  // -----------------------------------------------------------------
+  // Slot list
+  // -----------------------------------------------------------------
+  const refreshers: Array<() => void> = [];
+  const slots = settings.get('modSlots');
+  for (let i = 0; i < slots.length; i++) {
+    const { el, refresh } = createSlot(settings, matrix, i);
+    refreshers.push(refresh);
+    root.appendChild(el);
+  }
+
+  // Re-run every slot's refresh when ANY slot data changes (paste, source
+  // change, etc.). Cheap because each slot's refresh just rewrites the
+  // few fields it owns.
+  settings.subscribe('modSlots', () => { for (const r of refreshers) r(); });
+  settings.subscribe('modSlotExpanded', () => { for (const r of refreshers) r(); });
+
+  // Global "retrigger all ramps" — wrap in a group so it doesn't dangle
+  // visually below the slot list (master spec UI polish: "Retrigger
+  // Ramps label at the bottom appears dangling").
+  const globalActions = group('All slots');
+  globalActions.body.appendChild(button('Retrigger Ramps', () => matrix.retriggerRamps()));
+  root.appendChild(globalActions.root);
+
+  // -----------------------------------------------------------------
+  // One-time migration toast (collected by store.ts on Timeline import)
+  // -----------------------------------------------------------------
+  if (!_migrationToastShown) {
+    _migrationToastShown = true;
+    const notices = consumeMigrationNotices();
+    if (notices.length > 0) {
+      const head = notices.slice(0, 3).join('\n');
+      const tail = notices.length > 3 ? `\n…and ${notices.length - 3} more.` : '';
+      showMigrationToast(`Migration notice:\n${head}${tail}`);
+    }
+  }
+
+  return root;
+}
+
+// =====================================================================
+// Joystick pad (unchanged from v2 — extracted for readability)
+// =====================================================================
+
+function buildJoystick(matrix: ModMatrix): HTMLElement {
   const jsGroup = group('Joystick (XY pad + Z)');
-  // Live readouts above the pad.
   const xyzReadout = document.createElement('div');
   xyzReadout.className = 'rw-joystick-readouts';
   const xR = document.createElement('span'); xR.textContent = 'X: 0.00';
@@ -55,7 +168,6 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   xyzReadout.append(xR, yR, zR);
   jsGroup.body.appendChild(xyzReadout);
 
-  // Lock-axis selector (compact mode one-handed use; hidden on desktop).
   const lockRow = document.createElement('div');
   lockRow.className = 'rw-joystick-lock';
   const lockSel = document.createElement('select');
@@ -72,7 +184,6 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   lockRow.appendChild(lockSel);
   jsGroup.body.appendChild(lockRow);
 
-  // Layout: pad + vertical Z slider beside it.
   const padWrap = document.createElement('div');
   padWrap.className = 'rw-joystick-wrap';
   const pad = document.createElement('div');
@@ -82,12 +193,6 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   knob.style.left = '50%'; knob.style.top = '50%';
   pad.appendChild(knob);
 
-  // Custom div-based vertical Z slider. The previous implementation used
-  // an <input type="range"> with `writing-mode: vertical-lr; direction: rtl`
-  // — visually fine but completely unresponsive to touch on iOS Safari and
-  // most Android browsers (vertical-lr range inputs simply don't fire input
-  // events on touch drag). A div + pointerdown/move/up gives reliable touch
-  // adjustment everywhere while keeping keyboard accessibility.
   const zSlider = document.createElement('div');
   zSlider.className = 'rw-joystick-z';
   zSlider.setAttribute('role', 'slider');
@@ -105,67 +210,14 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
 
   const setZSliderValue = (v: number): void => {
     const clamped = Math.max(-1, Math.min(1, v));
-    const t = (clamped + 1) / 2;     // 0..1
+    const t = (clamped + 1) / 2;
     const pct = t * 100;
-    // Top of slider = +1 (fill grows from bottom).
     zFill.style.height = `${pct}%`;
     zKnob.style.bottom = `${pct}%`;
     zSlider.setAttribute('aria-valuenow', String(clamped));
     zSlider.setAttribute('aria-valuetext', clamped.toFixed(2));
   };
   setZSliderValue(0);
-
-  const updateZFromPointer = (clientY: number): void => {
-    const r = zSlider.getBoundingClientRect();
-    if (r.height <= 0) return;
-    const t = 1 - Math.max(0, Math.min(1, (clientY - r.top) / r.height));
-    jz = Math.max(-1, Math.min(1, t * 2 - 1));
-    setZSliderValue(jz);
-    emit();
-  };
-  // Document-level pointermove/pointerup listeners are more robust on iOS
-  // Safari than element-level setPointerCapture: inside the bottom-sheet's
-  // scroll-snap container, element pointer capture sometimes silently fails
-  // and the slider stops responding after the first event. Attaching to
-  // document on pointerdown and removing on pointerup avoids this entirely.
-  zSlider.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    const activeId = e.pointerId;
-    updateZFromPointer(e.clientY);
-
-    const onMove = (ev: PointerEvent): void => {
-      if (ev.pointerId !== activeId) return;
-      ev.preventDefault();
-      updateZFromPointer(ev.clientY);
-    };
-    const onUp = (ev: PointerEvent): void => {
-      if (ev.pointerId !== activeId) return;
-      document.removeEventListener('pointermove',   onMove);
-      document.removeEventListener('pointerup',     onUp);
-      document.removeEventListener('pointercancel', onUp);
-    };
-    document.addEventListener('pointermove',   onMove, { passive: false });
-    document.addEventListener('pointerup',     onUp);
-    document.addEventListener('pointercancel', onUp);
-  });
-  zSlider.addEventListener('keydown', (e) => {
-    let next = jz;
-    switch (e.key) {
-      case 'ArrowUp':   case 'ArrowRight': next += 0.05; break;
-      case 'ArrowDown': case 'ArrowLeft':  next -= 0.05; break;
-      case 'PageUp':                       next += 0.2;  break;
-      case 'PageDown':                     next -= 0.2;  break;
-      case 'Home':                         next = 1;     break;
-      case 'End':                          next = -1;    break;
-      case 'Backspace': case 'Delete':     next = 0;     break;
-      default: return;
-    }
-    e.preventDefault();
-    jz = Math.max(-1, Math.min(1, next));
-    setZSliderValue(jz);
-    emit();
-  });
-  jsGroup.body.appendChild(padWrap);
 
   let jx = 0, jy = 0, jz = 0;
   let dragging = false;
@@ -206,181 +258,279 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
     setZSliderValue(jz);
     emit();
   }, { passive: false });
-  root.appendChild(jsGroup.root);
 
-  const audioGroup = group('Audio Interface (mic)');
-  const audioBtn = document.createElement('button');
-  audioBtn.className = 'rw-btn';
-  audioBtn.textContent = 'Enable Mic';
-  let audioOn = false;
-  audioBtn.addEventListener('click', async () => {
-    audioOn = !audioOn;
-    try {
-      await matrix.setAudioEnabled(audioOn);
-      audioBtn.textContent = audioOn ? 'Disable Mic' : 'Enable Mic';
-      audioBtn.classList.toggle('primary', audioOn);
-    } catch (err) {
-      audioOn = false;
-      audioBtn.textContent = `Error: ${(err as Error).message}`;
-    }
+  // Z slider — custom div-based for iOS Safari touch reliability.
+  const updateZFromPointer = (clientY: number): void => {
+    const r = zSlider.getBoundingClientRect();
+    if (r.height <= 0) return;
+    const t = 1 - Math.max(0, Math.min(1, (clientY - r.top) / r.height));
+    jz = Math.max(-1, Math.min(1, t * 2 - 1));
+    setZSliderValue(jz);
+    emit();
+  };
+  zSlider.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const activeId = e.pointerId;
+    updateZFromPointer(e.clientY);
+    const onMove2 = (ev: PointerEvent): void => {
+      if (ev.pointerId !== activeId) return;
+      ev.preventDefault();
+      updateZFromPointer(ev.clientY);
+    };
+    const onUp = (ev: PointerEvent): void => {
+      if (ev.pointerId !== activeId) return;
+      document.removeEventListener('pointermove',   onMove2);
+      document.removeEventListener('pointerup',     onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+    document.addEventListener('pointermove',   onMove2, { passive: false });
+    document.addEventListener('pointerup',     onUp);
+    document.addEventListener('pointercancel', onUp);
   });
-  audioGroup.body.appendChild(audioBtn);
-  const audioHint = document.createElement('div');
-  audioHint.className = 'rw-hint';
-  audioHint.textContent = 'For full FFT control, use the Audio panel under the I/O tab.';
-  audioGroup.body.appendChild(audioHint);
-  root.appendChild(audioGroup.root);
+  zSlider.addEventListener('keydown', (e) => {
+    let next = jz;
+    switch (e.key) {
+      case 'ArrowUp':   case 'ArrowRight': next += 0.05; break;
+      case 'ArrowDown': case 'ArrowLeft':  next -= 0.05; break;
+      case 'PageUp':                       next += 0.2;  break;
+      case 'PageDown':                     next -= 0.2;  break;
+      case 'Home':                         next = 1;     break;
+      case 'End':                          next = -1;    break;
+      case 'Backspace': case 'Delete':     next = 0;     break;
+      default: return;
+    }
+    e.preventDefault();
+    jz = Math.max(-1, Math.min(1, next));
+    setZSliderValue(jz);
+    emit();
+  });
+  jsGroup.body.appendChild(padWrap);
 
-  const slots = settings.get('modSlots');
-  for (let i = 0; i < slots.length; i++) {
-    root.appendChild(createSlot(settings, matrix, i));
-  }
-
-  root.appendChild(button('Retrigger Ramps', () => matrix.retriggerRamps()));
-
-  return root;
+  return jsGroup.root;
 }
 
-function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): HTMLElement {
-  const g = group(`Slot ${index + 1}`);
+// =====================================================================
+// Global Tempo group
+// =====================================================================
 
-  const get = () => settings.get('modSlots')[index];
-  const update = (patch: Partial<ModSlot>) => {
+function buildTempoGroup(settings: SettingsStore): HTMLElement {
+  const g = group('Tempo');
+  const r = document.createElement('div');
+  r.className = 'rw-row';
+  const lbl = document.createElement('label');
+  lbl.className = 'rw-label';
+  lbl.textContent = 'BPM';
+  r.appendChild(lbl);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'rw-control rw-slider';
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = '20'; range.max = '300'; range.step = '0.5';
+  const num = document.createElement('input');
+  num.type = 'number';
+  num.min = '20'; num.max = '300'; num.step = '0.5';
+  num.className = 'rw-num';
+  wrap.append(range, num);
+  r.appendChild(wrap);
+  g.body.appendChild(r);
+
+  const hint = document.createElement('div');
+  hint.className = 'rw-hint';
+  hint.textContent = 'Shared by Timeline, Classic LFOs (Tempo sync), and the Graph Clock node.';
+  g.body.appendChild(hint);
+
+  const apply = (v: number) => {
+    const s = String(v);
+    if (range.value !== s) range.value = s;
+    if (num.value !== s) num.value = s;
+  };
+  settings.subscribe('internalBpm', (v) => apply(v as number));
+  range.addEventListener('input', () => settings.set('internalBpm', +range.value));
+  num.addEventListener('input', () => {
+    const v = parseFloat(num.value);
+    if (!Number.isNaN(v)) settings.set('internalBpm', v);
+  });
+
+  return g.root;
+}
+
+// =====================================================================
+// Per-slot row
+// =====================================================================
+
+interface SlotUi {
+  el: HTMLElement;
+  refresh: () => void;
+}
+
+function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): SlotUi {
+  const get = (): ModSlot => settings.get('modSlots')[index];
+  const update = (patch: Partial<ModSlot>): void => {
     const next = settings.get('modSlots').slice();
     next[index] = { ...next[index], ...patch };
     settings.set('modSlots', next);
     if (patch.target && patch.target !== 'none') matrix.recaptureBase(patch.target);
   };
-
-  const en = document.createElement('input');
-  en.type = 'checkbox';
-  en.checked = get().enabled;
-  en.addEventListener('change', () => update({ enabled: en.checked }));
-  const enLabel = document.createElement('label');
-  enLabel.className = 'rw-toggle';
-  const sw = document.createElement('span'); sw.className = 'rw-toggle-sw';
-  const tx = document.createElement('span'); tx.className = 'rw-toggle-txt'; tx.textContent = 'enabled';
-  enLabel.append(en, sw, tx);
-  g.body.appendChild(row('On/Off', enLabel));
-
-  const srcSel = document.createElement('select');
-  srcSel.className = 'rw-select';
-  for (const s of SOURCES) {
-    const o = document.createElement('option');
-    o.value = s.v; o.textContent = s.l;
-    srcSel.appendChild(o);
-  }
-  srcSel.value = get().source;
-  srcSel.addEventListener('change', () => update({ source: srcSel.value as ModSource }));
-  g.body.appendChild(row('Source', srcSel));
-
-  const tgtSel = document.createElement('select');
-  tgtSel.className = 'rw-select';
-  for (const t of TARGET_OPTS) {
-    const o = document.createElement('option');
-    o.value = t.v as string;
-    o.textContent = t.l;
-    tgtSel.appendChild(o);
-  }
-  tgtSel.value = get().target;
-  tgtSel.addEventListener('change', () => update({ target: tgtSel.value as ModTarget | 'none' }));
-  g.body.appendChild(row('Target', tgtSel));
-
-  g.body.appendChild(numRow('Amount', () => get().amount, (v) => update({ amount: v }), -2, 2, 0.001));
-
-  // Frequency / Clock-sync toggle.
-  const freqRow = numRow('Frequency', () => get().frequency, (v) => update({ frequency: v }), 0.001, 20, 0.001);
-  g.body.appendChild(freqRow);
-
-  const syncLabel = document.createElement('label');
-  syncLabel.className = 'rw-toggle';
-  const syncCb = document.createElement('input'); syncCb.type = 'checkbox';
-  const syncSw = document.createElement('span'); syncSw.className = 'rw-toggle-sw';
-  const syncTx = document.createElement('span'); syncTx.className = 'rw-toggle-txt'; syncTx.textContent = 'sync to MIDI clock';
-  syncLabel.append(syncCb, syncSw, syncTx);
-  syncCb.checked = get().clockSync;
-  syncCb.addEventListener('change', () => update({ clockSync: syncCb.checked }));
-  g.body.appendChild(row('Clock Sync', syncLabel));
-
-  const divSel = document.createElement('select');
-  divSel.className = 'rw-select';
-  for (const d of ALL_DIVISIONS) {
-    const o = document.createElement('option');
-    o.value = d; o.textContent = d;
-    divSel.appendChild(o);
-  }
-  divSel.value = get().clockDivision;
-  divSel.addEventListener('change', () => update({ clockDivision: divSel.value as ClockDivision }));
-  const divisionRow = row('Division', divSel);
-  g.body.appendChild(divisionRow);
-
-  const applyClockVisibility = () => {
-    const synced = get().clockSync;
-    freqRow.style.display    = synced ? 'none' : '';
-    divisionRow.style.display = synced ? '' : 'none';
+  const setExpanded = (open: boolean): void => {
+    const arr = (settings.get('modSlotExpanded') ?? []).slice();
+    while (arr.length <= index) arr.push(false);
+    if (arr[index] === open) return;
+    arr[index] = open;
+    settings.set('modSlotExpanded', arr);
   };
-  applyClockVisibility();
-  syncCb.addEventListener('change', applyClockVisibility);
+  const isExpanded = (): boolean => Boolean((settings.get('modSlotExpanded') ?? [])[index]);
 
-  g.body.appendChild(numRow('Phase', () => get().phase, (v) => update({ phase: v }), 0, 1, 0.001));
-  g.body.appendChild(numRow('Duty',  () => get().duty,  (v) => update({ duty: v }),  0.05, 0.95, 0.001));
-  g.body.appendChild(numRow('Ramp Time', () => get().rampTimeSec, (v) => update({ rampTimeSec: v }), 0.05, 600, 0.05));
-
-  const rampSel = document.createElement('select');
-  rampSel.className = 'rw-select';
-  for (const m of ['up', 'down', 'triangle', 'hold']) {
-    const o = document.createElement('option');
-    o.value = m; o.textContent = m;
-    rampSel.appendChild(o);
-  }
-  rampSel.value = get().rampMode;
-  rampSel.addEventListener('change', () => update({ rampMode: rampSel.value as ModSlot['rampMode'] }));
-  g.body.appendChild(row('Ramp Mode', rampSel));
-
-  // Conditional band index (only for `audioBand` source).
-  const bandRow = numRow('Band Index', () => get().bandIndex, (v) => update({ bandIndex: Math.round(v) }), 0, 127, 1);
-  g.body.appendChild(bandRow);
-  const applyBandVisibility = () => {
-    bandRow.style.display = get().source === 'audioBand' ? '' : 'none';
+  // Build a `SlotRowAdapter` view of this Classic ModSlot. The shared
+  // SlotRow component (used by Graph beginner view too) renders the row
+  // entirely through this adapter — it never sees `ModSlot` directly.
+  const adapter: SlotRowAdapter = {
+    enabled: { get: () => get().enabled, set: (v) => update({ enabled: v }) },
+    source: {
+      get: () => get().source,
+      set: (v) => update({ source: v as ModSource }),
+      options: SOURCES,
+    },
+    target: {
+      get: () => get().target,
+      set: (v) => update({ target: v as ModTarget | 'none' }),
+      options: TARGET_OPTS as ReadonlyArray<{ v: string; l: string }>,
+    },
+    amount: {
+      get: () => get().amount,
+      set: (v) => update({ amount: v }),
+      min: -5, max: 5, step: 0.001,
+    },
+    expanded: { get: isExpanded, set: setExpanded },
+    sourceKind: 'unsupported',
+    lfo: {
+      frequency: { get: () => get().frequency, set: (v) => update({ frequency: v }), min: 0.001, max: 20, step: 0.001 },
+      phase:     { get: () => get().phase,     set: (v) => update({ phase: v }),     min: 0,     max: 1,  step: 0.001 },
+      duty:      { get: () => get().duty,      set: (v) => update({ duty: v }),      min: 0.05,  max: 0.95, step: 0.001 },
+      depth:     { get: () => get().lfoDepth,  set: (v) => update({ lfoDepth: v }),  min: 0,     max: 1,  step: 0.001 },
+      bipolar:   { get: () => !get().lfoUnipolar, set: (v) => update({ lfoUnipolar: !v }) },
+      syncMode:  { get: () => get().syncMode,  set: (v) => update({ syncMode: v as SyncMode }), options: SYNC_MODES },
+      clockDivision: {
+        get: () => get().clockDivision,
+        set: (v) => update({ clockDivision: v as ClockDivision }),
+        options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
+      },
+    },
+    ramp: {
+      timeSec: { get: () => get().rampTimeSec, set: (v) => update({ rampTimeSec: v }), min: 0.05, max: 600, step: 0.05 },
+      mode: {
+        get: () => get().rampMode,
+        set: (v) => update({ rampMode: v as ModSlot['rampMode'] }),
+        options: RAMP_MODES.map((m) => ({ v: m, l: m })),
+      },
+      loop: { get: () => get().rampLoop, set: (v) => update({ rampLoop: v }) },
+      retrigger: () => matrix.retriggerSlot(index),
+    },
+    audio: {
+      bandIndex: { get: () => get().bandIndex, set: (v) => update({ bandIndex: Math.round(v) }), min: 0, max: 127, step: 1 },
+      attackMs:  { get: () => get().audioAttackMs,  set: (v) => update({ audioAttackMs: v }),  min: 1, max: 1000, step: 1 },
+      releaseMs: { get: () => get().audioReleaseMs, set: (v) => update({ audioReleaseMs: v }), min: 1, max: 5000, step: 1 },
+      gain:      { get: () => get().audioGain,      set: (v) => update({ audioGain: v }),      min: 0, max: 4, step: 0.01 },
+      floor:     { get: () => get().audioFloor,     set: (v) => update({ audioFloor: v }),     min: 0, max: 1, step: 0.001 },
+    },
+    joystick: {
+      smoothMs: { get: () => get().joystickSmoothMs, set: (v) => update({ joystickSmoothMs: v }), min: 0, max: 500, step: 1 },
+      deadzone: { get: () => get().joystickDeadzone, set: (v) => update({ joystickDeadzone: v }), min: 0, max: 0.5, step: 0.001 },
+      invert:   { get: () => get().joystickInvert,   set: (v) => update({ joystickInvert: v }) },
+    },
+    constant: {
+      value: { get: () => get().constantValue, set: (v) => update({ constantValue: v }), min: -1, max: 1, step: 0.001 },
+    },
+    midiClock: {
+      clockDivision: {
+        get: () => get().clockDivision,
+        set: (v) => update({ clockDivision: v as ClockDivision }),
+        options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
+      },
+    },
+    output: {
+      curve:  { get: () => get().outputCurve,  set: (v) => update({ outputCurve: v as OutputCurve }), options: CURVES },
+      min:    { get: () => get().outputMin,    set: (v) => update({ outputMin: v }),    min: -2, max: 2, step: 0.001 },
+      max:    { get: () => get().outputMax,    set: (v) => update({ outputMax: v }),    min: -2, max: 2, step: 0.001 },
+      offset: { get: () => get().outputOffset, set: (v) => update({ outputOffset: v }), min: -1, max: 1, step: 0.001 },
+      invert: { get: () => get().outputInvert, set: (v) => update({ outputInvert: v }) },
+    },
+    midiOut: {
+      enabled: { get: () => get().midiOutEnabled, set: (v) => update({ midiOutEnabled: v }) },
+      channel: { get: () => get().midiOutChannel, set: (v) => update({ midiOutChannel: Math.round(v) }), min: 1, max: 16, step: 1 },
+      cc:      { get: () => get().midiOutCC,      set: (v) => update({ midiOutCC:      Math.round(v) }), min: 0, max: 127, step: 1 },
+    },
+    copy: () => setSlotClipboard({ ...get() }),
+    paste: () => {
+      const clip = getSlotClipboard() as Partial<ModSlot> | null;
+      if (clip) update({ ...clip });
+    },
+    reset: () => update({ ...DEFAULT_MOD_SLOT }),
+    midiClockState: () => matrix.slotMidiClockState(index),
+    caps: {
+      showEnable: true,
+      showCopyPaste: true,
+      showMidiOut: true,
+      resetLabel: 'Reset slot',
+      showRampRetrigger: true,
+    },
   };
-  applyBandVisibility();
-  srcSel.addEventListener('change', applyBandVisibility);
 
-  // MIDI Out group (collapsed by default).
-  const moutGroup = group('MIDI Out');
-  const moutEn = document.createElement('label');
-  moutEn.className = 'rw-toggle';
-  const moutCb = document.createElement('input'); moutCb.type = 'checkbox';
-  const moutSw = document.createElement('span'); moutSw.className = 'rw-toggle-sw';
-  const moutTx = document.createElement('span'); moutTx.className = 'rw-toggle-txt'; moutTx.textContent = 'send CC';
-  moutEn.append(moutCb, moutSw, moutTx);
-  moutCb.checked = get().midiOutEnabled;
-  moutCb.addEventListener('change', () => update({ midiOutEnabled: moutCb.checked }));
-  moutGroup.body.appendChild(row('Enable', moutEn));
-  moutGroup.body.appendChild(numRow('Channel', () => get().midiOutChannel, (v) => update({ midiOutChannel: Math.round(v) }), 1, 16, 1));
-  moutGroup.body.appendChild(numRow('CC',      () => get().midiOutCC,      (v) => update({ midiOutCC:      Math.round(v) }), 0, 127, 1));
-  g.body.appendChild(moutGroup.root);
+  // The shared row component reads `sourceKind` to decide which body
+  // groups to render. Recompute it from the slot's source on every
+  // refresh so that changing the source dropdown rebuilds the body.
+  const updateSourceKind = (): void => { adapter.sourceKind = classicSourceToKind(get().source); };
+  updateSourceKind();
 
-  return g.root;
+  const ui = createSlotRow(adapter);
+  return {
+    el: ui.root,
+    refresh: () => { updateSourceKind(); ui.refresh(); },
+  };
 }
 
-function numRow(label: string, get: () => number, set: (v: number) => void, min: number, max: number, step: number): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'rw-slider';
-  const range = document.createElement('input');
-  range.type = 'range';
-  range.min = String(min); range.max = String(max); range.step = String(step);
-  range.value = String(get());
-  const num = document.createElement('input');
-  num.type = 'number';
-  num.min = String(min); num.max = String(max); num.step = String(step);
-  num.value = String(get());
-  num.className = 'rw-num';
-  wrap.append(range, num);
-  range.addEventListener('input', () => { set(+range.value); num.value = range.value; });
-  num.addEventListener('input', () => {
-    const v = parseFloat(num.value);
-    if (!Number.isNaN(v)) { set(v); range.value = String(v); }
-  });
-  return row(label, wrap);
+/** Map a Classic ModSource to the SlotRow `SourceKind`. */
+function classicSourceToKind(s: ModSource): SourceKind {
+  switch (s) {
+    case 'sine': case 'triangle': case 'square': case 'saw': case 'pulse':
+      return 'lfo';
+    case 'ramp':         return 'ramp';
+    case 'audio':        return 'audio';
+    case 'audioBand':    return 'audioBand';
+    case 'beat':         return 'beat';
+    case 'midiClock':    return 'midiClock';
+    case 'midiCC':
+    case 'midiNote':
+    case 'midiVelocity': return 'midiOther';
+    case 'osc':          return 'osc';
+    case 'joystickX':
+    case 'joystickY':
+    case 'joystickZ':    return 'joystick';
+    case 'constant':     return 'constant';
+  }
+}
+
+/**
+ * Append a transient toast to the global `#rw-toast-host` (created by
+ * `ResponsivePanel`). Falls back to a bare DOM element appended to body
+ * if the host isn't available yet (e.g. very early boot order). Lives
+ * here rather than on the ResponsivePanel instance because Modulation
+ * doesn't have a reference to it.
+ */
+function showMigrationToast(message: string): void {
+  const host = document.getElementById('rw-toast-host') ?? document.body;
+  const t = document.createElement('div');
+  t.className = 'rw-toast';
+  const msg = document.createElement('span');
+  msg.textContent = message;
+  t.appendChild(msg);
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'rw-toast-dismiss';
+  dismiss.setAttribute('aria-label', 'Dismiss');
+  dismiss.textContent = '×';
+  dismiss.addEventListener('click', () => t.remove());
+  t.appendChild(dismiss);
+  host.appendChild(t);
+  setTimeout(() => t.remove(), 10000);
 }

@@ -105,8 +105,14 @@ function slotToSourceNode(slot: ModSlot, idx: number): GraphNode | null {
       return { id, type: 'joystick-y', inputs: {}, params: {} };
     case 'joystickZ':
       return { id, type: 'joystick-z', inputs: {}, params: {} };
-    default:
-      return null;
+    case 'constant':
+      // Classic 'constant' source maps directly to the graph `constant`
+      // node. We pass the slot's `constantValue` through the node's
+      // `value` param; the binding handles the per-slot `amount`.
+      return {
+        id, type: 'constant', inputs: {},
+        params: { value: slot.constantValue },
+      };
   }
 }
 
@@ -115,4 +121,5 @@ export const CLASSIC_SOURCE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
   'lfo', 'ramp', 'audio-envelope', 'audio-band', 'audio-onset',
   'midi-cc', 'midi-note', 'clock', 'osc-in',
   'joystick-x', 'joystick-y', 'joystick-z',
+  'constant',
 ]);
