@@ -9,6 +9,103 @@ The core synth: how brightness becomes geometry, what each knob does, and how to
 - **Video file** — drag a file onto the picker to loop a local video through the effect.
 - **Mirror H / Mirror V** — toggles applied before synthesis. Mirror V defaults to ON because the original Rutt/Etra signal feeds top-to-bottom.
 
+### Pattern Generator (synthesized source)
+
+The Pattern Generator is a built-in "video signal" — a fragment shader that paints a synthesized image into an offscreen texture, then feeds it through the DCU exactly the way a webcam frame would. It is a *layer* parallel to the video source, not a replacement: webcam / screen / file stay selected as before, and a separate **Enable** toggle (styled identically to **Mirror H** / **Mirror V**) flips the pattern pipeline on. When OFF, the live `VideoTexture` feeds the DCU directly with zero added GPU cost.
+
+Conceptually:
+
+- `sourceKind` (webcam / file / screen / none) drives the **video layer**.
+- `patternEnabled` gates the **pattern layer**, which is rendered to its own offscreen render target.
+- `patternBlendMode` + `patternMix` describe how the two layers combine. The composited result then becomes the DCU's `uVideo` input — every existing knob, every modulation slot, every PostFX pass works on it identically to webcam input.
+
+This is the historically-faithful version of the Rutt/Etra "internal signal generator". The 1974 hardware was famously a hijacked oscilloscope, so the most period-correct way to use this synth without a camera is to feed it a synthesized signal and let the DCU do its work.
+
+#### Pattern catalog
+
+Patterns are grouped into four families:
+
+- **Calibration** — *Solid*, *Gradient*, *Bars*, *Grid*, *Checkerboard*. Useful for verifying linearity and Z Push response with a clean signal.
+- **Waveform** — *Sine Bands*, *Triangle Bands*, *Saw Bands*, *Square Bands*, *Pulse Bands* (with duty-cycle Thickness), *Lissajous* (XY oscillator trace), *Spiral* (radial sweep). Modulating frequency or phase animates these.
+- **Noise** — *White Noise* (uncorrelated per-pixel), *Perlin Noise* (smooth fBm with octave control), *Worley Noise* (cellular blobs).
+- **Oscilloscope** — renders an arbitrary signal as a phosphor scope trace.
+
+Switching `Kind` resets only the parameters that pattern actually uses to its defaults; cross-pattern controls (Mix, blend mode) keep their current values, so an LFO patched on Mix stays alive across kind changes.
+
+#### Modulation
+
+Every numeric pattern parameter (Frequency, Brightness, Contrast, Phase, Scale, Thickness, Density, Lissajous Freq Ratio, Spiral Arms, Perlin Octaves, Worley Point Density, Mix, Scope Sweep / Trigger / Persist / Thickness) is a first-class **ModTarget**. They show up in the Classic slot's Target dropdown and the Graph engine's `cv-output` target list under the **Pattern:** prefix. The base/live value separation in `LiveValuesStore` applies as usual — an LFO writes an additive offset, the slider keeps showing the *base* value, and the renderer reads `getLive()` each frame.
+
+The small **+** button next to each pattern parameter slider creates a sine LFO already targeted at that param: it scans the modulation slot list, finds the first slot that is disabled or pointing at `none`, sets it to `source: 'sine', target: <param>, amount: 0.25`, and expands the slot's UI in the Modulation panel so you can keep tweaking.
+
+#### Compositing
+
+`patternBlendMode` is a discrete dropdown with eight modes:
+
+| Mode         | Math                                  | Use                                                                 |
+|--------------|---------------------------------------|---------------------------------------------------------------------|
+| Replace      | pattern only                          | Pattern *is* the input. Set `sourceKind = none` for a pure synth.   |
+| Add          | `v + p·mix`                           | Add bright structure on top of footage.                             |
+| Subtract     | `v − p·mix`                           | Subtract a pattern as a luminance mask.                             |
+| Multiply     | `mix(v, v·p, mix)`                    | Modulate camera brightness with a pattern (vignette, gates).        |
+| Screen       | `mix(v, 1 − (1−v)(1−p), mix)`         | Light-only blend; never darkens.                                    |
+| Difference   | `mix(v, |v−p|, mix)`                  | Edge / fold artifacts.                                              |
+| Mask         | `v · lerp(1, lum(p), mix)`            | Use pattern luminance as a key on the video.                        |
+| Crossfade    | `mix(v, p, mix)`                      | Clean A/B fade between video and pattern.                           |
+
+`patternMix` (`0..1`, modulatable) is a wet/dry on the blended result, so even Replace mode honors a Mix sweep — handy for ducking the pattern in and out at tempo.
+
+#### Oscilloscope mode in detail
+
+The Oscilloscope kind expects a one-dimensional signal sampled into a circular buffer. The buffer is uploaded as a 1D `DataTexture` and rendered as a beam trace in the fragment shader, with optional phosphor decay (a feedback render-target accumulator).
+
+- **Source kind** picks where samples come from: live audio time-domain, a Classic mod-matrix slot value, a Graph node port, an arbitrary numeric Settings key (read through `LiveValuesStore` so modulation appears in the trace), or BeatDetector pulses.
+- **Source ref** is the sub-selector. For Audio it's ignored; for Classic Slot it's a 1-based slot number; for Graph Node it's `<nodeId>:<port>` (default port `out`); for Settings Param it's any numeric Settings key, e.g. `zPush`.
+- **Sweep** controls how many buffer windows fit on screen — values >1 compress time; values <1 zoom in.
+- **Trigger** is a rising-edge alignment threshold. Set to 0 to disable; non-zero values realign the displayed window so the trace stays visually stable on periodic signals.
+- **Persist** is the phosphor decay between 0 and 0.99. Higher = longer trail.
+- **Thickness** is the beam half-width in pixels; **Beam Hue** picks an HSV hue at full saturation (default 0.33 ≈ phosphor green).
+
+Because the scope output then feeds the DCU, **scoping a signal also drives the Z displacement along the shape of that signal**. Audio waveforms become a vibrating raster; an LFO becomes a slow undulating ridge; a Graph clock pulse becomes a marching square wave of geometry. This is recursive Rutt/Etra video synthesis: the original 1974 patch.
+
+#### Pattern outputs (signals back into the modulation system)
+
+Every pattern publishes its internal control signals to a small per-frame value bus. These signals appear as **first-class modulation sources** alongside LFOs, audio envelopes, joystick, MIDI, and CV inputs.
+
+The two paths — visible pattern (a fragment shader) and published signal (a small JS function) — share the *same parameter state*. A single Frequency knob feeds both the shader's `uFrequency` uniform and the CPU mirror's `time * frequency * 2π + phase` argument. Modulating Frequency moves the visible bands and the wave output in lockstep, by construction.
+
+Catalog of published signals:
+
+| Pattern              | Signal     | Range  | Description                                                                  |
+|----------------------|------------|--------|------------------------------------------------------------------------------|
+| Gradient             | `ramp`     | -1..1  | `sin(phase)` — slow rotation of the gradient direction.                      |
+| Sine Bands           | `wave`     | -1..1  | `sin(time * frequency * 2π + phase)`.                                        |
+| Triangle Bands       | `wave`     | -1..1  | Triangle wave at the configured frequency.                                   |
+| Saw Bands            | `wave`     | -1..1  | Sawtooth wave at the configured frequency.                                   |
+| Square Bands         | `wave`     | -1..1  | 50% duty bipolar square wave.                                                |
+| Pulse Bands          | `wave`     | -1..1  | Bipolar pulse at the configured frequency; Thickness controls duty.          |
+| Lissajous            | `x`        | -1..1  | `sin(time * frequency)` — the X oscillator drawing the curve.                |
+| Lissajous            | `y`        | -1..1  | `sin(time * frequency * freqRatio + phaseOffset)` — the Y oscillator.        |
+| Spiral               | `phase`    | -1..1  | `sin(uPhase)` — useful for syncing rotation-aware modulation to the visual.  |
+| Oscilloscope         | `latest`   | -1..1  | Most recent sample written to the scope buffer.                              |
+| Oscilloscope         | `mean`     | -1..1  | Running mean of the visible scope window.                                    |
+| Oscilloscope         | `peak`     | 0..1   | Running peak absolute sample. Fast-attack envelope follower.                 |
+| Oscilloscope         | `trigger`  | 0..1   | One-frame pulse (1.0) on rising-edge crossings, else 0.                      |
+
+Three places they show up:
+
+- **Classic mode source dropdown** — every signal is a top-level option in a `Pattern Outputs` group: pick **Pattern: Lissajous X**, route it to `Z Push`, watch Z Push wobble in lockstep with the visible curve.
+- **Graph mode** — drop in a **Pattern Output** node, pick a signal from its dropdown, and wire it through the rest of the graph. A `pattern-output → slew → cv-output(BloomIntensity)` chain makes bloom smoothly follow whatever you're scoping.
+- **CV out** — a per-channel **Pattern output** source kind sends the signal as voltage. An external hardware oscilloscope plugged into channel 2 then displays the same Lissajous X the synth's visual layer is drawing.
+
+The pattern's CPU mirror runs once per frame in `PatternRenderer.tick()`, after the visible frame is rendered, so consumers see one-frame-old values — same one-frame latency every other inter-tick boundary in the engine has. When the pattern is disabled or the user picks a different pattern, the bus is cleared so stale signals can't keep driving slots that targeted them.
+
+#### Common patches
+
+- **Audio-reactive sine bands.** Source `Sine Bands`, then Classic slot 1: source `audio-band`, target `Pattern: Frequency`, amount `0.6`. Tap the **+** next to Frequency for a starting point. Set the band index in the slot's expanded body to a kick band; clap-band gives nicer mid-frequency wobble.
+- **Recursive scope-of-LFO.** Source `Oscilloscope`, scope source `Classic Slot`, ref `1`. Slot 1: source `triangle`, target `none`, amount `1`. The slot itself doesn't drive a target; it just provides a value the scope samples each frame. Modulate slot 1's frequency from another slot for tempo-locked Z-displacement.
+- **Perlin-noise crossfade with motion.** Source `Perlin Noise`, blend `Crossfade`, mix `0.5`. Patch a Graph **video-motion** node into a `cv-output` node targeting `Pattern: Mix`. Now the camera detects motion → the pattern fades in over the live video, generative feedback that responds to movement.
+
 ### Display Control Unit (DCU)
 
 Every knob from the original Rutt Electrophysics brochure, grouped as in the panel UI.

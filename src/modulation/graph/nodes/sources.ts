@@ -217,5 +217,50 @@ register<ClockState>({
   },
 });
 
+// ---------- v10: Pattern Output ----------
+//
+// Reads an internal control signal published by the active Pattern
+// Generator (Lissajous X / Y, Sine Bands wave, Oscilloscope mean /
+// trigger / peak, etc.) and exposes it as a graph control signal.
+//
+// The bus id (`<patternKind>:<signalId>`, e.g. `'lissajous:x'`) is
+// stored on the node as the `output` param. The list of available
+// outputs is built lazily from the pattern registry so a new pattern
+// shipping new signals shows up here automatically.
+
+import { listPatternOutputs } from '../../../renderer/patterns/PatternRegistry';
+
+const PATTERN_OUTPUT_OPTIONS = (() => {
+  const ids = listPatternOutputs().map((e) => e.busId);
+  // Always include the empty-string sentinel so a freshly created
+  // node has a valid default before the user picks one.
+  return ids.length > 0 ? ids : [''];
+})();
+
+register<{}>({
+  type: 'pattern-output',
+  category: 'Sources',
+  label: 'Pattern Output',
+  description: 'Read an internal control signal from the active Pattern Generator (Lissajous X/Y, Sine Bands wave, Oscilloscope mean/trigger/peak, etc.).',
+  inputs: [],
+  outputs: [{ name: 'out', kind: 'control' }],
+  params: {
+    /** Bus id `<patternKind>:<signalId>` — e.g. `'lissajous:x'`. */
+    output: {
+      kind: 'enum',
+      options: PATTERN_OUTPUT_OPTIONS,
+      default: PATTERN_OUTPUT_OPTIONS[0] ?? '',
+    },
+  },
+  init: () => ({}),
+  tick(ctx, _s, _i, params, outputs) {
+    const bus = ctx.deps.patternBus;
+    if (!bus) { outputs.out = 0; return; }
+    const id = String(params.output ?? '');
+    if (!id) { outputs.out = 0; return; }
+    outputs.out = bus.get(id);
+  },
+});
+
 // Legacy `beatsForDivision` was removed in v8; nodes use `divisionToBeats`
 // from `src/modulation/tempo.ts` (single source of truth).

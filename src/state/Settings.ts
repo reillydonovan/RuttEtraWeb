@@ -35,7 +35,11 @@ export type ModSource =
   | 'cvAudio'      // DC-coupled audio interface channel
   | 'cvOsc'        // OSC bridge (/cv/<n>)
   | 'gamepadAxis'  // Gamepad / HID axis
-  | 'gamepadBtn';  // Gamepad / HID button (0/1)
+  | 'gamepadBtn'   // Gamepad / HID button (0/1)
+  // v10: pattern internal signal bus (Lissajous X/Y, Sine Bands wave,
+  // Oscilloscope mean / trigger, etc.). The slot's `patternOutputId`
+  // field selects which signal — format `<patternKind>:<signalId>`.
+  | 'patternOutput';
 
 /**
  * Per-slot sync mode (replaces the legacy `clockSync: boolean`).
@@ -117,6 +121,16 @@ export interface ModSlot {
   cvChannel: number;            // 0..n-1, default 0
   /** Axis or button index for gamepad sources. */
   gamepadIndex: number;         // 0..n-1, default 0
+
+  // ---------- v10: pattern output source ----------
+  /**
+   * For `source === 'patternOutput'`: the pattern signal bus id to read,
+   * formatted as `<patternKind>:<signalId>` (e.g. `'lissajous:x'`,
+   * `'sineBands:wave'`, `'oscilloscope:mean'`). Empty string means "no
+   * signal selected" — the slot returns 0 until the user picks one.
+   * Available signals come from `PatternDef.outputs` in the registry.
+   */
+  patternOutputId: string;
 }
 
 export type ModTarget =
@@ -135,7 +149,70 @@ export type ModTarget =
   // open-ended (we don't enumerate the type of every channel index)
   // because the user picks how many output channels they have. The
   // dropdown builder appends one entry per `Settings.cvOutputChannels`.
-  | `cv:${number}`;
+  | `cv:${number}`
+  // v10: Pattern Generator modulatable params. Every numeric pattern
+  // uniform that has user-musical meaning is a first-class mod target so
+  // an LFO can sweep frequency, an audio envelope can pulse contrast, a
+  // video-motion node can shake noise scale, etc. Non-modulatable enums
+  // (kind, blend mode, axis, scope source kind/ref) are NOT here — those
+  // are categorical and don't sum sensibly.
+  | 'patternMix'
+  | 'patternBrightness' | 'patternContrast'
+  | 'patternFrequency'  | 'patternPhase'
+  | 'patternScale'      | 'patternThickness'
+  | 'patternDensity'
+  | 'patternFreqRatio'  | 'patternPhaseOffset'
+  | 'patternArms'       | 'patternOctaves'
+  | 'patternPointDensity'
+  | 'patternScopeSweep' | 'patternScopeTrigger'
+  | 'patternScopePersist' | 'patternScopeThickness';
+
+// --------------------------------------------------------------------
+// v10: Pattern Generator
+// --------------------------------------------------------------------
+
+/**
+ * Built-in synthesized "video signal" generators. Each one is a fragment
+ * shader rendering to an offscreen `WebGLRenderTarget`; the result feeds
+ * the DCU's `uVideo` uniform exactly the way a webcam frame does, so
+ * every existing control / modulation / effect works on synthesized
+ * input identically to camera input.
+ *
+ * Grouped into four families in the UI dropdown:
+ *   - Calibration: solid, gradient, bars, grid, checker
+ *   - Waveform:    sineBands, triangleBands, sawBands, squareBands,
+ *                  pulseBands, lissajous, spiral
+ *   - Noise:       whiteNoise, perlinNoise, worleyNoise
+ *   - Oscilloscope: oscilloscope (renders an arbitrary signal as a
+ *                  scope trace — most Rutt-faithful generator)
+ */
+export type PatternKind =
+  | 'solid' | 'gradient' | 'bars' | 'grid' | 'checker'
+  | 'sineBands' | 'triangleBands' | 'sawBands' | 'squareBands' | 'pulseBands'
+  | 'lissajous' | 'spiral'
+  | 'whiteNoise' | 'perlinNoise' | 'worleyNoise'
+  | 'oscilloscope';
+
+/** Compositor blend modes between the pattern texture and the video
+ *  texture. Selected per-frame via a uniform int in the compositor
+ *  fragment shader. */
+export type PatternBlendMode =
+  | 'replace' | 'add' | 'subtract' | 'multiply'
+  | 'screen' | 'difference' | 'mask' | 'crossfade';
+
+/** Axis enum used by every "bands" pattern (and a few others). */
+export type PatternAxis = 'h' | 'v' | 'both' | 'radial';
+
+/** Linear gradient direction vs. radial falloff. */
+export type PatternGradientShape = 'linear' | 'radial';
+
+/** Where the oscilloscope trace gets its samples from. */
+export type PatternScopeSourceKind =
+  | 'audio'           // audio analyser time-domain (live mic / file / tab)
+  | 'classic-slot'    // ref = 1-based slot index ('1'..'4')
+  | 'graph-node'      // ref = '<nodeId>:<port>' (e.g. 'lfo-1:out')
+  | 'settings-param'  // ref = a Settings key (e.g. 'zPush'); reads live.getLive
+  | 'beat';           // beat-detector pulses (1.0 on hit, decay)
 
 export interface CameraView {
   posX: number; posY: number; posZ: number;
@@ -236,7 +313,11 @@ export type CVOutSourceKind =
   | 'settings-param'   // current `live` value of a Settings key (via LiveValuesStore)
   | 'midi-note'        // last MIDI note (used by `pitch` type)
   | 'auto'             // type-dependent: clock=internal BPM, others=zero
-  | 'constant';        // fixed value (used by Test mode + manual offsets)
+  | 'constant'         // fixed value (used by Test mode + manual offsets)
+  // v10: pattern internal signal published to the modulation system.
+  // The channel reads `<patternKind>:<signalId>` from the signal bus
+  // and emits it as voltage exactly like any other CV source.
+  | 'pattern-output';
 
 export type CVOutScaleType = 'chromatic' | 'major' | 'minor' | 'harmonic-minor' | 'pentatonic-major' | 'pentatonic-minor';
 
@@ -271,6 +352,9 @@ export interface CVOutputChannel {
   sourceNodePort?: string;
   /** For 'constant' — fixed normalized value (-1..1). */
   sourceConstant?: number;
+  /** For 'pattern-output' — bus id `<patternKind>:<signalId>`,
+   *  e.g. `'lissajous:x'`. Empty = "no signal" (channel emits 0). */
+  sourcePatternOutputId?: string;
 
   // ---------- gate ----------
   gateThreshold?: number;   // 0..1, default 0.5
@@ -383,6 +467,80 @@ export interface AudioSpectrumRouting {
 }
 
 // --------------------------------------------------------------------
+// Sonification (v10) — audible output voice driven by mesh statistics
+// --------------------------------------------------------------------
+
+/** Statistical scalars the MeshAnalyzer publishes each frame. UI mapping
+ *  rows enumerate this union; new entries propagate through the help
+ *  catalog automatically. */
+export type MeshStatId =
+  | 'meanBrightness'
+  | 'brightnessVariance'
+  | 'verticalCentroid'
+  | 'horizontalCentroid'
+  | 'meshActivity'
+  | 'peakRow'
+  | 'peakBrightness'
+  | 'edgeDensity';
+
+/** Voice parameters the mapping layer can drive. Single-voice scope —
+ *  no LFOs, no envelopes, just these four scalars. */
+export type SonificationParam = 'pitch' | 'amplitude' | 'cutoff' | 'resonance';
+
+/** Easing applied to the 0..1 stat before mapping to the param's range.
+ *  'exponential' is musical for pitch (logarithmic perception). */
+export type MappingCurve = 'linear' | 'exponential' | 'logarithmic' | 'sCurve';
+
+export type SonificationWaveform = 'sine' | 'triangle' | 'saw' | 'square';
+export type SonificationFilterType = 'lowpass' | 'bandpass' | 'highpass' | 'notch';
+
+export interface SonificationMapping {
+  /** Mesh stat id; empty string = unmapped (param holds at midpoint). */
+  source: MeshStatId | '';
+  curve: MappingCurve;
+}
+
+export interface SonificationConfig {
+  /** Master toggle. ALWAYS forced to `false` on page load / preset
+   *  import. Soft-start ramp on enable. */
+  enabled: boolean;
+  /** Master output level in dB. Default -18 dB so first-enables are
+   *  quiet by design. -inf treated as muted (set internally during
+   *  Mute Briefly / mic-feedback gating). */
+  masterVolumeDb: number;
+  /** Oscillator waveform. */
+  waveform: SonificationWaveform;
+  /** Biquad filter type. Default lowpass. */
+  filterType: SonificationFilterType;
+  /** Pitch range as [low, high] MIDI note numbers. Default C2..C6. */
+  pitchRangeMidi: [number, number];
+  /** When true, pitch snaps to integer MIDI semitones. Off = continuous
+   *  glide (theremin behavior). */
+  quantize: boolean;
+  /** 1-pole lowpass smoothing applied to every stat→param mapping, in
+   *  ms. Default 40 ms. */
+  smoothingMs: number;
+  /** Mesh stat → voice param mappings. */
+  mappings: Record<SonificationParam, SonificationMapping>;
+}
+
+export const DEFAULT_SONIFICATION: SonificationConfig = {
+  enabled: false,
+  masterVolumeDb: -18,
+  waveform: 'sine',
+  filterType: 'lowpass',
+  pitchRangeMidi: [36, 84], // C2..C6
+  quantize: true,
+  smoothingMs: 40,
+  mappings: {
+    pitch:     { source: 'verticalCentroid',   curve: 'exponential' },
+    amplitude: { source: 'meanBrightness',     curve: 'linear' },
+    cutoff:    { source: 'brightnessVariance', curve: 'exponential' },
+    resonance: { source: 'meshActivity',       curve: 'linear' },
+  },
+};
+
+// --------------------------------------------------------------------
 // Settings
 // --------------------------------------------------------------------
 
@@ -395,6 +553,44 @@ export interface Settings {
   requestedWidth: number;
   requestedHeight: number;
   requestedFps: number;
+
+  // ---------- Pattern Generator (v10) ----------
+  // A synthesized video-signal layer that runs PARALLEL to the video
+  // source (webcam / file / screen). Toggle `patternEnabled` to flip
+  // the layer on; `patternBlendMode` + `patternMix` describe how it
+  // combines with whatever `sourceKind` is currently producing. Every
+  // numeric pattern param is modulatable via the standard ModMatrix /
+  // GraphEngine pipeline (see ModTarget union above).
+  patternEnabled: boolean;
+  patternKind: PatternKind;
+  patternBlendMode: PatternBlendMode;
+  patternMix: number;            // 0..1, modulatable — composites pattern over video
+  // Common modulatable params (each pattern shader picks the ones it
+  // needs; unused values are ignored). Defaults are pattern-specific
+  // and reset on `patternKind` change via PATTERN_REGISTRY.defaults.
+  patternBrightness: number;     // 0..1
+  patternContrast: number;       // 0..2
+  patternFrequency: number;      // cycles per frame, 0..64
+  patternPhase: number;          // radians, 0..2π
+  patternScale: number;          // 0.05..16 — used by noise / spiral / grid
+  patternThickness: number;      // 0..1 — bars / grid / lissajous line width
+  patternDensity: number;        // 0..32 — checker count / point density
+  patternFreqRatio: number;      // 0.1..16 — Lissajous Y/X frequency ratio
+  patternPhaseOffset: number;    // radians, 0..2π — Lissajous Y vs X
+  patternArms: number;           // 1..16 — spiral arms
+  patternOctaves: number;        // 1..6 — Perlin octaves
+  patternPointDensity: number;   // 0.5..32 — Worley feature points
+  // Non-modulatable enums.
+  patternAxis: PatternAxis;
+  patternGradientShape: PatternGradientShape;
+  // Oscilloscope-specific.
+  patternScopeSourceKind: PatternScopeSourceKind;
+  patternScopeSourceRef: string;  // shape depends on sourceKind (see PatternScopeSourceKind doc)
+  patternScopeSweep: number;      // 0.1..4 — how many buffer windows fit on screen (sweep speed)
+  patternScopeTrigger: number;    // -1..1 rising-edge threshold; 0 disables triggering
+  patternScopePersist: number;    // 0..0.99 frame-blend ("phosphor decay"); 0 = no trail
+  patternScopeThickness: number;  // 0.5..8 — pixels of trace half-width
+  patternScopeBeamHue: number;    // 0..1 — HSV hue of the trace; sat=1, val=brightness
 
   // ---------- DCU (native Rutt/Etra controls) ----------
   hPos: number;
@@ -625,6 +821,16 @@ export interface Settings {
   /** Per-channel CV-output configuration. Persisted; channels
    *  always reload with `enabled=false` for safety (see migration). */
   cvOutputChannels: CVOutputChannel[];
+
+  // ---------- Sonification (v10) ----------
+  /**
+   * Master enable for the audible-output voice that turns scanline
+   * mesh statistics into sound (faithful to Steina Vasulka / Bill
+   * Hearn's 1970s practice of "hearing the image"). ALWAYS forced
+   * to `false` on page load and preset import — see migration. The
+   * user must explicitly re-enable through the Sonification UI.
+   */
+  sonification: SonificationConfig;
 }
 
 // --------------------------------------------------------------------
@@ -681,6 +887,8 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
 
   cvChannel: 0,
   gamepadIndex: 0,
+
+  patternOutputId: '',
 };
 
 export const DEFAULT_SPECTRUM: AudioSpectrumRouting = {
@@ -699,6 +907,36 @@ export const DEFAULTS: Settings = {
   requestedWidth: 640,
   requestedHeight: 480,
   requestedFps: 30,
+
+  // Pattern Generator (v10) — defaults to OFF, sineBands selected so a
+  // user enabling it for the first time sees the most musically useful
+  // pattern. Per-pattern numeric defaults below are the "common ground"
+  // values; `PATTERN_REGISTRY[kind].defaults` patches them on kind switch.
+  patternEnabled: false,
+  patternKind: 'sineBands',
+  patternBlendMode: 'replace',
+  patternMix: 1.0,
+  patternBrightness: 0.8,
+  patternContrast: 1.0,
+  patternFrequency: 8.0,
+  patternPhase: 0,
+  patternScale: 1.0,
+  patternThickness: 0.1,
+  patternDensity: 8,
+  patternFreqRatio: 1.0,
+  patternPhaseOffset: 0,
+  patternArms: 4,
+  patternOctaves: 4,
+  patternPointDensity: 8,
+  patternAxis: 'h',
+  patternGradientShape: 'linear',
+  patternScopeSourceKind: 'audio',
+  patternScopeSourceRef: '',
+  patternScopeSweep: 1.0,
+  patternScopeTrigger: 0,
+  patternScopePersist: 0.5,
+  patternScopeThickness: 1.5,
+  patternScopeBeamHue: 0.33,    // phosphor green
 
   hPos: 0, vPos: 0,
   hSize: 1, vSize: 1,
@@ -854,6 +1092,9 @@ export const DEFAULTS: Settings = {
   cvOutputDeviceId: '',
   cvOutputChannelCount: 8,
   cvOutputChannels: [],
+
+  // ---------- Sonification (v10) ----------
+  sonification: { ...DEFAULT_SONIFICATION, mappings: { ...DEFAULT_SONIFICATION.mappings } },
 };
 
 // --------------------------------------------------------------------
@@ -861,7 +1102,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 9;
+const CURRENT_VERSION = 10;
 
 interface Versioned { _v?: number }
 
@@ -1081,6 +1322,72 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s._v = 9;
   }
 
+  // v9 -> v10: Pattern Generator. Add every `pattern*` top-level key
+  // from `DEFAULTS` if missing. No mutation of existing keys; rolling
+  // back to v9 code drops the unknown fields harmlessly. No safety
+  // reset on `patternEnabled` — patterns are purely visual, no
+  // hardware risk.
+  if ((s._v ?? 1) < 10) {
+    const patternKeys: (keyof Settings)[] = [
+      'patternEnabled', 'patternKind', 'patternBlendMode', 'patternMix',
+      'patternBrightness', 'patternContrast',
+      'patternFrequency', 'patternPhase',
+      'patternScale', 'patternThickness', 'patternDensity',
+      'patternFreqRatio', 'patternPhaseOffset',
+      'patternArms', 'patternOctaves', 'patternPointDensity',
+      'patternAxis', 'patternGradientShape',
+      'patternScopeSourceKind', 'patternScopeSourceRef',
+      'patternScopeSweep', 'patternScopeTrigger', 'patternScopePersist',
+      'patternScopeThickness', 'patternScopeBeamHue',
+    ];
+    for (const k of patternKeys) {
+      if ((s as Record<string, unknown>)[k as string] === undefined) {
+        (s as Record<string, unknown>)[k as string] = DEFAULTS[k] as unknown;
+      }
+    }
+    // Backfill the new ModSlot.patternOutputId field — old slots used
+    // sources from the v9 closed set, none of which read this field, so
+    // a missing value is harmless. We default to '' (no signal selected).
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as ModSlot[]).map((slot) => ({
+        ...slot,
+        patternOutputId: (slot as Partial<ModSlot>).patternOutputId ?? '',
+      }));
+    }
+    // Backfill the new CVOutputChannel.sourcePatternOutputId field on
+    // any saved CV-output channels. No prior version had this kind, so
+    // existing channels just get an empty string.
+    if (Array.isArray(s.cvOutputChannels)) {
+      s.cvOutputChannels = (s.cvOutputChannels as CVOutputChannel[]).map((ch) => ({
+        ...ch,
+        sourcePatternOutputId: (ch as Partial<CVOutputChannel>).sourcePatternOutputId ?? '',
+      }));
+    }
+    // Add the Sonification config block. New `s.sonification` may be
+    // undefined on a v9 record. Deep-merge with DEFAULT_SONIFICATION
+    // so saved partials (e.g. only `masterVolumeDb` was changed) keep
+    // their values while gaining new keys with sensible defaults.
+    {
+      const existing = (s.sonification as Partial<SonificationConfig> | undefined) ?? {};
+      const existingMappings = (existing.mappings ?? {}) as Partial<SonificationConfig['mappings']>;
+      s.sonification = {
+        ...DEFAULT_SONIFICATION,
+        ...existing,
+        // ALWAYS force-disabled on load (preset / localStorage / paste).
+        // Mirrors the CV-output rule: saved configs restore, audible
+        // output requires an explicit user gesture.
+        enabled: false,
+        mappings: {
+          pitch:     { ...DEFAULT_SONIFICATION.mappings.pitch,     ...(existingMappings.pitch     ?? {}) },
+          amplitude: { ...DEFAULT_SONIFICATION.mappings.amplitude, ...(existingMappings.amplitude ?? {}) },
+          cutoff:    { ...DEFAULT_SONIFICATION.mappings.cutoff,    ...(existingMappings.cutoff    ?? {}) },
+          resonance: { ...DEFAULT_SONIFICATION.mappings.resonance, ...(existingMappings.resonance ?? {}) },
+        },
+      };
+    }
+    s._v = 10;
+  }
+
   // CV output safety: regardless of version, force every loaded CV-output
   // channel to start with `enabled=false`. This is the "outputs start
   // muted on page load" guarantee from the v9 spec — saved configurations
@@ -1096,6 +1403,21 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     }));
   }
   s.cvOutputEnabled = false;
+
+  // Sonification safety: regardless of version (covers v10+ records too,
+  // not just the v9→v10 step above), force `enabled=false` on every
+  // load. The synth is silent by default; audible output always
+  // requires an explicit user click on the Enable toggle (which also
+  // satisfies browser autoplay rules — that's the natural gesture).
+  if (s.sonification && typeof s.sonification === 'object') {
+    s.sonification = {
+      ...DEFAULT_SONIFICATION,
+      ...(s.sonification as SonificationConfig),
+      enabled: false,
+    };
+  } else {
+    s.sonification = { ...DEFAULT_SONIFICATION };
+  }
 
   return s as Partial<Settings> & Versioned;
 }

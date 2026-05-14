@@ -133,6 +133,14 @@ function slotToSourceNode(slot: ModSlot, idx: number): GraphNode | null {
         id, type: 'gamepad-button', inputs: {},
         params: { button: slot.gamepadIndex, bipolar: false },
       };
+    case 'patternOutput':
+      // Classic 'patternOutput' source maps directly to the graph
+      // `pattern-output` node. The slot's `patternOutputId` becomes
+      // the node's `output` param.
+      return {
+        id, type: 'pattern-output', inputs: {},
+        params: { output: slot.patternOutputId ?? '' },
+      };
   }
 }
 

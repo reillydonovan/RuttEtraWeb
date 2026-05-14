@@ -40,6 +40,28 @@ export const TARGETS: TargetOption[] = [
   { v: 'beatSensitivity', l: 'Beat Sensitivity' },
   { v: 'spectrumAmount', l: 'Spectrum Amount' },
   { v: 'spectrumStride', l: 'Spectrum Stride' },
+  // Pattern Generator (v10) — synthesized "video signal" layer params.
+  // Modulating these is how the Pattern Generator becomes a true musical
+  // oscillator: an LFO swept across `patternFrequency` makes sine bands
+  // breathe, an audio envelope on `patternBrightness` flashes a checker,
+  // a clock on `patternMix` chops the layer in/out at tempo.
+  { v: 'patternMix',          l: 'Pattern: Mix' },
+  { v: 'patternBrightness',   l: 'Pattern: Brightness' },
+  { v: 'patternContrast',     l: 'Pattern: Contrast' },
+  { v: 'patternFrequency',    l: 'Pattern: Frequency' },
+  { v: 'patternPhase',        l: 'Pattern: Phase' },
+  { v: 'patternScale',        l: 'Pattern: Scale' },
+  { v: 'patternThickness',    l: 'Pattern: Thickness' },
+  { v: 'patternDensity',      l: 'Pattern: Density' },
+  { v: 'patternFreqRatio',    l: 'Pattern: Freq Ratio' },
+  { v: 'patternPhaseOffset',  l: 'Pattern: Phase Offset' },
+  { v: 'patternArms',         l: 'Pattern: Arms' },
+  { v: 'patternOctaves',      l: 'Pattern: Octaves' },
+  { v: 'patternPointDensity', l: 'Pattern: Point Density' },
+  { v: 'patternScopeSweep',     l: 'Pattern: Scope Sweep' },
+  { v: 'patternScopeTrigger',   l: 'Pattern: Scope Trigger' },
+  { v: 'patternScopePersist',   l: 'Pattern: Scope Persist' },
+  { v: 'patternScopeThickness', l: 'Pattern: Scope Thickness' },
 ];
 
 /** Same list, in `{ value, label }` shape for the LearnBinding widget. */

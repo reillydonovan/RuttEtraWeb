@@ -46,13 +46,22 @@ export interface BoolAdapter {
 export interface EnumAdapter<T extends string = string> {
   get(): T;
   set(value: T): void;
-  options: ReadonlyArray<{ v: T; l: string }> | (() => ReadonlyArray<{ v: T; l: string }>);
+  /**
+   * Each option may carry an optional `group` label. When ANY option
+   * has a group, the rendered `<select>` uses `<optgroup>` elements:
+   * options with no group go to a "default" bucket at the top, then
+   * each unique group label gets its own `<optgroup>` in first-seen
+   * order. When no option has a group, the dropdown renders flat
+   * (back-compat with every existing call site).
+   */
+  options: ReadonlyArray<{ v: T; l: string; group?: string }>
+    | (() => ReadonlyArray<{ v: T; l: string; group?: string }>);
 }
 
 /** Resolve an EnumAdapter's options to a concrete array. */
 export function resolveOptions<T extends string>(
   o: EnumAdapter<T>['options'],
-): ReadonlyArray<{ v: T; l: string }> {
+): ReadonlyArray<{ v: T; l: string; group?: string }> {
   return typeof o === 'function' ? o() : o;
 }
 
@@ -246,6 +255,7 @@ export type SourceKind =
   | 'cvAudio'
   | 'cvOsc'
   | 'gamepad'
+  | 'patternOutput'
   | 'unsupported';
 
 // ====================================================================
@@ -707,12 +717,38 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     header.appendChild(enLabel);
   }
 
-  // Source dropdown
+  // Source dropdown — supports optional `group` per option to render
+  // `<optgroup>` sections (e.g. Pattern Outputs as a group alongside
+  // the flat top-level sources).
   const srcSel = el('select', 'rw-select rw-mod-slot-src') as HTMLSelectElement;
-  for (const opt of resolveOptions(adapter.source.options)) {
-    const o = el('option') as HTMLOptionElement;
-    o.value = opt.v; o.textContent = opt.l;
-    srcSel.appendChild(o);
+  const opts = resolveOptions(adapter.source.options);
+  const hasAnyGroup = opts.some((o) => !!o.group);
+  if (!hasAnyGroup) {
+    for (const opt of opts) {
+      const o = el('option') as HTMLOptionElement;
+      o.value = opt.v; o.textContent = opt.l;
+      srcSel.appendChild(o);
+    }
+  } else {
+    // Bucket by group; ungrouped options first, then each group
+    // section in first-seen order.
+    const groups = new Map<string, HTMLOptGroupElement>();
+    for (const opt of opts) {
+      const o = el('option') as HTMLOptionElement;
+      o.value = opt.v; o.textContent = opt.l;
+      if (!opt.group) {
+        srcSel.appendChild(o);
+        continue;
+      }
+      let g = groups.get(opt.group);
+      if (!g) {
+        g = document.createElement('optgroup');
+        g.label = opt.group;
+        srcSel.appendChild(g);
+        groups.set(opt.group, g);
+      }
+      g.appendChild(o);
+    }
   }
   srcSel.addEventListener('change', () => adapter.source.set(srcSel.value));
   header.appendChild(srcSel);

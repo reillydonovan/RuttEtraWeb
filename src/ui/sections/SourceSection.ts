@@ -1,11 +1,23 @@
 /**
  * Source section — pick a video source (webcam / screen / file)
  * plus mirror toggles and capture-quality settings.
+ *
+ * As of v10 also hosts the Pattern Generator group: a parallel
+ * synthesized layer with its own enable toggle, kind / blend / mix
+ * controls, and a per-pattern dynamic params host that rebuilds itself
+ * each time `patternKind` changes.
  */
 
-import { SettingsStore } from '../../state/Settings';
+import {
+  SettingsStore, PatternKind, PatternBlendMode, PatternAxis,
+  PatternGradientShape, PatternScopeSourceKind, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
+} from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
-import { row, group, toggle, button, readout } from '../widgets';
+import { row, group, toggle, button, readout, slider, dropdown } from '../widgets';
+import {
+  PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL,
+} from '../../renderer/patterns/PatternRegistry';
+import type { PatternParamKey } from '../../renderer/patterns/PatternRegistry';
 
 const WEBCAM_RESOLUTIONS = [
   { label: 'Auto (native)',   w: 0,    h: 0    },
@@ -160,6 +172,14 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   );
   root.appendChild(m.root);
 
+  // Pattern Generator (v10) — synthesized layer parallel to the video
+  // source. The Enable toggle is intentionally styled identical to
+  // Mirror H / Mirror V above: this is a layer you turn on, not a
+  // mode you switch into. All per-pattern controls remain editable
+  // (and modulatable) regardless of enable state, so users can
+  // pre-configure a patch before flipping the layer on.
+  root.appendChild(buildPatternGeneratorGroup(settings));
+
   // Stop
   root.appendChild(button('Stop Source', () => {
     source.stop();
@@ -178,4 +198,227 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   });
 
   return root;
+}
+
+// =====================================================================
+// Pattern Generator subgroup (v10)
+// =====================================================================
+
+const BLEND_OPTIONS: { value: PatternBlendMode; label: string }[] = [
+  { value: 'replace',    label: 'Replace'    },
+  { value: 'add',        label: 'Add'        },
+  { value: 'subtract',   label: 'Subtract'   },
+  { value: 'multiply',   label: 'Multiply'   },
+  { value: 'screen',     label: 'Screen'     },
+  { value: 'difference', label: 'Difference' },
+  { value: 'mask',       label: 'Mask'       },
+  { value: 'crossfade',  label: 'Crossfade'  },
+];
+
+const AXIS_OPTIONS: { value: PatternAxis; label: string }[] = [
+  { value: 'h',      label: 'Horizontal' },
+  { value: 'v',      label: 'Vertical'   },
+  { value: 'both',   label: 'Both (XOR)' },
+  { value: 'radial', label: 'Radial'     },
+];
+
+const GRAD_SHAPE_OPTIONS: { value: PatternGradientShape; label: string }[] = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'radial', label: 'Radial' },
+];
+
+const SCOPE_SOURCE_OPTIONS: { value: PatternScopeSourceKind; label: string }[] = [
+  { value: 'audio',          label: 'Audio'           },
+  { value: 'classic-slot',   label: 'Classic Slot'    },
+  { value: 'graph-node',     label: 'Graph Node'      },
+  { value: 'settings-param', label: 'Settings Param'  },
+  { value: 'beat',           label: 'Beat Pulse'      },
+];
+
+interface ParamRange { min: number; max: number; step: number }
+
+/** UI ranges for each modulatable pattern param. The renderer / shaders
+ *  accept a wider range; these are the user-friendly slider bounds. */
+const PARAM_RANGES: Partial<Record<PatternParamKey, ParamRange>> = {
+  patternBrightness:    { min: 0,    max: 1,   step: 0.01 },
+  patternContrast:      { min: 0,    max: 2,   step: 0.01 },
+  patternFrequency:     { min: 0,    max: 64,  step: 0.1  },
+  patternPhase:         { min: 0,    max: Math.PI * 2, step: 0.01 },
+  patternScale:         { min: 0.05, max: 16,  step: 0.05 },
+  patternThickness:     { min: 0,    max: 1,   step: 0.005 },
+  patternDensity:       { min: 1,    max: 64,  step: 1    },
+  patternFreqRatio:     { min: 0.1,  max: 16,  step: 0.05 },
+  patternPhaseOffset:   { min: 0,    max: Math.PI * 2, step: 0.01 },
+  patternArms:          { min: 1,    max: 16,  step: 1    },
+  patternOctaves:       { min: 1,    max: 6,   step: 1    },
+  patternPointDensity:  { min: 0.5,  max: 32,  step: 0.5  },
+  patternScopeSweep:    { min: 0.1,  max: 4,   step: 0.05 },
+  patternScopeTrigger:  { min: -1,   max: 1,   step: 0.01 },
+  patternScopePersist:  { min: 0,    max: 0.99,step: 0.01 },
+  patternScopeThickness:{ min: 0.5,  max: 8,   step: 0.5  },
+  patternScopeBeamHue:  { min: 0,    max: 1,   step: 0.01 },
+};
+
+function buildPatternGeneratorGroup(settings: SettingsStore): HTMLElement {
+  const g = group('Pattern Generator');
+
+  // ---- Top-level: enable, kind, blend, mix ----
+  g.body.append(row('Enable', toggle(settings, 'patternEnabled')));
+
+  // Kind dropdown — grouped by category via <optgroup>.
+  const kindSel = document.createElement('select');
+  kindSel.className = 'rw-select';
+  let lastCategory = '';
+  let currentGroup: HTMLOptGroupElement | null = null;
+  for (const k of PATTERN_ORDER) {
+    const def = PATTERN_REGISTRY[k];
+    if (def.category !== lastCategory) {
+      currentGroup = document.createElement('optgroup');
+      currentGroup.label = PATTERN_CATEGORY_LABEL[def.category];
+      kindSel.appendChild(currentGroup);
+      lastCategory = def.category;
+    }
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = def.label;
+    currentGroup!.appendChild(o);
+  }
+  kindSel.value = settings.get('patternKind');
+  settings.subscribe('patternKind', (v) => { kindSel.value = v; });
+  kindSel.addEventListener('change', () => {
+    const next = kindSel.value as PatternKind;
+    // Apply per-pattern defaults FIRST so the dynamic param host below
+    // sees fresh values when it rebuilds via the patternKind subscriber.
+    const def = PATTERN_REGISTRY[next];
+    if (def) settings.patch(def.defaults);
+    settings.set('patternKind', next);
+  });
+  g.body.append(row('Kind', kindSel));
+
+  g.body.append(row('Blend', dropdown(settings, 'patternBlendMode', BLEND_OPTIONS)));
+  g.body.append(row('Mix',   slider(settings, 'patternMix', 0, 1, 0.01)));
+
+  // ---- Dynamic per-pattern params host ----
+  const paramsHost = document.createElement('div');
+  paramsHost.dataset.patternParams = '1';
+  g.body.append(paramsHost);
+
+  rebuildParams(paramsHost, settings, settings.get('patternKind'));
+  settings.subscribe('patternKind', (kind) => {
+    rebuildParams(paramsHost, settings, kind);
+  });
+
+  return g.root;
+}
+
+function rebuildParams(host: HTMLElement, settings: SettingsStore, kind: PatternKind): void {
+  host.innerHTML = '';
+  const def = PATTERN_REGISTRY[kind];
+  if (!def) return;
+
+  for (const key of def.paramKeys) {
+    const ctrl = buildParamControl(settings, key);
+    if (!ctrl) continue;
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'stretch';
+    wrap.style.gap = '4px';
+    wrap.appendChild(ctrl.el);
+    if (ctrl.canModulate) {
+      wrap.appendChild(buildModPatchButton(settings, key as ModTarget));
+    }
+    host.appendChild(row(ctrl.label, wrap));
+  }
+
+  if (kind === 'oscilloscope') {
+    const note = readout();
+    note.style.color = 'var(--re-text-dim)';
+    note.style.marginTop = '6px';
+    note.textContent =
+      'Scope source: pick what to sample.\n' +
+      'Audio:      live mic / file / tab via FFT analyser.\n' +
+      'Classic Slot: 1-4 (mod-matrix slot index).\n' +
+      'Graph Node: <nodeId>:<port>, e.g. "lfo-1:out".\n' +
+      'Settings Param: any numeric Settings key, e.g. "zPush".\n' +
+      'Beat Pulse: BeatDetector pulse (1.0 on hit, decay).';
+    host.appendChild(note);
+  }
+}
+
+interface ParamControl { el: HTMLElement; label: string; canModulate: boolean }
+
+function buildParamControl(settings: SettingsStore, key: PatternParamKey): ParamControl | null {
+  switch (key) {
+    case 'patternAxis':
+      return { el: dropdown(settings, 'patternAxis', AXIS_OPTIONS), label: 'Axis', canModulate: false };
+    case 'patternGradientShape':
+      return { el: dropdown(settings, 'patternGradientShape', GRAD_SHAPE_OPTIONS), label: 'Shape', canModulate: false };
+    case 'patternScopeSourceKind':
+      return { el: dropdown(settings, 'patternScopeSourceKind', SCOPE_SOURCE_OPTIONS), label: 'Source', canModulate: false };
+    case 'patternScopeSourceRef': {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'rw-text';
+      inp.placeholder = 'e.g. 1, lfo-1:out, zPush';
+      inp.value = settings.get('patternScopeSourceRef');
+      settings.subscribe('patternScopeSourceRef', (v) => { inp.value = v; });
+      inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
+      return { el: inp, label: 'Ref', canModulate: false };
+    }
+  }
+  // Numeric params -> slider
+  const r = PARAM_RANGES[key];
+  if (!r) return null;
+  return {
+    el: slider(settings, key as never, r.min, r.max, r.step),
+    label: prettyParamLabel(key),
+    canModulate: true,
+  };
+}
+
+function prettyParamLabel(key: string): string {
+  return key
+    .replace(/^pattern/, '')
+    .replace(/^Scope/, 'Scope ')
+    .replace(/([A-Z])/g, ' $1')
+    .trim();
+}
+
+/**
+ * "+" button that pre-targets the first available Classic slot at this
+ * param, enables it, sets a small default amount, and expands its UI
+ * row so the user can see and tweak the new patch immediately.
+ *
+ * If all slots are taken, falls back to overwriting slot 0. The user
+ * still sees the slot expand, signaling that a patch landed.
+ */
+function buildModPatchButton(settings: SettingsStore, target: ModTarget): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'rw-btn';
+  btn.textContent = '+';
+  btn.title = `Patch a Classic LFO -> ${String(target)}`;
+  btn.style.flex = '0 0 auto';
+  btn.style.minWidth = '24px';
+  btn.style.padding = '0 8px';
+  btn.addEventListener('click', () => {
+    const slots = settings.get('modSlots').slice();
+    let idx = slots.findIndex((s: ModSlot) => !s.enabled || s.target === 'none');
+    if (idx < 0) idx = 0;
+    const cur = slots[idx] ?? DEFAULT_MOD_SLOT;
+    slots[idx] = {
+      ...cur,
+      enabled: true,
+      source: 'sine',
+      target,
+      amount: 0.25,
+      frequency: cur.frequency || 0.5,
+    };
+    settings.set('modSlots', slots);
+    const expanded = (settings.get('modSlotExpanded') ?? []).slice();
+    while (expanded.length <= idx) expanded.push(false);
+    expanded[idx] = true;
+    settings.set('modSlotExpanded', expanded);
+  });
+  return btn;
 }

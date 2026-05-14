@@ -12,7 +12,7 @@
  */
 
 export type PanelGroup =
-  | 'Source' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
+  | 'Source' | 'Pattern' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
   | 'Modulation' | 'MIDI' | 'Audio' | 'OSC' | 'CV' | 'Record' | 'Share' | 'UI';
 
 export interface ParamDoc {
@@ -26,6 +26,33 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   sourceKind: { description: 'Active video source: webcam, screen share, or file.', panel: 'Source' },
   mirrorH:    { description: 'Mirror the input left/right.', panel: 'Source' },
   mirrorV:    { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
+
+  // ----- Pattern Generator (v10) -----
+  patternEnabled:    { description: 'Master toggle for the synthesized pattern layer. When OFF the live video texture feeds the DCU directly (no extra GPU cost).', panel: 'Pattern' },
+  patternKind:       { description: 'Which pattern generator to render: calibration (Solid/Gradient/Bars/Grid/Checker), waveform (Sine/Tri/Saw/Square/Pulse Bands, Lissajous, Spiral), noise (White/Perlin/Worley), or Oscilloscope.', panel: 'Pattern' },
+  patternBlendMode:  { description: 'How the pattern composites with the video source: Replace, Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade.', panel: 'Pattern' },
+  patternMix:        { description: 'Wet/dry between the unmodified video and the blended result. 0 = video only; 1 = full pattern blend.', range: '0..1', panel: 'Pattern' },
+  patternBrightness: { description: 'Master brightness applied to the generated pattern.', range: '0..1', panel: 'Pattern' },
+  patternContrast:   { description: 'Contrast applied around 0.5 mid-gray; values >1 push toward black/white extremes.', range: '0..2', panel: 'Pattern' },
+  patternFrequency:  { description: 'Cycles per frame for waveform / band patterns. Modulate with an LFO for animated stripes.', range: '0..64', panel: 'Pattern' },
+  patternPhase:      { description: 'Phase offset (radians). Scrolls bands; rotates gradient direction; rotates spiral.', range: '0..2π', panel: 'Pattern' },
+  patternScale:      { description: 'Scale multiplier for grid / spiral / noise patterns. Larger = coarser features.', range: '0.05..16', panel: 'Pattern' },
+  patternThickness:  { description: 'Line / bar / Lissajous trace half-width in normalized units. Acts as duty cycle for Pulse Bands.', range: '0..1', panel: 'Pattern' },
+  patternDensity:    { description: 'Cell or feature count per row (Checker, point density for some patterns).', range: '1..64', panel: 'Pattern' },
+  patternFreqRatio:  { description: 'Lissajous Y-frequency / X-frequency ratio. Integer ratios produce closed figures.', range: '0.1..16', panel: 'Pattern' },
+  patternPhaseOffset:{ description: 'Lissajous Y-axis phase offset (radians); π/2 produces a circle when freqRatio=1.', range: '0..2π', panel: 'Pattern' },
+  patternArms:       { description: 'Number of arms in the Spiral pattern.', range: '1..16', panel: 'Pattern' },
+  patternOctaves:    { description: 'Perlin-noise octave count. More octaves = richer detail at GPU cost.', range: '1..6', panel: 'Pattern' },
+  patternPointDensity:{ description: 'Worley-noise feature-point density. Higher = more cells.', range: '0.5..32', panel: 'Pattern' },
+  patternAxis:       { description: 'Direction for waveform / bars patterns: horizontal, vertical, both (XOR), or radial.', panel: 'Pattern' },
+  patternGradientShape:{ description: 'Gradient shape: linear (uses Phase as direction angle) or radial (Phase shifts the origin).', panel: 'Pattern' },
+  patternScopeSourceKind: { description: 'Where the oscilloscope trace samples its signal: live audio, a Classic mod-matrix slot, a Graph node port, a numeric Settings key, or BeatDetector pulses.', panel: 'Pattern' },
+  patternScopeSourceRef:  { description: 'Reference for the chosen scope source. Audio: ignored. Classic Slot: 1-4. Graph Node: "<nodeId>:<port>" (default port "out"). Settings Param: any numeric Settings key (e.g. "zPush").', panel: 'Pattern' },
+  patternScopeSweep:      { description: 'Horizontal sweep speed: how many buffer windows fit on screen. Higher = compressed time view.', range: '0.1..4', panel: 'Pattern' },
+  patternScopeTrigger:    { description: 'Rising-edge trigger threshold. 0 disables triggering. Otherwise the trace re-aligns each frame to the first rising crossing of this level — periodic waveforms stay locked.', range: '-1..1', panel: 'Pattern' },
+  patternScopePersist:    { description: 'Phosphor-decay amount. 0 = no trail; 0.99 = long persistent glow. Implemented via a feedback render target.', range: '0..0.99', panel: 'Pattern' },
+  patternScopeThickness:  { description: 'Beam half-width in pixels.', range: '0.5..8', panel: 'Pattern' },
+  patternScopeBeamHue:    { description: 'Trace color (HSV hue, full saturation). 0.33 ≈ phosphor green, 0 ≈ red, 0.67 ≈ blue.', range: '0..1', panel: 'Pattern' },
 
   // ----- DCU (Display Control Unit) -----
   zPush:      { description: 'How far bright pixels are pushed toward the camera.', range: '-4..4', panel: 'DCU' },

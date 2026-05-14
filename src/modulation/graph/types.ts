@@ -17,6 +17,9 @@ export type Signal = number;
 export type NodeType =
   // Sources
   | 'lfo' | 'ramp' | 'noise' | 'constant' | 'clock'
+  // v10: pattern internal signal source (Lissajous X/Y, Sine Bands
+  // wave, Oscilloscope mean/trigger/peak, etc.)
+  | 'pattern-output'
   // Audio CV
   | 'audio-envelope' | 'audio-band' | 'audio-pitch' | 'audio-onset'
   // Video CV (Stage 5 fills in; Stage 1 ships zero-output stubs)
@@ -136,6 +139,10 @@ export interface NodeDeps {
    *  `cv-output` graph node uses this to deliver per-frame source
    *  values to the CV-output subsystem. */
   cvOut?: CVOutputLike | null;
+  /** v10: pattern internal signal bus. Read by `pattern-output` graph
+   *  nodes. Null when patterns are disabled or before the renderer
+   *  has run. */
+  patternBus?: PatternBusLike | null;
   /** Stage 5: shared video readback service. Null until wired. */
   videoTap?: VideoTapLike | null;
   /**
@@ -162,6 +169,12 @@ export interface AudioFFTLike {
 
 export interface BeatLike {
   pulse: number;
+}
+
+/** Duck-typed slice of `PatternSignalBus` graph nodes need. Avoids
+ *  pulling the renderer module into the graph engine's import graph. */
+export interface PatternBusLike {
+  get(id: string): number;
 }
 
 export interface MidiClockLike {

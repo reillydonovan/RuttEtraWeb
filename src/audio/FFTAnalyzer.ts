@@ -200,6 +200,34 @@ export class FFTAnalyzer {
 
   // -------------------- per-frame --------------------
 
+  /**
+   * Copy the most recent audio samples (time-domain, signed -1..1)
+   * into `out`. Returns `true` if the analyser is live and `out` was
+   * written; `false` otherwise. Used by the graph engine's pitch
+   * tracker (`AudioFFTLike.getTimeDomain`) AND the Pattern Generator's
+   * oscilloscope mode for audio-source scope traces.
+   */
+  getTimeDomain(out: Float32Array): boolean {
+    if (!this.analyser) {
+      out.fill(0);
+      return false;
+    }
+    const fftN = this.analyser.fftSize;
+    if (out.length === fftN) {
+      this.analyser.getFloatTimeDomainData(out as Float32Array<ArrayBuffer>);
+      return true;
+    }
+    const tmp = new Float32Array(fftN);
+    this.analyser.getFloatTimeDomainData(tmp as Float32Array<ArrayBuffer>);
+    if (out.length < fftN) {
+      out.set(tmp.subarray(fftN - out.length));
+    } else {
+      out.fill(0);
+      out.set(tmp);
+    }
+    return true;
+  }
+
   /** Sample the analyser, group into bands, smooth. Call once per frame. */
   tick(dtSec: number): void {
     if (!this.analyser || !this.fftBuffer) return;

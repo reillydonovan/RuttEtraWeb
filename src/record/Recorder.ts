@@ -1,10 +1,25 @@
 /**
  * Wraps `MediaRecorder` to capture the WebGL canvas (with optional mic
- * audio) and trigger a download when the user stops.
+ * audio and / or sonification voice) and trigger a download when the
+ * user stops.
  *
  * Codec preference: MP4/H.264 → WebM/VP9 → WebM/VP8. Some browsers (Chrome
  * on Linux, older Firefox) only support WebM.
+ *
+ * Audio sources mixed into the stream:
+ *   - mic (optional, via getUserMedia)
+ *   - sonification voice (optional, when the synth's audible-output
+ *     subsystem is enabled — captured post-master, post-limiter)
+ *
+ * Both can be active simultaneously. The browser handles cross-track
+ * mixing inside the MediaRecorder.
  */
+
+/** Sonification capture interface — only what the recorder needs from
+ *  `Sonification`. Kept duck-typed so tests can stub it. */
+export interface SonificationCapture {
+  getCaptureStream(): MediaStream | null;
+}
 
 export interface RecordOptions {
   fps: number;
@@ -36,7 +51,10 @@ export class CanvasRecorder {
   private listeners = new Set<(state: 'idle' | 'recording' | 'finalizing') => void>();
   private startTime = 0;
 
-  constructor(private canvas: HTMLCanvasElement) {}
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private sonification: SonificationCapture | null = null,
+  ) {}
 
   isRecording(): boolean {
     return this.recorder?.state === 'recording';
@@ -81,18 +99,28 @@ export class CanvasRecorder {
     this.currentExt = pick.ext;
 
     const videoStream = (this.canvas as any).captureStream(opts.fps) as MediaStream;
-    let combined = videoStream;
+
+    // Collect every audio track we want in the output: mic (when
+    // requested AND available) plus the sonification voice (when the
+    // synth's audio-output subsystem is currently producing a stream).
+    // The browser mixes them inside MediaRecorder.
+    const audioTracks: MediaStreamTrack[] = [];
     if (opts.includeMic) {
       try {
         this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        combined = new MediaStream([
-          ...videoStream.getVideoTracks(),
-          ...this.micStream.getAudioTracks(),
-        ]);
+        for (const t of this.micStream.getAudioTracks()) audioTracks.push(t);
       } catch (err) {
         console.warn('Mic unavailable; recording video only.', err);
       }
     }
+    const sonStream = this.sonification?.getCaptureStream();
+    if (sonStream) {
+      for (const t of sonStream.getAudioTracks()) audioTracks.push(t);
+    }
+
+    const combined = audioTracks.length === 0
+      ? videoStream
+      : new MediaStream([...videoStream.getVideoTracks(), ...audioTracks]);
     this.outStream = combined;
 
     const rec = new MediaRecorder(combined, {

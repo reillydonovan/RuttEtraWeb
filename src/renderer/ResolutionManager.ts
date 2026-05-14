@@ -21,6 +21,7 @@ import type { SettingsStore } from '../state/Settings';
 import type { PostFX } from './Postfx';
 import type { RuttEtraScene } from './RuttEtra';
 import type { CameraRig } from './CameraRig';
+import type { PatternRenderer } from './patterns/PatternRenderer';
 
 export interface ResolutionPreset {
   id: string;
@@ -75,13 +76,14 @@ export class ResolutionManager {
     viewportH:   number,
     dpr:         number,
     renderScale: number,
+    patternRenderer: PatternRenderer | null = null,
   ): void {
     const id      = this.settings.get('renderResolutionId');
     const fitMode = this.settings.get('renderFitMode');
 
     // ---- Match Window: delegate to existing resize logic ----
     if (id === 'match') {
-      this._commitRenderer(renderer, postfx, ruttEtra, viewportW, viewportH, dpr);
+      this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, viewportW, viewportH, dpr);
       this._resetCanvasCSS();
       rig.resize(viewportW, viewportH);
       return;
@@ -97,7 +99,7 @@ export class ResolutionManager {
       const preset = RESOLUTION_PRESETS.find((p) => p.id === id);
       if (!preset || preset.width === 0) {
         // Unknown preset ID — fall back to match-window
-        this._commitRenderer(renderer, postfx, ruttEtra, viewportW, viewportH, dpr);
+        this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, viewportW, viewportH, dpr);
         this._resetCanvasCSS();
         rig.resize(viewportW, viewportH);
         return;
@@ -119,7 +121,7 @@ export class ResolutionManager {
         renderH = Math.round(renderW / aspect);
       }
       // Render at aspect-correct size, then let CSS fill the viewport.
-      this._commitRenderer(renderer, postfx, ruttEtra, renderW, renderH, renderScale);
+      this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, renderW, renderH, renderScale);
       const c = this.canvas;
       c.style.position = 'absolute';
       c.style.inset    = '0';
@@ -132,7 +134,7 @@ export class ResolutionManager {
     }
 
     // ---- Letterbox / Fill ----
-    this._commitRenderer(renderer, postfx, ruttEtra, targetW, targetH, renderScale);
+    this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, targetW, targetH, renderScale);
 
     const scaleX  = viewportW / targetW;
     const scaleY  = viewportH / targetH;
@@ -158,12 +160,13 @@ export class ResolutionManager {
   }
 
   private _commitRenderer(
-    renderer:   THREE.WebGLRenderer,
-    postfx:     PostFX,
-    ruttEtra:   RuttEtraScene,
-    w:          number,
-    h:          number,
-    pixelRatio: number,
+    renderer:        THREE.WebGLRenderer,
+    postfx:          PostFX,
+    ruttEtra:        RuttEtraScene,
+    patternRenderer: PatternRenderer | null,
+    w:               number,
+    h:               number,
+    pixelRatio:      number,
   ): void {
     this._actualW = w;
     this._actualH = h;
@@ -171,6 +174,7 @@ export class ResolutionManager {
     renderer.setSize(w, h, false);
     postfx.resize(w, h);
     ruttEtra.setSize(w, h);
+    patternRenderer?.setSize(w, h);
   }
 
   private _resetCanvasCSS(): void {

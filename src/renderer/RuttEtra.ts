@@ -87,6 +87,21 @@ export class RuttEtraScene {
     (this.uniforms.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
   }
 
+  /**
+   * Bind an arbitrary `THREE.Texture` (e.g. a `WebGLRenderTarget.texture`)
+   * as the DCU's video input, and update `uVideoTexel` to match its
+   * resolution. Used by the Pattern Generator to feed a synthesized
+   * signal through the same vertex displacement pipeline.
+   *
+   * Call `attachVideo()` again to restore the live `<video>` source.
+   */
+  setExternalVideoTexture(tex: THREE.Texture, width: number, height: number): void {
+    this.uniforms.uVideo.value = tex;
+    const w = Math.max(1, width | 0);
+    const h = Math.max(1, height | 0);
+    (this.uniforms.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
+  }
+
   setSize(_width: number, _height: number): void {
     /* placeholder for future thick-line resolution updates */
   }

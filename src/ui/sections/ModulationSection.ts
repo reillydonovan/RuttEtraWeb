@@ -27,31 +27,75 @@ import {
   createSlotRow, SlotRowAdapter, SourceKind,
   getSlotClipboard, setSlotClipboard,
 } from '../shared/SlotRow';
+import { listPatternOutputs } from '../../renderer/patterns/PatternRegistry';
 
-const SOURCES: { v: ModSource; l: string }[] = [
-  { v: 'sine',         l: 'Sine' },
-  { v: 'triangle',     l: 'Triangle' },
-  { v: 'square',       l: 'Square' },
-  { v: 'saw',          l: 'Saw' },
-  { v: 'pulse',        l: 'Pulse (duty)' },
-  { v: 'ramp',         l: 'Ramp' },
-  { v: 'audio',        l: 'Audio (envelope)' },
-  { v: 'audioBand',    l: 'Audio Band [n]' },
-  { v: 'beat',         l: 'Beat' },
-  { v: 'midiCC',       l: 'MIDI CC' },
-  { v: 'midiNote',     l: 'MIDI Note' },
-  { v: 'midiVelocity', l: 'MIDI Velocity' },
-  { v: 'midiClock',    l: 'MIDI Clock' },
-  { v: 'osc',          l: 'OSC' },
-  { v: 'joystickX',    l: 'Joystick X' },
-  { v: 'joystickY',    l: 'Joystick Y' },
-  { v: 'joystickZ',    l: 'Joystick Z (scroll)' },
-  { v: 'constant',     l: 'Constant' },
-  { v: 'cvAudio',      l: 'CV Input (audio)' },
-  { v: 'cvOsc',        l: 'CV Input (OSC)' },
-  { v: 'gamepadAxis',  l: 'Gamepad Axis' },
-  { v: 'gamepadBtn',   l: 'Gamepad Button' },
-];
+/**
+ * The string value used in the <select> for a pattern output entry,
+ * e.g. `'po:lissajous:x'`. Encoding lets the source dropdown enumerate
+ * every signal as a top-level option (Spec: "appear in the source
+ * dropdown alongside LFO/Audio/...") while ModSlot still keeps a
+ * compact closed-set `ModSource` and a sibling `patternOutputId`.
+ *
+ * The adapter's `source.get/set` (below) translates between this
+ * encoded string and the underlying slot fields.
+ */
+const PATTERN_OUTPUT_SELECT_PREFIX = 'po:';
+
+/** Encode a bus id to the dropdown value. */
+function encodePatternOutputValue(busId: string): string {
+  return PATTERN_OUTPUT_SELECT_PREFIX + busId;
+}
+
+/** Decode a dropdown value into a bus id, or null if it's not a
+ *  pattern-output entry. */
+function decodePatternOutputValue(v: string): string | null {
+  return v.startsWith(PATTERN_OUTPUT_SELECT_PREFIX)
+    ? v.slice(PATTERN_OUTPUT_SELECT_PREFIX.length)
+    : null;
+}
+
+/**
+ * Build the source dropdown options. Pattern outputs appear as
+ * grouped entries (`<optgroup label="Pattern Outputs">`) at the
+ * bottom; adding a new pattern signal in `PatternRegistry` picks up
+ * automatically without a manual edit here.
+ */
+function buildSources(): { v: string; l: string; group?: string }[] {
+  const sources: { v: string; l: string; group?: string }[] = [
+    { v: 'sine',         l: 'Sine' },
+    { v: 'triangle',     l: 'Triangle' },
+    { v: 'square',       l: 'Square' },
+    { v: 'saw',          l: 'Saw' },
+    { v: 'pulse',        l: 'Pulse (duty)' },
+    { v: 'ramp',         l: 'Ramp' },
+    { v: 'audio',        l: 'Audio (envelope)' },
+    { v: 'audioBand',    l: 'Audio Band [n]' },
+    { v: 'beat',         l: 'Beat' },
+    { v: 'midiCC',       l: 'MIDI CC' },
+    { v: 'midiNote',     l: 'MIDI Note' },
+    { v: 'midiVelocity', l: 'MIDI Velocity' },
+    { v: 'midiClock',    l: 'MIDI Clock' },
+    { v: 'osc',          l: 'OSC' },
+    { v: 'joystickX',    l: 'Joystick X' },
+    { v: 'joystickY',    l: 'Joystick Y' },
+    { v: 'joystickZ',    l: 'Joystick Z (scroll)' },
+    { v: 'constant',     l: 'Constant' },
+    { v: 'cvAudio',      l: 'CV Input (audio)' },
+    { v: 'cvOsc',        l: 'CV Input (OSC)' },
+    { v: 'gamepadAxis',  l: 'Gamepad Axis' },
+    { v: 'gamepadBtn',   l: 'Gamepad Button' },
+  ];
+  for (const entry of listPatternOutputs()) {
+    sources.push({
+      v: encodePatternOutputValue(entry.busId),
+      l: `Pattern: ${entry.signal.label}`,
+      group: 'Pattern Outputs',
+    });
+  }
+  return sources;
+}
+
+const SOURCES: { v: string; l: string; group?: string }[] = buildSources();
 
 const SYNC_MODES: { v: SyncMode; l: string }[] = [
   { v: 'free',  l: 'Free (Hz)' },
@@ -423,8 +467,27 @@ function createSlot(
   const adapter: SlotRowAdapter = {
     enabled: { get: () => get().enabled, set: (v) => update({ enabled: v }) },
     source: {
-      get: () => get().source,
-      set: (v) => update({ source: v as ModSource }),
+      // Encoded value: `'po:<busId>'` for pattern outputs, otherwise
+      // the literal ModSource. Lets the dropdown enumerate every
+      // pattern signal as its own option while the slot keeps a
+      // compact closed-set `source` field + sibling `patternOutputId`.
+      get: () => {
+        const slot = get();
+        if (slot.source === 'patternOutput' && slot.patternOutputId) {
+          return encodePatternOutputValue(slot.patternOutputId);
+        }
+        return slot.source;
+      },
+      set: (v) => {
+        const decoded = decodePatternOutputValue(v);
+        if (decoded != null) {
+          update({ source: 'patternOutput' as ModSource, patternOutputId: decoded });
+        } else {
+          // Switching AWAY from a pattern output: clear the bus id
+          // to avoid stale state if the user later switches back.
+          update({ source: v as ModSource, patternOutputId: '' });
+        }
+      },
       options: SOURCES,
     },
     target: {
@@ -681,6 +744,7 @@ function classicSourceToKind(s: ModSource): SourceKind {
     case 'cvOsc':        return 'cvOsc';
     case 'gamepadAxis':
     case 'gamepadBtn':   return 'gamepad';
+    case 'patternOutput':return 'patternOutput';
   }
 }
 

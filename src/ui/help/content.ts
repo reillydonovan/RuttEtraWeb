@@ -56,6 +56,14 @@ const MD_QUICKSTART = `
 4. Open the **MIDI** or **Audio** tab to add reactive control.
 5. Open the timeline strip at the bottom, hit **+ NEW**, drop preset chips onto the track to create keyframes, then **PLAY**.
 
+## No camera? Use the Pattern Generator
+
+In the **Source** panel, scroll to **Pattern Generator** and flip **Enable** on.
+That gives the synth a built-in "video signal" — pick **Sine Bands** or
+**Oscilloscope** for the most musical result. Frequency, brightness, contrast,
+and every other pattern parameter is modulatable: drop an LFO on
+**Pattern: Frequency** and watch the stripes breathe.
+
 > Tip: the floating **?** button (bottom-left) re-opens this manual at any time.
 `;
 
@@ -69,6 +77,10 @@ const MD_SHORTCUTS = `
 | \`Shift+R\` | Hard Reset Camera — wipes saved view, returns to factory defaults, kills auto-orbit, exits fly mode |
 | \`F\` | Toggle fullscreen |
 | \`H\` | Toggle on-screen HUD |
+| \`Ctrl+N\` | New Project — clears to defaults (prompts if unsaved) |
+| \`Ctrl+O\` | Open Project — file picker for \`.synth.json\` |
+| \`Ctrl+S\` | Save Project — writes back to the open file (or prompts for a name) |
+| \`Ctrl+Shift+S\` | Save Project As — name + location prompt |
 
 ## When the timeline dock is hovered
 | Key | What |
@@ -357,6 +369,140 @@ Two guards prevent damaging external gear:
   voltage range as a safety measure, and ramps from 0V on enable to
   protect against pops on patch.
 
+## Sonification (hear the image)
+
+The synth can produce audible sound driven by what's happening
+visually. This is faithful to a 1970s video-art technique — Steina
+Vasulka and Bill Hearn would route video signals through audio
+amplifiers to literally hear the image. Bright visuals produce sound;
+dim visuals produce silence; motion produces variation.
+
+Sonification is one audio voice — a single oscillator, filter,
+amplifier — whose parameters are driven by statistics computed from
+the scanline mesh. It's not a synth in the conventional sense; it's
+the visual signal made audible.
+
+This is the synth's first audible-output feature. Everything else
+under I/O reads audio IN (envelope follower, FFT, beat detector); the
+Sonification voice writes audio OUT.
+
+### Enabling
+
+Sonification is **off by default**. Open the I/O panel, find the
+**Sonification** section, click **Enable**. Audio starts at -18 dB
+with a 500ms fade-in; raise **Master Volume** to taste.
+
+The Enable click also satisfies the browser's autoplay policy — that's
+the natural user gesture. If the toggle is flipped some other way
+(URL config, programmatic load), a "click anywhere on the canvas to
+start audio" indicator appears in the section.
+
+### Default mapping
+
+Out of the box:
+- **Pitch** ← vertical position of brightness (high in frame = high
+  note; logarithmic / Exponential curve so octaves feel even)
+- **Amplitude** ← overall brightness (bright = loud)
+- **Cutoff** ← brightness contrast (high contrast = filter opens)
+- **Resonance** ← motion (waving a hand makes the filter ring)
+
+This combination produces a voice that varies expressively with the
+visual content without needing configuration.
+
+### Customizing the mapping
+
+The Mapping section lets you assign any of the available mesh
+statistics to any of the voice parameters.
+
+Available stats:
+
+- **Mean Brightness** — overall brightness of the mesh
+- **Brightness Variance** — contrast (high when scene has both bright
+  and dark parts)
+- **Vertical Centroid** — Y position of brightness center-of-mass
+- **Horizontal Centroid** — X position of brightness center-of-mass
+- **Mesh Activity** — how much the visual is changing frame-to-frame
+- **Peak Row** — Y position of the brightest scanline
+- **Peak Brightness** — brightness value at the peak row
+- **Edge Density** — fraction of rows with strong row-to-row brightness
+  changes (fine detail / texture estimate)
+
+Voice params that can be driven:
+
+- **Pitch** — oscillator frequency, optionally quantized to MIDI
+  semitones within the configured range
+- **Amplitude** — voice level
+- **Cutoff** — filter cutoff frequency (60 Hz to 16 kHz, exponential)
+- **Resonance** — filter Q
+
+### Mapping curves
+
+Some mappings sound more "musical" with curves applied. Pitch defaults
+to **Exponential** because human pitch perception is logarithmic —
+exponential mapping makes pitch sweeps feel even across octaves.
+Amplitude works fine **Linear**. **S-Curve** (smoothstep) flattens
+both ends and accentuates the middle. **Logarithmic** (sqrt)
+amplifies low values, useful for low-brightness scenes that would
+otherwise stay near silent.
+
+### Smoothing
+
+The Smoothing slider sets a single 1-pole lowpass time constant
+applied to every stat → param mapping. At **5 ms** the audio twitches
+on every visual frame. At **200 ms** it glides smoothly through visual
+changes. **40 ms** (the default) is responsive but not jittery.
+
+### Common patches
+
+- Default mapping with smoothing at 80 ms and Pitch range C3–C5 —
+  gentle, musical accompaniment to most visuals.
+- Pitch ← peakRow, Amplitude ← peakBrightness, smoothing 5 ms —
+  twitchy, percussive tracking of the brightest point.
+- Pitch ← meshActivity, Cutoff ← edgeDensity, Quantize off — drone-like
+  with formant motion.
+- All four params ← meshActivity — silent except during motion, then
+  bursts of sound.
+
+### Recording and broadcasting
+
+Sonification audio is captured in **recordings** and **broadcasts**
+when enabled. The capture tap is post-master and post-limiter, so
+the recorded / streamed audio is exactly what you hear.
+
+If you don't want sonification audio in your recording, disable it
+before pressing Record.
+
+If you also have **Mic** enabled in the Record section, both audio
+sources are mixed together by the browser. Same for broadcasts.
+
+### Safety / gotchas
+
+- **The synth makes no sound by default.** First page load is silent;
+  every preset / settings restore forces \`sonification.enabled = false\`.
+  Audible output always requires an explicit Enable click.
+- **Default master volume is -18 dB.** Quiet by design — you can turn
+  it up; you won't be blasted by an existing config that opens at high
+  level.
+- **Hard limiter at -3 dBFS** — a DynamicsCompressorNode with 20:1
+  ratio sits between master gain and your speakers as a brick wall.
+  A resonant filter sweep on a high-amplitude voice cannot produce
+  values above unity at the output.
+- **Mic-feedback gate** — if the audio envelope follower is using mic
+  input AND sonification is enabled, the synth auto-mutes the
+  sonification voice with a banner explaining why. Turning off
+  mic-as-envelope-source clears the gate. We refuse to ship a
+  feedback loop.
+- **Browser autoplay** — the Enable click is the natural user gesture.
+  If sonification ever wants to be running but the AudioContext is
+  suspended (e.g. URL-driven config), a "click anywhere on the canvas
+  to start audio" banner appears. The next click resumes the context.
+- **Test Tone** plays a 440 Hz sine for 1 second at -18 dB regardless
+  of mesh state. Use it to confirm the audio chain is alive before
+  diving into "why isn't there sound?" debugging.
+- **Mute Briefly** drops master to silence for 2 seconds, then ramps
+  back. Useful while patching when you want a quiet moment without
+  losing your config.
+
 ## Coexistence
 
 In **Both** mode, Classic and Graph write to the same Settings keys; their
@@ -416,6 +562,125 @@ Camera position, source kind, recording settings, and panel UI flags never
 animate. Edit \`excludedParams\` on a timeline if you want a different list.
 `;
 
+const MD_PROJECT = `
+# Project — save your work
+
+The synth has three save formats at three different scales. Choose
+based on what you want to keep or share:
+
+- **Preset** (\`.preset.json\`) — saves a *look*. The DCU controls,
+  modulation patches, color and effects, the camera's default view.
+  Small file, easy to share. Use this when you want to share a visual
+  configuration with someone else.
+- **Timeline** (\`.timeline.json\`) — saves a *score*. A sequence of
+  preset keyframes over musical time, with BPM and sync settings.
+  Use this to compose pieces that morph between configurations over
+  bars and beats.
+- **Project** (\`.synth.json\`) — saves your *whole workspace*. The
+  active preset, the current timeline, your MIDI bindings, OSC
+  bindings, CV calibrations, sonification config, panel layout,
+  camera position, resolution settings, performance profile.
+  This is the "save your work" format. Use it when you want to come
+  back tomorrow and be exactly where you left off.
+
+Most of the time you'll save a Project. Presets and Timelines are
+for sharing — when you've made something you want to give to someone
+else, export just the preset (or just the timeline) so they can load
+it without needing your hardware setup or your MIDI bindings.
+
+## Saving a project
+
+1. In the **Project** section at the top of the synth tab, click
+   **Save As…**.
+2. Enter a name. The file downloads as \`{name}.synth.json\` (or, on
+   Chromium browsers with the FS Access API, opens a save dialog).
+3. The title bar updates to show \`{Project Name} — RUTT/ETRA\`.
+4. Subsequent **Save** clicks (or \`Ctrl+S\`) write back to the same
+   file without prompting.
+
+Title-bar dirty marker: when you've changed any setting since the
+last save, an asterisk appears next to the project name —
+\`{Project Name} *\`. The marker clears the moment you save.
+
+## Opening a project
+
+1. Click **Open…** (or press \`Ctrl+O\`), pick a \`.synth.json\` file.
+2. The synth restores the preset, timeline, bindings, configurations,
+   and layout.
+3. **Hardware-output features** (CV outputs, sonification, mic input)
+   load their configs but stay **disabled** — re-enable them
+   explicitly to start producing output. This mirrors the
+   "always-off-on-load" rule everywhere else in the synth: nothing
+   that produces sound or sends voltage auto-arms from a saved file.
+4. A toast summarizes what was restored:
+   *Loaded "Session 1" — 3 MIDI bindings, 2 CV channels (disabled),
+   sonification ready (disabled), 8 timeline keyframes.*
+
+## Auto-save and recovery
+
+Toggle **Auto-save every 60 s** in the Project section to write the
+current project to browser storage every minute. If your tab crashes
+or you accidentally close, the next page load offers to recover
+unsaved changes.
+
+Auto-save is a safety net, not a primary save — explicit Save to
+file is still how you preserve work permanently. Browser storage is
+session-scoped (from the browser's perspective) and can be cleared
+without warning.
+
+## Recent Projects
+
+The Project section lists the last 8 projects opened.
+
+- **Chromium browsers (Chrome, Edge, Brave, Opera)**: recent entries
+  written *during the same session* re-open in one click thanks to
+  persistent file handles from the FS Access API.
+- **Firefox / Safari**: the menu shows project names but the file
+  picker opens when you click — pick the file again. The synth can't
+  remember a path on these browsers because the Web platform doesn't
+  expose one.
+
+## Sharing vs preserving
+
+A common workflow: you build something good in a Project. You want
+to share the look but not your MIDI setup.
+
+From the current project, click **Save preset from project
+(.preset.json)** — exports just the preset portion as a
+\`.preset.json\` that anyone can load without needing your hardware.
+The project file stays on your machine; only the preset goes out.
+
+## Recovered Session
+
+The very first time you load the synth after the Project feature
+shipped, if you had pre-Project state in browser storage (a saved
+preset, user presets, or timelines), the synth packages all of it
+into a Project named **Recovered Session** and offers to restore it.
+One-shot — subsequent loads don't keep re-creating it.
+
+If you decline the prompt, the snapshot is discarded. If you accept,
+save it to file with **Save As…** to preserve permanently.
+
+## Conflict resolution
+
+Opening a project (or starting a new one) while you have unsaved
+changes triggers a confirm prompt. The choices are standard:
+proceed and lose the changes, or cancel and keep editing.
+
+## Format & migration
+
+\`.synth.json\` is a single JSON document with a \`formatVersion\`
+field. The project loader checks the version and runs migrations on
+read. Saving back always writes at the current format version,
+regardless of what version the file came in at — so an older project
+opened, edited, and saved is now a current-version project.
+
+The file is **self-contained**: no external references, no relative
+paths, no "load this preset from disk" indirection. You can drop a
+\`.synth.json\` into any cloud storage and it'll round-trip
+identically.
+`;
+
 const MD_TIPS = `
 # Tips & gotchas
 
@@ -441,6 +706,33 @@ const MD_TIPS = `
 - **MIDI sync without a clock holds at the last known rate.** If you select MIDI sync on a slot but never plug a clock in (or your DAW stops sending one), the slot doesn't silently fall back to the internal BPM. The **NO CLOCK** badge under the slot warns you. Switch to Tempo sync if you want it to follow the global BPM, or to Free for a fixed Hz.
 - **One-shot ramps.** Turn the Ramp slot's **Loop** toggle off to make it run once and hold. Hit the slot's **Retrigger** button (or assign it via MIDI) whenever you want to fire the envelope again.
 - **Use the slot's Output stage to fit a parameter's range.** Set Min / Max to clamp the swing, Offset to bias the result around a non-zero rest value, and the Curve dropdown to bend the response without baking the curve into the source itself — handy when re-routing the same LFO to several params with different feels.
+
+## Pattern Generator (synthesized source)
+
+The **Source** panel's Pattern Generator group is an independent video-signal layer parallel to webcam / screen / file. The **Enable** toggle styles itself the same way **Mirror H** / **Mirror V** do — patterns are a layer you turn on, not a mode you switch into.
+
+- **Kind** picks the generator: Calibration (Solid / Gradient / Bars / Grid / Checker), Waveform (Sine / Triangle / Saw / Square / Pulse Bands, Lissajous, Spiral), Noise (White / Perlin / Worley), or Oscilloscope.
+- **Blend** and **Mix** describe how the pattern combines with whatever video source is active. *Replace* hides the video; *Multiply* / *Screen* / *Mask* etc. composite. *Crossfade* is a clean A/B between video and pattern.
+- All numeric per-pattern parameters (frequency, brightness, contrast, scale, octaves, scope sweep, ...) are full **modulation targets** — they appear in the Classic slot and Graph cv-output target lists under the **Pattern:** prefix. The small **+** button next to each pattern slider creates a sine LFO already targeted at that param.
+- The **Oscilloscope** kind renders any signal you can sample (audio, a Classic mod-matrix slot, a Graph node port, a numeric Settings key, BeatDetector pulses) as a phosphor trace. The trace itself becomes the input to the DCU, so Z Push will then displace the synth surface along the *shape of your signal*. This is the most Rutt-faithful generator: the original 1974 hardware was famously a hijacked oscilloscope.
+- All pattern controls remain editable when **Enable** is OFF — you can wire up a full pattern + modulation patch first, then flip the layer on.
+
+### Patterns publish their own modulation signals
+
+Every pattern's internal control signals are exposed back to the modulation system, so you can treat the pattern as a video source AND as an LFO at the same time:
+
+- **Lissajous** publishes \`Lissajous X\` and \`Lissajous Y\` — the two oscillators that draw the curve.
+- **Sine / Triangle / Saw / Square / Pulse Bands** publish \`Wave\` — the underlying waveform at the configured frequency.
+- **Spiral** publishes \`Phase\`; **Gradient** publishes \`Ramp\`.
+- **Oscilloscope** publishes \`Latest\` (the most recent sample), \`Mean\` (running mean of the visible window), \`Peak\` (running peak), and \`Trigger\` (a one-frame pulse on rising-edge crossings).
+
+How to use them:
+
+- **Classic mode** — open a slot's source dropdown and pick from the **Pattern Outputs** group: e.g. *Pattern: Lissajous X* → Z Push wobbles in lockstep with the visible curve's horizontal motion.
+- **Graph mode** — drop in a **Pattern Output** node and pick a signal from its dropdown. Wire it through Slew → Output(BloomIntensity) to make bloom follow the scope's mean envelope, for instance.
+- **CV out** — set any CV-output channel's source to **Pattern output** and pick a signal. An external hardware oscilloscope can then display the same Lissajous X the synth's visual layer is drawing.
+
+The pattern shader and the published scalar signal share the same parameter state — modulating Frequency moves both the visible bands and the wave output in lockstep, by construction.
 `;
 
 const MD_ABOUT = `
@@ -622,6 +914,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'shortcuts',  label: 'Shortcuts',      markdown: MD_SHORTCUTS },
   { id: 'mod',        label: 'Modulation',     markdown: MD_MOD },
   { id: 'timeline',   label: 'Timeline',       markdown: MD_TIMELINE },
+  { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
   { id: 'tips',       label: 'Tips & gotchas', markdown: MD_TIPS },
   { id: 'about',      label: 'About',          markdown: MD_ABOUT },
 ];

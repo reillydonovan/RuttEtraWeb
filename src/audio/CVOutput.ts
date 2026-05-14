@@ -132,6 +132,11 @@ export class CVOutput {
    *  directly to keep this class subsystem-light. */
   private getLastMidiNote: (() => { note: number; velocity: number } | null) = () => null;
 
+  /** Pattern signal bus — null until `setPatternBus` is called. The
+   *  `'pattern-output'` source kind reads from here. Kept as a duck-
+   *  typed object so this module stays renderer-import-free. */
+  private patternBus: { get(id: string): number } | null = null;
+
   constructor(
     private settings: SettingsStore,
     private live: LiveValuesStore,
@@ -156,6 +161,12 @@ export class CVOutput {
    *  post-output-stage value lands here; the next `tick()` consumes it. */
   setClassicSource(channelIndex: number, value: number): void {
     this.classicSources.set(channelIndex, value);
+  }
+
+  /** Wire the pattern signal bus. Channels with `sourceKind:
+   *  'pattern-output'` read from this each tick. */
+  setPatternBus(bus: { get(id: string): number } | null): void {
+    this.patternBus = bus;
   }
 
   /** Used by the Graph `cv-output` node. */
@@ -446,6 +457,15 @@ export class CVOutput {
         return 0; // clock-type uses BPM directly; others see 0.
       case 'constant':
         return cfg.sourceConstant ?? 0;
+      case 'pattern-output': {
+        if (!this.patternBus) return 0;
+        const id = cfg.sourcePatternOutputId ?? '';
+        if (!id) return 0;
+        // Bus values are already in their natural normalized range
+        // (-1..1 bipolar / 0..1 unipolar). Channel `scale` + `offset`
+        // do per-channel calibration on top.
+        return this.patternBus.get(id);
+      }
     }
   }
 

@@ -35,6 +35,7 @@ import { MidiMapping } from '../midi/MidiMapping';
 import { OscClient } from '../osc/OscClient';
 import { CVInput } from '../audio/CVInput';
 import { GamepadInput } from '../input/GamepadInput';
+import { PatternSignalBus } from '../renderer/patterns/PatternSignalBus';
 
 /** Minimal duck-typed slice of `CVOutput` ModMatrix needs — keeps the
  *  audio module out of the unit-test import graph. */
@@ -84,6 +85,13 @@ interface SlotState {
    * effective Hz changes mid-stream (tempo nudge, division change, etc.).
    */
   syncedPhase: number;
+  /**
+   * Last post-output-stage shaped value for this slot (signed). Updated
+   * each `tick()` so the Pattern Generator's oscilloscope (and the
+   * debug overlay) can tap a slot's current contribution without
+   * re-running the source code.
+   */
+  lastShaped: number;
 }
 
 function makeSlotState(): SlotState {
@@ -95,6 +103,7 @@ function makeSlotState(): SlotState {
     joystickZ: 0,
     lastSyncedHz: 0,
     syncedPhase: 0,
+    lastShaped: 0,
   };
 }
 
@@ -112,6 +121,9 @@ export interface ModMatrixDeps {
   cvOut?: CVOutputLike;
   /** v9: gamepad / HID poller. Optional. */
   gamepad?: GamepadInput;
+  /** v10: pattern internal signal bus. Optional — when null, the
+   *  `'patternOutput'` source returns 0 (e.g. headless tests). */
+  patternBus?: PatternSignalBus;
   /**
    * Required for the new "base + mod" path. ModMatrix never writes to
    * `Settings` directly anymore — every per-frame contribution is
@@ -140,6 +152,7 @@ export class ModMatrix {
   private cv: CVInput | null;
   private cvOut: CVOutputLike | null;
   private gamepad: GamepadInput | null;
+  private patternBus: PatternSignalBus | null;
 
   constructor(private settings: SettingsStore, deps: ModMatrixDeps) {
     this.fft = deps.fft ?? null;
@@ -151,7 +164,15 @@ export class ModMatrix {
     this.cv = deps.cv ?? null;
     this.cvOut = deps.cvOut ?? null;
     this.gamepad = deps.gamepad ?? null;
+    this.patternBus = deps.patternBus ?? null;
     this.liveValues = deps.liveValues;
+  }
+
+  /** Late-bound dep injection. Used by `main.ts` because the pattern
+   *  bus exists before ModMatrix has been constructed but the bus is
+   *  also handed to the renderer in the same tick. */
+  setPatternBus(bus: PatternSignalBus | null): void {
+    this.patternBus = bus;
   }
 
   /** Wire a 2D pad into the joystick X/Y values (range -1..+1 per axis). */
@@ -195,6 +216,16 @@ export class ModMatrix {
     s.rampStart = null;
     s.syncedPhase = 0;
     s.audioEnv = 0;
+  }
+
+  /**
+   * Most-recent post-output-stage value for slot `index` (signed,
+   * typically -1..1 after `applyOutputStage`). Returns 0 if the slot
+   * is disabled, never ticked, or out of range. Used by the Pattern
+   * Generator's oscilloscope mode and other introspection consumers.
+   */
+  getSlotValue(index: number): number {
+    return this.slotStates[index]?.lastShaped ?? 0;
   }
 
   /**
@@ -244,6 +275,7 @@ export class ModMatrix {
       const raw = this.computeSlotRaw(slot, i, state, now, safeDt, internalBpm);
       const shaped = applyOutputStage(raw, slot);
       slotValues[i] = shaped;
+      state.lastShaped = shaped;
       if (rawValues) rawValues[i] = raw;
       const t = slot.target;
       activeTargets.add(t);
@@ -464,6 +496,17 @@ export class ModMatrix {
         // `outputMin/outputMax` range covers the full sweep.
         const v = this.gamepad.getButton(slot.gamepadIndex | 0);
         return v * 2 - 1;
+      }
+
+      // --- v10: pattern internal signals ---
+      case 'patternOutput': {
+        if (!this.patternBus) return 0;
+        const id = slot.patternOutputId;
+        if (!id) return 0;
+        // Bus values are already shaped to their natural range
+        // (most are bipolar -1..1; oscilloscope:peak is 0..1).
+        // The output stage handles further mapping per-slot.
+        return this.patternBus.get(id);
       }
     }
     // Exhaustive check — TS will error here if a new ModSource is added

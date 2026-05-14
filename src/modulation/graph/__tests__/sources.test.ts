@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runNode } from './helpers';
+import type { PatternBusLike } from '../types';
 
 describe('lfo', () => {
   it('produces zero on the very first frame at default phase', () => {
@@ -105,5 +106,45 @@ describe('clock', () => {
     });
     // 120 bpm = 2 quarters/sec, so over 1s we should see ~2 wraps.
     expect(wraps).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('pattern-output', () => {
+  /** Tiny in-memory bus stub matching the duck-typed interface used
+   *  by the graph engine. */
+  function fakeBus(values: Record<string, number>): PatternBusLike {
+    return { get: (id) => values[id] ?? 0 };
+  }
+
+  it('reads the configured bus id from deps.patternBus', () => {
+    const out = runNode('pattern-output', 1, {
+      params: { output: 'lissajous:x' },
+      deps: { patternBus: fakeBus({ 'lissajous:x': 0.42 }) },
+    });
+    expect(out.out).toBe(0.42);
+  });
+
+  it('emits 0 when the bus is missing', () => {
+    const out = runNode('pattern-output', 1, {
+      params: { output: 'lissajous:x' },
+      deps: {},
+    });
+    expect(out.out).toBe(0);
+  });
+
+  it('emits 0 when the configured id is empty', () => {
+    const out = runNode('pattern-output', 1, {
+      params: { output: '' },
+      deps: { patternBus: fakeBus({ 'lissajous:x': 0.42 }) },
+    });
+    expect(out.out).toBe(0);
+  });
+
+  it('returns 0 for unknown bus ids', () => {
+    const out = runNode('pattern-output', 1, {
+      params: { output: 'oscilloscope:mean' },
+      deps: { patternBus: fakeBus({ 'lissajous:x': 0.42 }) },
+    });
+    expect(out.out).toBe(0);
   });
 });

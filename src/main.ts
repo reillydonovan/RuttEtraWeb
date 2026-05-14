@@ -19,6 +19,16 @@ import { RuttEtraScene } from './renderer/RuttEtra';
 import { CameraRig } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
 import { ResolutionManager } from './renderer/ResolutionManager';
+import { PatternRenderer } from './renderer/patterns/PatternRenderer';
+import { PatternSignalBus } from './renderer/patterns/PatternSignalBus';
+import type { OscilloscopeBuffer } from './renderer/patterns/OscilloscopeBuffer';
+import { VideoTap } from './modulation/graph/VideoTap';
+import { MeshAnalyzer } from './audio/MeshAnalyzer';
+import { Sonification } from './audio/Sonification';
+import { ProjectStore } from './project/ProjectStore';
+import { AutoSave } from './project/AutoSave';
+import { maybePackageRecoveredSession } from './project/RecoveredSession';
+import { describeSummary } from './project/Project';
 import { ModMatrix } from './modulation/ModMatrix';
 import { activeTargetsBus } from './modulation/ActiveTargetsBus';
 import { LiveValuesStore } from './modulation/LiveValues';
@@ -103,6 +113,32 @@ async function bootSynth(): Promise<void> {
   const postfx = new PostFX(renderer, ruttEtra.scene, cameraRig.camera, settings, window.innerWidth, window.innerHeight, liveValues);
   const resolutionManager = new ResolutionManager(canvas, settings);
 
+  // -------------------- Pattern Generator (v10) --------------------
+  // Independent layer parallel to the video source. When `patternEnabled`
+  // is true, `patternRenderer.tick()` runs each frame: renders the chosen
+  // generator + composites it with the live video texture, then binds the
+  // result as the DCU's input. When false, the live video texture feeds
+  // the DCU directly (zero added cost).
+  //
+  // The scope-source sampler is wired LATER (after `io`, `matrix`, and
+  // `graphEngine` exist); this construction only sets up render targets
+  // and materials.
+  // Pattern signal bus — values published BY pattern shaders' CPU
+  // mirrors and consumed by ModMatrix (Classic 'patternOutput' source),
+  // GraphEngine (`pattern-output` node), and CVOutput (per-channel
+  // `pattern-output` source). One frame of latency between publish and
+  // consume — same as every other inter-tick boundary in the engine.
+  const patternSignalBus = new PatternSignalBus();
+
+  const patternRenderer = new PatternRenderer(
+    renderer, settings, liveValues, ruttEtra, patternSignalBus,
+    window.innerWidth, window.innerHeight,
+  );
+  // Restore the live video binding when the user disables the layer.
+  settings.subscribe('patternEnabled', (enabled) => {
+    if (!enabled) patternRenderer.bypass();
+  });
+
   // Hide panel/timeline while user "peeks" via long-press.
   document.addEventListener('re-peek-start', () => document.body.classList.add('peeking'));
   document.addEventListener('re-peek-end',   () => document.body.classList.remove('peeking'));
@@ -167,21 +203,26 @@ async function bootSynth(): Promise<void> {
     cv:          io.cv,
     cvOut:       io.cvOut,
     gamepad:     io.gamepad,
+    patternBus:  patternSignalBus,
     liveValues,
   });
+  // Same bus for the CV output writer so 'pattern-output' channels
+  // can read the published signals directly.
+  io.cvOut?.setPatternBus?.(patternSignalBus);
+
+  // VideoTap is eager — it's a tiny pair of offscreen canvases and is
+  // shared between the Graph engine's `video-*` nodes AND the
+  // Sonification / MeshAnalyzer pipeline. Building it up-front lets
+  // sonification work even when the user never enters Graph mode.
+  const videoTap = new VideoTap(video);
 
   // Lazy-construct the Graph engine. Classic-only users never touch the
   // import. Once built, the engine sticks around so subsequent mode
   // switches are instant.
   let graphEngine: GraphEngine | null = null;
-  let videoTap: import('./modulation/graph/VideoTap').VideoTap | null = null;
   const ensureGraphEngine = async (): Promise<GraphEngine> => {
     if (graphEngine) return graphEngine;
-    const [{ GraphEngine: GE }, { VideoTap: VT }] = await Promise.all([
-      import('./modulation/graph/GraphEngine'),
-      import('./modulation/graph/VideoTap'),
-    ]);
-    videoTap = new VT(video);
+    const { GraphEngine: GE } = await import('./modulation/graph/GraphEngine');
     graphEngine = new GE(settings, {
       fft:         io.fft,
       beat:        io.beat,
@@ -192,6 +233,7 @@ async function bootSynth(): Promise<void> {
       cv:          io.cv,
       cvOut:       io.cvOut,
       gamepad:     io.gamepad,
+      patternBus:  patternSignalBus,
       videoTap,
       liveValues,
     });
@@ -209,6 +251,80 @@ async function bootSynth(): Promise<void> {
   // Pre-warm if persisted state requires it.
   if (settings.get('modMode') !== 'classic') void ensureGraphEngine();
   settings.subscribe('modMode', (m) => { if (m !== 'classic') void ensureGraphEngine(); });
+
+  // -------------------- Sonification (audible output) --------------------
+  // First audio-output feature: a single voice driven by mesh
+  // statistics. Boots disabled — settings migration always forces
+  // `sonification.enabled = false` regardless of saved value, so no
+  // audio can leak out without an explicit user gesture. The Enable
+  // toggle in the I/O panel is itself a click event (satisfies
+  // browser autoplay policy); the canvas-click fallback below handles
+  // the edge case where settings flip enabled=true after load
+  // without any user gesture having occurred (e.g. URL-driven config).
+  const meshAnalyzer = new MeshAnalyzer();
+  const sonification = new Sonification(settings.get('sonification'));
+  settings.subscribe('sonification', (cfg) => sonification.applyConfig(cfg));
+  // Mic-feedback gate: when the FFT analyser is running with a
+  // microphone source, the mic is presumably routed to speakers and
+  // the sonification voice would feed straight back. Auto-mute the
+  // voice (with a status flag the UI surfaces) until the user changes
+  // the audio input source or disables sonification.
+  io.fft.subscribe((s) => {
+    sonification.setMicFeedbackActive(s.running && s.kind === 'mic');
+  });
+  // Autoplay-policy fallback: if sonification ever wants to be
+  // running but the AudioContext is suspended (e.g. preset URL set
+  // enabled=true on load — should be impossible thanks to the
+  // migration's force-off, but belt-and-braces), the next click
+  // anywhere on the canvas resumes audio.
+  const resumeAudioOnGesture = () => {
+    void sonification.userGesture();
+  };
+  canvas.addEventListener('pointerdown', resumeAudioOnGesture, { passive: true });
+  canvas.addEventListener('keydown', resumeAudioOnGesture);
+
+  // -------------------- Pattern Generator: scope sampler --------------------
+  // Installed AFTER io / matrix / graph-engine factory exist so the
+  // sampler closures have stable refs. Allocated once: scratch buffer
+  // for audio time-domain frames so we don't allocate inside the loop.
+  const SCOPE_AUDIO_BUF = new Float32Array(1024);
+  patternRenderer.setScopeSampler((buf: OscilloscopeBuffer, kind, ref) => {
+    switch (kind) {
+      case 'audio': {
+        // FFTAnalyzer fills SCOPE_AUDIO_BUF with -1..1 samples; if the
+        // analyser isn't running it zeros the buffer (still a valid
+        // "flat line" trace).
+        io.fft.getTimeDomain(SCOPE_AUDIO_BUF);
+        buf.writeBlock(SCOPE_AUDIO_BUF);
+        break;
+      }
+      case 'classic-slot': {
+        // ref is a 1-based slot number ('1'..'4'). Default to slot 1.
+        const idx = Math.max(0, Math.min(3, (parseInt(ref, 10) || 1) - 1));
+        buf.pushSample(matrix.getSlotValue(idx));
+        break;
+      }
+      case 'graph-node': {
+        // ref shape: '<nodeId>' or '<nodeId>:<port>'. Default port 'out'.
+        if (!graphEngine) { buf.pushSample(0); break; }
+        const colon = ref.indexOf(':');
+        const nodeId = colon >= 0 ? ref.slice(0, colon) : ref;
+        const port   = colon >= 0 ? ref.slice(colon + 1) : 'out';
+        buf.pushSample(graphEngine.probe(nodeId, port));
+        break;
+      }
+      case 'settings-param': {
+        buf.pushSample(liveValues.getLive(ref));
+        break;
+      }
+      case 'beat': {
+        buf.pushSample(io.beat.pulse);
+        break;
+      }
+      default:
+        buf.pushSample(0);
+    }
+  });
 
   // -------------------------- Sequencer + dock ---------------------------
   const seqModule    = await import('./sequencer/Sequencer');
@@ -235,9 +351,9 @@ async function bootSynth(): Promise<void> {
 
   // Recorder + broadcaster — both lazy.
   const recordMod = await import('./record/Recorder');
-  const recorder = new recordMod.CanvasRecorder(canvas);
+  const recorder = new recordMod.CanvasRecorder(canvas, sonification);
   const broadcastMod = await import('./stream/Broadcaster');
-  const broadcaster = new broadcastMod.Broadcaster();
+  const broadcaster = new broadcastMod.Broadcaster(sonification);
 
   video.addEventListener('loadedmetadata', () => {
     ruttEtra.attachVideo();
@@ -250,8 +366,198 @@ async function bootSynth(): Promise<void> {
     }
   });
 
+  // -------------------------- Project save/load -------------------------
+  // The "save your work" feature. Owns:
+  //   - the active project's name + dirty flag (Settings.subscribeAll
+  //     drives the dirty bit; explicit `markDirty()` covers preset /
+  //     timeline edits that don't pass through Settings),
+  //   - the recent-projects list (localStorage; FileSystemFileHandle
+  //     when supported),
+  //   - file ops: New / Open / Save / Save As / OpenRecent (uses the
+  //     FS Access API on Chromium, falls back to download/upload).
+  //
+  // First-launch packaging: if pre-Project session state exists in
+  // the legacy localStorage keys, wrap it as an auto-save payload
+  // named "Recovered Session" so the user can recover it on next
+  // load. One-shot, gated by `ruttetra.project.recoveredAt`.
+  maybePackageRecoveredSession();
+
+  const USER_PRESETS_KEY = 'ruttetra.userPresets.v1';
+  const TIMELINES_KEY    = 'ruttetra.timelines.v1';
+  const projectStore = new ProjectStore({
+    settings,
+    getUserPresets: () => {
+      try {
+        const raw = localStorage.getItem(USER_PRESETS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    },
+    setUserPresets: (list) => {
+      try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+    },
+    // Timelines bypass the seqStore.autoPersist gate the same way
+    // exportEverything does — saved projects always include
+    // whatever's in the in-memory + persisted set, and loading a
+    // project always replaces both.
+    getTimelines: () => {
+      const persisted = (() => {
+        try {
+          const raw = localStorage.getItem(TIMELINES_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+      })();
+      const current = sequencer.timeline;
+      if (current && !persisted.find((t: { id: string }) => t.id === current.id)) {
+        return [current, ...persisted];
+      }
+      return persisted;
+    },
+    setTimelines: (list, activeId) => {
+      try { localStorage.setItem(TIMELINES_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+      if (activeId) {
+        const tl = list.find((x) => x.id === activeId);
+        if (tl) sequencer.load(tl);
+      }
+    },
+    getActiveTimelineId: () => sequencer.timeline?.id ?? null,
+    subscribeAllSettings: (fn) => settings.subscribeAll(() => fn()),
+  });
+  const autoSave = new AutoSave(projectStore);
+
+  // Live camera capture on save: before serializing, push the
+  // current camera into `settings.defaultView` so the project
+  // file restores the camera the user is actually looking at,
+  // not whatever the loaded preset's saved view was.
+  {
+    const origSnapshot = projectStore.snapshot.bind(projectStore);
+    projectStore.snapshot = (name: string, description?: string) => {
+      cameraRig.saveDefaultView();
+      return origSnapshot(name, description);
+    };
+  }
+
+  // Document title reflects project state — "Project Name * — RUTT/ETRA"
+  // when modified, "Project Name — RUTT/ETRA" when saved, or just
+  // "RUTT/ETRA - Web Video Synthesizer" when no project is open.
+  const BASE_TITLE = 'RUTT/ETRA - Web Video Synthesizer';
+  projectStore.subscribe((s) => {
+    if (s.name) {
+      document.title = `${s.name}${s.dirty ? ' *' : ''} — RUTT/ETRA`;
+    } else if (s.dirty) {
+      document.title = `Untitled * — RUTT/ETRA`;
+    } else {
+      document.title = BASE_TITLE;
+    }
+  });
+
+  // Boot-time recovery prompt. If the previous session had unsaved
+  // changes (auto-save) or this is the first launch with the
+  // Recovered Session migration above, surface a single prompt.
+  // Deferred until after the panel is built so the toast can land.
+  const pendingRecovery = AutoSave.loadPending();
+
+  // beforeunload — flush an autosave snapshot if dirty so a crash
+  // or accidental close still leaves a recoverable trail. Synchronous
+  // only; we can't await async writes here.
+  window.addEventListener('beforeunload', () => {
+    if (projectStore.getState().dirty) autoSave.tick();
+  });
+
+  // Keyboard shortcuts: Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S.
+  // We must `preventDefault` Ctrl+S (browser "save page as") and
+  // Ctrl+O ("open file"). New / Open / Save dispatch through the
+  // ProjectStore directly; Save As opens a name prompt.
+  window.addEventListener('keydown', (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey)) return;
+    const k = ev.key.toLowerCase();
+    if (k === 's') {
+      ev.preventDefault();
+      if (ev.shiftKey) {
+        const name = window.prompt('Project name:', projectStore.getState().name ?? `Project ${new Date().toLocaleDateString()}`);
+        if (name != null) void projectStore.saveAs(name).then((ok) => {
+          if (ok) AutoSave.clearPending();
+        });
+      } else {
+        const cur = projectStore.getState();
+        if (!cur.name) {
+          const name = window.prompt('Project name:', `Project ${new Date().toLocaleDateString()}`);
+          if (name != null) void projectStore.saveAs(name).then((ok) => {
+            if (ok) AutoSave.clearPending();
+          });
+        } else {
+          void projectStore.saveToCurrent().then((ok) => {
+            if (ok) AutoSave.clearPending();
+          });
+        }
+      }
+    } else if (k === 'o') {
+      ev.preventDefault();
+      const cur = projectStore.getState();
+      if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
+      if (cur.hasFsAccess) void projectStore.openWithPicker();
+    } else if (k === 'n') {
+      ev.preventDefault();
+      const cur = projectStore.getState();
+      if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
+      projectStore.newProject();
+      AutoSave.clearPending();
+    }
+  });
+
   // -------------------------- UI panel ---------------------------------
   const panel = new ControlPanel(panelHost, settings);
+
+  // Tiny ad-hoc toast for project events. Auto-dismisses after 4s.
+  // Lives in the DOM only when a message is up — no permanent fixture.
+  function projectToast(msg: string): void {
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = [
+      'position:fixed', 'left:50%', 'bottom:48px', 'transform:translateX(-50%)',
+      'background:rgba(20,30,20,0.92)', 'color:#cfeacf',
+      'border:1px solid rgba(160,200,160,0.35)', 'border-radius:6px',
+      'padding:10px 14px', 'font-size:13px', 'font-family:VT323,monospace',
+      'z-index:1000', 'pointer-events:none', 'max-width:80vw', 'text-align:center',
+      'box-shadow:0 4px 20px rgba(0,0,0,0.4)',
+    ].join(';');
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  // The Project section sits at the top of the synth tab — it's
+  // the "save your work" entry point. Built lazily to avoid pulling
+  // the FS Access glue into the initial bundle when a user never
+  // saves a project.
+  void (async () => {
+    const psMod = await import('./ui/sections/ProjectSection');
+    panel.addSection({
+      tab: 'synth', title: 'Project', initiallyOpen: true,
+      body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
+    });
+  })();
+
+  // Boot-time recovery prompt. Defer one frame so the panel finishes
+  // mounting before the alert / confirm fires.
+  if (pendingRecovery) {
+    setTimeout(() => {
+      const age = AutoSave.formatAge(pendingRecovery.writtenAt);
+      const ok = confirm(
+        `Recover unsaved changes from "${pendingRecovery.projectName}" (${age})?\n\n` +
+        'Click OK to restore. Cancel discards the snapshot.',
+      );
+      if (ok) {
+        projectStore.openFromText(pendingRecovery.json, pendingRecovery.projectName)
+          .then((s) => {
+            if (s) projectToast(describeSummary(s));
+          })
+          .catch((err: Error) => projectToast(`Recovery failed: ${err.message}`))
+          .finally(() => AutoSave.clearPending());
+      } else {
+        AutoSave.clearPending();
+      }
+    }, 250);
+  }
+
   panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
@@ -291,7 +597,7 @@ async function bootSynth(): Promise<void> {
   // Lazy-load Record + Share + I/O sections + Help so they don't ship in
   // the initial chunk. UI shows a placeholder until the modules resolve.
   void (async () => {
-    const [rs, ss, ms, as, os, cvs, cvos] = await Promise.all([
+    const [rs, ss, ms, as, os, cvs, cvos, sons] = await Promise.all([
       import('./ui/sections/RecordSection'),
       import('./ui/sections/ShareSection'),
       import('./ui/sections/MidiSection'),
@@ -299,6 +605,7 @@ async function bootSynth(): Promise<void> {
       import('./ui/sections/OscSection'),
       import('./ui/sections/CVSection'),
       import('./ui/sections/CVOutputSection'),
+      import('./ui/sections/SonificationSection'),
     ]);
     panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, recorder, sequencer) });
     panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, canvas) });
@@ -307,6 +614,7 @@ async function bootSynth(): Promise<void> {
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
     panel.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
     panel.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
+    panel.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
   })();
 
   void (async () => {
@@ -427,7 +735,7 @@ async function bootSynth(): Promise<void> {
     // ResolutionManager owns renderer/postfx/rig resize: it routes to the
     // correct render-target size (match-window vs. fixed preset) and
     // positions the canvas CSS for the chosen fit mode.
-    resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale);
+    resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale, patternRenderer);
     timelineDock?.resize();
   }
   function scheduleResize(): void {
@@ -468,7 +776,16 @@ async function bootSynth(): Promise<void> {
     } else {
       activeTargetsBus.publish('classic', new Set());
     }
-    videoTap?.tick();
+    videoTap.tick();
+    // MeshAnalyzer + Sonification ride after VideoTap so they see
+    // this frame's readback. Both no-op cheaply when the source isn't
+    // playing yet (no thumbnail / not running).
+    meshAnalyzer.tick(videoTap, {
+      threshold: settings.get('threshold'),
+      contrast:  settings.get('contrast'),
+      gamma:     settings.get('gamma'),
+    });
+    sonification.tick(meshAnalyzer.read(), dt);
     graphEngine?.tick(dt);
     // CV output tick MUST run after both modulation engines so source
     // values from Classic slot targets and Graph cv-output nodes are
@@ -485,6 +802,14 @@ async function bootSynth(): Promise<void> {
       return;
     }
     lastDraw = now;
+
+    // Pattern Generator: render the synthesized layer + composite with
+    // the live video texture, then bind the result as the DCU's input.
+    // No-op when disabled — the live VideoTexture stays bound from
+    // RuttEtraScene.attachVideo().
+    if (settings.get('patternEnabled')) {
+      patternRenderer.tick(t, dt, ruttEtra.videoTexture);
+    }
 
     postfx.render(dt);
     watcher.onFrame(dt);

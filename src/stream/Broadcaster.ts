@@ -2,7 +2,9 @@
  * Peer-to-peer broadcaster using PeerJS.
  *
  * Generates a peer ID, exposes a share URL, and on each incoming call,
- * answers with the canvas's MediaStream (plus optional mic).
+ * answers with the canvas's MediaStream (plus optional mic, plus
+ * optional sonification voice when the synth's audible-output
+ * subsystem is enabled).
  *
  * Each connected viewer is tracked so the UI can show a viewer count.
  * No backend required — uses PeerJS's free public broker by default.
@@ -11,6 +13,12 @@
 import Peer, { MediaConnection } from 'peerjs';
 
 export type BroadcastState = 'idle' | 'connecting' | 'live' | 'error';
+
+/** Capture surface from `Sonification` — duck-typed so tests can
+ *  stub it and the broadcaster doesn't import the audio module. */
+export interface SonificationCapture {
+  getCaptureStream(): MediaStream | null;
+}
 
 interface BroadcasterOptions {
   canvas: HTMLCanvasElement;
@@ -29,6 +37,8 @@ export class Broadcaster {
   private streamCache: MediaStream | null = null;
   private micStream: MediaStream | null = null;
   private opts: BroadcasterOptions = { canvas: null as any };
+
+  constructor(private sonification: SonificationCapture | null = null) {}
 
   /** Public read-only view of the current broadcast state. */
   getState(): BroadcastState { return this.state; }
@@ -107,10 +117,16 @@ export class Broadcaster {
   private buildStream(): MediaStream {
     const c = this.opts.canvas as any;
     const v = c.captureStream(this.opts.fps ?? 30) as MediaStream;
+    const audioTracks: MediaStreamTrack[] = [];
     if (this.micStream) {
-      return new MediaStream([...v.getVideoTracks(), ...this.micStream.getAudioTracks()]);
+      for (const t of this.micStream.getAudioTracks()) audioTracks.push(t);
     }
-    return v;
+    const sonStream = this.sonification?.getCaptureStream();
+    if (sonStream) {
+      for (const t of sonStream.getAudioTracks()) audioTracks.push(t);
+    }
+    if (audioTracks.length === 0) return v;
+    return new MediaStream([...v.getVideoTracks(), ...audioTracks]);
   }
 
   private setState(s: BroadcastState, error?: string): void {

@@ -15,6 +15,16 @@ export default defineConfig({
       // v9: pure helpers in CVInput / GamepadInput are testable without a DOM.
       'src/audio/**/*.test.ts',
       'src/input/**/*.test.ts',
+      // v10: PatternRegistry is pure data + OscilloscopeBuffer is a thin
+      // wrapper around a Float32Array; both run fine in node without WebGL.
+      'src/renderer/patterns/**/*.test.ts',
+      // v10: Settings migration is pure, schema-only logic — exercises
+      // sonification's "always force enabled=false" rule and the v9→v10
+      // backfill paths.
+      'src/state/**/*.test.ts',
+      // v10: Project save/load — schema migration, snapshot, dirty
+      // tracking, recovered-session packaging.
+      'src/project/**/*.test.ts',
     ],
     globals: false,
     reporters: ['default'],

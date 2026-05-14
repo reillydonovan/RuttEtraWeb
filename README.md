@@ -25,9 +25,62 @@ npm run build
 
 ---
 
-## Recent changes (v9)
+## Recent changes (v10)
 
-**May 2026** — Base/live split architecture, modulation UX improvements, **bidirectional voltage control (CV)**, and a separate **About / Manual page** at `about.html` distinct from the in-app Help dock.
+**May 2026** — **Pattern Generator source** — a synthesized "video signal" layer parallel to webcam / screen / file. Adds 16 fragment-shader patterns plus a fully-functional Oscilloscope mode that turns any signal you can sample (audio, mod-matrix slot, graph node port, settings param, beat pulse) into a phosphor scope trace that the DCU then displaces in Z. The original 1974 hardware was famously a hijacked oscilloscope; this is the Rutt-faithful version of an internal signal generator.
+
+### Pattern Generator (`src/renderer/patterns/`)
+
+- **Architecture: independent layer, not a mode.** A new `patternEnabled` toggle in the Source panel (styled identically to **Mirror H** / **Mirror V**) gates a separate offscreen pipeline. The video source (`sourceKind`) keeps doing what it always did; the pattern layer is composited on top with a configurable blend mode + mix amount, and the result feeds the DCU's `uVideo` uniform unchanged. When the layer is OFF, the live `VideoTexture` binds to the DCU directly with zero added GPU cost.
+- **Pattern catalog** — Calibration (Solid, Gradient, Bars, Grid, Checker), Waveform (Sine / Triangle / Saw / Square / Pulse Bands, Lissajous, Spiral), Noise (White / Perlin / Worley), and Oscilloscope. 16 patterns, one fragment shader each, all <80 lines of GLSL.
+- **Compositor** — single fragment shader with 8 blend modes (replace, add, subtract, multiply, screen, difference, mask, crossfade) selected via an int uniform. `patternMix` acts as a wet/dry on the blended output; even Replace honors it for tempo-locked layer ducking.
+- **Modulation native** — every numeric pattern parameter (Frequency, Brightness, Contrast, Phase, Scale, Thickness, Density, Lissajous Freq Ratio, Spiral Arms, Perlin Octaves, Worley Point Density, Mix, Scope Sweep / Trigger / Persist / Thickness) is a first-class **ModTarget** appearing in every Classic slot Target dropdown and every Graph `cv-output` target list under the **Pattern:** prefix. The standard `LiveValuesStore` base/live split applies — sliders display the user-edited base, the renderer reads `getLive()` each frame.
+- **Inline "+ Mod patch" button** next to each pattern slider creates a sine LFO already wired to that parameter and expands its slot in the Modulation panel.
+- **Oscilloscope mode** — circular `Float32Array` buffer plus a 1D `THREE.DataTexture` rendered as a beam trace. Source kinds: live audio time-domain (via `FFTAnalyzer.getTimeDomain`), Classic mod-matrix slot value, Graph node port (via the existing `GraphEngine.probe`), arbitrary numeric Settings key (read through `LiveValuesStore` so modulation appears in the trace), or BeatDetector pulse. Optional rising-edge trigger alignment locks repetitive waveforms in place; phosphor decay (`patternScopePersist`) is implemented via a feedback ping-pong render target.
+- **Per-pattern UI** rebuilds itself on `patternKind` change: only the controls each pattern actually consumes are shown, defaults are reset on switch via `settings.patch(PATTERN_REGISTRY[kind].defaults)`.
+- **Pattern signals → modulation sources.** Every pattern publishes its internal control signals back into the modulation system through a tiny `PatternSignalBus` (`Map<string, number>`, keyed by `<patternKind>:<signalId>`). Each frame the active pattern's CPU mirror — a small JS function declared next to the shader's GLSL in `PatternRegistry` — runs once and writes its outputs (Lissajous X / Y, Sine Bands wave, Spiral phase, Oscilloscope `latest` / `mean` / `peak` / `trigger`, etc.). Two paths, one set of params: shader and CPU mirror always stay in lockstep. Consumers: Classic mode adds them to the source dropdown under a `Pattern Outputs` optgroup (encoded as `po:<busId>`); Graph mode registers a `pattern-output` node; CVOutput adds a `pattern-output` source kind so external hardware can be driven by the same Lissajous X the visual layer is drawing. Bus is cleared on disable / kind-switch so stale signals never leak.
+- **Tests**: `PatternRegistry.test.ts` enforces every `PatternKind` literal has an entry and a non-empty `paramKeys`; `OscilloscopeBuffer.test.ts` covers ring-buffer FIFO, block writes, and rising-edge trigger alignment; `PatternSignalBus.test.ts` covers id encoding + bus mutation; per-pattern compute-mirror math is covered in `PatternRegistry.compute.test.ts`.
+- **Settings v9 → v10 migration** adds every `pattern*` key from `DEFAULTS` if missing, and backfills the new `ModSlot.patternOutputId` / `CVOutputChannel.sourcePatternOutputId` fields with empty strings. Rolling back to v9 code drops the unknown fields harmlessly.
+
+### Sonification — hear the image (`src/audio/Sonification.ts`, `src/audio/MeshAnalyzer.ts`)
+
+The synth's **first audible-output feature**. A single Web Audio voice whose four parameters (Pitch, Amplitude, Cutoff, Resonance) are driven each frame by statistics computed from the scanline mesh — faithful to Steina Vasulka and Bill Hearn's 1970s practice of routing video signals through audio amplifiers to literally hear the image.
+
+- **Voice chain** — `OscillatorNode → BiquadFilterNode → GainNode (amp) → GainNode (master) → DynamicsCompressorNode (limiter) → destination`, plus a parallel `MediaStreamAudioDestinationNode` tap that the recorder and broadcaster pull tracks from. Sonification runs on its own `AudioContext`, separate from CV Output's, so the two surfaces share no mixer node — sonification audio can never bleed into a CV channel.
+- **MeshAnalyzer** publishes 8 stats from the existing `VideoTap` lo-res readback (the same buffer `video-luma` / `video-motion` graph nodes use): `meanBrightness`, `brightnessVariance`, `verticalCentroid`, `horizontalCentroid`, `meshActivity`, `peakRow`, `peakBrightness`, `edgeDensity`. The DCU brightness pipeline (luma → threshold → contrast → gamma) is mirrored on the CPU side so the sonified signal tracks what's actually visible, not just the raw video luma. 64-row analysis grid; <0.1 ms / frame on mid-tier hardware.
+- **Mapping layer** — small "patch matrix" parallel to the modulation system but kept simple (no graph, no chaining). Each voice param is bound to one mesh stat with a per-mapping easing curve (Linear / Exponential / Logarithmic / S-Curve) and a single global Smoothing slider (1-pole lowpass; 5 ms = twitchy, 200 ms = drone-smooth). Pitch additionally has a configurable MIDI-note range and a Quantize toggle.
+- **Default mapping** — Pitch ← `verticalCentroid` (Exponential, musical), Amplitude ← `meanBrightness` (Linear), Cutoff ← `brightnessVariance` (Exponential), Resonance ← `meshActivity` (Linear). Designed to feel expressive on arbitrary video without configuration.
+- **Recording / broadcast capture** — `Recorder.start()` and `Broadcaster.start()` pull `getCaptureStream()` from the `Sonification` instance and add the audio track(s) to the canvas `MediaStream`. Mic + sonification are mixed by the browser at recording time. Capture taps post-master / post-limiter, so the recorded audio is exactly what you hear.
+- **Safety surface** — non-negotiable for a first audio-output feature:
+    - **Default disabled, always.** The settings migration explicitly forces `sonification.enabled = false` on every page load and preset import (mirrors the CV-output "channels start disabled" rule).
+    - **-18 dB default master volume.**
+    - **500 ms soft-start ramp** on enable; 250 ms ramp on disable.
+    - **Brick-wall limiter** (`DynamicsCompressorNode`, ratio 20, threshold -3 dBFS, knee 6 dB) catches runaway resonant filter sweeps.
+    - **Mic-feedback gate** — when `FFTAnalyzer.kind === 'mic' && fft.running` AND sonification is enabled, master gain is auto-forced to 0 with a UI banner explaining why. The synth refuses to ship a feedback loop.
+    - **Browser autoplay policy** — the Enable click is the natural user gesture. If the toggle is flipped without a gesture (URL config — should be impossible thanks to the migration's force-off), a "click anywhere on the canvas to start audio" indicator appears and the next canvas click resumes the context.
+- **Tests** — `MeshAnalyzer.test.ts` covers the 8 stats with synthetic gradient / motion / centroid inputs; `Sonification.test.ts` covers mapping curves, dB → gain conversion, MIDI → Hz, and the mic-feedback gate.
+- **Settings** — single nested `sonification: SonificationConfig` block in v10 schema (`enabled`, `masterVolumeDb`, `waveform`, `filterType`, `pitchRangeMidi`, `quantize`, `smoothingMs`, per-param `mappings`). Migration deep-merges with `DEFAULT_SONIFICATION` so saved partials get new keys filled in.
+
+### Project save/load — the "save your work" feature (`src/project/`)
+
+Consolidates the seven-plus different save-shaped concepts (presets, timelines, MIDI bindings, OSC bindings, CV calibrations, sonification config, pattern generator state, layout preferences) into one workspace document — `.synth.json`. Three nested concepts now exist at three different scales: **Preset** (a look, small / shareable), **Timeline** (a score, focused on time-based composition), **Project** (the workspace — preset + timeline + every binding, calibration, layout preference, camera, resolution).
+
+- **Schema** (`src/project/types.ts`) — `SynthProject` is a versioned wrapper carrying `formatVersion + appVersion + savedAt + name + description + settings + userPresets + timelines + activeTimelineId`. The full Settings snapshot is the wire form — choosing this over a nested `{io, sonification, workspace, …}` shape means every persistent subsystem is captured automatically (present and future) and the existing `migrateSettings()` safety guards apply for free.
+- **Project core** (`src/project/Project.ts`) — pure helpers for `snapshotProject`, `serializeProject`, `parseProject`, `migrateProject`, `applyProject`, `summarize`, `presetFromProject`. No DOM, no localStorage, no listeners; the test suite exercises 18 round-trip / migration / safety scenarios.
+- **Safety, structurally** — `applyProject()` always routes settings through `migrateSettings()`, which forces `cvOutputEnabled = false`, every `cvOutputChannels[].enabled = false`, and `sonification.enabled = false` regardless of saved values. A project file CAN say `enabled: true`; the loader will discard it and substitute `false`. Hardware-output features never auto-arm from a saved file. Same rule for mic-as-envelope-source (browser won't auto-grant mic permission anyway).
+- **ProjectStore** (`src/project/ProjectStore.ts`) — runtime state machine: current project name, dirty flag (driven by `Settings.subscribeAll` plus explicit `markDirty()` for preset / timeline edits), recent-projects list (capped at 8, persisted in localStorage), `FileSystemFileHandle` cache when the FS Access API is available. File ops (`saveToCurrent`, `saveAs`, `openWithPicker`, `openFromFile`, `openRecent`) feature-detect the FS Access API and fall back to download/upload on Firefox / Safari.
+- **AutoSave** (`src/project/AutoSave.ts`) — 60s interval timer that writes the current snapshot to localStorage when the project is dirty. Pending payload is surfaced through a one-time recovery prompt on next page load. Toggle persists across sessions; `tick()` is also called from `beforeunload` so accidental closes leave a recoverable trail.
+- **Recovered Session** (`src/project/RecoveredSession.ts`) — first-launch packaging. If pre-Project state exists in any of the legacy localStorage keys (`ruttetra.settings.v1`, `ruttetra.userPresets.v1`, `ruttetra.timelines.v1`), it's wrapped as an auto-save payload named "Recovered Session" so the user gets a recovery prompt on the next load. One-shot; gated by `ruttetra.project.recoveredAt`.
+- **UI** (`src/ui/sections/ProjectSection.ts`) — sits at the top of the synth tab. Status strip shows `{Project Name} *` with the asterisk surfacing unsaved changes. Primary actions: New / Open / Save / Save As. Secondary: "Save preset from project" (exports just the preset portion as `.preset.json`). Recent Projects list (with one-click reopen on Chromium, file-picker fallback elsewhere) + Auto-save toggle with last-snapshot timestamp readout.
+- **Title bar dirty marker** — `document.title` reflects `{Project Name}{ * if dirty} — RUTT/ETRA` so the browser tab tells you about unsaved changes even when the panel is hidden.
+- **Keyboard shortcuts** — `Ctrl+N` (New), `Ctrl+O` (Open), `Ctrl+S` (Save), `Ctrl+Shift+S` (Save As). All call `preventDefault()` to override the browser's built-in handlers.
+- **Live camera capture on save** — before serializing, the synth pushes the current camera into `settings.defaultView` so the saved project restores the camera the user is actually looking at, not whatever the loaded preset's saved view was.
+- **Format version migration** — `parseProject()` checks `formatVersion`, runs migrations on read, and saving back always writes at the current version regardless of source. Forward-compat: a file with `formatVersion > current` loads with a `console.warn` and is normalized on save.
+- **Tests** — `Project.test.ts` (18 tests): snapshot, round-trip, migration, validation, the cardinal sonification / CV-output safety rules, presetFromProject. `ProjectStore.test.ts` (17 tests): initial state, dirty tracking, newProject, recent list (dedup, cap at 8, persistence, handle-strip-on-write), openFromText, helpers. `AutoSave.test.ts` (11 tests): enable/disable, persistence, no-op-when-clean, snapshot-on-dirty, formatAge, fake-timer interval. `RecoveredSession.test.ts` (7 tests): clean install, packaging settings / presets / timelines, one-shot, no-clobber, malformed JSON tolerance. Total: 53 new tests, all green.
+
+### Earlier in this release cycle
+
+Base/live split architecture, modulation UX improvements, **bidirectional voltage control (CV)**, and a separate **About / Manual page** at `about.html` distinct from the in-app Help dock.
 
 ### About / Manual page (`about.html`)
 
@@ -307,6 +360,12 @@ src/
 │   ├── RuttEtra.ts             scene, LineSegments grid, ShaderMaterial, spectrum DataTexture
 │   ├── CameraRig.ts            Orbit + Fly modes, FOV, reset/save view
 │   ├── Postfx.ts               EffectComposer: feedback, bloom, CRT pass
+│   ├── ResolutionManager.ts    centralizes renderer / postfx / pattern RT sizing + canvas fit
+│   ├── patterns/               v10: synthesized "video signal" generator (parallel to webcam/screen/file)
+│   │   ├── PatternRegistry.ts  pure-data map: kind → label / shader src / paramKeys / defaults
+│   │   ├── PatternRenderer.ts  pattern RT + composit RT + per-kind material map + tick / setSize / dispose
+│   │   ├── OscilloscopeBuffer.ts circular FIFO + DataTexture upload + rising-edge trigger alignment
+│   │   └── shaders/            quad.vert + 16 pattern frag shaders + compositor (8 blend modes)
 │   └── shaders/
 │       ├── ruttEtra.vert.glsl  full DCU vertex pipeline + spectrum-driven Z term
 │       └── ruttEtra.frag.glsl  color modes + intensity + alpha falloff

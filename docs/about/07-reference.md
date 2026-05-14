@@ -19,10 +19,16 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Timeline | `K` | Add keyframe at playhead |
 | Timeline | `Delete` | Delete selected keyframe |
 | Timeline | `Ctrl+Z` | Undo last timeline edit |
+| Project | `Ctrl+N` | New Project (prompts on unsaved changes) |
+| Project | `Ctrl+O` | Open Project (file picker) |
+| Project | `Ctrl+S` | Save Project (writes back to current file, or prompts if untitled) |
+| Project | `Ctrl+Shift+S` | Save Project As (name + location prompt) |
 | Global | `1`–`9` | Load preset snapshot slot |
 | Global | `F` | Toggle fullscreen (where supported) |
 | Global | `H` | Toggle Help panel |
 | Global | `?` | Focus the search box on this page |
+
+The Project shortcuts call `preventDefault()` to override the browser's built-in `Ctrl+S` ("save page as") and `Ctrl+O` ("open file") so they always reach the synth.
 
 ### URL parameters
 
@@ -79,6 +85,39 @@ The about page itself accepts no URL parameters; it is a pure static document.
   ]
 }
 ```
+
+#### Project JSON (`.synth.json`)
+
+A single JSON document, version-stamped. Top-level structure:
+
+```json
+{
+  "formatVersion": 1,
+  "type": "ruttetra-project",
+  "appVersion": "0.10.x",
+  "savedAt": "2026-05-14T21:00:00.000Z",
+  "name": "Session 1",
+  "description": "live set / Tuesday rehearsal",
+
+  "settings": { /* full Settings snapshot */ },
+  "userPresets": [ { "id": "...", "name": "...", "values": { ... } } ],
+  "timelines":   [ { /* Timeline snapshots */ } ],
+  "activeTimelineId": "tl-..."
+}
+```
+
+Field guide:
+
+- `formatVersion` — schema version for migration. Bumped on breaking changes; `parseProject()` runs migration steps when an older version is loaded, and saving back always writes at the current version.
+- `type` — must be `"ruttetra-project"`. Guards against accidentally loading a preset or timeline file.
+- `appVersion`, `savedAt`, `name`, `description` — metadata.
+- `settings` — the full `Partial<Settings>` snapshot. Carries every persistent subsystem: DCU controls, modulation patches (Classic + Graph), camera `defaultView`, color / FX, MIDI bindings, OSC bindings, CV input + output channels, sonification config, pattern generator config, workspace UI, resolution + render scale, performance profile.
+- `userPresets` — the named user presets at save time. Replaces the in-memory list on load.
+- `timelines` — full timeline snapshots (no external references). `activeTimelineId` selects which one is loaded into the sequencer.
+
+Loading a project routes `settings` through the same migration that the standalone Settings loader uses, which means **audio-output features (CV outputs, sonification) load with their configurations restored but always in a disabled state for safety**. The user explicitly re-enables them after load. This rule is structural — the saved file CAN say `enabled: true`, but the loader will discard that and substitute `false`.
+
+The format is **self-contained** — no external references, no relative paths, no "load this preset from disk" indirection. A `.synth.json` round-trips identically through any cloud storage.
 
 #### OSC bridge protocol
 

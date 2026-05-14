@@ -47,6 +47,7 @@ import { CVOutput, pitchVoltageForNote } from '../../audio/CVOutput';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { TARGETS } from '../targets';
 import { group } from '../widgets';
+import { listPatternOutputs } from '../../renderer/patterns/PatternRegistry';
 
 interface CVOutputSectionDeps {
   settings: SettingsStore;
@@ -527,12 +528,13 @@ function buildSourceControls(args: {
 
   // Source kind picker.
   const kindOptions: { v: CVOutputChannel['sourceKind']; l: string }[] = [
-    { v: 'constant',       l: 'Constant value' },
-    { v: 'classic-slot',   l: 'Classic slot' },
-    { v: 'graph-node',     l: 'Graph node' },
-    { v: 'settings-param', l: 'Settings param' },
-    { v: 'midi-note',      l: 'MIDI note' },
-    { v: 'auto',           l: 'Auto (clock=BPM)' },
+    { v: 'constant',        l: 'Constant value' },
+    { v: 'classic-slot',    l: 'Classic slot' },
+    { v: 'graph-node',      l: 'Graph node' },
+    { v: 'settings-param',  l: 'Settings param' },
+    { v: 'pattern-output',  l: 'Pattern output' },
+    { v: 'midi-note',       l: 'MIDI note' },
+    { v: 'auto',            l: 'Auto (clock=BPM)' },
   ];
   const kindSel = buildSelectField('Source', kindOptions, get().sourceKind, (v) => update({ sourceKind: v }));
   wrap.appendChild(kindSel);
@@ -590,6 +592,30 @@ function buildSourceControls(args: {
       case 'settings-param': {
         const opts = TARGETS.map((t) => ({ v: t.v as string, l: t.l }));
         extras.appendChild(buildSelectField('Param', opts, cfg.sourceParam ?? '', (v) => update({ sourceParam: v })));
+        break;
+      }
+      case 'pattern-output': {
+        const entries = listPatternOutputs();
+        if (entries.length === 0) {
+          const hint = document.createElement('div');
+          hint.className = 'rw-hint small';
+          hint.textContent = 'No pattern outputs available.';
+          extras.appendChild(hint);
+          break;
+        }
+        const opts = entries.map((e) => ({
+          v: e.busId,
+          l: `${e.patternLabel}: ${e.signal.label}`,
+        }));
+        const cur = cfg.sourcePatternOutputId ?? opts[0].v;
+        extras.appendChild(buildSelectField(
+          'Signal', opts, cur,
+          (v) => update({ sourcePatternOutputId: v }),
+        ));
+        const hint = document.createElement('div');
+        hint.className = 'rw-hint small';
+        hint.textContent = 'The Pattern Generator must be enabled (Source panel) for the signal to be live.';
+        extras.appendChild(hint);
         break;
       }
       case 'midi-note': {
