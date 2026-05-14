@@ -168,13 +168,18 @@ export class TimelineTransport {
 
     // Dock position toggle
     {
-      const lbl = document.createElement('label');
-      lbl.textContent = 'DOCK';
+      const container = document.createElement('span');
+      container.style.display = 'inline-flex';
+      container.style.alignItems = 'center';
+      container.style.gap = '4px';
+      const label = document.createElement('span');
+      label.textContent = 'DOCK';
+      label.style.marginRight = '4px';
       const top = this.btn('TOP',    () => this.settings.set('timelineDock', 'top'));
       const bot = this.btn('BOT',    () => this.settings.set('timelineDock', 'bottom'));
       const hide = this.btn('HIDE', () => this.settings.set('timelineDock', 'hidden'));
-      lbl.append(top, bot, hide);
-      this.el.appendChild(lbl);
+      container.append(label, top, bot, hide);
+      this.el.appendChild(container);
     }
 
     // Spacer
@@ -207,8 +212,15 @@ export class TimelineTransport {
   refresh(): void {
     const t = this.seq.timeline;
     // Picker
-    const list = loadTimelines();
+    let list = loadTimelines();
     const activeId = this.settings.get('activeTimelineId');
+    
+    // If there's a currently loaded timeline but it's not in the persisted
+    // list (autoPersist = false), add it to the list so it shows in the picker.
+    if (t && !list.find(tl => tl.id === t.id)) {
+      list = [t, ...list];
+    }
+    
     this.timelinePicker.innerHTML = '';
     if (list.length === 0) {
       const opt = document.createElement('option');
