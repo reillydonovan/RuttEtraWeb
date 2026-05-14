@@ -1,7 +1,11 @@
 /**
  * Persistence + JSON I/O for timelines.
  *
- * Saved alongside (but separate from) presets at `ruttetra.timelines.v1`.
+ * Auto-save is OFF by default (see `autoPersist` flag) — timelines live
+ * in memory only and are wiped on refresh, matching the rest of the GUI.
+ * Explicit save/load is still available via `exportTimeline()` /
+ * `importTimelineJson()` and the future "Save / Load" UI buttons.
+ *
  * Export supports two modes:
  *   - 'snapshots': fully self-contained (default).
  *   - 'compact':   any keyframe whose snapshot exactly matches a built-in
@@ -14,7 +18,18 @@ import { PRESETS } from '../ui/presets';
 
 const STORAGE_KEY = 'ruttetra.timelines.v1';
 
+/**
+ * When `false` (the default), timelines never read from or write to
+ * localStorage; the in-memory list is the source of truth. Flip to `true`
+ * to restore the legacy behaviour.
+ */
+export let autoPersist = false;
+
+/** Toggle programmatic auto-persistence (mainly for the future Save/Load UI). */
+export function setAutoPersist(on: boolean): void { autoPersist = on; }
+
 export function loadTimelines(): Timeline[] {
+  if (!autoPersist) return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -28,6 +43,7 @@ export function loadTimelines(): Timeline[] {
 }
 
 export function saveTimelines(list: Timeline[]): void {
+  if (!autoPersist) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch (err) {

@@ -146,10 +146,23 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
     return { nodes: [], bindings: [] };
   }
 
-  function writePatch(next: GraphPatch): void {
-    settings.set('modGraph', next);
-    void deps.getEngine().then((e) => e.setPatch(next));
-    render();
+  /**
+   * Set to `true` for the synchronous duration of a continuous-input write
+   * (slider drag, numeric typing) so the `modGraph` subscription below
+   * doesn't tear down and rebuild the DOM mid-gesture — which would kill
+   * the slider's pointer capture and make it un-draggable.
+   */
+  let suppressRender = false;
+
+  function writePatch(next: GraphPatch, opts: { skipRerender?: boolean } = {}): void {
+    if (opts.skipRerender) suppressRender = true;
+    try {
+      settings.set('modGraph', next);
+      void deps.getEngine().then((e) => e.setPatch(next));
+    } finally {
+      if (opts.skipRerender) suppressRender = false;
+    }
+    if (!opts.skipRerender) render();
   }
 
   function render(): void {
@@ -224,25 +237,45 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       procWrap.appendChild(addProc);
     }
 
-    // Amount slider
+    // Amount slider — built to match the standard `.rw-slider` widget so it
+    // looks and feels identical to the rest of the panel's sliders. Bound to
+    // `binding.amount` (not a Settings key), so we wire input/change directly
+    // instead of going through `SettingsStore`. step=0.001 → effectively
+    // continuous drag.
     const amountWrap = document.createElement('div');
-    amountWrap.className = 'rw-beginner-amount';
+    amountWrap.className = 'rw-slider rw-beginner-amount';
     const amountInp = document.createElement('input');
     amountInp.type = 'range';
-    amountInp.min = '-2'; amountInp.max = '2'; amountInp.step = '0.001';
+    amountInp.min = '-5'; amountInp.max = '5'; amountInp.step = '0.001';
     amountInp.value = String(row.binding.amount);
-    const amountLabel = document.createElement('span');
-    amountLabel.className = 'rw-beginner-amount-label';
-    amountLabel.textContent = row.binding.amount.toFixed(2);
-    amountInp.addEventListener('input', () => {
-      const v = +amountInp.value;
-      amountLabel.textContent = v.toFixed(2);
+    const amountNum = document.createElement('input');
+    amountNum.type = 'number';
+    amountNum.min = '-5'; amountNum.max = '5'; amountNum.step = '0.001';
+    amountNum.value = row.binding.amount.toFixed(3);
+    amountNum.className = 'rw-num';
+    amountWrap.append(amountInp, amountNum);
+    // Live drag: write amount but skip the full re-render so the slider's
+    // pointer capture stays intact. The graph engine + binding data still
+    // update on every input event, so audio/visual feedback is immediate.
+    const writeAmount = (v: number, opts: { skipRerender?: boolean } = {}): void => {
+      const clamped = Math.max(-5, Math.min(5, v));
       const cur = currentPatch();
       const b = cur.bindings.find((x) => x.id === row.binding.id);
-      if (b) b.amount = v;
-      writePatch(cur);
+      if (b) b.amount = clamped;
+      writePatch(cur, opts);
+    };
+    amountInp.addEventListener('input', () => {
+      const v = +amountInp.value;
+      amountNum.value = v.toFixed(3);
+      writeAmount(v, { skipRerender: true });
     });
-    amountWrap.append(amountInp, amountLabel);
+    amountNum.addEventListener('input', () => {
+      const v = parseFloat(amountNum.value);
+      if (!Number.isNaN(v)) {
+        amountInp.value = String(v);
+        writeAmount(v, { skipRerender: true });
+      }
+    });
 
     // Target dropdown
     const tgtSel = document.createElement('select');
@@ -358,7 +391,12 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
 
   // Re-render whenever `modGraph` changes (subscribe fires immediately
   // with the current value, so this also performs the initial render).
-  const unsubscribe = settings.subscribe('modGraph', () => render());
+  // `suppressRender` lets continuous-input writes (slider drag) update
+  // state without nuking the DOM mid-gesture.
+  const unsubscribe = settings.subscribe('modGraph', () => {
+    if (suppressRender) return;
+    render();
+  });
   return () => {
     unsubscribe();
     root.remove();

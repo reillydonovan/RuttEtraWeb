@@ -3,13 +3,16 @@
  *
  * The Settings object holds every parameter exposed to the user. Components
  * mutate it via `set(key, value)` and observe it via `subscribe(key, fn)` or
- * `subscribeAll(fn)`. All state is debounced-persisted to localStorage.
+ * `subscribeAll(fn)`.
+ *
+ * Persistence: auto-save is OFF by default — every page refresh starts from
+ * `DEFAULTS`. Explicit save/load is available via `persist()` and
+ * `loadPersisted()` (intended for a future "Save Settings" UI button).
+ * Saved snapshots carry a `_v` version stamp and run through
+ * `migrateSettings()` at load and import time.
  *
  * Keys are flat (dot-free) strings so they can be used as modulation targets
  * and as binding destinations from MIDI / OSC.
- *
- * Persistence is versioned: each saved snapshot carries `_v` and is run
- * through `migrateSettings()` at load and import time.
  */
 
 import type { GraphPatch } from '../modulation/graph/types';
@@ -619,11 +622,19 @@ export class SettingsStore {
   private state: Settings;
   private listeners = new Map<keyof Settings, Set<AnyListener>>();
   private allListeners = new Set<AnyListener>();
-  private saveTimer: number | null = null;
   private suppressAll = false;
 
+  /**
+   * Auto-persistence is OFF by default — every page refresh starts from
+   * `DEFAULTS`. Explicit save/load is exposed via `persist()` and
+   * `loadPersisted()` for future "Save Settings" / "Load Settings" buttons.
+   * Set this to `true` to re-enable the legacy auto-save behaviour.
+   */
+  static autoPersist = false;
+  private saveTimer: number | null = null;
+
   constructor(initial?: Partial<Settings>) {
-    const persisted = SettingsStore.loadPersisted();
+    const persisted = SettingsStore.autoPersist ? SettingsStore.loadPersisted() : null;
     this.state = mergeDeep(DEFAULTS, persisted ?? {}, initial ?? {});
   }
 
@@ -750,15 +761,25 @@ export class SettingsStore {
   }
 
   private scheduleSave(): void {
+    if (!SettingsStore.autoPersist) return;
     if (this.saveTimer != null) return;
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...this.state, _v: CURRENT_VERSION }));
-      } catch {
-        /* localStorage might be full or disabled — silently ignore */
-      }
+      this.persist();
     }, 250);
+  }
+
+  /**
+   * Explicitly serialize the current state to localStorage. Intended to be
+   * called from a future "Save Settings" UI button. No-op-safe if storage
+   * is full or unavailable.
+   */
+  persist(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...this.state, _v: CURRENT_VERSION }));
+    } catch {
+      /* localStorage might be full or disabled — silently ignore */
+    }
   }
 
   static loadPersisted(): Partial<Settings> | null {

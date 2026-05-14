@@ -177,6 +177,13 @@ async function bootSynth(): Promise<void> {
     });
     const persisted = settings.get('modGraph');
     if (persisted) graphEngine.setPatch(persisted);
+    // Keep the engine in sync with `settings.modGraph`. The Beginner /
+    // Advanced views still call `engine.setPatch` themselves for instant
+    // local updates; this subscription is the safety net that picks up
+    // bulk changes (Load Settings, Hard Reset, preset apply, etc.).
+    settings.subscribe('modGraph', (next) => {
+      if (graphEngine) graphEngine.setPatch(next);
+    });
     return graphEngine;
   };
   // Pre-warm if persisted state requires it.

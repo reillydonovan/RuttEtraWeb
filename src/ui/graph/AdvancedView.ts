@@ -53,7 +53,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   center.appendChild(nodesLayer);
   const inspector = createInspector({
     getPatch: () => clone(currentPatch()),
-    setPatch: (p) => writePatch(p),
+    setPatch: (p, setOpts) => writePatch(p, setOpts),
     onProbe: (id, port) => openProbe(id, port),
     isProbing: () => probing,
     getVideoTap: () => deps.getVideoTap?.() ?? null,
@@ -100,9 +100,22 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     return deps.settings.get('modGraph') ?? { nodes: [], bindings: [] };
   }
 
-  function writePatch(next: GraphPatch): void {
-    deps.settings.set('modGraph', next);
-    void deps.getEngine().then((e) => e.setPatch(next));
+  /**
+   * Set to `true` for the synchronous duration of a continuous-input write
+   * (slider drag, numeric typing) so the `modGraph` subscription below
+   * doesn't tear down and rebuild the inspector mid-gesture — which would
+   * kill the slider's pointer capture and make it un-draggable.
+   */
+  let suppressRender = false;
+
+  function writePatch(next: GraphPatch, opts: { skipRerender?: boolean } = {}): void {
+    if (opts.skipRerender) suppressRender = true;
+    try {
+      deps.settings.set('modGraph', next);
+      void deps.getEngine().then((e) => e.setPatch(next));
+    } finally {
+      if (opts.skipRerender) suppressRender = false;
+    }
   }
 
   // ---------- Anchors / cable resolver ----------
@@ -339,7 +352,10 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   ro.observe(center);
 
   cable.start();
-  const unsubscribe = deps.settings.subscribe('modGraph', () => render());
+  const unsubscribe = deps.settings.subscribe('modGraph', () => {
+    if (suppressRender) return;
+    render();
+  });
 
   return () => {
     cable.stop();

@@ -15,7 +15,12 @@ import type { VideoTap } from '../../modulation/graph/VideoTap';
 
 export interface InspectorOptions {
   getPatch(): GraphPatch;
-  setPatch(p: GraphPatch): void;
+  /**
+   * Persist the patch. Pass `{ skipRerender: true }` for continuous-input
+   * writes (slider drag, number typing) so the host view doesn't tear down
+   * the inspector mid-gesture and break pointer capture.
+   */
+  setPatch(p: GraphPatch, opts?: { skipRerender?: boolean }): void;
   onProbe?(nodeId: string, port: string): void;
   isProbing(): boolean;
   /** Resolves to the live VideoTap once it's been constructed. Optional. */
@@ -149,7 +154,9 @@ export function createInspector(opts: InspectorOptions): {
         const p = opts.getPatch();
         const n = p.nodes.find((x) => x.id === node.id);
         if (n) n.params[paramName] = +input.value;
-        opts.setPatch(p);
+        // Continuous-input drag: keep the slider's pointer capture alive by
+        // suppressing the host's full re-render. Engine state still updates.
+        opts.setPatch(p, { skipRerender: true });
       });
       const ctl = document.createElement('span');
       ctl.className = 'rw-graph-inspector-ctl';
@@ -216,7 +223,11 @@ export function createInspector(opts: InspectorOptions): {
     amount.step = '0.01'; amount.min = '-4'; amount.max = '4';
     amount.value = String(binding.amount);
     amount.className = 'rw-num';
-    amount.addEventListener('input', () => mutateBinding(binding.id, (b) => { b.amount = +amount.value || 0; }));
+    amount.addEventListener('input', () => mutateBinding(
+      binding.id,
+      (b) => { b.amount = +amount.value || 0; },
+      { skipRerender: true },
+    ));
 
     const modeSel = document.createElement('select');
     modeSel.className = 'rw-select';
@@ -244,12 +255,16 @@ export function createInspector(opts: InspectorOptions): {
     return row;
   }
 
-  function mutateBinding(id: string, fn: (b: TargetBinding) => void): void {
+  function mutateBinding(
+    id: string,
+    fn: (b: TargetBinding) => void,
+    setOpts?: { skipRerender?: boolean },
+  ): void {
     const p = opts.getPatch();
     const b = p.bindings.find((x) => x.id === id);
     if (!b) return;
     fn(b);
-    opts.setPatch(p);
+    opts.setPatch(p, setOpts);
   }
 
   return {

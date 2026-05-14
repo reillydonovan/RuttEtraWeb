@@ -89,60 +89,107 @@
 }
 
 /* Beginner view */
-.rw-beginner-view { display: flex; flex-direction: column; gap: 8px; }
+.rw-beginner-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Claim the full panel width so flex-wrap can compute against a real box */
+  width: 100%;
+  min-width: 0;
+}
 .rw-beginner-header {
   font-size: 12px;
   color: var(--re-text-dim);
   letter-spacing: 0.05em;
 }
-.rw-beginner-rows { display: flex; flex-direction: column; gap: 6px; }
-.rw-beginner-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr 1fr 24px;
+.rw-beginner-rows {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  align-items: end;
+  min-width: 0;
+}
+/* Each row is a flex-wrap container. When the panel is wide every cell sits
+   on one line; when it's narrow the cells wrap to subsequent lines instead
+   of overlapping. */
+.rw-beginner-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: flex-end;
   padding: 6px;
   border: 1px dashed var(--re-line);
   background: rgba(0,0,0,0.18);
+  min-width: 0;
 }
-.rw-beginner-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rw-beginner-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 110px;
+  flex: 1 1 110px;
+}
+.rw-beginner-cell > select,
+.rw-beginner-cell > .rw-beginner-amount,
+.rw-beginner-cell > .rw-beginner-procs {
+  width: 100%;
+}
 .rw-beginner-cell-label {
   font-size: 10px;
   color: var(--re-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .rw-beginner-procs {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 100px;
+  flex: 0 1 120px;
+  min-width: 90px;
+  max-width: 180px;
   justify-content: flex-end;
 }
 .rw-beginner-proc {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) 24px;
   gap: 2px;
+  min-width: 0;
 }
-.rw-beginner-add-proc, .rw-beginner-proc-x, .rw-beginner-del {
+.rw-beginner-proc > select {
+  width: 100%;
+  min-width: 0;
+}
+.rw-beginner-add-proc {
   padding: 0 6px;
   font-size: 14px;
-  min-width: 22px;
+  min-height: 24px;
   height: 24px;
+  width: 100%;
 }
+.rw-beginner-proc-x,
+.rw-beginner-del {
+  padding: 0;
+  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-self: flex-end;
+}
+/* Amount slider inherits all visuals from `.rw-slider` (panel.css). The only
+   override needed is to make sure it can shrink inside the flex-row cell and
+   that the numeric readout column doesn't collapse on very narrow widths. */
 .rw-beginner-amount {
-  display: grid;
-  grid-template-columns: 1fr 36px;
-  gap: 4px;
-  align-items: center;
+  min-width: 0;
+  width: 100%;
 }
-.rw-beginner-amount-label {
-  font-size: 12px;
-  color: var(--re-accent);
-  text-align: right;
+.rw-beginner-amount > input[type="range"] {
+  min-width: 0;
 }
 .rw-beginner-footer {
-  display: flex; justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ============================================================
@@ -451,4 +498,27 @@
   .rw-graph-palette { max-height: 200px; }
   .rw-graph-canvas  { min-height: 280px; }
   .rw-graph-inspector { max-height: 260px; }
+
+  /* Beginner view: every cell takes a full row and the delete button
+     pins to the row's top-right so nothing overlaps. */
+  .rw-beginner-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+    position: relative;
+  }
+  .rw-beginner-cell,
+  .rw-beginner-procs {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+  }
+  .rw-beginner-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    margin: 0;
+    align-self: auto;
+  }
 }
