@@ -25,6 +25,20 @@ npm run build
 
 ---
 
+## Recent changes (v9)
+
+**May 2026** — Base/live split architecture + modulation UX improvements:
+
+- **Fixed: "sticky parameters" bug** — When modulation drops to zero (amount → 0, patch disabled, or source signal silent), params now snap back to their user-edited base value instantly. Previously they stuck at their last modulated value indefinitely.
+- **Architecture**: Introduced `LiveValuesStore` with separate **base** (what the UI knob shows) and **live** (what the renderer reads) values. Engines push per-frame contributions; renderer subscribes to live values. UI continues reading/writing base values via `Settings`. This is the canonical "base + mod" pattern used by every modulation-capable synth.
+- **Per-row Reset (↻) buttons** — Click to reset a patch's params to type-defaults while keeping routing. Shift+click for hard reset (also wipes Source + Target back to defaults). Keyboard: `R` / `Shift+R`.
+- **Global "Reset Mod" button** — Mutes every patch (Amount → 0) and snaps all modulated params back to base in one tick. The panic button for complex routings.
+- **`?debug=mod` overlay** — Live readout of `base / live / Δ` for every modulated param. Essential for verifying the base/live split is working correctly.
+- **Graph patch Amount range increased** — Now ±20 (was ±5) for extreme parameter sweeps.
+- **97 unit tests** — New `LiveValues.test.ts` pins down "amount=0 → live==base", "binding removed → live==base", multi-namespace summing, etc. Engine tests updated to verify both engines honor the base/live contract.
+
+---
+
 ## Features
 
 The control panel is split into two tabs:
@@ -54,13 +68,34 @@ Every knob from the original [Rutt Electrophysics hardware brochure](https://vas
 
 ### Modulation system
 
-Emulates the original Ramp Generator, Waveform Generator (oscillator), Audio Interface, and Joystick modules. Four independent slots can each target any DCU or post-FX parameter. v2 adds new sources, MIDI clock-sync per slot, and per-slot MIDI-out:
+Two parallel modulation engines run alongside each other — **Classic** (4-slot matrix) and **Graph** (signal-graph patching). Pick one, or run both simultaneously. v9 introduces a **base/live split** architecture that fixes the long-standing "sticky parameter" bug: when modulation drops to zero or a patch is disabled, params now snap back to their user-edited base value instantly instead of sticking at their last modulated value.
 
-- **Sources** — Sine, Triangle, Square, Saw, Pulse (with duty cycle), Ramp (up / down / triangle / hold), Audio (envelope), Audio Band [n], Beat, MIDI CC, MIDI Note, MIDI Velocity, MIDI Clock, OSC, Joystick X / Y / Z
+#### Classic mode — Hardware-style 4-slot matrix
+
+Emulates the original Ramp Generator, Waveform Generator (oscillator), Audio Interface, and Joystick modules. Four independent slots can each target any DCU or post-FX parameter:
+
+- **Sources** — Sine, Triangle, Square, Saw, Pulse (with duty cycle), Ramp (up / down / triangle / hold), Audio (envelope), Audio Band [n], Beat, MIDI CC, MIDI Note, MIDI Velocity, MIDI Clock, OSC, Joystick X / Y / Z, Constant
 - **Routing** — any source → any target; multiple slots sum into the same target (matching the hardware Summing Amplifier)
-- **Clock Sync** — when on, the slot's frequency slider is replaced by a Division dropdown (`1/1 1/2 1/4 1/8 1/16 1/32` plus dotted and triplet variants). Tempo is taken from incoming MIDI clock.
+- **Per-slot controls** — expandable rows expose source-specific params (LFO Rate / Phase / Duty / Depth, Ramp Time, Audio Gain, etc.) plus an output stage (Curve / Range / Offset / Invert) that shapes the signal before it hits the target
+- **Clock Sync** — when on, the slot's frequency slider is replaced by a Division dropdown (`1/1 1/2 1/4 1/8 1/16 1/32` plus dotted and triplet variants). Tempo is taken from incoming MIDI clock or the shared internal BPM.
 - **MIDI Out** — each slot can additionally emit its current value as a CC on a chosen channel/CC pair, turning the synth into a modulation source for external gear
 - **Joystick pad** — click-and-drag 2D pad in the Modulation panel, scroll wheel for Z axis
+
+#### Graph mode — Signal-graph modulation
+
+Inspired by the original Rutt/Etra's voltage-control philosophy: every signal is a normalized scalar (-1..1 by convention, unbounded in practice), and signals can be processed, mixed, multiplied, and chained arbitrarily before reaching a param target:
+
+- **Beginner view** — looks identical to Classic mode; expandable rows with source/amount/target and inline controls. The backing model is a full signal graph; edits in Beginner view are non-destructive projections — switching to Advanced view reveals the underlying nodes.
+- **Advanced view** — node-and-cable editor (double-click canvas to add nodes, drag ports to wire). Ships with ~40 node types spanning sources (LFO, Clock, MIDI, OSC, Video luma, Audio FFT), processors (Mix, Multiply, Curve, Slew, Delay, S&H, Logic, Math), and a special Output node that binds the graph's result to Settings params.
+- **Amount range** — Graph patches support ±20 modulation depth (Classic is ±5) for extreme parameter sweeps.
+- **Patch library** — save named graph patches to `localStorage`; export/import as JSON.
+
+#### Common features (both modes)
+
+- **Per-row Reset (↻)** — click to reset a patch's params to type-defaults (LFO Rate → 1 Hz, Shape → Sine, Amount → 0, output stage → identity) while keeping Source + Target. Shift+click for **hard reset** (also wipes Source → Sine LFO and Target → "none"). Keyboard: `R` / `Shift+R` when row is focused.
+- **Global "Reset Mod"** — button at the top of the Modulation panel mutes every patch (Amount → 0) and forces all modulated params back to base in one tick. The patches stay configured — this is the "panic button" for when a complex routing gets out of hand.
+- **Copy / Paste** — per-row clipboard with format-aware serialization (Classic slots and Graph beginner rows use compatible snapshots).
+- **`?debug=mod` overlay** — append `?debug=mod` to the URL to see a live readout of every modulated param's `base / live / Δ` values. Updates at 30 Hz. Essential for verifying the base/live split is working correctly.
 
 ### MIDI (I/O tab)
 
@@ -184,7 +219,21 @@ src/
 │   └── shaders/
 │       ├── ruttEtra.vert.glsl  full DCU vertex pipeline + spectrum-driven Z term
 │       └── ruttEtra.frag.glsl  color modes + intensity + alpha falloff
-├── modulation/ModMatrix.ts     Ramp, Waveform, FFT, Beat, MIDI/OSC sources, MIDI-out emission
+├── modulation/
+│   ├── ModMatrix.ts            Classic 4-slot engine: Ramp, LFO, FFT, Beat, MIDI/OSC sources, MIDI-out
+│   ├── LiveValues.ts           base/live split store — fixes "sticky params" when modulation stops
+│   ├── ModDebugOverlay.ts      ?debug=mod overlay showing base/live/Δ per param
+│   ├── outputStage.ts          shared curve/invert/range/offset shaping (used by both engines)
+│   └── graph/
+│       ├── GraphEngine.ts      signal-graph engine: compile, topology sort, per-frame tick
+│       ├── types.ts            GraphPatch, GraphNode, TargetBinding, NodeDef interfaces
+│       ├── registry.ts         node type registry + getDef() lookup
+│       ├── bootstrap.ts        auto-registers all node definitions at import time
+│       ├── nodes/              ~40 node implementations (sources, processors, logic, video, audio)
+│       ├── VideoTap.ts         per-frame video texture luminance sampler (Video CV nodes)
+│       ├── BeginnerView.ts     beginner UI — looks like Classic, backed by graph
+│       ├── AdvancedView.ts     node-and-cable editor (SVG canvas, drag-to-wire)
+│       └── library.ts          graph patch save/load/export (localStorage + JSON)
 ├── midi/
 │   ├── MidiManager.ts          requestMIDIAccess, device pickers, sendCC (7- and 14-bit)
 │   ├── MidiMapping.ts          binding registry, learn(), curves, last-value cache
@@ -202,22 +251,31 @@ src/
     ├── widgets.ts              reusable form controls (slider, toggle, dropdown…)
     ├── widgets/
     │   └── LearnBinding.ts     shared learn-table primitive used by MIDI + OSC
+    ├── shared/
+    │   └── SlotRow.ts          shared expandable modulation row component (Classic + Graph beginner)
     ├── targets.ts              shared list of routable Settings keys
     ├── panel.css               retro CRT theme — VT323 font, glow, scanlines, tab strip
     ├── presets.ts              built-in preset definitions
+    ├── graph/
+    │   ├── PatchSection.ts     Graph mode container (Beginner / Advanced tabs)
+    │   ├── BeginnerView.ts     beginner-view rows (uses shared SlotRow.ts)
+    │   ├── AdvancedView.ts     node editor canvas (SVG drag-and-wire)
+    │   ├── inspector.ts        binding inspector panel (Advanced view)
+    │   └── graph.css           graph-specific styles
     └── sections/               one file per panel section
         ├── SourceSection.ts
         ├── DcuSection.ts
-        ├── ModulationSection.ts
+        ├── ModulationContainerSection.ts  Classic/Graph/Both mode switch + Reset Mod button
+        ├── ModulationSection.ts           Classic 4-slot UI (uses shared SlotRow.ts)
         ├── CameraSection.ts
         ├── ColorPostFxSection.ts
         ├── GeometrySection.ts
         ├── PresetsSection.ts
         ├── RecordSection.ts
         ├── ShareSection.ts
-        ├── MidiSection.ts      (I/O tab)
-        ├── AudioSection.ts     (I/O tab)
-        └── OscSection.ts       (I/O tab)
+        ├── MidiSection.ts                 (I/O tab)
+        ├── AudioSection.ts                (I/O tab)
+        └── OscSection.ts                  (I/O tab)
 
 tools/
 └── osc-bridge/                 standalone Node workspace (own package.json)

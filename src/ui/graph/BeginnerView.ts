@@ -312,8 +312,8 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       },
       amount: {
         get: () => liveBinding().amount,
-        set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-5, Math.min(5, v)); }, { skipRerender: true }),
-        min: -5, max: 5, step: 0.001,
+        set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-20, Math.min(20, v)); }, { skipRerender: true }),
+        min: -20, max: 20, step: 0.001,
       },
       expanded: {
         get: () => rowExpanded.get(row.binding.id) ?? false,
