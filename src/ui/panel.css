@@ -431,17 +431,43 @@ html, body, #app {
 }
 .rw-joystick-wrap .rw-joystick { margin: 0; }
 
-/* Vertical Z slider — rotated, occupies the right column. */
+/* Vertical Z slider — custom div implementation (NOT <input type="range">,
+   which is broken on iOS Safari with `writing-mode: vertical-lr`). Top of
+   the bar = +1, bottom = -1. Pointer events on the bar drive the value.
+   Uses `align-self: stretch` (default for grid items) plus a min-height
+   so the slider always has a draggable area, even before layout
+   completes. Avoids `height: 100%` because that requires a defined parent
+   height, and the joystick wrap's height is content-driven. */
 .rw-joystick-z {
-  writing-mode: vertical-lr;
-  direction: rtl;
+  position: relative;
   width: 28px;
-  height: 100%;
+  min-height: 160px;
   align-self: stretch;
   background: rgba(0,0,0,0.4);
   border: 1px solid var(--re-line);
-  accent-color: var(--re-accent);
   cursor: ns-resize;
+  /* Claim vertical drag so the panel scroller doesn't hijack it on touch. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rw-joystick-z:focus-visible { outline: 1px solid var(--re-accent); outline-offset: 2px; }
+.rw-joystick-z-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(95,255,133,0.22), rgba(95,255,133,0.08));
+  pointer-events: none;
+}
+.rw-joystick-z-knob {
+  position: absolute;
+  left: -2px; right: -2px;
+  height: 4px;
+  bottom: 50%;
+  margin-bottom: -2px;
+  background: var(--re-accent);
+  box-shadow: var(--re-glow);
+  pointer-events: none;
 }
 body[data-layout="compact"] .rw-joystick-wrap {
   grid-template-columns: 1fr 44px;
@@ -784,3 +810,83 @@ body.viewer-mode #stage { background: #000; }
   color: var(--re-text);
 }
 .rw-numeric-modal-row { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* Dual-engine modulation indicator (shown only when both Classic and
+   Graph engines are simultaneously writing to the same param). */
+.rw-mod-dot {
+  display: none;
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  /* Half phosphor-green / half amber so it reads at a glance. */
+  background: linear-gradient(90deg, var(--re-accent) 0 50%, var(--re-accent-2) 50% 100%);
+  box-shadow: 0 0 6px rgba(95,255,133,0.5);
+  margin-left: 6px;
+  align-self: center;
+  flex: none;
+}
+.rw-slider { position: relative; }
+.rw-slider .rw-mod-dot { right: 4px; top: -10px; }
+.rw-toggle .rw-mod-dot { position: static; margin-left: 8px; }
+.rw-mod-dot.on { display: inline-block; }
+
+/* ============================================================
+   Modulation engine mode switch (Classic / Graph / Both)
+   ============================================================ */
+
+.rw-mod-mode-switch {
+  display: flex;
+  gap: 0;
+  margin: 4px 0 10px 0;
+  border: 1px solid var(--re-line);
+}
+.rw-mod-mode-switch button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--re-line);
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  padding: 6px 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.rw-mod-mode-switch button:last-child { border-right: none; }
+.rw-mod-mode-switch button:hover { background: rgba(95,255,133,0.06); color: var(--re-accent); }
+.rw-mod-mode-switch button.active {
+  background: rgba(95,255,133,0.14);
+  color: var(--re-accent);
+  text-shadow: var(--re-glow);
+}
+.rw-mod-classic-pane,
+.rw-mod-graph-pane {
+  display: block;
+}
+.rw-mod-classic-pane.hidden,
+.rw-mod-graph-pane.hidden { display: none; }
+.rw-mod-graph-pane {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--re-line);
+}
+.rw-mod-convert-row {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--re-line);
+  display: flex; justify-content: flex-end;
+}
+.rw-mod-graph-empty {
+  padding: 18px 12px;
+  color: var(--re-text-dim);
+  text-align: center;
+  font-size: 13px;
+}
+
+
+ 
+ 

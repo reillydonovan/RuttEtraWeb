@@ -19,10 +19,12 @@ import { RuttEtraScene } from './renderer/RuttEtra';
 import { CameraRig } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
 import { ModMatrix } from './modulation/ModMatrix';
+import { activeTargetsBus } from './modulation/ActiveTargetsBus';
+import type { GraphEngine } from './modulation/graph/GraphEngine';
 import { ControlPanel } from './ui/ControlPanel';
 import { createSourceSection } from './ui/sections/SourceSection';
 import { createDcuSection } from './ui/sections/DcuSection';
-import { createModulationSection } from './ui/sections/ModulationSection';
+import { createModulationContainerSection } from './ui/sections/ModulationContainerSection';
 import { createCameraSection } from './ui/sections/CameraSection';
 import { createColorPostFxSection } from './ui/sections/ColorPostFxSection';
 import { createGeometrySection } from './ui/sections/GeometrySection';
@@ -152,6 +154,35 @@ async function bootSynth(): Promise<void> {
     osc:         io.osc,
   });
 
+  // Lazy-construct the Graph engine. Classic-only users never touch the
+  // import. Once built, the engine sticks around so subsequent mode
+  // switches are instant.
+  let graphEngine: GraphEngine | null = null;
+  let videoTap: import('./modulation/graph/VideoTap').VideoTap | null = null;
+  const ensureGraphEngine = async (): Promise<GraphEngine> => {
+    if (graphEngine) return graphEngine;
+    const [{ GraphEngine: GE }, { VideoTap: VT }] = await Promise.all([
+      import('./modulation/graph/GraphEngine'),
+      import('./modulation/graph/VideoTap'),
+    ]);
+    videoTap = new VT(video);
+    graphEngine = new GE(settings, {
+      fft:         io.fft,
+      beat:        io.beat,
+      midiClock:   io.midiClock,
+      midiMapping: io.midiMapping,
+      midiManager: io.midiManager,
+      osc:         io.osc,
+      videoTap,
+    });
+    const persisted = settings.get('modGraph');
+    if (persisted) graphEngine.setPatch(persisted);
+    return graphEngine;
+  };
+  // Pre-warm if persisted state requires it.
+  if (settings.get('modMode') !== 'classic') void ensureGraphEngine();
+  settings.subscribe('modMode', (m) => { if (m !== 'classic') void ensureGraphEngine(); });
+
   // -------------------------- Sequencer + dock ---------------------------
   const seqModule    = await import('./sequencer/Sequencer');
   const seqStore     = await import('./sequencer/store');
@@ -198,7 +229,7 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
-  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationSection(settings, matrix) });
+  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
   panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
   panel.addSection({ tab: 'synth', title: 'Presets',               body: createPresetsSection(settings) });
   panel.addSection({
@@ -303,7 +334,10 @@ async function bootSynth(): Promise<void> {
         12000,
       );
     },
-    onUpdate: (avgMs, fps) => debugOverlay.setStats(fps, avgMs),
+    onUpdate: (avgMs, fps) => {
+      debugOverlay.setStats(fps, avgMs);
+      if (layout.isDebugGraph) debugOverlay.setGraphStats(graphEngine?.stats() ?? null);
+    },
   });
 
   // Apply the profile for the current mode immediately + on mode change.
@@ -390,7 +424,17 @@ async function bootSynth(): Promise<void> {
     io.midiClock.tick(dt);
     io.fft.tick(dt);
     io.beat.tick(dt);
-    matrix.tick(dt);
+    // Mode switch: Classic engine writes only when `modMode` is `'classic'`
+    // or `'both'`. When mode is `'graph'`, we publish an empty Classic
+    // target set so the dual-engine indicator deactivates immediately.
+    const modMode = settings.get('modMode');
+    if (modMode !== 'graph') {
+      matrix.tick(dt);
+    } else {
+      activeTargetsBus.publish('classic', new Set());
+    }
+    videoTap?.tick();
+    graphEngine?.tick(dt);
     sequencer.tick(dt);
     cameraRig.tick(dt);
     ruttEtra.updateSpectrum(io.fft.bands);

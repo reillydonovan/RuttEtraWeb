@@ -13,6 +13,26 @@
 import { Settings, SettingsStore, DEFAULTS } from '../state/Settings';
 import { layoutManager } from './layout/LayoutManager';
 import { presentSheetPicker } from './widgets/BottomSheetPicker';
+import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus';
+
+/**
+ * Append a small dual-engine indicator to the row containing `control`.
+ * Hidden unless the `paramKey` is being modulated by both engines at
+ * once. Half phosphor-green / half amber to read at a glance.
+ */
+function attachModulationIndicator(control: HTMLElement, paramKey: string): void {
+  const dot = document.createElement('span');
+  dot.className = 'rw-mod-dot';
+  dot.title = 'This param is being modulated by both Classic and Graph engines.';
+  dot.setAttribute('aria-hidden', 'true');
+  control.appendChild(dot);
+  const apply = (a: TargetActivity): void => {
+    const both = a.classic && a.graph;
+    dot.classList.toggle('on', both);
+  };
+  // Observation only — bus.subscribe fires immediately with current state.
+  activeTargetsBus.subscribe(paramKey, apply);
+}
 
 export function row(label: string, control: HTMLElement, hint?: string): HTMLElement {
   const r = document.createElement('div');
@@ -106,12 +126,103 @@ export function slider(
       settings.set(key, v as never);
     });
   });
-  wrap.append(stopBar, readoutBtn);
+
+  // Compact-mode touchable scrub bar — a div, not an <input type="range">.
+  // Native range inputs are unreliable inside a `scroll-snap-type: y mandatory`
+  // bottom-sheet on iOS Safari (the scroller eats the gesture), so we
+  // implement our own pointer-event scrubber that always responds to drag
+  // on touch and is identical on mouse. CSS hides it outside compact.
+  const scrubBar = document.createElement('div');
+  scrubBar.className = 'rw-slider-scrub';
+  scrubBar.setAttribute('role', 'slider');
+  scrubBar.setAttribute('aria-valuemin', String(min));
+  scrubBar.setAttribute('aria-valuemax', String(max));
+  scrubBar.setAttribute('aria-orientation', 'horizontal');
+  scrubBar.setAttribute('aria-label', String(key));
+  scrubBar.tabIndex = 0;
+  const scrubFill = document.createElement('div');
+  scrubFill.className = 'rw-slider-scrub-fill';
+  const scrubKnob = document.createElement('div');
+  scrubKnob.className = 'rw-slider-scrub-knob';
+  scrubBar.append(scrubFill, scrubKnob);
+
+  const decimals = step < 1 ? Math.max(0, -Math.floor(Math.log10(step))) : 0;
+  const snapToStep = (raw: number): number => {
+    const snapped = Math.round((raw - min) / step) * step + min;
+    return parseFloat(Math.max(min, Math.min(max, snapped)).toFixed(decimals + 3));
+  };
+  const updateFromPointer = (clientX: number): void => {
+    const r = scrubBar.getBoundingClientRect();
+    const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    settings.set(key, snapToStep(min + t * (max - min)) as never);
+  };
+  // Document-level pointermove/pointerup listeners are more robust on iOS
+  // Safari than element-level setPointerCapture: inside the bottom-sheet's
+  // scroll-snap container element pointer capture can silently fail and
+  // the slider stops responding mid-gesture. Attaching to document on
+  // pointerdown and removing on pointerup avoids that entirely.
+  let scrubLastTap = 0;
+  scrubBar.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    const activeId = ev.pointerId;
+    updateFromPointer(ev.clientX);
+
+    // Double-tap on the scrub bar resets to default.
+    if (ev.pointerType === 'touch') {
+      const now = performance.now();
+      if (now - scrubLastTap < 320) {
+        settings.set(key, defaultValue as never);
+        scrubLastTap = 0;
+      } else {
+        scrubLastTap = now;
+      }
+    }
+
+    const onMove = (e: PointerEvent): void => {
+      if (e.pointerId !== activeId) return;
+      e.preventDefault();
+      updateFromPointer(e.clientX);
+    };
+    const onUp = (e: PointerEvent): void => {
+      if (e.pointerId !== activeId) return;
+      document.removeEventListener('pointermove',   onMove);
+      document.removeEventListener('pointerup',     onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+    document.addEventListener('pointermove',   onMove, { passive: false });
+    document.addEventListener('pointerup',     onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+  // Keyboard accessibility — left/right arrows, PageUp/Down, Home/End.
+  scrubBar.addEventListener('keydown', (ev) => {
+    let next = settings.get(key) as number;
+    const big = step * 10;
+    switch (ev.key) {
+      case 'ArrowLeft':  case 'ArrowDown': next -= step; break;
+      case 'ArrowRight': case 'ArrowUp':   next += step; break;
+      case 'PageDown':                     next -= big;  break;
+      case 'PageUp':                       next += big;  break;
+      case 'Home':                         next = min;   break;
+      case 'End':                          next = max;   break;
+      case 'Backspace': case 'Delete':     next = defaultValue; break;
+      default: return;
+    }
+    ev.preventDefault();
+    settings.set(key, snapToStep(next) as never);
+  });
+
+  wrap.append(scrubBar, stopBar, readoutBtn);
 
   const apply = (v: number) => {
     range.value = String(v);
     num.value = formatNum(v, step);
     readoutBtn.textContent = formatNum(v, step);
+    const t = max === min ? 0 : (v - min) / (max - min);
+    const pct = Math.max(0, Math.min(1, t)) * 100;
+    scrubFill.style.width = `${pct}%`;
+    scrubKnob.style.left = `${pct}%`;
+    scrubBar.setAttribute('aria-valuenow', String(v));
+    scrubBar.setAttribute('aria-valuetext', formatNum(v, step));
     let best = 0, bestDist = Infinity;
     for (let i = 0; i < stops.length; i++) {
       const d = Math.abs(stops[i] - v);
@@ -126,6 +237,8 @@ export function slider(
     const v = parseFloat(num.value);
     if (!Number.isNaN(v)) settings.set(key, v as never);
   });
+
+  attachModulationIndicator(wrap, key as string);
 
   // ----- Touch upgrades -----
   // Double-click / double-tap → reset to default. Keyboard equivalent:
@@ -253,6 +366,7 @@ export function toggle(settings: SettingsStore, key: BooleanKeys, label = ''): H
 
   settings.subscribe(key, (v) => { cb.checked = !!v; });
   cb.addEventListener('change', () => settings.set(key, cb.checked as any));
+  attachModulationIndicator(wrap, key as string);
   return wrap;
 }
 

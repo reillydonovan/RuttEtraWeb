@@ -12,7 +12,10 @@
  * through `migrateSettings()` at load and import time.
  */
 
+import type { GraphPatch } from '../modulation/graph/types';
+
 export type ColorMode = 'grayscale' | 'phosphorGreen' | 'phosphorAmber' | 'phosphorCustom' | 'video';
+export type ModMode = 'classic' | 'graph' | 'both';
 export type RenderMode = 'scanlines' | 'dots' | 'wireframe';
 export type CameraMode = 'orbit' | 'fly';
 export type PerformanceProfileId = 'quality' | 'balanced' | 'battery';
@@ -217,6 +220,19 @@ export interface Settings {
 
   // ---------- Modulation ----------
   modSlots: ModSlot[];
+  /**
+   * Active modulation engine(s). `'classic'` keeps the legacy 4-slot matrix
+   * exclusive (default for fresh users + old presets); `'graph'` runs the
+   * signal-graph engine instead; `'both'` runs them simultaneously and
+   * sums their effects on shared targets.
+   */
+  modMode: ModMode;
+  /**
+   * Stored signal-graph patch. `null` means no patch loaded — the engine
+   * is gated by `modMode` regardless. Only mutated through the engine /
+   * UI; callers should never write to nodes directly.
+   */
+  modGraph: GraphPatch | null;
 
   // ---------- UI ----------
   panelDock: 'left' | 'right';
@@ -414,6 +430,8 @@ export const DEFAULTS: Settings = {
     { ...DEFAULT_MOD_SLOT },
     { ...DEFAULT_MOD_SLOT },
   ],
+  modMode: 'classic',
+  modGraph: null,
 
   panelDock: 'right',
   panelCollapsed: false,
@@ -477,7 +495,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 interface Versioned { _v?: number }
 
@@ -574,6 +592,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 5) {
     s.mobileColorAutoSet = (s.mobileColorAutoSet as boolean | undefined) ?? false;
     s._v = 5;
+  }
+
+  // ---- v5 -> v6: Signal-graph modulation engine ----
+  // Existing presets stay on the Classic 4-slot matrix; the new engine
+  // is opt-in. `modGraph` is null until the user creates a patch (or
+  // explicitly converts a Classic patch via the "Convert to Graph"
+  // button in the UI).
+  if ((s._v ?? 1) < 6) {
+    s.modMode  = (s.modMode  as ModMode    | undefined) ?? 'classic';
+    s.modGraph = (s.modGraph as GraphPatch | null | undefined) ?? null;
+    s._v = 6;
   }
 
   return s as Partial<Settings> & Versioned;

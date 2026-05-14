@@ -82,14 +82,89 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   knob.style.left = '50%'; knob.style.top = '50%';
   pad.appendChild(knob);
 
-  const zSlider = document.createElement('input');
-  zSlider.type = 'range';
-  zSlider.min = '-1'; zSlider.max = '1'; zSlider.step = '0.01';
-  zSlider.value = '0';
+  // Custom div-based vertical Z slider. The previous implementation used
+  // an <input type="range"> with `writing-mode: vertical-lr; direction: rtl`
+  // — visually fine but completely unresponsive to touch on iOS Safari and
+  // most Android browsers (vertical-lr range inputs simply don't fire input
+  // events on touch drag). A div + pointerdown/move/up gives reliable touch
+  // adjustment everywhere while keeping keyboard accessibility.
+  const zSlider = document.createElement('div');
   zSlider.className = 'rw-joystick-z';
+  zSlider.setAttribute('role', 'slider');
   zSlider.setAttribute('aria-label', 'Joystick Z axis');
-  // CSS rotates -90deg to make it visually vertical.
+  zSlider.setAttribute('aria-valuemin', '-1');
+  zSlider.setAttribute('aria-valuemax', '1');
+  zSlider.setAttribute('aria-orientation', 'vertical');
+  zSlider.tabIndex = 0;
+  const zFill = document.createElement('div');
+  zFill.className = 'rw-joystick-z-fill';
+  const zKnob = document.createElement('div');
+  zKnob.className = 'rw-joystick-z-knob';
+  zSlider.append(zFill, zKnob);
   padWrap.append(pad, zSlider);
+
+  const setZSliderValue = (v: number): void => {
+    const clamped = Math.max(-1, Math.min(1, v));
+    const t = (clamped + 1) / 2;     // 0..1
+    const pct = t * 100;
+    // Top of slider = +1 (fill grows from bottom).
+    zFill.style.height = `${pct}%`;
+    zKnob.style.bottom = `${pct}%`;
+    zSlider.setAttribute('aria-valuenow', String(clamped));
+    zSlider.setAttribute('aria-valuetext', clamped.toFixed(2));
+  };
+  setZSliderValue(0);
+
+  const updateZFromPointer = (clientY: number): void => {
+    const r = zSlider.getBoundingClientRect();
+    if (r.height <= 0) return;
+    const t = 1 - Math.max(0, Math.min(1, (clientY - r.top) / r.height));
+    jz = Math.max(-1, Math.min(1, t * 2 - 1));
+    setZSliderValue(jz);
+    emit();
+  };
+  // Document-level pointermove/pointerup listeners are more robust on iOS
+  // Safari than element-level setPointerCapture: inside the bottom-sheet's
+  // scroll-snap container, element pointer capture sometimes silently fails
+  // and the slider stops responding after the first event. Attaching to
+  // document on pointerdown and removing on pointerup avoids this entirely.
+  zSlider.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const activeId = e.pointerId;
+    updateZFromPointer(e.clientY);
+
+    const onMove = (ev: PointerEvent): void => {
+      if (ev.pointerId !== activeId) return;
+      ev.preventDefault();
+      updateZFromPointer(ev.clientY);
+    };
+    const onUp = (ev: PointerEvent): void => {
+      if (ev.pointerId !== activeId) return;
+      document.removeEventListener('pointermove',   onMove);
+      document.removeEventListener('pointerup',     onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+    document.addEventListener('pointermove',   onMove, { passive: false });
+    document.addEventListener('pointerup',     onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+  zSlider.addEventListener('keydown', (e) => {
+    let next = jz;
+    switch (e.key) {
+      case 'ArrowUp':   case 'ArrowRight': next += 0.05; break;
+      case 'ArrowDown': case 'ArrowLeft':  next -= 0.05; break;
+      case 'PageUp':                       next += 0.2;  break;
+      case 'PageDown':                     next -= 0.2;  break;
+      case 'Home':                         next = 1;     break;
+      case 'End':                          next = -1;    break;
+      case 'Backspace': case 'Delete':     next = 0;     break;
+      default: return;
+    }
+    e.preventDefault();
+    jz = Math.max(-1, Math.min(1, next));
+    setZSliderValue(jz);
+    emit();
+  });
   jsGroup.body.appendChild(padWrap);
 
   let jx = 0, jy = 0, jz = 0;
@@ -128,13 +203,9 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   pad.addEventListener('wheel', (e) => {
     e.preventDefault();
     jz = Math.max(-1, Math.min(1, jz + (e.deltaY < 0 ? 0.05 : -0.05)));
-    zSlider.value = String(jz);
+    setZSliderValue(jz);
     emit();
   }, { passive: false });
-  zSlider.addEventListener('input', () => {
-    jz = parseFloat(zSlider.value);
-    emit();
-  });
   root.appendChild(jsGroup.root);
 
   const audioGroup = group('Audio Interface (mic)');

@@ -406,15 +406,17 @@ body[data-layout="compact"] .rw-help-body {
 #rw-audio-gate small { color: var(--re-text-dim); display: block; margin-top: 8px; font-size: 13px; }
 
 /* ============================================================
-   Compact slider: stop-chips + tappable readout (no native drag)
+   Compact slider: scrub bar + stop-chips + tappable readout
    ============================================================
    Native <input type="range"> dragging inside a `scroll-snap-type: y
-   mandatory` bottom-sheet scroller is too unreliable on iOS Safari.
+   mandatory` bottom-sheet scroller is too unreliable on iOS Safari
+   (the scroller swallows the gesture before the slider sees it).
    In compact mode we hide the native widget entirely and present a
-   row of value-target chips plus a single readout that always shows
-   the current value. The readout is itself a button — tapping it
-   opens the numeric input modal for fully custom values. */
-.rw-slider-stops, .rw-slider-readout { display: none; }
+   custom touchable scrub bar (drag-to-adjust, fine resolution), a
+   row of value-target chips for snap-to-stop presets, and a tappable
+   numeric readout for typing exact values. The scrub bar is a plain
+   <div> with pointer-event handlers, so iOS Safari can't intercept it. */
+.rw-slider-stops, .rw-slider-readout, .rw-slider-scrub { display: none; }
 
 body[data-layout="compact"] .rw-slider {
   display: flex;
@@ -425,6 +427,42 @@ body[data-layout="compact"] .rw-slider {
 }
 body[data-layout="compact"] .rw-slider input[type="range"],
 body[data-layout="compact"] .rw-slider .rw-num { display: none; }
+
+body[data-layout="compact"] .rw-slider-scrub {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 36px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  cursor: ew-resize;
+  /* Critical: claim the gesture so the bottom-sheet scroller doesn't
+     hijack horizontal drags on iOS / Android. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body[data-layout="compact"] .rw-slider-scrub:focus-visible {
+  outline: 1px solid var(--re-accent);
+  outline-offset: 2px;
+}
+body[data-layout="compact"] .rw-slider-scrub-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(to right, rgba(95,255,133,0.18), rgba(95,255,133,0.32));
+  pointer-events: none;
+}
+body[data-layout="compact"] .rw-slider-scrub-knob {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 0%;
+  width: 4px;
+  margin-left: -2px;
+  background: var(--re-accent);
+  box-shadow: var(--re-glow);
+  pointer-events: none;
+}
 
 body[data-layout="compact"] .rw-slider-stops {
   display: flex;

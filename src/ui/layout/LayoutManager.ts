@@ -36,6 +36,7 @@ export class LayoutManager {
   private mqStandalone: MediaQueryList;
   private overrideMode: LayoutMode | null;
   private debugFlag: boolean;
+  private debugGraphFlag: boolean;
 
   constructor() {
     this.mqCoarse     = window.matchMedia('(pointer: coarse)');
@@ -50,6 +51,8 @@ export class LayoutManager {
       ? layoutParam
       : null;
     this.debugFlag = params.get('debug') === 'layout';
+    // `?debug=graph` overlays GraphEngine stats alongside the layout panel.
+    this.debugGraphFlag = params.get('debug') === 'graph';
 
     this._mode = this.compute();
 
@@ -83,6 +86,8 @@ export class LayoutManager {
   get orientation(): 'portrait' | 'landscape' { return this.mqPortrait.matches ? 'portrait' : 'landscape'; }
   get isStandalone(): boolean { return this.mqStandalone.matches; }
   get isDebug():   boolean { return this.debugFlag; }
+  /** True when the URL contains `?debug=graph`. */
+  get isDebugGraph(): boolean { return this.debugGraphFlag; }
 
   /** Read CSS env() insets via a hidden probe element. */
   safeAreaInsets(): SafeAreaInsets {

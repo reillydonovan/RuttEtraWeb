@@ -11,6 +11,7 @@ import { PRESETS } from '../presets';
 import { row, group, button, textInput, readout } from '../widgets';
 import { exportEverything, importEverything } from '../../state/exportEverything';
 import { haptic } from '../../platform/HapticFeedback';
+import { isFactoryView } from '../../renderer/CameraRig';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
 
@@ -145,7 +146,12 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   // Import / Export
   const ioGroup = group('Import / Export');
   const exportBtn = button('Export JSON', () => {
-    const blob = new Blob([settings.export()], { type: 'application/json' });
+    // Strip `defaultView` when it equals the factory defaults so a preset
+    // exported after Hard Reset doesn't carry a bespoke saved camera view.
+    // Importers fall back to whatever the receiver's own saved view is.
+    const obj = JSON.parse(settings.export()) as Record<string, unknown>;
+    if (isFactoryView(obj.defaultView as never)) delete obj.defaultView;
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `ruttetra-preset-${Date.now()}.json`;

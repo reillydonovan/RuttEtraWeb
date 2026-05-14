@@ -1,0 +1,212 @@
+/**
+ * Public types for the signal-graph modulation engine.
+ *
+ * The graph is a DAG of pure-function nodes connected by named ports. A
+ * `Signal` is just a normalized scalar; convention is 0..1 unipolar or
+ * -1..+1 bipolar, but signals are unbounded — the engine clamps NaN /
+ * Infinity / denormals to 0 at every node output.
+ *
+ * Bindings are the terminal: each binding reads one node output and
+ * writes its value (scaled by `amount`, optionally curved) into a key on
+ * `SettingsStore`. Multiple bindings can target the same param; their
+ * effects sum (matching `ModMatrix`'s summing-amplifier behavior).
+ */
+
+export type Signal = number;
+
+export type NodeType =
+  // Sources
+  | 'lfo' | 'ramp' | 'noise' | 'constant' | 'clock'
+  // Audio CV
+  | 'audio-envelope' | 'audio-band' | 'audio-pitch' | 'audio-onset'
+  // Video CV (Stage 5 fills in; Stage 1 ships zero-output stubs)
+  | 'video-luma' | 'video-luma-row' | 'video-luma-col'
+  | 'video-motion' | 'video-color' | 'video-edge'
+  // Inputs
+  | 'joystick-x' | 'joystick-y' | 'joystick-z'
+  | 'midi-cc' | 'midi-note' | 'osc-in'
+  // Processors
+  | 'attenuator' | 'inverter' | 'offset' | 'scale' | 'range'
+  | 'mixer' | 'multiplier' | 'crossfade' | 'min' | 'max'
+  | 'comparator' | 'sample-and-hold' | 'slew' | 'quantize'
+  | 'curve' | 'delay' | 'track-and-hold'
+  // Logic / utility
+  | 'trigger-to-gate' | 'gate-to-trigger' | 'clock-divider' | 'sequencer';
+
+export type CurveType = 'linear' | 'exp' | 'log' | 'sCurve';
+export type BindingMode = 'additive' | 'multiplicative';
+
+export interface GraphNode {
+  id: string;
+  type: NodeType;
+  /** Node-specific config. Numbers / strings / booleans only — JSON-serializable. */
+  params: Record<string, number | string | boolean>;
+  /** Input port name -> source node id. `null` means the port is unpatched. */
+  inputs: Record<string, string | null>;
+  /** Optional canvas position for the advanced-view editor. */
+  position?: { x: number; y: number };
+}
+
+export interface TargetBinding {
+  id: string;
+  /** Settings key (validated at engine boundary). */
+  paramKey: string;
+  sourceNodeId: string;
+  /** Defaults to the node's primary output port (`'out'`). */
+  sourcePort?: string;
+  amount: number;
+  curve?: CurveType;
+  mode: BindingMode;
+}
+
+export interface GraphPatch {
+  nodes: GraphNode[];
+  bindings: TargetBinding[];
+}
+
+// --------------------------------------------------------------------
+// Node definition (registry entry shape)
+// --------------------------------------------------------------------
+
+export type ParamSpec =
+  | { kind: 'number'; min: number; max: number; step: number; default: number }
+  | { kind: 'enum';   options: string[]; default: string }
+  | { kind: 'boolean'; default: boolean };
+
+export interface PortSpec {
+  name: string;
+  kind: 'control' | 'audio' | 'video' | 'gate' | 'trigger';
+  /** Optional human-readable label; defaults to `name`. */
+  label?: string;
+}
+
+/**
+ * Per-frame execution context handed to `tick()`. Held by reference and
+ * mutated each frame by `GraphEngine`; nodes must not retain it across
+ * frames.
+ */
+export interface NodeContext {
+  /** Seconds since engine boot. Monotonic. */
+  timeSec: number;
+  /** Frame delta in seconds (clamped to ~0.5s upper bound). */
+  dt: number;
+  /** Increments by 1 every `tick()`. */
+  frame: number;
+  /** Optional dependencies; nodes opt in by reading what they need. */
+  deps: NodeDeps;
+  /** Joystick state, last set via `engine.setJoystick(...)`. */
+  joystick: { x: number; y: number; z: number };
+}
+
+/** Subsystem references threaded through the engine. All optional. */
+export interface NodeDeps {
+  fft?: AudioFFTLike | null;
+  beat?: BeatLike | null;
+  midiClock?: MidiClockLike | null;
+  midiMapping?: MidiMappingLike | null;
+  midiManager?: unknown;
+  osc?: OscLike | null;
+  /** Stage 5: shared video readback service. Null until wired. */
+  videoTap?: VideoTapLike | null;
+}
+
+// Minimal duck-typed interfaces so the engine stays decoupled from the
+// concrete classes (and so tests can pass simple stubs in).
+
+export interface AudioFFTLike {
+  bands: ArrayLike<number>;
+  getEnvelope(): number;
+  /**
+   * Optional time-domain access for pitch tracking. May be null in tests
+   * or before audio has started.
+   */
+  getTimeDomain?(out: Float32Array): boolean;
+}
+
+export interface BeatLike {
+  pulse: number;
+}
+
+export interface MidiClockLike {
+  bpm: number;
+  phase01: number;
+  beatPulse: number;
+  divisionToHz(div: string): number;
+  divisionPhase(div: string): number;
+}
+
+export interface MidiMappingLike {
+  getRawCC(channel: number, cc: number): number;
+  getPoly(channel: number): { lastNote: number | null; lastVelocity: number };
+}
+
+export interface OscLike {
+  getMostRecent(): number;
+  getByAddress?(address: string): number;
+}
+
+export interface VideoTapLike {
+  getLumaRegion(rect: Rect, hi?: boolean): number;
+  getColorRegion(rect: Rect): { h: number; s: number; v: number };
+  getMotionRegion(rect: Rect): number;
+  getEdgeDensity(rect: Rect): number;
+  getRow(y: number): number;
+  getCol(x: number): number;
+}
+
+export interface Rect { x: number; y: number; w: number; h: number; }
+
+/**
+ * A registered node implementation. State is opaque — registries pick
+ * whatever shape they need; the engine just hands it back next tick.
+ */
+export interface NodeDef<S = unknown> {
+  type: NodeType;
+  /** Top-level palette category. */
+  category: 'Sources' | 'Audio' | 'Video' | 'Inputs' | 'Processors' | 'Logic';
+  /** Short label for palette / inspector. */
+  label: string;
+  /** One-sentence plain-language description for help / tooltip. */
+  description: string;
+  inputs: PortSpec[];
+  outputs: PortSpec[];
+  params: Record<string, ParamSpec>;
+  /** Returns the node's per-instance state. Called once at `setPatch`. */
+  init(params: Record<string, number | string | boolean>): S;
+  /**
+   * Produce this frame's outputs from `inputs` and the prior `state`. May
+   * mutate `state` in-place. Inputs map port name -> last value (0 if
+   * unpatched); the engine has already substituted prior-frame values for
+   * cycle edges.
+   */
+  tick(
+    ctx: NodeContext,
+    state: S,
+    inputs: Record<string, number>,
+    params: Record<string, number | string | boolean>,
+    outputs: Record<string, number>,
+  ): void;
+}
+
+// --------------------------------------------------------------------
+// Engine-internal types (exported for tests)
+// --------------------------------------------------------------------
+
+export interface CompiledNode {
+  node: GraphNode;
+  def: NodeDef<unknown>;
+  state: unknown;
+  /** This frame's outputs, indexed by port name. */
+  outputs: Record<string, number>;
+  /** Last frame's outputs — used as inputs for cycle edges. */
+  prevOutputs: Record<string, number>;
+}
+
+export interface CompiledPatch {
+  byId: Map<string, CompiledNode>;
+  /** Topological order. Nodes with cycles still appear here; their cycle inputs read `prevOutputs`. */
+  order: string[];
+  /** Edges that close a cycle and therefore use one-frame delay. */
+  cycleEdges: Array<{ from: string; to: string; toPort: string }>;
+  bindings: TargetBinding[];
+}

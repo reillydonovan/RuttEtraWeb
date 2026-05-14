@@ -26,6 +26,7 @@ import { MidiClock } from '../midi/MidiClock';
 import { MidiManager } from '../midi/MidiManager';
 import { MidiMapping } from '../midi/MidiMapping';
 import { OscClient } from '../osc/OscClient';
+import { activeTargetsBus } from './ActiveTargetsBus';
 
 interface JoystickState {
   x: number; y: number; z: number;
@@ -44,6 +45,14 @@ export class ModMatrix {
   private startTime = performance.now() / 1000;
   private rampStarts = new Map<number, number>(); // slot index -> start time
   private bases = new Map<ModTarget, number>();
+  /** Targets we've already wired a `subscribe()` listener on (so we don't double-subscribe). */
+  private baseSubscribed = new Set<ModTarget>();
+  /**
+   * True while `tick()` is writing values back to `Settings`. Used by the
+   * base-capture subscription to ignore self-writes (otherwise every tick
+   * would overwrite the base with `base + sum`, defeating the purpose).
+   */
+  private writingFromTick = false;
   private joystick: JoystickState = { x: 0, y: 0, z: 0 };
 
   private fft: FFTAnalyzer | null;
@@ -115,11 +124,16 @@ export class ModMatrix {
       sums.set(t, (sums.get(t) ?? 0) + v * slot.amount);
     }
 
-    for (const [target, sum] of sums) {
-      const base = this.bases.get(target);
-      if (base == null) continue;
-      const next = base + sum;
-      this.settings.set(target as keyof Settings, next as any);
+    this.writingFromTick = true;
+    try {
+      for (const [target, sum] of sums) {
+        const base = this.bases.get(target);
+        if (base == null) continue;
+        const next = base + sum;
+        this.settings.set(target as keyof Settings, next as any);
+      }
+    } finally {
+      this.writingFromTick = false;
     }
 
     // MIDI-out: emit each enabled slot's value (-1..1 -> 0..1) as CC.
@@ -131,6 +145,10 @@ export class ModMatrix {
         this.midiManager.sendCC(slot.midiOutChannel, slot.midiOutCC, v01);
       }
     }
+
+    // Publish the set of params we wrote so the dual-engine indicator
+    // in widgets.ts can show / hide its dot.
+    activeTargetsBus.publish('classic', new Set(sums.keys()));
   }
 
   // -------------------- generator math --------------------
@@ -238,10 +256,14 @@ export class ModMatrix {
   }
 
   /**
-   * Watch for the user changing a target value to update our base —
-   * but only if the change is not coming from us (we set values during tick).
-   * To distinguish, we capture the value just before applying mod, so any
-   * external change between ticks becomes the new base.
+   * Watch for the user changing a target value to update our base — but
+   * only if the change isn't coming from our own `tick()` write (those are
+   * gated by `writingFromTick`). External writes (slider drag, MIDI in,
+   * preset apply, sequencer keyframe) update the base so that the slot's
+   * additive modulation is layered on top of the new manual value rather
+   * than fighting it.
+   *
+   * Subscribed lazily, once per target, the first time a slot routes there.
    */
   private installBaseCapture(): void {
     this.settings.subscribe('modSlots', (slots) => {
@@ -252,7 +274,17 @@ export class ModMatrix {
           const v = this.settings.get(t as keyof Settings) as unknown;
           if (typeof v === 'number') this.bases.set(t, v);
         }
+        this.subscribeBase(t);
       }
+    });
+  }
+
+  private subscribeBase(target: ModTarget): void {
+    if (this.baseSubscribed.has(target)) return;
+    this.baseSubscribed.add(target);
+    this.settings.subscribe(target as keyof Settings, (v) => {
+      if (this.writingFromTick) return;
+      if (typeof v === 'number') this.bases.set(target, v);
     });
   }
 

@@ -62,13 +62,41 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   );
   root.appendChild(btns);
 
+  // Reset Up — orbit mode is quaternion-based (TrackballControls), so the
+  // world can roll. This button restores +Y up without changing position.
+  const upBtns = document.createElement('div');
+  upBtns.className = 'rw-btn-row';
+  const resetUpBtn = button('Reset Up', () => rig.resetUp());
+  resetUpBtn.title = 'Snap up-vector back to +Y. Use this if the world ends up rolled at an awkward angle after orbiting.';
+  upBtns.append(resetUpBtn);
+  root.appendChild(upBtns);
+
+  // Hard Reset — destructive: clears saved default and snaps to factory
+  // defaults. Stylistically warned (`danger` variant) and confirms only
+  // when there's a custom saved view to lose.
+  const hardBtns = document.createElement('div');
+  hardBtns.className = 'rw-btn-row';
+  const hardResetBtn = button('Hard Reset Camera [Shift+R]', () => {
+    if (rig.hasCustomSavedView()) {
+      const ok = confirm(
+        'Hard Reset will clear your saved default camera view and return ' +
+        'the camera to factory defaults. Continue?',
+      );
+      if (!ok) return;
+    }
+    rig.hardReset();
+  }, 'danger');
+  hardResetBtn.title = 'Resets camera to factory defaults and clears your saved view.';
+  hardBtns.append(hardResetBtn);
+  root.appendChild(hardBtns);
+
   const help = document.createElement('div');
   help.className = 'rw-hint';
   help.style.padding = '6px 0';
   help.innerHTML = [
-    '<b>Orbit:</b> drag = rotate · right-drag = pan · scroll = zoom',
+    '<b>Orbit:</b> drag = rotate · right-drag = pan · scroll = zoom · rotation is unconstrained (over the top, behind, fully inverted)',
     '<b>Fly:</b> click canvas to lock pointer · WASD move · QE roll · Space/Ctrl up/down · Shift boost · Esc release',
-    '<b>R</b> = reset view',
+    '<b>R</b> = reset to saved view · <b>Shift+R</b> = hard reset to factory defaults',
   ].join('<br>');
   root.appendChild(help);
 

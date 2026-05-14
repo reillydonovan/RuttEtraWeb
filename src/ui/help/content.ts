@@ -6,6 +6,8 @@
  */
 
 import { DEFAULTS, Settings } from '../../state/Settings';
+import '../../modulation/graph/bootstrap';
+import { allDefs } from '../../modulation/graph/registry';
 
 export type PanelGroup =
   | 'Source' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
@@ -83,7 +85,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   lineWidth:        { description: 'Line thickness when thickLines is on.', panel: 'Geometry' },
 
   // ----- Camera -----
-  cameraMode:       { description: 'Orbit (mouse drag) or fly-through (WASD + mouse).', panel: 'Camera' },
+  cameraMode:       { description: 'Orbit (mouse drag, quaternion-based — full 360° in any axis) or fly-through (WASD + mouse, unclamped pitch/roll).', panel: 'Camera' },
   cameraFov:        { description: 'Field of view in degrees.', range: '20..120', panel: 'Camera' },
   cameraNear:       { description: 'Near clipping plane.', panel: 'Camera' },
   cameraFar:        { description: 'Far clipping plane.', panel: 'Camera' },
@@ -91,7 +93,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   autoOrbitSpeed:   { description: 'Orbit angular speed.', panel: 'Camera' },
   flySpeed:         { description: 'Base movement speed in fly mode.', panel: 'Camera' },
   flyBoost:         { description: 'Hold Shift to multiply fly speed by this.', panel: 'Camera' },
-  defaultView:      { description: 'Saved camera view used by the "Reset View" button.', panel: 'Camera' },
+  defaultView:      { description: 'Saved camera view used by the "Reset View [R]" button. Cleared by "Hard Reset Camera [Shift+R]".', panel: 'Camera' },
 
   // ----- Modulation -----
   modSlots: { description: 'Up to 8 modulation slots. Each routes a signal source to a parameter.', panel: 'Modulation' },
@@ -176,7 +178,8 @@ const MD_SHORTCUTS = `
 ## Globally
 | Key | What |
 |-----|------|
-| \`R\` | Reset camera view |
+| \`R\` | Reset View — snaps to your saved default view |
+| \`Shift+R\` | Hard Reset Camera — wipes saved view, returns to factory defaults, kills auto-orbit, exits fly mode |
 | \`F\` | Toggle fullscreen |
 | \`H\` | Toggle on-screen HUD |
 
@@ -194,29 +197,86 @@ const MD_SHORTCUTS = `
 `;
 
 const MD_MOD = `
-# Modulation
+# Modulation — two engines, one panel
 
-The **Modulation** panel has up to 8 slots. Each slot routes a *source* signal
-to a *target* parameter and scales it by **amount**.
+The **Modulation** panel hosts two independent engines. Pick which is active
+with the **Classic | Graph | Both** switch at the top.
 
-## Sources
-- **Waveforms** — sine / triangle / square / saw / pulse / ramp.
-- **Audio envelope** — overall input loudness.
-- **Audio band** — pick a single FFT band.
-- **Beat** — decaying pulse on each detected beat.
-- **MIDI** — CC value, last note, velocity, or clock phase.
-- **OSC** — last value received on a bound OSC address.
-- **Joystick** — gamepad axis (when connected).
+- **Classic** is the original 4-slot matrix — fast to set up, easy to read.
+- **Graph** is a free-form node graph — every signal is a value, every wire
+  is a patch cord. Inspired by the original Rutt/Etra's voltage-control
+  philosophy.
+- **Both** runs them in parallel; effects on the same target sum together.
+  Watch for the small dual-color dot next to a slider — it lights up when both
+  engines are touching the same param.
 
-## Sync to clock
-Tick **Sync** on a waveform slot to lock its rate to the MIDI clock at a chosen
-division (1/4, 1/8, ..., dotted, triplets). Without an incoming clock the
-internal BPM is used.
+## Classic in 30 seconds
 
-## Example: kick-driven Z push
-1. Mod slot 1 → source **beat**, target **zPush**, amount **0.6**.
-2. Audio panel → input **mic**, beat detection on.
-3. Tap a kick. Watch the relief map jump on every hit.
+Each slot routes a **source** to a **target** with an **amount**.
+
+- **Sources**: sine / triangle / square / saw / pulse / ramp, audio envelope,
+  audio band, beat pulse, MIDI CC, MIDI note, MIDI clock division, OSC, joystick.
+- Tick **Sync** on a waveform slot to lock its rate to the MIDI clock.
+- Example: slot 1 → source **beat**, target **zPush**, amount **0.6**, then
+  open the **Audio** panel, pick **mic**, and tap a kick. Relief jumps on every
+  hit.
+
+## Graph in 90 seconds
+
+The Graph engine is a directed-acyclic graph of nodes connected by named ports.
+Every signal is a normalized scalar (-1..+1 by convention). Bindings sit at the
+end of each chain and write into a Settings key.
+
+1. Switch the panel to **Graph**.
+2. Click the **Beginner** tab. Hit **+ Add patch**. Pick an LFO, a target
+   (e.g. *Z Push*), and an amount.
+3. Click the **Advanced** tab to open the full editor. The left palette adds
+   nodes; the canvas hosts them; the right inspector edits a selected node's
+   params and bindings.
+4. Connect ports by clicking an output dot, then an input dot. Click an input
+   dot alone to disconnect.
+5. Drag a node by its header. Right-click (or press **Backspace** when focused)
+   to delete it.
+6. Hit the **Probe** button, then click any output port to scope its value
+   over time.
+7. Click **Library** to drop in a starter patch (audio ring mod, beat-synced
+   sequencer, motion-triggered glitch, ...).
+
+## Video as a control signal
+
+Six **video-*** node types turn the input video into CV:
+
+- **video-luma / video-edge / video-motion / video-color** — pick a region
+  with the inspector's drag-rectangle thumbnail. Outputs are 0..1 averages.
+- **video-luma-row / video-luma-col** — read a single scanline.
+
+Open *Edge-Driven Focus* in the Library for an end-to-end example.
+
+## Coexistence
+
+In **Both** mode, Classic and Graph write to the same Settings keys; their
+effects sum. The dual-color dot on a slider tells you when this is happening.
+Switching to **Graph** silences Classic immediately and vice versa — old
+values are preserved, the engines just stop pushing.
+
+## Converting Classic to Graph
+
+The bottom of the Classic body has a **Convert to Graph →** button. It builds
+an equivalent graph patch (one source node + one binding per enabled slot)
+and switches you to Graph mode. Your Classic slots are left untouched, so you
+can flip back any time.
+
+## Probing & feedback delays
+
+Inputs feeding back into themselves get an **implicit one-frame delay** — the
+engine breaks the cycle automatically so a feedback patch never locks up.
+Use a **Delay** node to make the latency explicit and tunable.
+
+## Built-in starter patches
+
+Open **Library** in the Graph view to load any of: Audio Ring Mod, Video
+Brightness Tracking, Beat-Synced Step Sequencer, Motion-Triggered Glitch,
+Slewed Pitch Follow, Reactive Crossfade, Edge-Driven Focus.
 `;
 
 const MD_TIMELINE = `
@@ -261,6 +321,13 @@ const MD_TIPS = `
 - **Recording produces tiny files.** Some browsers don't expose \`MediaRecorder\` for canvases at high resolution. Try lowering FPS or switching format to \`webm-vp8\`.
 - **Timeline doesn't move.** Make sure you have **at least 2 keyframes** and that the selected timeline is the one in the picker (drop the dropdown, pick it).
 - **Help panel keeps opening.** Toggle **Don't auto-open** in the *Quick start* tab.
+- **My Classic patch stopped working when I switched to Graph.** The mode switch is exclusive: \`Graph\` silences Classic, \`Classic\` silences Graph. Pick **Both** if you want them to run together.
+- **Video nodes always read 0.** The Graph engine only constructs a \`VideoTap\` once you switch to Graph or Both mode — make sure a video source is actually playing in the **Source** panel.
+- **A patch is humming / oscillating.** Feedback loops get an implicit one-frame delay, but the loop's gain still matters. Add an attenuator (or a longer **Delay** node) inside the loop to tame it.
+- **Probe shows nothing.** The probe overlay reads the engine's last frame; if the patch is empty, mode is \`classic\`, or the source node has no input wired, it'll just sit at 0.
+- **Beginner view says my patch is too complex.** Open Advanced view to keep editing. Beginner only handles linear chains of source → optional 1-2 processors → binding.
+- **Camera rotation is unconstrained** — you can orbit completely over the top, underneath, or behind the raster. If the world ends up rolled at an awkward angle, click **Reset Up** in the Camera panel (or use **Hard Reset Camera** / \`Shift+R\` to fully clear it back to factory defaults).
+- **Camera got stuck or pointer-locked weird?** \`Shift+R\` is the escape hatch — it releases pointer lock, kills auto-orbit, switches back to Orbit mode, wipes any saved default, and snaps every value to factory defaults.
 `;
 
 const MD_ABOUT = `
@@ -324,7 +391,32 @@ export function generateControlsMarkdown(filter?: string): string {
       out += `| \`${k}\` | ${d.description} | ${d.range ?? ''} |\n`;
     }
     out += '\n';
+
+    // Camera section gets a small button & gesture reference appended —
+    // these aren't param keys but matter for the user.
+    if (g === 'Camera' && cameraButtonsMatch(tokens)) {
+      out += '### Camera buttons & gestures\n\n';
+      out += '| Action | What |\n|---|---|\n';
+      out += '| **Reset View** [R] | Snaps to your saved default view. |\n';
+      out += '| **Save Default View** | Captures the current camera as the new saved default. |\n';
+      out += '| **Reset Up** | Snaps the up-vector back to +Y without changing position. Use after orbiting through the poles. |\n';
+      out += '| **Hard Reset Camera** [Shift+R] | Resets camera to factory defaults and clears your saved default view. Use this if the camera gets stuck or behaves unexpectedly. |\n';
+      out += '| Drag | Orbit around the target — fully unconstrained, including over the top, behind, and inverted. |\n';
+      out += '| Right-drag | Pan |\n';
+      out += '| Scroll | Zoom |\n';
+      out += '| Double-tap (mobile) | Reset View |\n';
+      out += '| Long-press (mobile) | Peek mode — temporarily hides UI |\n\n';
+    }
   }
+
+  // Auto-generated graph-node reference. Sourced from `NODE_DEFS` so
+  // adding a node type to the engine automatically lands here.
+  const nodes = generateNodeReferenceMarkdown(tokens);
+  if (nodes) {
+    any = true;
+    out += nodes;
+  }
+
   if (!any) out += '_No matches._\n';
 
   // Dev-only: list undocumented keys.
@@ -337,6 +429,64 @@ export function generateControlsMarkdown(filter?: string): string {
       out += '_Settings keys without documentation:_\n\n';
       for (const k of missing) out += `- \`${k}\`\n`;
     }
+  }
+  return out;
+}
+
+/**
+ * The camera buttons block is gated on the same search filter so a query
+ * for "reset view" or "hard reset" still surfaces it.
+ */
+function cameraButtonsMatch(tokens: string[]): boolean {
+  if (tokens.length === 0) return true;
+  const hay = 'reset view save default hard reset camera up shift+r r drag pan zoom orbit fly peek mobile';
+  return tokens.every((t) => hay.includes(t));
+}
+
+/**
+ * Pull every registered node type out of the graph registry and emit a
+ * markdown table per category. Filter tokens (already lowercased) match
+ * against the node label, type, description, and category so the search
+ * box in the Controls tab finds graph nodes too.
+ *
+ * The registry is statically imported — the help section itself is
+ * lazy-loaded by `HelpSection`, so this just lands the registry in the
+ * help chunk rather than the main bundle.
+ */
+function generateNodeReferenceMarkdown(tokens: string[]): string {
+  const defs = allDefs();
+  if (defs.length === 0) return '';
+  const matches = (text: string): boolean => {
+    if (tokens.length === 0) return true;
+    const hay = text.toLowerCase();
+    return tokens.every((t) => hay.includes(t));
+  };
+
+  const byCat = new Map<string, typeof defs>();
+  for (const d of defs) {
+    const text = `${d.type} ${d.label} ${d.category} ${d.description}`;
+    if (!matches(text)) continue;
+    const list = byCat.get(d.category) ?? [];
+    list.push(d);
+    byCat.set(d.category, list);
+  }
+  if (byCat.size === 0) return '';
+
+  let out = '## Modulation Graph Nodes\n\n';
+  const order = ['Sources', 'Audio', 'Video', 'Inputs', 'Processors', 'Logic'];
+  for (const cat of order) {
+    const list = byCat.get(cat);
+    if (!list?.length) continue;
+    out += `### ${cat}\n\n`;
+    out += '| Type | Description | Inputs | Outputs | Params |\n|---|---|---|---|---|\n';
+    list.sort((a, b) => a.label.localeCompare(b.label));
+    for (const d of list) {
+      const ins = d.inputs.map((p) => p.name).join(', ') || '—';
+      const outs = d.outputs.map((p) => p.name).join(', ') || '—';
+      const params = Object.keys(d.params).join(', ') || '—';
+      out += `| \`${d.type}\` | ${d.description} | ${ins} | ${outs} | ${params} |\n`;
+    }
+    out += '\n';
   }
   return out;
 }
