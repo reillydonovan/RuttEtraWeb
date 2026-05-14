@@ -8,16 +8,13 @@
 import { DEFAULTS, Settings } from '../../state/Settings';
 import '../../modulation/graph/bootstrap';
 import { allDefs } from '../../modulation/graph/registry';
+import { PARAM_DOCS, ParamDoc, PanelGroup } from './paramDocs';
 
-export type PanelGroup =
-  | 'Source' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
-  | 'Modulation' | 'MIDI' | 'Audio' | 'OSC' | 'Record' | 'Share' | 'UI';
-
-export interface ParamDoc {
-  description: string;
-  range?: string;
-  panel: PanelGroup;
-}
+// Re-exported for in-app help consumers (HelpSection.ts) so existing
+// imports from `content.ts` keep working unchanged. The actual map and
+// types live in `paramDocs.ts` so the about page can pull just those
+// without dragging in the heavy in-app help markdown blobs below.
+export { PARAM_DOCS, type ParamDoc, type PanelGroup };
 
 export interface HelpTab {
   id: string;
@@ -26,145 +23,10 @@ export interface HelpTab {
 }
 
 // =====================================================================
-// Per-parameter docs (shown on the Controls tab).
+// Per-parameter docs are now in `./paramDocs.ts` (pure-data module so
+// the about page can import them without the in-app help markdown).
+// Re-exported above for backward compatibility.
 // =====================================================================
-
-export const PARAM_DOCS: Record<string, ParamDoc> = {
-  // ----- Source -----
-  sourceKind: { description: 'Active video source: webcam, screen share, or file.', panel: 'Source' },
-  mirrorH:    { description: 'Mirror the input left/right.', panel: 'Source' },
-  mirrorV:    { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
-
-  // ----- DCU (Display Control Unit) -----
-  zPush:      { description: 'How far bright pixels are pushed toward the camera.', range: '-4..4', panel: 'DCU' },
-  zBias:      { description: 'Vertical offset added to every scanline before pushing in Z.', range: '-2..2', panel: 'DCU' },
-  zInvert:    { description: 'Invert the brightness-to-Z mapping (dark pushes forward).', panel: 'DCU' },
-  intensity:  { description: 'Brightness multiplier applied to each scanline.', range: '0..3', panel: 'DCU' },
-  focus:      { description: 'Soft Gaussian blur on the brightness signal.', range: '0..1', panel: 'DCU' },
-  threshold:  { description: 'Black-crush threshold; pixels below this go to 0.', range: '0..1', panel: 'DCU' },
-  contrast:   { description: 'Contrast applied before scanning.', range: '0..3', panel: 'DCU' },
-  gamma:      { description: 'Gamma correction (lower = brighter midtones).', range: '0.2..3', panel: 'DCU' },
-  hPos:       { description: 'Horizontal centering of the raster.', panel: 'DCU' },
-  vPos:       { description: 'Vertical centering of the raster.', panel: 'DCU' },
-  hSize:      { description: 'Horizontal stretch of the raster.', panel: 'DCU' },
-  vSize:      { description: 'Vertical stretch of the raster.', panel: 'DCU' },
-  hLinearity: { description: 'Pinch/expand the raster horizontally (non-linear stretch).', panel: 'DCU' },
-  vLinearity: { description: 'Pinch/expand the raster vertically (non-linear stretch).', panel: 'DCU' },
-  scanRate:   { description: 'Number of horizontal scanlines drawn per frame.', range: '60..720', panel: 'DCU' },
-  cols:       { description: 'Samples per scanline (horizontal resolution).', range: '32..960', panel: 'DCU' },
-  skip:       { description: 'Skip every N-th scanline to thin the pattern.', panel: 'DCU' },
-  hSpin:      { description: 'Horizontal twist (yaw) of the rendered surface.', panel: 'DCU' },
-  vSpin:      { description: 'Vertical twist (pitch).', panel: 'DCU' },
-  hSpinRate:  { description: 'Auto-rotate around the Y axis at this rate.', panel: 'DCU' },
-  vSpinRate:  { description: 'Auto-rotate around the X axis at this rate.', panel: 'DCU' },
-  hReverse:   { description: 'Flip horizontal scan direction.', panel: 'DCU' },
-  vReverse:   { description: 'Flip vertical scan direction.', panel: 'DCU' },
-  rotate90:   { description: 'Rotate the entire raster 90°.', panel: 'DCU' },
-
-  // ----- Color / PostFX -----
-  colorMode:        { description: 'Phosphor look: grayscale, green, amber, custom tint, or sampled video color.', panel: 'Color/PostFX' },
-  customTint:       { description: 'Tint applied when colorMode is "phosphorCustom".', panel: 'Color/PostFX' },
-  backgroundColor:  { description: 'Backdrop color behind the scanlines.', panel: 'Color/PostFX' },
-  bloomEnabled:     { description: 'CRT bloom (off by default for crisp lines).', panel: 'Color/PostFX' },
-  bloomIntensity:   { description: 'Bloom strength.', panel: 'Color/PostFX' },
-  bloomRadius:      { description: 'Bloom blur radius.', panel: 'Color/PostFX' },
-  bloomThreshold:   { description: 'Pixel brightness threshold above which bloom kicks in.', panel: 'Color/PostFX' },
-  scanlineEnabled:  { description: 'Overlay horizontal scanline mask.', panel: 'Color/PostFX' },
-  scanlineIntensity:{ description: 'How dark the gaps between scanlines get.', panel: 'Color/PostFX' },
-  scanlineDensity:  { description: 'Scanlines per screen height.', panel: 'Color/PostFX' },
-  chromaEnabled:    { description: 'Subtle chromatic aberration on the RGB channels.', panel: 'Color/PostFX' },
-  chromaAmount:     { description: 'Strength of the chromatic offset.', panel: 'Color/PostFX' },
-  vignetteEnabled:  { description: 'Soft corner darkening.', panel: 'Color/PostFX' },
-  vignetteAmount:   { description: 'Vignette strength.', panel: 'Color/PostFX' },
-  feedbackEnabled:  { description: 'Long-exposure feedback trails (CRT burn-in).', panel: 'Color/PostFX' },
-  feedbackDecay:    { description: 'How fast trails fade (1 = forever, 0 = none).', range: '0..1', panel: 'Color/PostFX' },
-
-  // ----- Geometry / render -----
-  renderMode:       { description: 'Wireframe (lines) vs filled triangles vs points.', panel: 'Geometry' },
-  thickLines:       { description: 'Use a thicker line technique (heavier on GPU).', panel: 'Geometry' },
-  lineWidth:        { description: 'Line thickness when thickLines is on.', panel: 'Geometry' },
-
-  // ----- Camera -----
-  cameraMode:       { description: 'Orbit (mouse drag, quaternion-based — full 360° in any axis) or fly-through (WASD + mouse, unclamped pitch/roll).', panel: 'Camera' },
-  cameraFov:        { description: 'Field of view in degrees.', range: '20..120', panel: 'Camera' },
-  cameraNear:       { description: 'Near clipping plane.', panel: 'Camera' },
-  cameraFar:        { description: 'Far clipping plane.', panel: 'Camera' },
-  autoOrbit:        { description: 'Slowly orbit the scene with no input.', panel: 'Camera' },
-  autoOrbitSpeed:   { description: 'Orbit angular speed.', panel: 'Camera' },
-  flySpeed:         { description: 'Base movement speed in fly mode.', panel: 'Camera' },
-  flyBoost:         { description: 'Hold Shift to multiply fly speed by this.', panel: 'Camera' },
-  defaultView:      { description: 'Saved camera view used by the "Reset View [R]" button. Cleared by "Hard Reset Camera [Shift+R]".', panel: 'Camera' },
-  renderResolutionId:     { description: 'GPU render resolution, independent of window size. "Match Window" (default) tracks the display; SD/HD/4K presets lock the render target to a fixed pixel count. Recording output uses this resolution.', panel: 'Camera' },
-  renderFitMode:          { description: 'How to display the render target when its aspect ratio differs from the window. Letterbox = pixel-accurate with black bars (best for recording). Fill = no bars, edges cropped. Stretch = aspect-correct render scaled to fill window.', panel: 'Camera' },
-  renderResolutionCustomW: { description: 'Custom render width in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
-  renderResolutionCustomH: { description: 'Custom render height in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
-
-  // ----- Modulation -----
-  modSlots:        { description: 'Up to 4 modulation slots. Each routes a source through a per-slot output stage to a target parameter.', panel: 'Modulation' },
-  internalBpm:     { description: 'Global Tempo, shared by Timeline playback, Classic LFOs in Tempo sync mode, and the Graph Clock node. There is no per-timeline BPM in v8 — set it once here.', range: '20..300', panel: 'Modulation' },
-  modSlotExpanded: { description: 'UI-only: which slots are currently showing their expanded controls. Excluded from preset export.', panel: 'Modulation' },
-  // Per-slot fields (live inside `modSlots[i]`; documented at the slot level
-  // so the Controls tab can describe each row).
-  'modSlot.syncMode':      { description: 'How the LFO clock is generated: Free (slot Hz), MIDI (locked to incoming MIDI clock — holds last rate when silent, no fallback), or Tempo (locked to global Tempo BPM).', panel: 'Modulation' },
-  'modSlot.lfoDepth':      { description: 'LFO amplitude before the output stage. 1 = full swing, 0 = silent.', range: '0..1', panel: 'Modulation' },
-  'modSlot.lfoUnipolar':   { description: 'When ON, the LFO output is remapped from -1..+1 to 0..+1 (handy for parameters that dislike going negative, e.g. zPush below 0).', panel: 'Modulation' },
-  'modSlot.audioAttackMs': { description: 'Per-slot envelope follower attack on the audio source. Shorter = snappier, longer = smoother.', range: '1..1000 ms', panel: 'Modulation' },
-  'modSlot.audioReleaseMs':{ description: 'Per-slot envelope follower release on the audio source.', range: '1..5000 ms', panel: 'Modulation' },
-  'modSlot.audioGain':     { description: 'Multiplier on the audio envelope before clamping.', range: '0..4', panel: 'Modulation' },
-  'modSlot.audioFloor':    { description: 'Noise gate: any audio below this value clamps to 0 before the follower runs.', range: '0..1', panel: 'Modulation' },
-  'modSlot.joystickSmoothMs': { description: '1-pole low-pass on the joystick axis (per slot). Smooths jittery touchpad input.', range: '0..500 ms', panel: 'Modulation' },
-  'modSlot.joystickDeadzone': { description: 'Treat axis values within ±deadzone as exactly 0 (kills idle drift).', range: '0..0.5', panel: 'Modulation' },
-  'modSlot.joystickInvert':   { description: 'Flip the sign of the joystick axis read by this slot.', panel: 'Modulation' },
-  'modSlot.rampLoop':         { description: 'When OFF, the ramp runs once and holds at its end value (one-shot envelope). Useful for triggered sweeps.', panel: 'Modulation' },
-  'modSlot.outputCurve':      { description: 'Shape applied to the source value: Linear (no change), Exp (squashed near 0), Log (boosted near 0), S-curve (sigmoid), Step (3-level quantize).', panel: 'Modulation' },
-  'modSlot.outputMin':        { description: 'Lower bound of the output stage. Bipolar sources -1..+1 are remapped to [Min, Max].', range: '-2..2', panel: 'Modulation' },
-  'modSlot.outputMax':        { description: 'Upper bound of the output stage.', range: '-2..2', panel: 'Modulation' },
-  'modSlot.outputOffset':     { description: 'DC offset added after curve + range mapping.', range: '-1..1', panel: 'Modulation' },
-  'modSlot.outputInvert':     { description: 'Multiply the post-output-stage value by -1 right before the Amount knob.', panel: 'Modulation' },
-  'modSlot.constantValue':    { description: 'Value emitted by the Constant source. Useful as a static offset whose Amount can be modulated by another slot or by MIDI.', range: '-1..1', panel: 'Modulation' },
-
-  // ----- MIDI -----
-  midiInputId:    { description: 'Selected MIDI input device.', panel: 'MIDI' },
-  midiOutputId:   { description: 'Selected MIDI output device (for slot CC echo).', panel: 'MIDI' },
-  midiBindings:   { description: 'CC/note bindings that map MIDI messages to settings.', panel: 'MIDI' },
-
-  // ----- OSC -----
-  oscBridgeUrl:   { description: 'WebSocket URL of the local osc-bridge process.', panel: 'OSC' },
-  oscAutoConnect: { description: 'Reconnect automatically when the bridge restarts.', panel: 'OSC' },
-  oscBindings:    { description: 'OSC address → settings target bindings.', panel: 'OSC' },
-
-  // ----- Audio -----
-  audioInputKind:    { description: 'Audio source: microphone, audio file, or browser tab capture.', panel: 'Audio' },
-  audioFftSize:      { description: 'FFT window size. Larger = finer frequency resolution.', panel: 'Audio' },
-  audioBandCount:    { description: 'How many bands to derive from the spectrum.', panel: 'Audio' },
-  audioBandSpacing:  { description: 'Band layout: linear, log, or mel.', panel: 'Audio' },
-  audioAttackMs:     { description: 'Per-band rise time (ms).', panel: 'Audio' },
-  audioReleaseMs:    { description: 'Per-band fall time (ms).', panel: 'Audio' },
-  audioGain:         { description: 'Master gain on band values.', panel: 'Audio' },
-  audioFloor:        { description: 'Cutoff: anything below this clamps to 0.', panel: 'Audio' },
-  audioThresholdDb:  { description: 'Analyser dB floor (lower = more sensitive).', panel: 'Audio' },
-  audioMonitor:      { description: 'Route input audio back to the speakers.', panel: 'Audio' },
-  audioSpectrum:     { description: 'Spectrum-driven Z displacement on each scanline.', panel: 'Audio' },
-  beatEnabled:       { description: 'Spectral-flux beat detector.', panel: 'Audio' },
-  beatSensitivity:   { description: 'Sensitivity multiplier on the adaptive threshold.', panel: 'Audio' },
-  spectrumAmount:    { description: 'Strength of the spectrum-driven Z displacement.', panel: 'Audio' },
-  spectrumStride:    { description: 'How many bands per scanline (1 = one band per row).', panel: 'Audio' },
-
-  // ----- Record -----
-  recordPreferredFormat: { description: 'Preferred container/codec for recordings.', panel: 'Record' },
-  recordFps:             { description: 'Capture frame rate.', panel: 'Record' },
-  recordBitrateMbps:     { description: 'Video bitrate (Mbps).', panel: 'Record' },
-  recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
-
-  // ----- UI -----
-  panelDock:        { description: 'Side panel docks to the left or right edge.', panel: 'UI' },
-  panelCollapsed:   { description: 'Side panel collapsed state.', panel: 'UI' },
-  panelTab:         { description: 'Active top-level panel tab.', panel: 'UI' },
-  hudVisible:       { description: 'Show on-screen FPS/source HUD.', panel: 'UI' },
-  helpAutoOpen:     { description: 'Auto-open this manual on first run.', panel: 'UI' },
-  timelineDock:     { description: 'Position of the timeline dock: top, bottom, or hidden.', panel: 'UI' },
-  timelineHeight:   { description: 'Pixel height of the timeline dock.', panel: 'UI' },
-};
 
 // =====================================================================
 // Tab content
@@ -312,6 +174,188 @@ Six **video-*** node types turn the input video into CV:
 - **video-luma-row / video-luma-col** — read a single scanline.
 
 Open *Edge-Driven Focus* in the Library for an end-to-end example.
+
+## Voltage control (CV) input
+
+This synth can be driven by external analog voltages — from a Eurorack
+modular, a CV-equipped synth, or any device that outputs control voltage.
+The browser cannot read analog voltages directly, so CV must arrive
+through one of four routes:
+
+- **DC-coupled audio interface** (best fidelity) — interfaces like the
+  Expert Sleepers ES-8 / ES-9, MOTU UltraLite, or some Focusrite Scarletts
+  pass DC voltages through their audio inputs unchanged. Plug a CV into
+  the interface, select that channel as a CV input in the **I/O → CV**
+  panel, and it shows up as a source under both Classic (\`CV Input
+  (audio)\`) and Graph (\`CV Input\` node) modulation. ±5V Eurorack-style
+  CV is the default range; the panel lets you swap to 0–5V, ±10V, or
+  0–10V to match other formats.
+- **CV-to-MIDI converter** — modules like the Expert Sleepers FH-2 or
+  Befaco CV Thing convert analog CV to MIDI CC. Lower resolution than
+  direct CV but works with any standard audio interface. Use the existing
+  **MIDI Learn** button to bind incoming CCs to parameters.
+- **OSC bridge** — for custom hardware (RPi with ADC HAT, Norns, Bela,
+  Teensy with USB serial), run a bridge script that reads voltages and
+  emits OSC messages like \`/cv/1 0.234\`. The synth's I/O panel has a
+  **CV Inputs (OSC bridge)** section; add a channel for each address you
+  expect. See \`tools/cv-bridge/\` in the source tree for reference Python
+  scripts targeting MCP3008 and ADS1115 ADCs on a Raspberry Pi.
+- **Gamepad / MIDI controller** — not technically CV, but covers the same
+  use case of physical knobs and sliders driving synth params. Plug in a
+  gamepad and its axes / buttons appear as sources (\`Gamepad Axis\`,
+  \`Gamepad Button\`).
+
+### Quick setup (DC-coupled interface)
+
+1. Plug your CV source into channel 1 of your DC-coupled audio interface.
+2. In **I/O → CV**, pick your interface from the dropdown and click
+   **Start CV input**.
+3. Watch the channel 1 readout — it should show your CV value in volts
+   and react when you move the source.
+4. In Modulation, add a patch with **Source = CV Input (audio)**,
+   **Channel = 0**, **Target = whatever you want to control**.
+
+### Calibration
+
+If your CV source has a DC offset (e.g., outputs 1V at "rest"), click the
+channel's **Calibrate** button to capture the current value as zero —
+movements relative to that zero are then centered. Shift+click clears
+calibration. The expanded slot row in Modulation has a Calibrate button
+too, so you can recalibrate without leaving the patch.
+
+### CV Learn
+
+In an expanded patch row with a CV input source, click the **Learn**
+button and wiggle a CV. The system watches every channel for ~2 seconds
+and binds the channel that moved the most — same UX as MIDI Learn.
+
+### Gotchas
+
+- **AC-coupled interfaces** filter out slow voltages: a steady CV will
+  drift toward zero over a few seconds. Test by sending a steady voltage
+  and watching a channel readout — if it sags, your interface is
+  AC-coupled and direct CV won't work. Use a CV-to-MIDI converter
+  instead.
+- **Eurorack CV is typically ±5V**; some sources are 0–5V (gates,
+  envelopes) or ±10V (industrial). Set the channel's voltage range to
+  match.
+- **Firefox** clamps multi-channel input to 2 channels in many configs.
+  The CV panel surfaces a warning when that happens; use Chrome or Edge
+  for full multi-channel CV.
+- **Audio interface disconnected mid-session** — channels zero out and
+  the section shows an "Audio interface disconnected" status. Reconnect
+  and click **Start CV input** to resume.
+
+## Voltage control (CV) output
+
+Symmetric counterpart to CV input: the synth can SEND control voltages
+out to your modular or external hardware. Any synth parameter,
+modulation source, or graph node can be routed to a CV output channel.
+
+**Requirements**:
+- A DC-coupled audio interface (Expert Sleepers ES-3/8/9, MOTU
+  UltraLite, etc.) — same as CV input.
+- Spare output channels on that interface (you'll want at least 1 or 2
+  for audio monitoring; the rest can be CV).
+
+### Quick setup
+
+1. In the I/O tab, find **CV Out**.
+2. Pick the DC-coupled interface from the dropdown and click
+   **Start CV output**. The first click also satisfies Chrome's
+   "user gesture before AudioContext" requirement.
+3. Click **+ Add output** — a new channel appears using the next free
+   index.
+4. Pick a **Type** (cv, gate, trigger, clock, pitch).
+5. Pick a **Source**:
+   - **Constant value** — useful for testing. Just emits a fixed
+     voltage.
+   - **Classic slot** — a Classic patch's post-output value.
+     <i>Also</i> set that slot's Target to "CV Out: Ch N" — the slot
+     drives the channel directly through the routing token.
+   - **Graph node** — by id + port. Or, more cleanly, drop a
+     **CV Output** node in the graph and set its channel parameter.
+   - **Settings param** — emit any modulatable param's live value
+     (so the wire mirrors what the synth is currently doing).
+   - **MIDI note** — for pitch type, the last incoming MIDI note.
+   - **Auto** — for clock type, follows the internal BPM.
+6. Click **Test** to send +2.5V steady. Confirm with a multimeter, or
+   patch the channel into an oscillator and listen for the offset.
+7. Click the **Enable** checkbox to start sending live.
+
+### Output types
+
+- **cv** — continuous voltage tracking the source. Use for envelopes,
+  LFOs, parameter automation.
+- **gate** — high/low based on threshold. Use for triggering envelope
+  generators, sequencers' Run inputs.
+- **trigger** — short pulse on rising edges (default 10ms at 5V). Use
+  for drum triggers, sample-and-hold clocks.
+- **clock** — square-wave clock at a tempo division. Use for syncing
+  external sequencers and clocks. Source = internal BPM by default.
+- **pitch** — 1V/octave pitch CV. Use for sequencing external
+  oscillators from MIDI input, the timeline sequencer, or a graph
+  sequencer node.
+
+### 1V/octave pitch output and calibration
+
+\`voltage = referenceVoltage + ((midiNote − referenceNote) / 12) × voltsPerOctave\`
+
+Default: reference C4 (note 60) → 0V, 1.0V/oct. So note 72 (C5) → 1V,
+note 48 (C3) → −1V, note 61 (C#4) → 0.0833V.
+
+Modular tuning is sensitive: a 1% scaling error compounds across
+octaves — 5 cents off at C5 becomes 25 cents off at C9. The **Calibrate
+Pitch** button opens a panel with **Play C2** / **Play C6** buttons and
+a **Scaling trim** slider. Tune your oscillator to C2 by ear or with a
+tuner, then play C6 and adjust the trim until C6 is also in tune. The
+trim is a multiplier on V/oct (factory: 1.0; ±5% covers nearly all
+interface drift). Most Expert Sleepers interfaces are factory-calibrated
+and don't need this.
+
+### Routing (Chrome and friends)
+
+The CV output AudioContext uses \`setSinkId\` to target the chosen
+DC-coupled interface. A \`ChannelMergerNode\` sized to the interface's
+channel count fans each channel's worklet to a specific hardware output.
+Audio output and CV output are on **different AudioContexts**, so the
+synth's audible mix never bleeds into CV channels — they are physically
+isolated.
+
+- **Chrome / Edge**: \`setSinkId\` on AudioContext is supported. Pick
+  the interface in the dropdown and you're done.
+- **Firefox**: \`setSinkId\` on AudioContext is not supported. The
+  status line surfaces this; use OS-level audio routing (Loopback on
+  macOS, VoiceMeeter on Windows, JACK / PipeWire on Linux) to pin the
+  browser's output to your DC-coupled interface.
+
+### Safety
+
+Two guards prevent damaging external gear:
+
+- **Hard sample clamp** in the audio worklet — every sample is clamped
+  to ±1.0 before being written. A bug in the source pipeline cannot
+  produce a 50V swing on the wire.
+- **0V startup ramp** — every channel starts at 0V on enable and ramps
+  to its target over 100ms. Saved configurations restore the channel
+  configs but **\`enabled\` is forced to false on every page load**;
+  you must re-arm each channel before any voltage actually leaves the
+  interface. Prevents click/pop and unexpected jumps when hardware is
+  already physically connected.
+
+### Gotchas
+
+- **CV output has the same latency as your audio interface** — typically
+  20–50ms. Fine for LFOs and envelopes; borderline for tight drum
+  triggers. For sample-accurate triggers, consider a hardware
+  MIDI-to-CV converter driven by Web MIDI instead.
+- **AC-coupled interfaces will not work** for slow CVs (sag toward 0V),
+  for the same coupling reasons as CV input. DC-coupled outputs are
+  required.
+- **Eurorack gear is generally tolerant of voltage overshoot** but some
+  hardware isn't. The synth clamps every sample to your configured
+  voltage range as a safety measure, and ramps from 0V on enable to
+  protect against pops on patch.
 
 ## Coexistence
 

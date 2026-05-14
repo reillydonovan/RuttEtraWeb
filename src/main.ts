@@ -155,7 +155,7 @@ async function bootSynth(): Promise<void> {
   // We boot the matrix with thin shim instances and replace internals once
   // the real modules arrive. Keep main.ts shape stable.
   const ioModule = await import('./io/IoSubsystems');
-  const io = await ioModule.bootIoSubsystems(settings);
+  const io = await ioModule.bootIoSubsystems(settings, liveValues);
 
   const matrix = new ModMatrix(settings, {
     fft:         io.fft,
@@ -164,6 +164,9 @@ async function bootSynth(): Promise<void> {
     midiMapping: io.midiMapping,
     midiManager: io.midiManager,
     osc:         io.osc,
+    cv:          io.cv,
+    cvOut:       io.cvOut,
+    gamepad:     io.gamepad,
     liveValues,
   });
 
@@ -186,6 +189,9 @@ async function bootSynth(): Promise<void> {
       midiMapping: io.midiMapping,
       midiManager: io.midiManager,
       osc:         io.osc,
+      cv:          io.cv,
+      cvOut:       io.cvOut,
+      gamepad:     io.gamepad,
       videoTap,
       liveValues,
     });
@@ -250,7 +256,7 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
-  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, liveValues, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
+  panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, liveValues, cv: io.cv, gamepad: io.gamepad, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
   panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
   panel.addSection({ tab: 'synth', title: 'Presets',               body: createPresetsSection(settings) });
   panel.addSection({
@@ -285,18 +291,22 @@ async function bootSynth(): Promise<void> {
   // Lazy-load Record + Share + I/O sections + Help so they don't ship in
   // the initial chunk. UI shows a placeholder until the modules resolve.
   void (async () => {
-    const [rs, ss, ms, as, os] = await Promise.all([
+    const [rs, ss, ms, as, os, cvs, cvos] = await Promise.all([
       import('./ui/sections/RecordSection'),
       import('./ui/sections/ShareSection'),
       import('./ui/sections/MidiSection'),
       import('./ui/sections/AudioSection'),
       import('./ui/sections/OscSection'),
+      import('./ui/sections/CVSection'),
+      import('./ui/sections/CVOutputSection'),
     ]);
     panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, recorder, sequencer) });
     panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, canvas) });
     panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
+    panel.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
+    panel.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
   })();
 
   void (async () => {
@@ -448,6 +458,7 @@ async function bootSynth(): Promise<void> {
     io.midiClock.tick(dt);
     io.fft.tick(dt);
     io.beat.tick(dt);
+    io.gamepad.poll();
     // Mode switch: Classic engine writes only when `modMode` is `'classic'`
     // or `'both'`. When mode is `'graph'`, we publish an empty Classic
     // target set so the dual-engine indicator deactivates immediately.
@@ -459,6 +470,10 @@ async function bootSynth(): Promise<void> {
     }
     videoTap?.tick();
     graphEngine?.tick(dt);
+    // CV output tick MUST run after both modulation engines so source
+    // values from Classic slot targets and Graph cv-output nodes are
+    // already in `cvOut.classicSources` / `cvOut.graphSources`.
+    io.cvOut.tick(dt);
     sequencer.tick(dt);
     cameraRig.tick(dt);
     ruttEtra.updateSpectrum(io.fft.bands);

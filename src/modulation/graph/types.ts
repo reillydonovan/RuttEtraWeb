@@ -25,6 +25,10 @@ export type NodeType =
   // Inputs
   | 'joystick-x' | 'joystick-y' | 'joystick-z'
   | 'midi-cc' | 'midi-note' | 'osc-in'
+  // v9: external voltage control
+  | 'cv-input' | 'gamepad-axis' | 'gamepad-button'
+  // v9: CV out — sink node, writes its input to a CV output channel
+  | 'cv-output'
   // Processors
   | 'attenuator' | 'inverter' | 'offset' | 'scale' | 'range'
   | 'mixer' | 'multiplier' | 'crossfade' | 'min' | 'max'
@@ -124,6 +128,14 @@ export interface NodeDeps {
   midiMapping?: MidiMappingLike | null;
   midiManager?: unknown;
   osc?: OscLike | null;
+  /** v9: external CV reader (DC-coupled audio interface). Null until started. */
+  cv?: CVLike | null;
+  /** v9: gamepad / HID poller. Null when no gamepad is bound. */
+  gamepad?: GamepadLike | null;
+  /** v9: CV output writer. Null when CV-out is not running. The
+   *  `cv-output` graph node uses this to deliver per-frame source
+   *  values to the CV-output subsystem. */
+  cvOut?: CVOutputLike | null;
   /** Stage 5: shared video readback service. Null until wired. */
   videoTap?: VideoTapLike | null;
   /**
@@ -168,6 +180,29 @@ export interface MidiMappingLike {
 export interface OscLike {
   getMostRecent(): number;
   getByAddress?(address: string): number;
+  /** Last value cached for an exact (address, argIndex) pair. 0 if unseen. */
+  getValue?(address: string, argIndex: number): number;
+}
+
+export interface CVLike {
+  /** Latest normalized sample for `channel` (-1..1, or 0..1 if unipolar). */
+  getNormalized(channel: number): number;
+  /** Voltage label for `channel` — NaN if no data has arrived yet. */
+  getVoltage(channel: number): number;
+  /** Variance of `channel` over the recent window — for CV Learn. */
+  getVariance(channel: number): number;
+  running: boolean;
+  channelCount: number;
+}
+
+export interface GamepadLike {
+  getAxis(i: number): number;
+  getButton(i: number): number;
+  getAxisVariance(i: number): number;
+}
+
+export interface CVOutputLike {
+  setGraphSource(channelIndex: number, value: number): void;
 }
 
 export interface VideoTapLike {

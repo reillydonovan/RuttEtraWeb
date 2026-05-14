@@ -1,0 +1,171 @@
+/**
+ * Per-parameter documentation — pure data, no dependencies on the rest
+ * of the help system, no markdown content, no graph imports.
+ *
+ * This file is the single source of truth for the in-app Help's
+ * Controls tab and the about-page Param Reference section. It's split
+ * out from `content.ts` so the about page can import only this map
+ * (and tree-shake away the much heavier in-app Help markdown blobs).
+ *
+ * Adding a new param = add a key here. Both surfaces pick it up
+ * automatically.
+ */
+
+export type PanelGroup =
+  | 'Source' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
+  | 'Modulation' | 'MIDI' | 'Audio' | 'OSC' | 'CV' | 'Record' | 'Share' | 'UI';
+
+export interface ParamDoc {
+  description: string;
+  range?: string;
+  panel: PanelGroup;
+}
+
+export const PARAM_DOCS: Record<string, ParamDoc> = {
+  // ----- Source -----
+  sourceKind: { description: 'Active video source: webcam, screen share, or file.', panel: 'Source' },
+  mirrorH:    { description: 'Mirror the input left/right.', panel: 'Source' },
+  mirrorV:    { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
+
+  // ----- DCU (Display Control Unit) -----
+  zPush:      { description: 'How far bright pixels are pushed toward the camera.', range: '-4..4', panel: 'DCU' },
+  zBias:      { description: 'Vertical offset added to every scanline before pushing in Z.', range: '-2..2', panel: 'DCU' },
+  zInvert:    { description: 'Invert the brightness-to-Z mapping (dark pushes forward).', panel: 'DCU' },
+  intensity:  { description: 'Brightness multiplier applied to each scanline.', range: '0..3', panel: 'DCU' },
+  focus:      { description: 'Soft Gaussian blur on the brightness signal.', range: '0..1', panel: 'DCU' },
+  threshold:  { description: 'Black-crush threshold; pixels below this go to 0.', range: '0..1', panel: 'DCU' },
+  contrast:   { description: 'Contrast applied before scanning.', range: '0..3', panel: 'DCU' },
+  gamma:      { description: 'Gamma correction (lower = brighter midtones).', range: '0.2..3', panel: 'DCU' },
+  hPos:       { description: 'Horizontal centering of the raster.', panel: 'DCU' },
+  vPos:       { description: 'Vertical centering of the raster.', panel: 'DCU' },
+  hSize:      { description: 'Horizontal stretch of the raster.', panel: 'DCU' },
+  vSize:      { description: 'Vertical stretch of the raster.', panel: 'DCU' },
+  hLinearity: { description: 'Pinch/expand the raster horizontally (non-linear stretch).', panel: 'DCU' },
+  vLinearity: { description: 'Pinch/expand the raster vertically (non-linear stretch).', panel: 'DCU' },
+  scanRate:   { description: 'Number of horizontal scanlines drawn per frame.', range: '60..720', panel: 'DCU' },
+  cols:       { description: 'Samples per scanline (horizontal resolution).', range: '32..960', panel: 'DCU' },
+  skip:       { description: 'Skip every N-th scanline to thin the pattern.', panel: 'DCU' },
+  hSpin:      { description: 'Horizontal twist (yaw) of the rendered surface.', panel: 'DCU' },
+  vSpin:      { description: 'Vertical twist (pitch).', panel: 'DCU' },
+  hSpinRate:  { description: 'Auto-rotate around the Y axis at this rate.', panel: 'DCU' },
+  vSpinRate:  { description: 'Auto-rotate around the X axis at this rate.', panel: 'DCU' },
+  hReverse:   { description: 'Flip horizontal scan direction.', panel: 'DCU' },
+  vReverse:   { description: 'Flip vertical scan direction.', panel: 'DCU' },
+  rotate90:   { description: 'Rotate the entire raster 90°.', panel: 'DCU' },
+
+  // ----- Color / PostFX -----
+  colorMode:        { description: 'Phosphor look: grayscale, green, amber, custom tint, or sampled video color.', panel: 'Color/PostFX' },
+  customTint:       { description: 'Tint applied when colorMode is "phosphorCustom".', panel: 'Color/PostFX' },
+  backgroundColor:  { description: 'Backdrop color behind the scanlines.', panel: 'Color/PostFX' },
+  bloomEnabled:     { description: 'CRT bloom (off by default for crisp lines).', panel: 'Color/PostFX' },
+  bloomIntensity:   { description: 'Bloom strength.', panel: 'Color/PostFX' },
+  bloomRadius:      { description: 'Bloom blur radius.', panel: 'Color/PostFX' },
+  bloomThreshold:   { description: 'Pixel brightness threshold above which bloom kicks in.', panel: 'Color/PostFX' },
+  scanlineEnabled:  { description: 'Overlay horizontal scanline mask.', panel: 'Color/PostFX' },
+  scanlineIntensity:{ description: 'How dark the gaps between scanlines get.', panel: 'Color/PostFX' },
+  scanlineDensity:  { description: 'Scanlines per screen height.', panel: 'Color/PostFX' },
+  chromaEnabled:    { description: 'Subtle chromatic aberration on the RGB channels.', panel: 'Color/PostFX' },
+  chromaAmount:     { description: 'Strength of the chromatic offset.', panel: 'Color/PostFX' },
+  vignetteEnabled:  { description: 'Soft corner darkening.', panel: 'Color/PostFX' },
+  vignetteAmount:   { description: 'Vignette strength.', panel: 'Color/PostFX' },
+  feedbackEnabled:  { description: 'Long-exposure feedback trails (CRT burn-in).', panel: 'Color/PostFX' },
+  feedbackDecay:    { description: 'How fast trails fade (1 = forever, 0 = none).', range: '0..1', panel: 'Color/PostFX' },
+
+  // ----- Geometry / render -----
+  renderMode:       { description: 'Wireframe (lines) vs filled triangles vs points.', panel: 'Geometry' },
+  thickLines:       { description: 'Use a thicker line technique (heavier on GPU).', panel: 'Geometry' },
+  lineWidth:        { description: 'Line thickness when thickLines is on.', panel: 'Geometry' },
+
+  // ----- Camera -----
+  cameraMode:       { description: 'Orbit (mouse drag, quaternion-based — full 360° in any axis) or fly-through (WASD + mouse, unclamped pitch/roll).', panel: 'Camera' },
+  cameraFov:        { description: 'Field of view in degrees.', range: '20..120', panel: 'Camera' },
+  cameraNear:       { description: 'Near clipping plane.', panel: 'Camera' },
+  cameraFar:        { description: 'Far clipping plane.', panel: 'Camera' },
+  autoOrbit:        { description: 'Slowly orbit the scene with no input.', panel: 'Camera' },
+  autoOrbitSpeed:   { description: 'Orbit angular speed.', panel: 'Camera' },
+  flySpeed:         { description: 'Base movement speed in fly mode.', panel: 'Camera' },
+  flyBoost:         { description: 'Hold Shift to multiply fly speed by this.', panel: 'Camera' },
+  defaultView:      { description: 'Saved camera view used by the "Reset View [R]" button. Cleared by "Hard Reset Camera [Shift+R]".', panel: 'Camera' },
+  renderResolutionId:     { description: 'GPU render resolution, independent of window size. "Match Window" (default) tracks the display; SD/HD/4K presets lock the render target to a fixed pixel count. Recording output uses this resolution.', panel: 'Camera' },
+  renderFitMode:          { description: 'How to display the render target when its aspect ratio differs from the window. Letterbox = pixel-accurate with black bars (best for recording). Fill = no bars, edges cropped. Stretch = aspect-correct render scaled to fill window.', panel: 'Camera' },
+  renderResolutionCustomW: { description: 'Custom render width in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
+  renderResolutionCustomH: { description: 'Custom render height in pixels (only active when Resolution is set to "Custom…").', range: '256..7680', panel: 'Camera' },
+
+  // ----- Modulation -----
+  modSlots:        { description: 'Up to 4 modulation slots. Each routes a source through a per-slot output stage to a target parameter.', panel: 'Modulation' },
+  internalBpm:     { description: 'Global Tempo, shared by Timeline playback, Classic LFOs in Tempo sync mode, and the Graph Clock node. There is no per-timeline BPM in v8 — set it once here.', range: '20..300', panel: 'Modulation' },
+  modSlotExpanded: { description: 'UI-only: which slots are currently showing their expanded controls. Excluded from preset export.', panel: 'Modulation' },
+  'modSlot.syncMode':      { description: 'How the LFO clock is generated: Free (slot Hz), MIDI (locked to incoming MIDI clock — holds last rate when silent, no fallback), or Tempo (locked to global Tempo BPM).', panel: 'Modulation' },
+  'modSlot.lfoDepth':      { description: 'LFO amplitude before the output stage. 1 = full swing, 0 = silent.', range: '0..1', panel: 'Modulation' },
+  'modSlot.lfoUnipolar':   { description: 'When ON, the LFO output is remapped from -1..+1 to 0..+1 (handy for parameters that dislike going negative, e.g. zPush below 0).', panel: 'Modulation' },
+  'modSlot.audioAttackMs': { description: 'Per-slot envelope follower attack on the audio source. Shorter = snappier, longer = smoother.', range: '1..1000 ms', panel: 'Modulation' },
+  'modSlot.audioReleaseMs':{ description: 'Per-slot envelope follower release on the audio source.', range: '1..5000 ms', panel: 'Modulation' },
+  'modSlot.audioGain':     { description: 'Multiplier on the audio envelope before clamping.', range: '0..4', panel: 'Modulation' },
+  'modSlot.audioFloor':    { description: 'Noise gate: any audio below this value clamps to 0 before the follower runs.', range: '0..1', panel: 'Modulation' },
+  'modSlot.joystickSmoothMs': { description: '1-pole low-pass on the joystick axis (per slot). Smooths jittery touchpad input.', range: '0..500 ms', panel: 'Modulation' },
+  'modSlot.joystickDeadzone': { description: 'Treat axis values within ±deadzone as exactly 0 (kills idle drift).', range: '0..0.5', panel: 'Modulation' },
+  'modSlot.joystickInvert':   { description: 'Flip the sign of the joystick axis read by this slot.', panel: 'Modulation' },
+  'modSlot.rampLoop':         { description: 'When OFF, the ramp runs once and holds at its end value (one-shot envelope). Useful for triggered sweeps.', panel: 'Modulation' },
+  'modSlot.outputCurve':      { description: 'Shape applied to the source value: Linear (no change), Exp (squashed near 0), Log (boosted near 0), S-curve (sigmoid), Step (3-level quantize).', panel: 'Modulation' },
+  'modSlot.outputMin':        { description: 'Lower bound of the output stage. Bipolar sources -1..+1 are remapped to [Min, Max].', range: '-2..2', panel: 'Modulation' },
+  'modSlot.outputMax':        { description: 'Upper bound of the output stage.', range: '-2..2', panel: 'Modulation' },
+  'modSlot.outputOffset':     { description: 'DC offset added after curve + range mapping.', range: '-1..1', panel: 'Modulation' },
+  'modSlot.outputInvert':     { description: 'Multiply the post-output-stage value by -1 right before the Amount knob.', panel: 'Modulation' },
+  'modSlot.constantValue':    { description: 'Value emitted by the Constant source. Useful as a static offset whose Amount can be modulated by another slot or by MIDI.', range: '-1..1', panel: 'Modulation' },
+
+  // ----- MIDI -----
+  midiInputId:    { description: 'Selected MIDI input device.', panel: 'MIDI' },
+  midiOutputId:   { description: 'Selected MIDI output device (for slot CC echo).', panel: 'MIDI' },
+  midiBindings:   { description: 'CC/note bindings that map MIDI messages to settings.', panel: 'MIDI' },
+
+  // ----- OSC -----
+  oscBridgeUrl:   { description: 'WebSocket URL of the local osc-bridge process.', panel: 'OSC' },
+  oscAutoConnect: { description: 'Reconnect automatically when the bridge restarts.', panel: 'OSC' },
+  oscBindings:    { description: 'OSC address → settings target bindings.', panel: 'OSC' },
+
+  // ----- Audio -----
+  audioInputKind:    { description: 'Audio source: microphone, audio file, or browser tab capture.', panel: 'Audio' },
+  audioFftSize:      { description: 'FFT window size. Larger = finer frequency resolution.', panel: 'Audio' },
+  audioBandCount:    { description: 'How many bands to derive from the spectrum.', panel: 'Audio' },
+  audioBandSpacing:  { description: 'Band layout: linear, log, or mel.', panel: 'Audio' },
+  audioAttackMs:     { description: 'Per-band rise time (ms).', panel: 'Audio' },
+  audioReleaseMs:    { description: 'Per-band fall time (ms).', panel: 'Audio' },
+  audioGain:         { description: 'Master gain on band values.', panel: 'Audio' },
+  audioFloor:        { description: 'Cutoff: anything below this clamps to 0.', panel: 'Audio' },
+  audioThresholdDb:  { description: 'Analyser dB floor (lower = more sensitive).', panel: 'Audio' },
+  audioMonitor:      { description: 'Route input audio back to the speakers.', panel: 'Audio' },
+  audioSpectrum:     { description: 'Spectrum-driven Z displacement on each scanline.', panel: 'Audio' },
+  beatEnabled:       { description: 'Spectral-flux beat detector.', panel: 'Audio' },
+  beatSensitivity:   { description: 'Sensitivity multiplier on the adaptive threshold.', panel: 'Audio' },
+  spectrumAmount:    { description: 'Strength of the spectrum-driven Z displacement.', panel: 'Audio' },
+  spectrumStride:    { description: 'How many bands per scanline (1 = one band per row).', panel: 'Audio' },
+
+  // ----- CV (v9) -----
+  cvEnabled:           { description: 'Master enable for the audio-interface CV reader. Controlled by the Start/Stop button in I/O → CV.', panel: 'CV' },
+  cvDeviceId:          { description: 'mediaDevices ID of the DC-coupled audio interface used as a CV source.', panel: 'CV' },
+  cvRequestedChannels: { description: 'How many channels to request from the audio interface. Browsers may grant fewer; truncated count surfaces a warning.', range: '1..32', panel: 'CV' },
+  cvChannels:          { description: 'Per-channel CV config: enable, label, voltage range, polarity, smoothing, control rate, calibration offset, invert.', panel: 'CV' },
+  cvBridgeChannels:    { description: 'OSC-bridge CV channels (Route C). Each maps an OSC address (e.g. /cv/1) to a normalized signal with configurable input range and polarity.', panel: 'CV' },
+  gamepadIndex:        { description: 'Selected gamepad index from navigator.getGamepads(), or -1 = none.', panel: 'CV' },
+  gamepadDeadzone:     { description: 'Deadzone applied to gamepad axes (any value within ±deadzone is treated as 0).', range: '0..0.5', panel: 'CV' },
+
+  cvOutputEnabled:       { description: 'Master switch for CV output. Stays false on every page load until you click Start in I/O → CV Out, even if it was on when you saved.', panel: 'CV' },
+  cvOutputDeviceId:      { description: 'mediaDevices ID of the audio interface that the CV output AudioContext targets via setSinkId. DC-coupled interfaces only.', panel: 'CV' },
+  cvOutputChannelCount:  { description: 'How many output channels to open on the merger. Capped to the interface\'s maxChannelCount.', range: '1..32', panel: 'CV' },
+  cvOutputChannels:      { description: 'Per-channel CV-output config: type (cv/gate/trigger/clock/pitch), source binding, voltage range, scale, offset, smoothing, plus type-specific fields. enabled is force-reset to false on every load.', panel: 'CV' },
+
+  // ----- Record -----
+  recordPreferredFormat: { description: 'Preferred container/codec for recordings.', panel: 'Record' },
+  recordFps:             { description: 'Capture frame rate.', panel: 'Record' },
+  recordBitrateMbps:     { description: 'Video bitrate (Mbps).', panel: 'Record' },
+  recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
+
+  // ----- UI -----
+  panelDock:        { description: 'Side panel docks to the left or right edge.', panel: 'UI' },
+  panelCollapsed:   { description: 'Side panel collapsed state.', panel: 'UI' },
+  panelTab:         { description: 'Active top-level panel tab.', panel: 'UI' },
+  hudVisible:       { description: 'Show on-screen FPS/source HUD.', panel: 'UI' },
+  helpAutoOpen:     { description: 'Auto-open this manual on first run.', panel: 'UI' },
+  timelineDock:     { description: 'Position of the timeline dock: top, bottom, or hidden.', panel: 'UI' },
+  timelineHeight:   { description: 'Pixel height of the timeline dock.', panel: 'UI' },
+};

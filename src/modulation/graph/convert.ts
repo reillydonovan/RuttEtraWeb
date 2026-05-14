@@ -113,6 +113,26 @@ function slotToSourceNode(slot: ModSlot, idx: number): GraphNode | null {
         id, type: 'constant', inputs: {},
         params: { value: slot.constantValue },
       };
+    case 'cvAudio':
+      return {
+        id, type: 'cv-input', inputs: {},
+        params: { route: 'audio', channel: slot.cvChannel, bipolar: true },
+      };
+    case 'cvOsc':
+      return {
+        id, type: 'cv-input', inputs: {},
+        params: { route: 'osc', channel: slot.cvChannel, bipolar: true },
+      };
+    case 'gamepadAxis':
+      return {
+        id, type: 'gamepad-axis', inputs: {},
+        params: { axis: slot.gamepadIndex },
+      };
+    case 'gamepadBtn':
+      return {
+        id, type: 'gamepad-button', inputs: {},
+        params: { button: slot.gamepadIndex, bipolar: false },
+      };
   }
 }
 
@@ -122,4 +142,5 @@ export const CLASSIC_SOURCE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
   'midi-cc', 'midi-note', 'clock', 'osc-in',
   'joystick-x', 'joystick-y', 'joystick-z',
   'constant',
+  'cv-input', 'gamepad-axis', 'gamepad-button',
 ]);

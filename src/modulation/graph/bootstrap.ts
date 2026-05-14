@@ -15,5 +15,6 @@ import './nodes/sources';
 import './nodes/audio';
 import './nodes/video';
 import './nodes/inputs';
+import './nodes/outputs';
 import './nodes/processors';
 import './nodes/logic';

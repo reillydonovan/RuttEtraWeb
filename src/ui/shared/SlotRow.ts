@@ -38,11 +38,22 @@ export interface BoolAdapter {
   set(value: boolean): void;
 }
 
-/** Generic getter/setter for an enum / string field with a fixed option set. */
+/** Generic getter/setter for an enum / string field with a fixed option set.
+ *
+ *  `options` may be either a static array or a thunk; the thunk form lets
+ *  Target dropdowns refresh `cv:N` virtual targets when the user adds /
+ *  removes a CV-output channel without rebuilding the whole adapter. */
 export interface EnumAdapter<T extends string = string> {
   get(): T;
   set(value: T): void;
-  options: ReadonlyArray<{ v: T; l: string }>;
+  options: ReadonlyArray<{ v: T; l: string }> | (() => ReadonlyArray<{ v: T; l: string }>);
+}
+
+/** Resolve an EnumAdapter's options to a concrete array. */
+export function resolveOptions<T extends string>(
+  o: EnumAdapter<T>['options'],
+): ReadonlyArray<{ v: T; l: string }> {
+  return typeof o === 'function' ? o() : o;
 }
 
 /**
@@ -120,6 +131,42 @@ export interface SlotRowAdapter {
   // MIDI clock-only sub-section
   midiClock?: { clockDivision: EnumAdapter };
 
+  // v9: CV input (audio-interface CV / OSC bridge)
+  cv?: {
+    /** Channel index — 0..n-1. */
+    channel: NumAdapter;
+    /** Live voltage readout (NaN = no signal yet). Polled per frame. */
+    readVoltage(): number;
+    /** Live normalized value (-1..1) for the bar. */
+    readNormalized(): number;
+    /** Click handler for "Calibrate" — captures current sample as zero. */
+    calibrate(): void;
+    /** Long-press / Shift+click handler — clears calibration. */
+    resetCalibration(): void;
+    /** Per-channel range (visualised, not editable here — edit in I/O panel). */
+    rangeLabel(): string;
+    /** True if the CV reader is currently running and the channel is active. */
+    available(): boolean;
+    /** True for Route C (OSC bridge); false for Route A (audio interface). */
+    isOsc: boolean;
+    /** Variance — used by the row's CV Learn shortcut, if exposed. */
+    readVariance?(): number;
+    /** Fire CV Learn from the row. Optional — main button lives next to target. */
+    learn?(): void;
+  };
+
+  // v9: Gamepad / HID
+  gamepad?: {
+    /** Axis or button index. */
+    index: NumAdapter;
+    /** Live value (-1..1 for axis, 0..1 for button). */
+    readValue(): number;
+    /** True if a gamepad is connected and the index is in range. */
+    available(): boolean;
+    /** True for buttons (display 0..1), false for axes (-1..1). */
+    isButton: boolean;
+  };
+
   // -------------------- shared output stage --------------------
 
   output: {
@@ -196,6 +243,9 @@ export type SourceKind =
   | 'osc'
   | 'joystick'
   | 'constant'
+  | 'cvAudio'
+  | 'cvOsc'
+  | 'gamepad'
   | 'unsupported';
 
 // ====================================================================
@@ -286,7 +336,7 @@ interface DropdownUi { root: HTMLElement; refresh(): void; }
 /** Build a labeled dropdown bound to an EnumAdapter. */
 export function buildDropdownRow<T extends string>(label: string, a: EnumAdapter<T>): DropdownUi {
   const sel = el('select', 'rw-select rw-control') as HTMLSelectElement;
-  for (const o of a.options) {
+  for (const o of resolveOptions(a.options)) {
     const opt = el('option') as HTMLOptionElement;
     opt.value = o.v; opt.textContent = o.l;
     sel.appendChild(opt);
@@ -335,7 +385,12 @@ export const OUTPUT_CURVE_OPTS: ReadonlyArray<{ v: OutputCurve; l: string }> = [
 // Body group builders
 // ====================================================================
 
-interface BodyGroup { root: HTMLElement; refresh(): void; }
+interface BodyGroup {
+  root: HTMLElement;
+  refresh(): void;
+  /** Optional teardown when the group's row is rebuilt. */
+  dispose?(): void;
+}
 
 function buildLfoGroup(lfo: NonNullable<SlotRowAdapter['lfo']>): BodyGroup {
   const g = buildGroup('LFO');
@@ -462,6 +517,135 @@ function buildMidiClockGroup(mc: NonNullable<SlotRowAdapter['midiClock']>): Body
   return { root: g.root, refresh: u.refresh };
 }
 
+/**
+ * Drive a per-frame poll for the live-readout body groups. Returns a
+ * disposer that stops the poll when the row is rebuilt.
+ */
+function startPollLoop(refresh: () => void): () => void {
+  let alive = true;
+  const tick = (): void => {
+    if (!alive) return;
+    try { refresh(); } catch { /* no-op — keep loop running */ }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return () => { alive = false; };
+}
+
+function buildCvGroup(cv: NonNullable<SlotRowAdapter['cv']>): BodyGroup {
+  const g = buildGroup(cv.isOsc ? 'CV (OSC)' : 'CV (audio)');
+  const refreshers: Array<() => void> = [];
+
+  const chUi = buildNumField('Channel', cv.channel);
+  refreshers.push(chUi.refresh);
+  g.body.appendChild(chUi.root);
+
+  // Live readout: voltage label + a small horizontal bar showing position
+  // within the configured range. The bar is the difference between
+  // "channel is wired" and "channel is silent at 0V" — without it users
+  // burn time wondering if a patch even sees their CV.
+  const liveRow = el('div', 'rw-mod-row rw-mod-cv-live');
+  const liveLabel = el('span', 'rw-mod-row-label');
+  liveLabel.textContent = 'Live';
+  const liveBarWrap = el('div', 'rw-mod-cv-bar-wrap');
+  const liveBar = el('div', 'rw-mod-cv-bar');
+  liveBarWrap.appendChild(liveBar);
+  const liveText = el('span', 'rw-mod-cv-text');
+  liveText.textContent = '—V';
+  liveRow.append(liveLabel, liveBarWrap, liveText);
+  g.body.appendChild(liveRow);
+
+  // Calibrate / range row.
+  const ctlRow = el('div', 'rw-mod-row rw-mod-cv-ctl');
+  const rangeBadge = el('span', 'rw-mod-cv-range');
+  rangeBadge.textContent = cv.rangeLabel();
+  const calBtn = el('button', 'rw-btn rw-mod-cv-calibrate', 'Calibrate') as HTMLButtonElement;
+  calBtn.type = 'button';
+  calBtn.title = 'Capture current voltage as zero. Shift+click to clear calibration.';
+  calBtn.addEventListener('click', (e) => {
+    if ((e as MouseEvent).shiftKey) cv.resetCalibration();
+    else cv.calibrate();
+  });
+  ctlRow.append(rangeBadge, calBtn);
+  if (cv.learn) {
+    const learnBtn = el('button', 'rw-btn rw-mod-cv-learn', 'Learn') as HTMLButtonElement;
+    learnBtn.type = 'button';
+    learnBtn.title = 'Click, then wiggle the CV — that channel binds to this slot.';
+    learnBtn.addEventListener('click', () => cv.learn?.());
+    ctlRow.appendChild(learnBtn);
+  }
+  g.body.appendChild(ctlRow);
+
+  const refresh = (): void => {
+    for (const r of refreshers) r();
+    rangeBadge.textContent = cv.rangeLabel();
+    const v = cv.readVoltage();
+    const n = cv.readNormalized();
+    if (!cv.available()) {
+      liveText.textContent = '—V';
+      liveBar.style.width = '0%';
+      liveBar.classList.remove('positive', 'negative');
+      return;
+    }
+    if (Number.isNaN(v)) {
+      liveText.textContent = '—V';
+    } else {
+      liveText.textContent = `${v >= 0 ? '+' : ''}${v.toFixed(2)}V`;
+    }
+    const pct = Math.min(100, Math.abs(n) * 50);
+    liveBar.style.width = `${pct}%`;
+    liveBar.classList.toggle('positive', n >= 0);
+    liveBar.classList.toggle('negative', n < 0);
+    liveBar.style.marginLeft = n >= 0 ? '50%' : `${50 - pct}%`;
+  };
+  const dispose = startPollLoop(refresh);
+  return { root: g.root, refresh, dispose };
+}
+
+function buildGamepadGroup(g: NonNullable<SlotRowAdapter['gamepad']>): BodyGroup {
+  const grp = buildGroup(g.isButton ? 'Gamepad button' : 'Gamepad axis');
+  const refreshers: Array<() => void> = [];
+  const idxUi = buildNumField(g.isButton ? 'Button' : 'Axis', g.index);
+  refreshers.push(idxUi.refresh);
+  grp.body.appendChild(idxUi.root);
+
+  const liveRow = el('div', 'rw-mod-row rw-mod-cv-live');
+  const liveLabel = el('span', 'rw-mod-row-label');
+  liveLabel.textContent = 'Live';
+  const liveBarWrap = el('div', 'rw-mod-cv-bar-wrap');
+  const liveBar = el('div', 'rw-mod-cv-bar');
+  liveBarWrap.appendChild(liveBar);
+  const liveText = el('span', 'rw-mod-cv-text');
+  liveText.textContent = '—';
+  liveRow.append(liveLabel, liveBarWrap, liveText);
+  grp.body.appendChild(liveRow);
+
+  const refresh = (): void => {
+    for (const r of refreshers) r();
+    if (!g.available()) {
+      liveText.textContent = '—';
+      liveBar.style.width = '0%';
+      return;
+    }
+    const v = g.readValue();
+    liveText.textContent = v.toFixed(2);
+    if (g.isButton) {
+      liveBar.style.width = `${Math.min(100, v * 100)}%`;
+      liveBar.style.marginLeft = '0';
+      liveBar.classList.add('positive');
+      liveBar.classList.remove('negative');
+    } else {
+      const pct = Math.min(100, Math.abs(v) * 50);
+      liveBar.style.width = `${pct}%`;
+      liveBar.classList.toggle('positive', v >= 0);
+      liveBar.classList.toggle('negative', v < 0);
+      liveBar.style.marginLeft = v >= 0 ? '50%' : `${50 - pct}%`;
+    }
+  };
+  const dispose = startPollLoop(refresh);
+  return { root: grp.root, refresh, dispose };
+}
+
 function buildOutputStageGroup(o: SlotRowAdapter['output']): BodyGroup {
   const g = buildGroup('Output');
   const refreshers: Array<() => void> = [];
@@ -491,6 +675,11 @@ function buildMidiOutGroup(m: NonNullable<SlotRowAdapter['midiOut']>): BodyGroup
 export interface SlotRowUi {
   root: HTMLElement;
   refresh(): void;
+  /** Re-read `adapter.target.options` and rebuild the dropdown's
+   *  `<option>` elements. Used when the host wants to add / remove
+   *  target options without a full row remount (e.g. CV-output channels
+   *  added in the I/O panel appear as `cv:N` Target entries). */
+  rebuildTargetOptions(): void;
 }
 
 /**
@@ -520,7 +709,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // Source dropdown
   const srcSel = el('select', 'rw-select rw-mod-slot-src') as HTMLSelectElement;
-  for (const opt of adapter.source.options) {
+  for (const opt of resolveOptions(adapter.source.options)) {
     const o = el('option') as HTMLOptionElement;
     o.value = opt.v; o.textContent = opt.l;
     srcSel.appendChild(o);
@@ -565,11 +754,24 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // Target dropdown
   const tgtSel = el('select', 'rw-select rw-mod-slot-tgt') as HTMLSelectElement;
-  for (const opt of adapter.target.options) {
-    const o = el('option') as HTMLOptionElement;
-    o.value = opt.v; o.textContent = opt.l;
-    tgtSel.appendChild(o);
+  /** Rebuild the dropdown options from `adapter.target.options`. Called
+   *  initially and whenever the option list changes (e.g. user adds /
+   *  removes a CV-output channel, which appends `cv:N` entries). */
+  function rebuildTargetOptions(): void {
+    const cur = tgtSel.value;
+    const opts = resolveOptions(adapter.target.options);
+    tgtSel.replaceChildren();
+    for (const opt of opts) {
+      const o = el('option') as HTMLOptionElement;
+      o.value = opt.v; o.textContent = opt.l;
+      tgtSel.appendChild(o);
+    }
+    // Restore selection if still valid; the model will re-fix it on next refresh
+    // if it's not.
+    const stillValid = opts.some((o) => o.v === cur);
+    if (stillValid) tgtSel.value = cur;
   }
+  rebuildTargetOptions();
   tgtSel.addEventListener('change', () => adapter.target.set(tgtSel.value));
   header.appendChild(tgtSel);
 
@@ -631,6 +833,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   let lastSourceKind: SourceKind | null = null;
 
   function rebuildBody(): void {
+    for (const g of bodyGroups) g.dispose?.();
     body.innerHTML = '';
     bodyGroups = [];
 
@@ -661,6 +864,12 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     }
     if (kind === 'midiClock' && adapter.midiClock) {
       bodyGroups.push(buildMidiClockGroup(adapter.midiClock));
+    }
+    if ((kind === 'cvAudio' || kind === 'cvOsc') && adapter.cv) {
+      bodyGroups.push(buildCvGroup(adapter.cv));
+    }
+    if (kind === 'gamepad' && adapter.gamepad) {
+      bodyGroups.push(buildGamepadGroup(adapter.gamepad));
     }
     if (kind === 'unsupported') {
       const note = el('div', 'rw-mod-graph-empty');
@@ -714,7 +923,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   rebuildBody();
   refresh();
 
-  return { root: card, refresh };
+  return { root: card, refresh, rebuildTargetOptions };
 }
 
 // ====================================================================

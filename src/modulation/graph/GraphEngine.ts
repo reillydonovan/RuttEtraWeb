@@ -234,6 +234,21 @@ export class GraphEngine {
       // Legacy `curve` field still applies if present and `outputCurve`
       // wasn't set — old presets keep working.
       if (b.curve && !b.outputCurve) shaped = applyLegacyCurve(shaped, b.curve);
+
+      // CV-output target: encoded as `cv:<channelIndex>` instead of a
+      // Settings key. Don't push into `LiveValuesStore` (it's not a
+      // synth param) — route to the CV-output subsystem instead. The
+      // standalone `cv-output` graph node provides the same path for
+      // node-driven outputs; this branch handles the Beginner-view
+      // case where the user picked "CV Out: Ch N" as a binding Target.
+      if (b.paramKey.startsWith('cv:')) {
+        const ch = Number.parseInt(b.paramKey.slice(3), 10);
+        if (Number.isFinite(ch) && this.deps.cvOut) {
+          this.deps.cvOut.setGraphSource(ch, shaped * b.amount);
+        }
+        continue;
+      }
+
       if (b.mode === 'multiplicative') {
         const f = factors.get(b.paramKey) ?? 1;
         factors.set(b.paramKey, f * (1 + shaped * b.amount));

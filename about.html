@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0e0a" />
+    <meta name="color-scheme" content="dark" />
+    <title>Rutt/Etra — Manual</title>
+    <meta name="description" content="The Rutt/Etra browser video synthesizer manual. Long-form documentation for every control, modulation source, MIDI / OSC / CV connection, and recording workflow." />
+    <meta property="og:title" content="Rutt/Etra — Manual" />
+    <meta property="og:description" content="Long-form reference for the browser-based Rutt/Etra video synthesizer." />
+    <meta property="og:type" content="article" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="about-body">
+    <!-- ======================================================
+         Top nav. Sticks to the top edge across all viewports.
+         The TOC links jump within the doc; the hamburger only
+         appears on narrow widths via CSS media queries.
+         ======================================================= -->
+    <header id="about-nav">
+      <a class="about-nav-home" href="./index.html" title="Back to the synth">← RUTT/ETRA</a>
+      <button id="about-toc-toggle" type="button" aria-label="Toggle table of contents">≡</button>
+      <nav id="about-toc">
+        <a href="#intro">Intro</a>
+        <a href="#quick-start">Quick Start</a>
+        <a href="#synthesis">Synthesis</a>
+        <a href="#modulation">Modulation</a>
+        <a href="#io">I/O</a>
+        <a href="#performance">Performance</a>
+        <a href="#reference">Reference</a>
+        <a href="#about">About</a>
+      </nav>
+      <input
+        id="about-search"
+        type="search"
+        placeholder="search..."
+        aria-label="Filter sections"
+        autocomplete="off"
+      />
+    </header>
+    <!-- The single long scrollable article. JS injects each
+         markdown section into this container in fixed order. -->
+    <main id="about-doc">
+      <noscript>
+        <div class="about-noscript">
+          The manual is a single static document but its sections are
+          assembled at page load. Enable JavaScript to read it, or use the
+          source markdown files in <code>docs/about/</code>.
+        </div>
+      </noscript>
+    </main>
+    <script type="module" src="/src/about/main.ts"></script>
+  </body>
+</html>

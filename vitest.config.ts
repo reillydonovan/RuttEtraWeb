@@ -10,7 +10,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/modulation/**/*.test.ts'],
+    include: [
+      'src/modulation/**/*.test.ts',
+      // v9: pure helpers in CVInput / GamepadInput are testable without a DOM.
+      'src/audio/**/*.test.ts',
+      'src/input/**/*.test.ts',
+    ],
     globals: false,
     reporters: ['default'],
   },

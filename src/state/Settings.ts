@@ -30,7 +30,12 @@ export type ModSource =
   | 'midiCC' | 'midiNote' | 'midiVelocity' | 'midiClock'
   | 'osc'
   | 'joystickX' | 'joystickY' | 'joystickZ'
-  | 'constant';
+  | 'constant'
+  // v9: external voltage control (CV)
+  | 'cvAudio'      // DC-coupled audio interface channel
+  | 'cvOsc'        // OSC bridge (/cv/<n>)
+  | 'gamepadAxis'  // Gamepad / HID axis
+  | 'gamepadBtn';  // Gamepad / HID button (0/1)
 
 /**
  * Per-slot sync mode (replaces the legacy `clockSync: boolean`).
@@ -106,6 +111,12 @@ export interface ModSlot {
 
   /** Constant source value, used only when source === 'constant'. */
   constantValue: number;        // -1..1, default 0
+
+  // ---------- v9: CV / gamepad source params ----------
+  /** Channel index for `cvAudio` (audio-interface CV) or `cvOsc` (bridge). */
+  cvChannel: number;            // 0..n-1, default 0
+  /** Axis or button index for gamepad sources. */
+  gamepadIndex: number;         // 0..n-1, default 0
 }
 
 export type ModTarget =
@@ -119,7 +130,12 @@ export type ModTarget =
   | 'cameraFov'
   // v2: I/O-routable targets
   | 'audioGain' | 'audioFloor' | 'beatSensitivity'
-  | 'spectrumAmount' | 'spectrumStride';
+  | 'spectrumAmount' | 'spectrumStride'
+  // v9: CV-output targets, encoded as 'cv:<channelIndex>'. The list is
+  // open-ended (we don't enumerate the type of every channel index)
+  // because the user picks how many output channels they have. The
+  // dropdown builder appends one entry per `Settings.cvOutputChannels`.
+  | `cv:${number}`;
 
 export interface CameraView {
   posX: number; posY: number; posZ: number;
@@ -160,6 +176,194 @@ export interface OscBinding {
   // outgoing: when target changes, send a message back through bridge
   echo?: boolean;
 }
+
+// --------------------------------------------------------------------
+// CV (external voltage control) — v9
+// --------------------------------------------------------------------
+
+/** Eurorack ±5V is the most common; widen for industrial / Buchla rigs. */
+export type CVRange = '+/-5V' | '0-5V' | '+/-10V' | '0-10V';
+
+/** Bipolar emits -1..1 (knob centered at 0V); Unipolar emits 0..1 (rest at min). */
+export type CVPolarity = 'bipolar' | 'unipolar';
+
+/** Sample rate the channel is read at. Audio rate is the AudioContext sample
+ *  rate (48k typical) — only useful for FM-style audio-rate modulation; control
+ *  rate buckets the worklet samples to a fixed Hz to save CPU on slow CVs. */
+export type CVControlRate = 100 | 1000 | 48000;
+
+export interface CVChannel {
+  enabled: boolean;
+  /** Free-form label so the user can write "Maths Ch1 Output" or "Pitch CV". */
+  label: string;
+  range: CVRange;
+  polarity: CVPolarity;
+  /** 1-pole lowpass time constant. 0 = none, up to 500ms. */
+  smoothMs: number;
+  controlRate: CVControlRate;
+  /**
+   * Calibration zero. Stored as raw audio sample (-1..1). Subtracted from
+   * incoming samples before mapping to volts/normalized output. Captured
+   * via the "Calibrate" button — useful when the source has DC bias.
+   */
+  offset: number;
+  invert: boolean;
+}
+
+export const DEFAULT_CV_CHANNEL: CVChannel = {
+  enabled: false,
+  label: '',
+  range: '+/-5V',
+  polarity: 'bipolar',
+  smoothMs: 5,
+  controlRate: 1000,
+  offset: 0,
+  invert: false,
+};
+
+// --------------------------------------------------------------------
+// CV output (v9) — symmetric counterpart to CV input
+// --------------------------------------------------------------------
+
+/** Output type. Determines how the source value is interpreted before
+ *  becoming a voltage on the wire. */
+export type CVOutType = 'cv' | 'gate' | 'trigger' | 'clock' | 'pitch';
+
+/** What drives the channel. The value is resolved per-frame in `CVOutput.tick`. */
+export type CVOutSourceKind =
+  | 'classic-slot'     // post-output-stage value of a Classic ModSlot (0..3)
+  | 'graph-node'       // value of a graph node's output port
+  | 'settings-param'   // current `live` value of a Settings key (via LiveValuesStore)
+  | 'midi-note'        // last MIDI note (used by `pitch` type)
+  | 'auto'             // type-dependent: clock=internal BPM, others=zero
+  | 'constant';        // fixed value (used by Test mode + manual offsets)
+
+export type CVOutScaleType = 'chromatic' | 'major' | 'minor' | 'harmonic-minor' | 'pentatonic-major' | 'pentatonic-minor';
+
+export interface CVOutputChannel {
+  id: string;
+  /** 0-based output channel on the configured interface. */
+  channelIndex: number;
+  /** Free-form user label ("Pitch CV", "Filter Env", etc.). */
+  label: string;
+  /** Master enable. ALWAYS forced to `false` at page load (see migration). */
+  enabled: boolean;
+  type: CVOutType;
+  /** Voltage span at full sample scale. ±5V Eurorack default. */
+  voltageRange: CVRange;
+  polarity: CVPolarity;
+  /** Multiplier on source value before voltage mapping. */
+  scale: number;
+  /** DC offset added after scale, in volts. */
+  offset: number;
+  /** 1-pole smoothing on the output sample. 0 = none (default for CV out). */
+  smoothMs: number;
+
+  // ---------- Source binding ----------
+  sourceKind: CVOutSourceKind;
+  /** For 'settings-param' — Settings key (e.g. 'zPush'). */
+  sourceParam?: string;
+  /** For 'classic-slot' — slot index 0..3. */
+  sourceSlotIndex?: number;
+  /** For 'graph-node' — node id in the active GraphPatch. */
+  sourceNodeId?: string;
+  /** For 'graph-node' — output port name (default 'out'). */
+  sourceNodePort?: string;
+  /** For 'constant' — fixed normalized value (-1..1). */
+  sourceConstant?: number;
+
+  // ---------- gate ----------
+  gateThreshold?: number;   // 0..1, default 0.5
+  gateHighV?: number;       // default 5
+  gateLowV?: number;        // default 0
+
+  // ---------- trigger ----------
+  triggerMs?: number;       // default 10
+  triggerV?: number;        // default 5
+  triggerThreshold?: number; // 0..1, default 0.1 (rising-edge detect)
+
+  // ---------- clock ----------
+  clockSource?: 'internal' | 'midi';
+  clockDivision?: ClockDivision;
+  clockPulsePct?: number;   // 0..1, default 0.5
+  clockAmpV?: number;       // default 5
+
+  // ---------- pitch ----------
+  pitchReferenceNote?: number;     // MIDI note that maps to referenceVoltage; default 60 (C4)
+  pitchReferenceVoltage?: number;  // volts at referenceNote; default 0
+  pitchVoltsPerOctave?: number;    // default 1.0
+  pitchGlideMs?: number;           // default 0
+  pitchQuantize?: boolean;         // default true
+  pitchScale?: CVOutScaleType;     // default 'chromatic'
+  pitchScaleRoot?: number;         // 0..11, default 0 (C)
+  /** Calibration multiplier learned during calibration. 1.0 = factory. */
+  pitchCalibrationScale?: number;
+  /** Set by Calibrate UI: temporarily emit a fixed reference note for tuning. */
+  pitchCalibrationActiveNote?: number | null;
+}
+
+export const DEFAULT_CV_OUTPUT_CHANNEL: CVOutputChannel = {
+  id: '',
+  channelIndex: 0,
+  label: '',
+  enabled: false,
+  type: 'cv',
+  voltageRange: '+/-5V',
+  polarity: 'bipolar',
+  scale: 1,
+  offset: 0,
+  smoothMs: 0,
+  sourceKind: 'constant',
+  sourceConstant: 0,
+
+  gateThreshold: 0.5,
+  gateHighV: 5,
+  gateLowV: 0,
+
+  triggerMs: 10,
+  triggerV: 5,
+  triggerThreshold: 0.1,
+
+  clockSource: 'internal',
+  clockDivision: '1/16',
+  clockPulsePct: 0.5,
+  clockAmpV: 5,
+
+  pitchReferenceNote: 60,
+  pitchReferenceVoltage: 0,
+  pitchVoltsPerOctave: 1,
+  pitchGlideMs: 0,
+  pitchQuantize: true,
+  pitchScale: 'chromatic',
+  pitchScaleRoot: 0,
+  pitchCalibrationScale: 1,
+  pitchCalibrationActiveNote: null,
+};
+
+/** Bridge channel for OSC-routed CV (Route C). Mirrors `/cv/<n>` addresses. */
+export interface CVBridgeChannel {
+  enabled: boolean;
+  label: string;
+  /** OSC address like '/cv/1'. Last numeric arg is read. */
+  address: string;
+  /** Maps incoming arg range to -1..1 (or 0..1 if unipolar). */
+  inMin: number;
+  inMax: number;
+  polarity: CVPolarity;
+  smoothMs: number;
+  invert: boolean;
+}
+
+export const DEFAULT_CV_BRIDGE_CHANNEL: CVBridgeChannel = {
+  enabled: false,
+  label: '',
+  address: '/cv/1',
+  inMin: -5,
+  inMax: 5,
+  polarity: 'bipolar',
+  smoothMs: 5,
+  invert: false,
+};
 
 // --------------------------------------------------------------------
 // Audio
@@ -388,6 +592,39 @@ export interface Settings {
   // Routable convenience targets (mirror audioSpectrum sub-keys for ModTarget)
   spectrumAmount: number;
   spectrumStride: number;
+
+  // ---------- CV (v9) ----------
+  /** Master enable for the audio-interface CV reader. */
+  cvEnabled: boolean;
+  /** mediaDevices ID of the DC-coupled interface used as CV input. */
+  cvDeviceId: string;
+  /** Number of channels we requested; the worklet may end up with fewer
+   *  on a browser/interface that limits us. The actual count from the
+   *  running stream is held by the CVInput class, not in Settings. */
+  cvRequestedChannels: number;
+  /** Per-channel config. Length grows as channels are detected. */
+  cvChannels: CVChannel[];
+
+  /** OSC bridge CV channels (Route C) — read from `/cv/<n>` messages. */
+  cvBridgeChannels: CVBridgeChannel[];
+
+  /** Selected gamepad index from `navigator.getGamepads()`, or -1 = none. */
+  gamepadIndex: number;
+  /** Deadzone applied to gamepad axes before they're exposed as sources. */
+  gamepadDeadzone: number;
+
+  // ---------- CV output (v9) ----------
+  /** Master enable for the output AudioContext. Toggling this off
+   *  immediately ramps every channel to 0V then suspends the context. */
+  cvOutputEnabled: boolean;
+  /** mediaDevices ID of the DC-coupled output interface (used as `sinkId`). */
+  cvOutputDeviceId: string;
+  /** Total channel count to open on the merger. Should equal the
+   *  interface's exposed output channel count. */
+  cvOutputChannelCount: number;
+  /** Per-channel CV-output configuration. Persisted; channels
+   *  always reload with `enabled=false` for safety (see migration). */
+  cvOutputChannels: CVOutputChannel[];
 }
 
 // --------------------------------------------------------------------
@@ -441,6 +678,9 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   outputInvert: false,
 
   constantValue: 0,
+
+  cvChannel: 0,
+  gamepadIndex: 0,
 };
 
 export const DEFAULT_SPECTRUM: AudioSpectrumRouting = {
@@ -599,6 +839,21 @@ export const DEFAULTS: Settings = {
 
   spectrumAmount: 0.5,
   spectrumStride: 1.0,
+
+  // ---------- CV (v9) ----------
+  cvEnabled: false,
+  cvDeviceId: '',
+  cvRequestedChannels: 8,
+  cvChannels: [],            // grown on first start() to detected count
+  cvBridgeChannels: [],
+  gamepadIndex: -1,
+  gamepadDeadzone: 0.05,
+
+  // ---------- CV output (v9) ----------
+  cvOutputEnabled: false,
+  cvOutputDeviceId: '',
+  cvOutputChannelCount: 8,
+  cvOutputChannels: [],
 };
 
 // --------------------------------------------------------------------
@@ -606,7 +861,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 8;
+const CURRENT_VERSION = 9;
 
 interface Versioned { _v?: number }
 
@@ -809,6 +1064,38 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
 
     s._v = 8;
   }
+
+  // v8 -> v9: external CV input. New per-slot fields default to 0; new
+  // top-level fields (`cvEnabled`, `cvDeviceId`, `cvChannels`,
+  // `cvBridgeChannels`, `gamepadIndex`, `gamepadDeadzone`) take their
+  // defaults from `DEFAULTS`. Existing patches keep working — they
+  // just don't have CV sources wired.
+  if ((s._v ?? 1) < 9) {
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as ModSlot[]).map((slot) => ({
+        ...slot,
+        cvChannel:     (slot as Partial<ModSlot>).cvChannel     ?? 0,
+        gamepadIndex:  (slot as Partial<ModSlot>).gamepadIndex  ?? 0,
+      }));
+    }
+    s._v = 9;
+  }
+
+  // CV output safety: regardless of version, force every loaded CV-output
+  // channel to start with `enabled=false`. This is the "outputs start
+  // muted on page load" guarantee from the v9 spec — saved configurations
+  // are restored, but the user must re-arm each channel before any
+  // voltage actually leaves the interface. Likewise the master enable
+  // resets to false so the output AudioContext doesn't auto-start.
+  if (Array.isArray(s.cvOutputChannels)) {
+    s.cvOutputChannels = (s.cvOutputChannels as CVOutputChannel[]).map((ch) => ({
+      ...DEFAULT_CV_OUTPUT_CHANNEL,
+      ...ch,
+      enabled: false,
+      pitchCalibrationActiveNote: null,
+    }));
+  }
+  s.cvOutputEnabled = false;
 
   return s as Partial<Settings> & Versioned;
 }

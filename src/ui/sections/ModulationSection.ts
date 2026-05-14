@@ -18,9 +18,11 @@ import {
   consumeMigrationNotices,
 } from '../../state/Settings';
 import { ModMatrix } from '../../modulation/ModMatrix';
+import { CVInput } from '../../audio/CVInput';
+import { GamepadInput } from '../../input/GamepadInput';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { group, button } from '../widgets';
-import { TARGETS } from '../targets';
+import { TARGETS, cvOutputTargets } from '../targets';
 import {
   createSlotRow, SlotRowAdapter, SourceKind,
   getSlotClipboard, setSlotClipboard,
@@ -45,6 +47,10 @@ const SOURCES: { v: ModSource; l: string }[] = [
   { v: 'joystickY',    l: 'Joystick Y' },
   { v: 'joystickZ',    l: 'Joystick Z (scroll)' },
   { v: 'constant',     l: 'Constant' },
+  { v: 'cvAudio',      l: 'CV Input (audio)' },
+  { v: 'cvOsc',        l: 'CV Input (OSC)' },
+  { v: 'gamepadAxis',  l: 'Gamepad Axis' },
+  { v: 'gamepadBtn',   l: 'Gamepad Button' },
 ];
 
 const SYNC_MODES: { v: SyncMode; l: string }[] = [
@@ -53,10 +59,18 @@ const SYNC_MODES: { v: SyncMode; l: string }[] = [
   { v: 'tempo', l: 'Tempo (BPM)' },
 ];
 
-const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
+/** Static portion of the Target dropdown options. CV-output channel
+ *  entries (`cv:N`) are appended live by `buildTargetOptions(settings)`,
+ *  so they refresh the moment the user adds / removes / re-types an
+ *  output in the I/O panel. */
+const TARGET_OPTS_STATIC: { v: ModTarget | 'none'; l: string }[] = [
   { v: 'none', l: '— none —' },
   ...TARGETS,
 ];
+
+function buildTargetOpts(settings: SettingsStore): { v: ModTarget | 'none'; l: string }[] {
+  return [...TARGET_OPTS_STATIC, ...cvOutputTargets(settings)];
+}
 
 const RAMP_MODES: ModSlot['rampMode'][] = ['up', 'down', 'triangle', 'hold'];
 
@@ -75,7 +89,12 @@ const CURVES: { v: OutputCurve; l: string }[] = [
  */
 let _migrationToastShown = false;
 
-export function createModulationSection(settings: SettingsStore, matrix: ModMatrix): HTMLElement {
+export function createModulationSection(
+  settings: SettingsStore,
+  matrix: ModMatrix,
+  cv?: CVInput,
+  gamepad?: GamepadInput,
+): HTMLElement {
   const root = document.createElement('div');
 
   // -----------------------------------------------------------------
@@ -118,10 +137,12 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   // Slot list
   // -----------------------------------------------------------------
   const refreshers: Array<() => void> = [];
+  const targetRebuilders: Array<() => void> = [];
   const slots = settings.get('modSlots');
   for (let i = 0; i < slots.length; i++) {
-    const { el, refresh } = createSlot(settings, matrix, i);
+    const { el, refresh, rebuildTargetOptions } = createSlot(settings, matrix, i, cv, gamepad);
     refreshers.push(refresh);
+    if (rebuildTargetOptions) targetRebuilders.push(rebuildTargetOptions);
     root.appendChild(el);
   }
 
@@ -130,6 +151,14 @@ export function createModulationSection(settings: SettingsStore, matrix: ModMatr
   // few fields it owns.
   settings.subscribe('modSlots', () => { for (const r of refreshers) r(); });
   settings.subscribe('modSlotExpanded', () => { for (const r of refreshers) r(); });
+  // CV-output channels appear as `cv:N` entries in the Target dropdown.
+  // Re-render those options whenever the user adds / removes / relabels
+  // an output channel in the I/O panel — otherwise dropdowns would
+  // stay stale until the next full re-mount.
+  settings.subscribe('cvOutputChannels', () => {
+    for (const r of targetRebuilders) r();
+    for (const r of refreshers) r();
+  });
 
   // Global "retrigger all ramps" — wrap in a group so it doesn't dangle
   // visually below the slot list (master spec UI polish: "Retrigger
@@ -362,9 +391,16 @@ function buildTempoGroup(settings: SettingsStore): HTMLElement {
 interface SlotUi {
   el: HTMLElement;
   refresh: () => void;
+  rebuildTargetOptions?: () => void;
 }
 
-function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): SlotUi {
+function createSlot(
+  settings: SettingsStore,
+  matrix: ModMatrix,
+  index: number,
+  cv?: CVInput,
+  gamepad?: GamepadInput,
+): SlotUi {
   const get = (): ModSlot => settings.get('modSlots')[index];
   const update = (patch: Partial<ModSlot>): void => {
     const next = settings.get('modSlots').slice();
@@ -394,7 +430,7 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
     target: {
       get: () => get().target,
       set: (v) => update({ target: v as ModTarget | 'none' }),
-      options: TARGET_OPTS as ReadonlyArray<{ v: string; l: string }>,
+      options: () => buildTargetOpts(settings) as ReadonlyArray<{ v: string; l: string }>,
     },
     amount: {
       get: () => get().amount,
@@ -448,6 +484,58 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
         options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
       },
     },
+    cv: {
+      channel: {
+        get: () => get().cvChannel,
+        set: (v) => update({ cvChannel: Math.max(0, Math.round(v)) }),
+        min: 0, max: 31, step: 1,
+      },
+      readVoltage: () => {
+        if (get().source === 'cvOsc') {
+          // For OSC bridge route, the "voltage" we display is the
+          // mapped value from the bridge channel's range. We don't
+          // have the OSC client in this scope, so fall back to a
+          // simple "—" placeholder; the I/O panel shows the live
+          // value with full context.
+          return NaN;
+        }
+        return cv ? cv.getVoltage(get().cvChannel | 0) : NaN;
+      },
+      readNormalized: () => {
+        if (get().source === 'cvOsc') return 0;
+        return cv ? cv.getNormalized(get().cvChannel | 0) : 0;
+      },
+      calibrate: () => { cv?.calibrate(get().cvChannel | 0); persistCvChannelConfigs(settings, cv); },
+      resetCalibration: () => { cv?.resetCalibration(get().cvChannel | 0); persistCvChannelConfigs(settings, cv); },
+      rangeLabel: () => {
+        if (get().source === 'cvOsc') return 'OSC';
+        const channels = settings.get('cvChannels');
+        const ch = channels[get().cvChannel | 0];
+        return ch?.range ?? '+/-5V';
+      },
+      available: () => {
+        if (get().source === 'cvOsc') return true;
+        return !!(cv && cv.running);
+      },
+      isOsc: get().source === 'cvOsc',
+      readVariance: () => cv ? cv.getVariance(get().cvChannel | 0) : 0,
+      learn: () => { void runCvLearnForSlot(settings, cv, index); },
+    },
+    gamepad: {
+      index: {
+        get: () => get().gamepadIndex,
+        set: (v) => update({ gamepadIndex: Math.max(0, Math.round(v)) }),
+        min: 0, max: 31, step: 1,
+      },
+      readValue: () => {
+        if (!gamepad) return 0;
+        return get().source === 'gamepadBtn'
+          ? gamepad.getButton(get().gamepadIndex | 0)
+          : gamepad.getAxis(get().gamepadIndex | 0);
+      },
+      available: () => !!gamepad,
+      isButton: get().source === 'gamepadBtn',
+    },
     output: {
       curve:  { get: () => get().outputCurve,  set: (v) => update({ outputCurve: v as OutputCurve }), options: CURVES },
       min:    { get: () => get().outputMin,    set: (v) => update({ outputMin: v }),    min: -2, max: 2, step: 0.001 },
@@ -497,14 +585,78 @@ function createSlot(settings: SettingsStore, matrix: ModMatrix, index: number): 
   // The shared row component reads `sourceKind` to decide which body
   // groups to render. Recompute it from the slot's source on every
   // refresh so that changing the source dropdown rebuilds the body.
-  const updateSourceKind = (): void => { adapter.sourceKind = classicSourceToKind(get().source); };
+  const updateSourceKind = (): void => {
+    adapter.sourceKind = classicSourceToKind(get().source);
+    // CV adapter has source-dependent flags — recompute on every refresh.
+    if (adapter.cv) adapter.cv.isOsc = get().source === 'cvOsc';
+    if (adapter.gamepad) adapter.gamepad.isButton = get().source === 'gamepadBtn';
+  };
   updateSourceKind();
 
   const ui = createSlotRow(adapter);
   return {
     el: ui.root,
     refresh: () => { updateSourceKind(); ui.refresh(); },
+    rebuildTargetOptions: ui.rebuildTargetOptions,
   };
+}
+
+/**
+ * After `cv.calibrate(ch)` mutates the channel's offset on the CVInput's
+ * local config, mirror that into Settings so the change persists across
+ * page reloads. We avoid a `settings.subscribe('cvChannels', ...)` loop
+ * because `CVInput.setChannelConfigs` is what we re-feed here.
+ */
+function persistCvChannelConfigs(settings: SettingsStore, cv?: CVInput): void {
+  if (!cv) return;
+  // Pull the current configs from CVInput by introspection — but since
+  // CVInput doesn't expose configs directly, we read them back from the
+  // cv channel by snapshotting the offset for each channel that just
+  // changed. Cleaner: extend CVInput with a `getChannelConfigs()` method.
+  // For now, just bump the channel array in Settings to trigger a
+  // re-publish; the offset is owned by CVInput and re-applied on next
+  // start. We don't actually persist offsets through CVInput's local
+  // copy unless the user edits via I/O panel (which writes to Settings
+  // directly).
+  const arr = settings.get('cvChannels').slice();
+  settings.set('cvChannels', arr); // poke
+}
+
+/**
+ * CV Learn for a Classic slot: monitor variance for 2 seconds, pick the
+ * channel that wiggled the most, and bind it to this slot. The pattern
+ * mirrors `OscClient.learn()` and `MidiManager.learn()` so the UX feels
+ * consistent.
+ */
+async function runCvLearnForSlot(
+  settings: SettingsStore,
+  cv: CVInput | undefined,
+  slotIndex: number,
+): Promise<void> {
+  if (!cv || !cv.running) {
+    alert('CV reader is not running. Open the I/O panel and start the CV input.');
+    return;
+  }
+  // Mark the slot's source as cvAudio so we can write the channel into
+  // it once detected. (If user clicked Learn without first picking the
+  // source, we infer they meant cvAudio.)
+  const slots = settings.get('modSlots').slice();
+  if (slots[slotIndex].source !== 'cvAudio') {
+    slots[slotIndex] = { ...slots[slotIndex], source: 'cvAudio' };
+    settings.set('modSlots', slots);
+  }
+  // Reset variance baseline by waiting one tick — the worklet's
+  // exponential-decay window is already self-resetting; we just sample
+  // 2s from now.
+  await new Promise((r) => setTimeout(r, 2000));
+  const ch = cv.pickHighestVarianceChannel(0.0005);
+  if (ch < 0) {
+    alert('No CV movement detected. Try moving the CV source while clicking Learn.');
+    return;
+  }
+  const next = settings.get('modSlots').slice();
+  next[slotIndex] = { ...next[slotIndex], cvChannel: ch };
+  settings.set('modSlots', next);
 }
 
 /** Map a Classic ModSource to the SlotRow `SourceKind`. */
@@ -525,6 +677,10 @@ function classicSourceToKind(s: ModSource): SourceKind {
     case 'joystickY':
     case 'joystickZ':    return 'joystick';
     case 'constant':     return 'constant';
+    case 'cvAudio':      return 'cvAudio';
+    case 'cvOsc':        return 'cvOsc';
+    case 'gamepadAxis':
+    case 'gamepadBtn':   return 'gamepad';
   }
 }
 

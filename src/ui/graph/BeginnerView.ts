@@ -25,7 +25,7 @@ import { allDefs, getDef } from '../../modulation/graph/registry';
 import '../../modulation/graph/bootstrap';
 import { CLASSIC_SOURCE_NODE_TYPES } from '../../modulation/graph/convert';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
-import { TARGETS } from '../targets';
+import { TARGETS, cvOutputTargets } from '../targets';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import {
   canPaste, createSlotRow, getSlotClipboard, setSlotClipboard,
@@ -56,10 +56,14 @@ function sourceOptions(): SourceOption[] {
   return out;
 }
 
-const TARGET_OPTS: { v: ModTarget | 'none'; l: string }[] = [
+const TARGET_OPTS_STATIC: { v: ModTarget | 'none'; l: string }[] = [
   { v: 'none', l: '— none —' },
   ...TARGETS,
 ];
+
+function buildTargetOpts(settings: SettingsStore): { v: ModTarget | 'none'; l: string }[] {
+  return [...TARGET_OPTS_STATIC, ...cvOutputTargets(settings)];
+}
 
 const CURVE_OPTS: { v: OutputCurve; l: string }[] = [
   { v: 'linear', l: 'Linear' },
@@ -157,6 +161,9 @@ function nodeTypeToKind(type: NodeType): SourceKind {
     case 'joystick-y':
     case 'joystick-z':       return 'joystick';
     case 'constant':         return 'constant';
+    case 'cv-input':         return 'cvAudio';
+    case 'gamepad-axis':
+    case 'gamepad-button':   return 'gamepad';
     default:                 return 'unsupported';
   }
 }
@@ -308,7 +315,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       target: {
         get: () => liveBinding().paramKey,
         set: (v) => mutate((_cur, _src, b) => { if (b) b.paramKey = v as string; }),
-        options: TARGET_OPTS as ReadonlyArray<{ v: string; l: string }>,
+        options: () => buildTargetOpts(settings) as ReadonlyArray<{ v: string; l: string }>,
       },
       amount: {
         get: () => liveBinding().amount,
@@ -405,6 +412,68 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
           set: (v) => mutate((_c, src) => { if (src) src.params.division = v as ClockDivision; }),
           options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
         },
+      },
+
+      // -------------------- v9: CV input --------------------
+      cv: {
+        channel: {
+          get: () => liveParam<number>('channel', 0),
+          set: (v) => mutate((_c, src) => { if (src) src.params.channel = Math.max(0, Math.round(v)); }, { skipRerender: true }),
+          min: 0, max: 31, step: 1,
+        },
+        readVoltage: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route !== 'audio') return NaN;
+          return deps.cv ? deps.cv.getVoltage(liveParam<number>('channel', 0)) : NaN;
+        },
+        readNormalized: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route !== 'audio') return 0;
+          return deps.cv ? deps.cv.getNormalized(liveParam<number>('channel', 0)) : 0;
+        },
+        calibrate: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route === 'audio') deps.cv?.calibrate(liveParam<number>('channel', 0));
+        },
+        resetCalibration: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route === 'audio') deps.cv?.resetCalibration(liveParam<number>('channel', 0));
+        },
+        rangeLabel: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route !== 'audio') return route.toUpperCase();
+          const channels = settings.get('cvChannels');
+          return channels[liveParam<number>('channel', 0)]?.range ?? '+/-5V';
+        },
+        available: () => {
+          const route = liveParam<string>('route', 'audio');
+          if (route === 'audio') return !!(deps.cv && deps.cv.running);
+          return true;
+        },
+        get isOsc() { return liveParam<string>('route', 'audio') === 'osc'; },
+        readVariance: () => deps.cv ? deps.cv.getVariance(liveParam<number>('channel', 0)) : 0,
+      },
+
+      // -------------------- v9: Gamepad --------------------
+      gamepad: {
+        index: {
+          get: () => liveParam<number>(liveSource().type === 'gamepad-button' ? 'button' : 'axis', 0),
+          set: (v) => mutate((_c, src) => {
+            if (!src) return;
+            const k = src.type === 'gamepad-button' ? 'button' : 'axis';
+            src.params[k] = Math.max(0, Math.round(v));
+          }, { skipRerender: true }),
+          min: 0, max: 31, step: 1,
+        },
+        readValue: () => {
+          if (!deps.gamepad) return 0;
+          if (liveSource().type === 'gamepad-button') {
+            return deps.gamepad.getButton(liveParam<number>('button', 0));
+          }
+          return deps.gamepad.getAxis(liveParam<number>('axis', 0));
+        },
+        available: () => !!deps.gamepad,
+        get isButton() { return liveSource().type === 'gamepad-button'; },
       },
 
       // -------------------- Output stage (writes to the BINDING) --------------------
@@ -575,11 +644,17 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
     }
     render();
   });
+  // CV-output channels appear as `cv:N` entries in the Target dropdown.
+  // Re-render the beginner view whenever the user adds / removes / re-
+  // labels a CV output in the I/O panel — fastest way to refresh every
+  // row's dropdown without a per-row rebuildTargetOptions hook.
+  const unsubscribeCV = settings.subscribe('cvOutputChannels', () => render());
 
   render();
 
   return () => {
     unsubscribe();
+    unsubscribeCV();
     root.remove();
   };
 }

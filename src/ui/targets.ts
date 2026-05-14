@@ -3,12 +3,18 @@
  *
  * Centralized so the modulation section, MIDI learn table, and OSC learn
  * table all share the same labels in their dropdowns.
+ *
+ * The `cv:<n>` virtual targets (CV-output channels) are NOT included in
+ * the static list — they're appended by `cvOutputTargets()` from the
+ * user's current `Settings.cvOutputChannels` because the count and
+ * labels of CV outputs are user-editable. ModulationSection +
+ * BeginnerView call that helper at dropdown-build time.
  */
 
-import { ModTarget } from '../state/Settings';
+import { CVOutputChannel, ModTarget, SettingsStore } from '../state/Settings';
 
 export interface TargetOption {
-  v: ModTarget;
+  v: ModTarget | 'none';
   l: string;
 }
 
@@ -38,3 +44,18 @@ export const TARGETS: TargetOption[] = [
 
 /** Same list, in `{ value, label }` shape for the LearnBinding widget. */
 export const TARGET_OPTIONS = TARGETS.map((t) => ({ value: t.v as string, label: t.l }));
+
+/**
+ * Build dropdown entries for every configured CV-output channel,
+ * formatted as `cv:<channelIndex>` so ModMatrix / GraphEngine can
+ * detect them by prefix. Called by the modulation UI at
+ * dropdown-build time so adding a new channel in the I/O panel
+ * shows up everywhere targets are picked.
+ */
+export function cvOutputTargets(settings: SettingsStore): TargetOption[] {
+  const channels: CVOutputChannel[] = settings.get('cvOutputChannels');
+  return channels.map((ch) => ({
+    v: `cv:${ch.channelIndex}` as ModTarget,
+    l: `CV Out: Ch ${ch.channelIndex + 1}${ch.label ? ` (${ch.label})` : ''} — ${ch.type}`,
+  }));
+}

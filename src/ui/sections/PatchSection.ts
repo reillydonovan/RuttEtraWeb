@@ -23,6 +23,10 @@ export interface PatchSectionDeps {
   getVideoTap?: () => VideoTap | null;
   /** Hint from `LayoutManager.current()`; advanced view is hidden in compact. */
   isCompact: () => boolean;
+  /** v9: external CV reader (drives live readouts on cv-input rows). */
+  cv?: import('../../audio/CVInput').CVInput;
+  /** v9: gamepad / HID poller (drives live readouts on gamepad rows). */
+  gamepad?: import('../../input/GamepadInput').GamepadInput;
 }
 
 export function createPatchSection(deps: PatchSectionDeps): HTMLElement {

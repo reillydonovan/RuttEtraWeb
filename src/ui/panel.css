@@ -1,5 +1,5 @@
 /* ============================================================
-   Rutt/Etra Web — retro CRT control panel theme
+   Rutt/Etra Web ??? retro CRT control panel theme
    ============================================================ */
 
 :root {
@@ -91,6 +91,38 @@ html, body, #app {
   text-shadow: 0 0 4px rgba(0,0,0,0.5);
 }
 #hud .hud-warn { color: var(--re-warn); }
+
+/* Persistent "ABOUT" link at the top edge of the synth page. Routes
+ * to the long-form manual at about.html. The link is plain anchor
+ * markup so it works without JS, sits above the panel + canvas, and
+ * matches the panel's text treatment. Hidden when the page is in
+ * viewer mode (peer fullscreen consumption). */
+#about-link {
+  position: absolute;
+  top: 8px;
+  right: 380px; /* clear of the 360px panel; collapses on mobile */
+  z-index: 11;
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  letter-spacing: 0.15em;
+  color: var(--re-text-dim);
+  text-decoration: none;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-shadow: 0 0 4px rgba(0,0,0,0.5);
+  transition: color 120ms ease, border-color 120ms ease, text-shadow 120ms ease;
+}
+#about-link:hover, #about-link:focus-visible {
+  color: var(--re-phosphor, #66ff66);
+  border-color: var(--re-line);
+  text-shadow: 0 0 6px rgba(102, 255, 102, 0.6);
+  outline: none;
+}
+@media (max-width: 720px) {
+  #about-link { right: 8px; top: 6px; font-size: 12px; }
+}
+body.viewer-mode #about-link { display: none; }
 
 /* Panel */
 #panel-root {
@@ -431,7 +463,7 @@ html, body, #app {
 }
 .rw-joystick-wrap .rw-joystick { margin: 0; }
 
-/* Vertical Z slider — custom div implementation (NOT <input type="range">,
+/* Vertical Z slider ??? custom div implementation (NOT <input type="range">,
    which is broken on iOS Safari with `writing-mode: vertical-lr`). Top of
    the bar = +1, bottom = -1. Pointer events on the bar drive the value.
    Uses `align-self: stretch` (default for grid items) plus a min-height
@@ -505,7 +537,7 @@ body.viewer-mode #stage { background: #000; }
   position: relative;
   z-index: 3;
   flex-shrink: 0;
-  isolation: isolate; /* own stacking context — keeps inner overflow off the tabs */
+  isolation: isolate; /* own stacking context ??? keeps inner overflow off the tabs */
 }
 .rw-tab {
   flex: 1;
@@ -915,7 +947,7 @@ body.viewer-mode #stage { background: #000; }
 }
 
 /* ============================================================
-   v8 Classic patch slot — collapsible card with inline controls
+   v8 Classic patch slot ??? collapsible card with inline controls
    ============================================================ */
 
 .rw-mod-slot {
@@ -933,8 +965,8 @@ body.viewer-mode #stage { background: #000; }
  * Collapsed header row layout. Two rows by default so the target dropdown
  * and amount slider don't get crushed at typical panel widths:
  *
- *   row 1: [en?] [source ▼] [▶] [C] [V] [X] [no-clock-badge]
- *   row 2: [Amount slider .................] [Target ▼ ........]
+ *   row 1: [en?] [source ???] [???] [C] [V] [X] [no-clock-badge]
+ *   row 2: [Amount slider .................] [Target ??? ........]
  *
  * The two-row stack scales gracefully from ~280px to full width without
  * cutting off content. Wider panels still see compact information density
@@ -1016,7 +1048,7 @@ body.viewer-mode #stage { background: #000; }
   border-radius: 2px;
 }
 
-/* Expanded body — column of source-specific groups + shared output stage. */
+/* Expanded body ??? column of source-specific groups + shared output stage. */
 .rw-mod-slot-body {
   display: flex;
   flex-direction: column;
@@ -1042,3 +1074,264 @@ body[data-layout="compact"] .rw-mod-slot-iconbtn {
 
  
  
+/* ============================================================
+   v9 ? CV (voltage control) input UI
+   ============================================================ */
+
+/* Per-row inline live readout (used inside SlotRow body groups). */
+.rw-mod-cv-bar-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  height: 8px;
+  background: var(--re-bg-deep, #0a0a0a);
+  border: 1px solid var(--re-line);
+  margin: 0 6px;
+  border-radius: 1px;
+}
+.rw-mod-cv-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--re-phosphor, #66ff66);
+  transition: width 60ms linear, margin-left 60ms linear;
+}
+.rw-mod-cv-bar.negative {
+  background: var(--re-amber, #ffb86b);
+}
+.rw-mod-cv-text {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-family: 'VT323', monospace;
+  color: var(--re-phosphor, #66ff66);
+}
+.rw-mod-cv-range {
+  flex: 0 0 auto;
+  font-family: 'VT323', monospace;
+  font-size: 12px;
+  color: var(--re-text-dim, #888);
+  border: 1px solid var(--re-line);
+  padding: 0 4px;
+  margin-right: auto;
+}
+.rw-mod-cv-calibrate, .rw-mod-cv-learn {
+  flex: 0 0 auto;
+  margin-left: 4px;
+}
+
+/* I/O panel CV section. */
+.rw-cv-status {
+  margin: 4px 0 8px 0;
+  white-space: pre-wrap;
+}
+.rw-cv-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rw-cv-channel {
+  border: 1px solid var(--re-line);
+  padding: 6px 8px;
+  background: var(--re-bg-deep, #0a0a0a);
+}
+.rw-cv-channel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.rw-cv-channel-title {
+  font-family: 'VT323', monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--re-text, #ddd);
+}
+.rw-cv-channel-label {
+  flex: 1 1 auto;
+}
+.rw-cv-remove {
+  flex: 0 0 auto;
+  padding: 0 6px;
+}
+.rw-cv-live-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.rw-cv-bar-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  height: 12px;
+  background: var(--re-bg, #000);
+  border: 1px solid var(--re-line);
+  border-radius: 1px;
+}
+.rw-cv-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--re-phosphor, #66ff66);
+  transition: width 60ms linear, margin-left 60ms linear;
+}
+.rw-cv-bar.negative { background: var(--re-amber, #ffb86b); }
+.rw-cv-text {
+  flex: 0 0 auto;
+  min-width: 64px;
+  text-align: right;
+  font-family: 'VT323', monospace;
+  color: var(--re-phosphor, #66ff66);
+}
+.rw-cv-ctl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-end;
+}
+.rw-cv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 80px;
+}
+.rw-cv-field-label {
+  font-family: 'VT323', monospace;
+  font-size: 11px;
+  color: var(--re-text-dim, #888);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.rw-cv-num, .rw-cv-smooth {
+  width: 80px;
+}
+.rw-cv-address {
+  width: 120px;
+}
+.rw-cv-select {
+  min-width: 100px;
+}
+
+/* Gamepad live readout grid. */
+.rw-cv-pad-live {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.rw-cv-pad-axes, .rw-cv-pad-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px;
+}
+.rw-cv-mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'VT323', monospace;
+  font-size: 11px;
+}
+.rw-cv-mini-bar-label {
+  flex: 0 0 50px;
+  color: var(--re-text-dim, #888);
+}
+.rw-cv-mini-bar-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  background: var(--re-bg, #000);
+  border: 1px solid var(--re-line);
+}
+.rw-cv-mini-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--re-phosphor, #66ff66);
+}
+.rw-cv-mini-bar-fill.negative { background: var(--re-amber, #ffb86b); }
+.rw-cv-mini-bar-num {
+  flex: 0 0 36px;
+  text-align: right;
+  color: var(--re-phosphor, #66ff66);
+}
+
+/* ===================================================================
+ * CV Output section (I/O panel ? CV Out)
+ * ===================================================================
+ * `rw-cv-channels` and `rw-cv-channel` are reused from CV Input. Below
+ * are the additional class hooks unique to CV Out: per-row layouts with
+ * type/source/test live readout, and the modal-ish pitch calibration
+ * panel. Distinct amber tint on `Test` button + live label flags
+ * "voltage going OUT" so users can tell at a glance they're not just
+ * reading a value. */
+.rw-cv-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-end;
+  margin-top: 6px;
+}
+.rw-cv-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.rw-cv-source-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rw-cv-idx {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  color: var(--re-amber, #ffb86b);
+  letter-spacing: 0.5px;
+  min-width: 40px;
+}
+.rw-cv-label {
+  flex: 1 1 120px;
+  min-width: 100px;
+}
+.rw-cv-live {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  color: var(--re-amber, #ffb86b);
+  min-width: 60px;
+  text-align: right;
+}
+.rw-cv-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+.rw-hint.small { font-size: 10px; opacity: 0.7; }
+
+/* Pitch calibration overlay. Lightweight modal so a calibration
+ * session can stay open while the user tunes their oscillator. */
+.rw-cv-cal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.rw-cv-cal {
+  background: var(--re-bg, #000);
+  border: 1px solid var(--re-line);
+  padding: 16px;
+  width: min(480px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rw-cv-cal-h {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--re-phosphor, #66ff66);
+}

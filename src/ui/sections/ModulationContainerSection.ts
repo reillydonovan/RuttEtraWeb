@@ -13,6 +13,8 @@ import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import type { VideoTap } from '../../modulation/graph/VideoTap';
 import { ModMatrix } from '../../modulation/ModMatrix';
 import { LiveValuesStore } from '../../modulation/LiveValues';
+import { CVInput } from '../../audio/CVInput';
+import { GamepadInput } from '../../input/GamepadInput';
 import { createModulationSection } from './ModulationSection';
 import { button } from '../widgets';
 import { layoutManager } from '../layout/LayoutManager';
@@ -24,6 +26,10 @@ export interface ModulationContainerDeps {
   /** Shared base/live router. Used by the global "Reset Mod" button to
    *  force liveParams back to base in one tick. */
   liveValues: LiveValuesStore;
+  /** v9: external CV reader (used by Classic CV-Audio source rows). */
+  cv?: CVInput;
+  /** v9: gamepad / HID poller (used by Classic Gamepad source rows). */
+  gamepad?: GamepadInput;
   /**
    * Lazy access to the GraphEngine (constructed only when the user
    * touches the Graph or Both mode for the first time).
@@ -104,7 +110,7 @@ export function createModulationContainerSection(deps: ModulationContainerDeps):
   // ---------- Classic pane ----------
   const classicPane = document.createElement('div');
   classicPane.className = 'rw-mod-classic-pane';
-  classicPane.appendChild(createModulationSection(settings, matrix));
+  classicPane.appendChild(createModulationSection(settings, matrix, deps.cv, deps.gamepad));
 
   // Convert-to-Graph row at the bottom of the Classic body.
   const convertRow = document.createElement('div');
@@ -148,6 +154,8 @@ export function createModulationContainerSection(deps: ModulationContainerDeps):
         getEngine: deps.getEngine,
         getVideoTap: deps.getVideoTap,
         isCompact: () => layoutManager().current() === 'compact',
+        cv: deps.cv,
+        gamepad: deps.gamepad,
       }));
     } catch (err) {
       placeholder.textContent = `Graph editor failed to load: ${(err as Error).message}`;

@@ -33,6 +33,14 @@ import { MidiClock } from '../midi/MidiClock';
 import { MidiManager } from '../midi/MidiManager';
 import { MidiMapping } from '../midi/MidiMapping';
 import { OscClient } from '../osc/OscClient';
+import { CVInput } from '../audio/CVInput';
+import { GamepadInput } from '../input/GamepadInput';
+
+/** Minimal duck-typed slice of `CVOutput` ModMatrix needs — keeps the
+ *  audio module out of the unit-test import graph. */
+export interface CVOutputLike {
+  setClassicSource(channelIndex: number, value: number): void;
+}
 import { activeTargetsBus } from './ActiveTargetsBus';
 import { divisionToHz } from './tempo';
 import { applyOutputStage } from './outputStage';
@@ -97,6 +105,13 @@ export interface ModMatrixDeps {
   midiMapping?: MidiMapping;
   midiManager?: MidiManager;
   osc?: OscClient;
+  /** v9: external CV reader (DC-coupled audio interface). Optional. */
+  cv?: CVInput;
+  /** v9: external CV writer. Receives slot values whose `target` is
+   *  encoded as `cv:<channelIndex>`. */
+  cvOut?: CVOutputLike;
+  /** v9: gamepad / HID poller. Optional. */
+  gamepad?: GamepadInput;
   /**
    * Required for the new "base + mod" path. ModMatrix never writes to
    * `Settings` directly anymore — every per-frame contribution is
@@ -122,6 +137,9 @@ export class ModMatrix {
   private midiMapping: MidiMapping | null;
   private midiManager: MidiManager | null;
   private osc: OscClient | null;
+  private cv: CVInput | null;
+  private cvOut: CVOutputLike | null;
+  private gamepad: GamepadInput | null;
 
   constructor(private settings: SettingsStore, deps: ModMatrixDeps) {
     this.fft = deps.fft ?? null;
@@ -130,6 +148,9 @@ export class ModMatrix {
     this.midiMapping = deps.midiMapping ?? null;
     this.midiManager = deps.midiManager ?? null;
     this.osc = deps.osc ?? null;
+    this.cv = deps.cv ?? null;
+    this.cvOut = deps.cvOut ?? null;
+    this.gamepad = deps.gamepad ?? null;
     this.liveValues = deps.liveValues;
   }
 
@@ -226,6 +247,22 @@ export class ModMatrix {
       if (rawValues) rawValues[i] = raw;
       const t = slot.target;
       activeTargets.add(t);
+
+      // CV-output target: don't push into `LiveValuesStore` — route to
+      // the CV-output subsystem instead. Encoded as `cv:<channelIndex>`
+      // in the Target dropdown. The post-amount value flows out the
+      // selected CV channel, scaled / clamped / type-processed by
+      // CVOutput. Falling through silently if `cvOut` is unset means
+      // a slot pointing at `cv:0` simply has no audible effect, which
+      // is the safe behavior — better than throwing in render-loop code.
+      if (typeof t === 'string' && t.startsWith('cv:')) {
+        const ch = Number.parseInt(t.slice(3), 10);
+        if (Number.isFinite(ch) && this.cvOut) {
+          this.cvOut.setClassicSource(ch, shaped * slot.amount);
+        }
+        continue;
+      }
+
       offsets.set(t as string, (offsets.get(t as string) ?? 0) + shaped * slot.amount);
     }
 
@@ -383,6 +420,51 @@ export class ModMatrix {
       // --- Constant ---
       case 'constant':
         return clamp(slot.constantValue, -1, 1);
+
+      // --- v9: external CV ---
+      case 'cvAudio': {
+        // Audio-interface CV: getNormalized() is already -1..1 (or 0..1
+        // for unipolar) post-calibration, post-smoothing, post-invert.
+        // We feed -1..1 to the output stage; if the channel is unipolar
+        // we widen to -1..1 here so the output stage's curve/range/offset
+        // makes sense (otherwise unipolar 0..1 would only cover half the
+        // output stage's input domain).
+        if (!this.cv) return 0;
+        const v = this.cv.getNormalized(slot.cvChannel | 0);
+        return clamp(v, -1, 1);
+      }
+      case 'cvOsc': {
+        // OSC bridge CV: lookup by index in `cvBridgeChannels`. The OSC
+        // client maintains a per-address last-value cache; we map the
+        // raw arg through the bridge channel's range mapping here.
+        if (!this.osc) return 0;
+        const channels = this.settings.get('cvBridgeChannels');
+        const ch = channels[slot.cvChannel | 0];
+        if (!ch || !ch.enabled || !ch.address) return 0;
+        const raw = this.osc.getValue
+          ? // raw OSC arg as last-seen at argIndex 0
+            this.osc.getValue(ch.address, 0)
+          : 0;
+        // Bridge cache stores 0..1; remap to volts via configured min/max,
+        // then back to -1..1 (or 0..1 for unipolar).
+        const denorm = ch.inMin + raw * (ch.inMax - ch.inMin);
+        const span = Math.max(0.001, ch.inMax - ch.inMin);
+        const norm01 = (denorm - ch.inMin) / span; // 0..1
+        let v = ch.polarity === 'unipolar' ? norm01 : norm01 * 2 - 1;
+        if (ch.invert) v = -v;
+        return clamp(v, -1, 1);
+      }
+      case 'gamepadAxis': {
+        if (!this.gamepad) return 0;
+        return clamp(this.gamepad.getAxis(slot.gamepadIndex | 0), -1, 1);
+      }
+      case 'gamepadBtn': {
+        if (!this.gamepad) return 0;
+        // Buttons are 0..1; widen to -1..1 so the output stage's
+        // `outputMin/outputMax` range covers the full sweep.
+        const v = this.gamepad.getButton(slot.gamepadIndex | 0);
+        return v * 2 - 1;
+      }
     }
     // Exhaustive check — TS will error here if a new ModSource is added
     // without a matching case (intentional safety net).

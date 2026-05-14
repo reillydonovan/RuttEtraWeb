@@ -1,0 +1,464 @@
+/*
+ * Long-form manual page styling.
+ *
+ * Reuses the same CRT design tokens as panel.css (declared again here
+ * so the about page is fully self-contained — visiting about.html does
+ * NOT pull in panel.css and the rest of the synth's CSS bundle, which
+ * would only inflate the manual's footprint). Tokens stay nominally
+ * in sync; if panel.css palette changes, this file updates too.
+ *
+ * Layout:
+ *   - Fixed top nav (~56px) with home link + TOC + search input.
+ *   - Single-column scrollable doc, max-width 720px for readability.
+ *   - Subtle scanline overlay (3% opacity) — same aesthetic, lower
+ *     intensity than the synth's main canvas treatment.
+ *
+ * Print:
+ *   - Drops the scanline overlay, switches to dark-on-white.
+ *   - Suppresses the nav, expands every section, numbers headings,
+ *     and forces page breaks between major sections.
+ */
+
+:root {
+  --re-bg:        #0a0e0a;
+  --re-bg-2:      #0f150f;
+  --re-panel:     rgba(8, 14, 8, 0.92);
+  --re-line:      rgba(95, 255, 133, 0.18);
+  --re-line-hi:   rgba(95, 255, 133, 0.45);
+  --re-text:      #cfe8d8;
+  --re-text-dim:  #5a9a72;
+  --re-accent:    #7eff9c;       /* main phosphor / link / heading color */
+  --re-accent-2:  #ffb347;
+  --re-glow:      0 0 8px rgba(95, 255, 133, 0.55);
+  --re-mono:      'VT323', 'Share Tech Mono', ui-monospace, Menlo, monospace;
+  --about-nav-h:  56px;
+  --about-max-w:  720px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--re-bg);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 18px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+/* Subtle scanline overlay — lower intensity than the synth main canvas
+ * so prose stays readable without forcing the user to fight a moiré. */
+body.about-body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(95, 255, 133, 0.0) 0,
+    rgba(95, 255, 133, 0.0) 2px,
+    rgba(95, 255, 133, 0.06) 3px,
+    rgba(95, 255, 133, 0.0) 4px
+  );
+  opacity: 0.5;
+  z-index: 0;
+  mix-blend-mode: screen;
+}
+
+/* =====================================================================
+ * Top nav
+ * ===================================================================== */
+
+#about-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--about-nav-h);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: rgba(6, 10, 6, 0.92);
+  border-bottom: 1px solid var(--re-line);
+  backdrop-filter: blur(4px);
+}
+
+.about-nav-home {
+  font-family: var(--re-mono);
+  color: var(--re-accent);
+  text-decoration: none;
+  letter-spacing: 0.15em;
+  font-size: 18px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+.about-nav-home:hover, .about-nav-home:focus-visible {
+  border-color: var(--re-line-hi);
+  text-shadow: var(--re-glow);
+  outline: none;
+}
+
+#about-toc {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 8px;
+}
+#about-toc a {
+  color: var(--re-text-dim);
+  text-decoration: none;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+#about-toc a:hover, #about-toc a:focus-visible {
+  color: var(--re-accent);
+  border-color: var(--re-line);
+  outline: none;
+}
+
+#about-toc-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--re-line);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-left: auto;
+}
+
+#about-search {
+  flex: 0 0 auto;
+  width: 160px;
+  background: var(--re-bg-2);
+  color: var(--re-text);
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  padding: 4px 8px;
+  font-family: var(--re-mono);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+#about-search::placeholder { color: var(--re-text-dim); }
+#about-search:focus {
+  outline: none;
+  border-color: var(--re-line-hi);
+  box-shadow: var(--re-glow);
+}
+
+/* =====================================================================
+ * Document container
+ * ===================================================================== */
+
+#about-doc {
+  position: relative;
+  z-index: 1;
+  max-width: var(--about-max-w);
+  margin: 0 auto;
+  padding: calc(var(--about-nav-h) + 24px) 24px 96px;
+}
+
+.about-section {
+  margin-bottom: 48px;
+  /* Scroll anchor offset so jump links land below the fixed nav rather
+   * than hiding the heading underneath it. */
+  scroll-margin-top: calc(var(--about-nav-h) + 16px);
+}
+
+.about-hidden { display: none; }
+
+/* Headings */
+#about-doc h1 {
+  font-size: 36px;
+  color: var(--re-accent);
+  text-shadow: var(--re-glow);
+  letter-spacing: 0.05em;
+  margin: 24px 0 12px;
+}
+#about-doc h2 {
+  font-size: 28px;
+  color: var(--re-accent);
+  text-shadow: 0 0 6px rgba(95, 255, 133, 0.4);
+  letter-spacing: 0.04em;
+  margin: 40px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--re-line);
+  scroll-margin-top: calc(var(--about-nav-h) + 16px);
+}
+#about-doc h3 {
+  font-size: 22px;
+  color: var(--re-accent);
+  letter-spacing: 0.04em;
+  margin: 32px 0 8px;
+}
+#about-doc h4 {
+  font-size: 18px;
+  color: var(--re-text);
+  margin: 20px 0 6px;
+}
+
+#about-doc p { margin: 8px 0 12px; }
+
+#about-doc a {
+  color: var(--re-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+#about-doc a:hover { text-shadow: var(--re-glow); }
+
+#about-doc strong { color: var(--re-accent); }
+#about-doc em { color: var(--re-accent-2); font-style: normal; }
+
+#about-doc blockquote {
+  margin: 16px 0;
+  padding: 8px 16px;
+  border-left: 2px solid var(--re-line-hi);
+  background: rgba(95, 255, 133, 0.04);
+  color: var(--re-text);
+}
+
+/* Lists */
+#about-doc ul, #about-doc ol { margin: 8px 0 12px 24px; padding: 0; }
+#about-doc li { margin-bottom: 4px; }
+
+/* Code */
+#about-doc code {
+  background: rgba(95, 255, 133, 0.08);
+  color: var(--re-accent);
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 0.95em;
+  font-family: var(--re-mono);
+}
+#about-doc pre {
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-line);
+  padding: 12px 16px;
+  border-radius: 2px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.4;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(95, 255, 133, 0.0) 0,
+    rgba(95, 255, 133, 0.0) 2px,
+    rgba(95, 255, 133, 0.04) 3px,
+    rgba(95, 255, 133, 0.0) 4px
+  );
+}
+#about-doc pre code {
+  background: none;
+  padding: 0;
+  color: var(--re-text);
+}
+
+/* Tables */
+#about-doc table, .about-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  border: 1px solid var(--re-line);
+  font-size: 16px;
+}
+#about-doc th, #about-doc td,
+.about-table th, .about-table td {
+  border: 1px solid var(--re-line);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+#about-doc th, .about-table th {
+  background: rgba(95, 255, 133, 0.06);
+  color: var(--re-accent);
+  font-weight: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+#about-doc tbody tr:nth-child(even),
+.about-table tbody tr:nth-child(even) {
+  background: rgba(95, 255, 133, 0.02);
+}
+
+/* Horizontal rule = phosphor glow line */
+#about-doc hr {
+  border: none;
+  border-top: 1px solid var(--re-line-hi);
+  box-shadow: 0 0 6px rgba(95, 255, 133, 0.35);
+  margin: 32px 0;
+}
+
+/* Auto-generated subsections */
+.about-autogen-h {
+  margin-top: 48px;
+}
+.about-subhead {
+  font-size: 18px !important;
+  color: var(--re-accent-2) !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 24px !important;
+}
+.about-dim { color: var(--re-text-dim); }
+.about-node {
+  border: 1px solid var(--re-line);
+  border-left: 3px solid var(--re-accent);
+  padding: 10px 14px;
+  margin: 12px 0;
+  background: rgba(95, 255, 133, 0.02);
+}
+.about-node h4 {
+  margin-top: 0 !important;
+  font-size: 16px !important;
+}
+.about-kvp {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 14px;
+}
+.about-kvp .about-k {
+  flex: 0 0 80px;
+  color: var(--re-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.about-noscript {
+  border: 1px solid var(--re-line-hi);
+  background: rgba(95, 255, 133, 0.05);
+  padding: 16px;
+  border-radius: 2px;
+  margin: 24px 0;
+}
+
+/* =====================================================================
+ * Mobile (compact viewport)
+ * ===================================================================== */
+
+@media (max-width: 720px) {
+  html, body { font-size: 16px; }
+  #about-nav {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  #about-toc {
+    position: absolute;
+    top: var(--about-nav-h);
+    left: 0; right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: rgba(6, 10, 6, 0.97);
+    border-bottom: 1px solid var(--re-line);
+    padding: 8px 12px;
+    margin: 0;
+    display: none;
+  }
+  #about-toc.about-toc-open { display: flex; }
+  #about-toc a {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--re-line);
+  }
+  #about-toc a:last-child { border-bottom: none; }
+  #about-toc-toggle {
+    display: inline-block;
+  }
+  #about-search {
+    width: 110px;
+    font-size: 13px;
+  }
+  #about-doc { padding: calc(var(--about-nav-h) + 16px) 16px 64px; }
+  #about-doc h1 { font-size: 28px; }
+  #about-doc h2 { font-size: 22px; }
+  #about-doc h3 { font-size: 18px; }
+  #about-doc table { display: block; overflow-x: auto; }
+}
+
+/* =====================================================================
+ * Print stylesheet — manual prints as a clean reference document.
+ * Drops the scanline overlay, inverts to dark-on-white, suppresses the
+ * fixed nav, and adds heading numbering for offline readability.
+ * ===================================================================== */
+
+@media print {
+  body.about-body::before { display: none; }
+  body.about-body, html {
+    background: white !important;
+    color: #111 !important;
+  }
+  #about-nav, #about-toc-toggle, #about-search, .about-noscript {
+    display: none !important;
+  }
+  #about-doc {
+    max-width: none;
+    padding: 0 0 24px;
+    margin: 0;
+  }
+  #about-doc h1 { color: #000 !important; text-shadow: none !important; font-size: 28pt; }
+  #about-doc h2 {
+    color: #000 !important; text-shadow: none !important;
+    border-bottom: 1px solid #000;
+    page-break-before: always;
+    page-break-after: avoid;
+    font-size: 20pt;
+  }
+  #about-doc h2:first-of-type { page-break-before: auto; }
+  #about-doc h3, #about-doc h4 {
+    color: #000 !important;
+    page-break-after: avoid;
+  }
+  #about-doc strong, #about-doc em { color: #000 !important; }
+  #about-doc a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+  #about-doc code, #about-doc pre {
+    background: #f4f4f4 !important;
+    color: #000 !important;
+    border-color: #999 !important;
+  }
+  #about-doc pre { page-break-inside: avoid; }
+  #about-doc table, .about-table {
+    border-color: #444 !important;
+    page-break-inside: avoid;
+  }
+  #about-doc th, .about-table th { background: #eee !important; color: #000 !important; }
+  #about-doc tbody tr:nth-child(even), .about-table tbody tr:nth-child(even) {
+    background: #f8f8f8 !important;
+  }
+  #about-doc blockquote { background: #f8f8f8 !important; border-color: #999 !important; }
+  .about-node {
+    background: #fafafa !important;
+    border-color: #888 !important;
+    page-break-inside: avoid;
+  }
+
+  /* Auto-numbered headings: counter ticks per major section. */
+  body.about-body { counter-reset: about-h2; }
+  #about-doc h2::before {
+    counter-increment: about-h2;
+    content: counter(about-h2) ". ";
+  }
+  body.about-body { counter-reset: about-h2 about-h3; }
+  #about-doc h2 { counter-reset: about-h3; }
+  #about-doc h3::before {
+    counter-increment: about-h3;
+    content: counter(about-h2) "." counter(about-h3) " ";
+  }
+
+  /* Reveal hidden (search-filtered) sections in print. */
+  .about-hidden { display: block !important; }
+}
