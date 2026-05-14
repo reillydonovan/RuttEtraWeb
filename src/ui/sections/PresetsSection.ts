@@ -22,11 +22,11 @@ const PRESET_MIME = 'application/x-ruttetra-preset';
 const USER_KEY = 'ruttetra.userPresets.v1';
 
 /**
- * In-session-only user preset store. Auto-persistence is off so every
- * refresh starts empty; flip this on (and the matching flags in
- * `Settings.ts` and `sequencer/store.ts`) to restore legacy auto-save.
+ * User presets are saved to localStorage so they survive page refreshes.
+ * Global settings and timelines still start fresh on each refresh unless
+ * the user explicitly uses "Save / Load Settings".
  */
-const PERSIST_USER_PRESETS = false;
+const PERSIST_USER_PRESETS = true;
 
 interface UserPreset { id: string; name: string; values: Partial<Settings>; }
 
@@ -319,7 +319,7 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   hardResetBtn.title = 'Reset every control + clear all saved data, then reload.';
   const dangerNote = readout();
   dangerNote.style.color = 'var(--re-text-dim)';
-  dangerNote.textContent = 'Auto-save is OFF — refresh always starts fresh. Use this to also wipe any leftover saved data from previous sessions.';
+  dangerNote.textContent = 'GUI settings start fresh on each refresh. User presets and saved snapshots do persist — use this button to wipe them all.';
   danger.body.append(hardResetBtn, dangerNote);
   root.appendChild(danger.root);
 
