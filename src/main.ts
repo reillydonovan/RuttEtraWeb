@@ -416,7 +416,15 @@ async function bootSynth(): Promise<void> {
       try { localStorage.setItem(TIMELINES_KEY, JSON.stringify(list)); } catch { /* ignore */ }
       if (activeId) {
         const tl = list.find((x) => x.id === activeId);
-        if (tl) sequencer.load(tl);
+        if (tl) {
+          sequencer.load(tl);
+        } else {
+          // activeId specified but not found — unload
+          sequencer.load(null);
+        }
+      } else {
+        // No activeId (new project / cleared state) — unload
+        sequencer.load(null);
       }
     },
     getActiveTimelineId: () => sequencer.timeline?.id ?? null,
