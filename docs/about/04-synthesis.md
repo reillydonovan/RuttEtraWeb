@@ -11,7 +11,7 @@ The core synth: how brightness becomes geometry, what each knob does, and how to
 
 ### Pattern Generator (synthesized source)
 
-The Pattern Generator is a built-in "video signal" — a fragment shader that paints a synthesized image into an offscreen texture, then feeds it through the DCU exactly the way a webcam frame would. It is a *layer* parallel to the video source, not a replacement: webcam / screen / file stay selected as before, and a separate **Enable** toggle (styled identically to **Mirror H** / **Mirror V**) flips the pattern pipeline on. When OFF, the live `VideoTexture` feeds the DCU directly with zero added GPU cost.
+The Pattern Generator is a built-in "video signal" — a fragment shader that paints a synthesized image into an offscreen texture, then feeds it through the DCU exactly the way a webcam frame would. It is a *layer* parallel to the video source, not a replacement: webcam / screen / file stay selected as before, and a separate **Enable** toggle (styled identically to **Mirror H** / **Mirror V**) flips the pattern pipeline on. When OFF, the live `VideoTexture` feeds the DCU directly with zero added GPU cost. (See Design Principles — [*The structure matches how you think about it*](#matches-how-you-think).)
 
 Conceptually:
 

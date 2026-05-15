@@ -32,13 +32,14 @@ import './about.css';
 // a `<section id="...">...</section>` wrapper with the id derived from
 // the filename.
 import introHtml         from '../../docs/about/01-intro.md?aboutMd';
-import quickStartHtml    from '../../docs/about/02-quick-start.md?aboutMd';
-import synthesisHtml     from '../../docs/about/03-synthesis.md?aboutMd';
-import modulationHtml    from '../../docs/about/04-modulation.md?aboutMd';
-import ioHtml            from '../../docs/about/05-io.md?aboutMd';
-import performanceHtml   from '../../docs/about/06-performance.md?aboutMd';
-import referenceHtml     from '../../docs/about/07-reference.md?aboutMd';
-import aboutHtml         from '../../docs/about/08-about.md?aboutMd';
+import principlesHtml    from '../../docs/about/02-design-principles.md?aboutMd';
+import quickStartHtml    from '../../docs/about/03-quick-start.md?aboutMd';
+import synthesisHtml     from '../../docs/about/04-synthesis.md?aboutMd';
+import modulationHtml    from '../../docs/about/05-modulation.md?aboutMd';
+import ioHtml            from '../../docs/about/06-io.md?aboutMd';
+import performanceHtml   from '../../docs/about/07-performance.md?aboutMd';
+import referenceHtml     from '../../docs/about/08-reference.md?aboutMd';
+import aboutHtml         from '../../docs/about/09-about.md?aboutMd';
 
 // Build the auto-generated tables. These import pure-data modules:
 //   - paramDocs (settings descriptions) is a plain object literal
@@ -48,6 +49,7 @@ import { buildParamReferenceHtml, buildNodeCatalogHtml } from './autogen';
 
 const SECTIONS: { html: string; injectAfter?: 'reference' }[] = [
   { html: introHtml },
+  { html: principlesHtml },
   { html: quickStartHtml },
   { html: synthesisHtml },
   { html: modulationHtml },

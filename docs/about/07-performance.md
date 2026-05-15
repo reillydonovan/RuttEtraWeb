@@ -4,7 +4,7 @@ How to keep frames smooth, get the picture you want, and capture the result.
 
 ### Projects, Presets, and Timelines
 
-The synth has three save formats at three different scales. Choose based on what you want to keep or share.
+The synth has three save formats at three different scales. Choose based on what you want to keep or share. (See Design Principles — [*Two ways to do something is sometimes correct*](#two-ways).)
 
 **Preset (`.preset.json`)** — a *look*. Saves the DCU controls, modulation patches, color and effects, the camera's default view. Small file, easy to share. Use this when you want to share a visual configuration with someone else or save a single instrument sound.
 
@@ -31,7 +31,7 @@ When unsaved changes exist, the title bar appends an asterisk: `{Project Name} *
 
 1. Click **Open…** (or press `Ctrl+O`), pick a `.synth.json` file.
 2. The synth restores the preset, timeline, bindings, configurations, and layout.
-3. Hardware-output features (CV outputs, sonification, mic input) load their configs but stay disabled — re-enable them explicitly to start producing output. This rule is enforced structurally: the project loader routes settings through `migrateSettings()`, which always forces `cvOutputEnabled = false`, every `cvOutputChannels[].enabled = false`, and `sonification.enabled = false` regardless of the saved value.
+3. Hardware-output features (CV outputs, sonification, mic input) load their configs but stay disabled — re-enable them explicitly to start producing output. This rule is enforced structurally: the project loader routes settings through `migrateSettings()`, which always forces `cvOutputEnabled = false`, every `cvOutputChannels[].enabled = false`, and `sonification.enabled = false` regardless of the saved value. (See Design Principles — [*The synth doesn't make sound by accident*](#no-accident-sound).)
 4. A toast summarizes what was restored: *Loaded "Session 1" — 3 MIDI bindings, 2 CV channels (disabled), sonification ready (disabled), 8 timeline keyframes.*
 
 **Auto-save and recovery**
@@ -78,7 +78,9 @@ The **Resolution** picker determines recording dimensions. Set Resolution to FHD
 
 ### Timeline recording
 
-The Timeline sequencer (Record panel → Timeline tab) lets you compose a piece by adding **keyframes** at specific bars. Each keyframe is either:
+The Timeline sequencer (Record panel → Timeline tab) lets you compose a piece by adding **keyframes** at specific bars. Shortening a timeline preserves keyframes past the new end — they're flagged in the editor and don't play, but they reappear if you lengthen the timeline again, so trimming is never destructive. (See Design Principles — [*Saved work is preserved, even when it changes*](#saved-work-preserved).)
+
+Each keyframe is either:
 
 - a **snapshot** of the current Settings (saved inline), or
 - a **preset reference** (linked to a saved preset by name).

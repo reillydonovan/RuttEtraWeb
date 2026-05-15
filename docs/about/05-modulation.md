@@ -17,7 +17,7 @@ If you're patching three knobs to a few LFOs, use **Classic**. If you're routing
 
 ### The base/live split (v9 architecture)
 
-Every modulation engine operates on a **base + mod** principle. The slider you turn is the **base** value. The renderer reads a **live** value computed each frame as `base + sum(active modulations)`. When a patch is disabled, deleted, or its source goes quiet, the contribution drops to zero immediately and the live value snaps back to base — no stuck parameters, no lingering offsets.
+Every modulation engine operates on a **base + mod** principle. The slider you turn is the **base** value. The renderer reads a **live** value computed each frame as `base + sum(active modulations)`. When a patch is disabled, deleted, or its source goes quiet, the contribution drops to zero immediately and the live value snaps back to base — no stuck parameters, no lingering offsets. (See Design Principles — [*Modulation doesn't overwrite your knobs*](#modulation-knobs).)
 
 Per-patch reset (↻ icon) zeros out a single patch's contribution. The global **Reset Mod** button mutes every patch's Amount in one tick — a panic button for when a tangled routing has gotten away from you.
 
@@ -73,7 +73,9 @@ The BPM at the top of the Modulation panel is shared across:
 - Graph **Clock** node in `internal` mode
 - Timeline sequencer in `internal` sync mode
 
-In **MIDI** sync mode, all three follow incoming MIDI clock pulses. There is **no silent fallback** if MIDI is selected but the clock disconnects — the LFOs hold at the last received tempo and the panel's "no clock" indicator lights up. This is intentional: silent fallback to internal BPM has bitten too many performers mid-show.
+One BPM field drives all three — change it in one place and every tempo-locked source moves with it. (See Design Principles — [*One concept, one place to set it*](#one-concept).)
+
+In **MIDI** sync mode, all three follow incoming MIDI clock pulses. There is **no silent fallback** if MIDI is selected but the clock disconnects — the LFOs hold at the last received tempo and the panel's "no clock" indicator lights up. This is intentional: silent fallback to internal BPM has bitten too many performers mid-show. (See Design Principles — [*The synth tells you what's wrong, instead of hiding it*](#tells-you-whats-wrong).)
 
 ### Worked examples
 

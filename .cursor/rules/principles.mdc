@@ -1,0 +1,143 @@
+---
+description: Design principles for the Rutt/Etra synth project. Apply to all feature work, refactoring, and architectural decisions.
+alwaysApply: true
+---
+
+# Rutt/Etra Design Principles
+
+These principles guide all feature work on this synth. Apply them when generating code, proposing architectures, answering design questions, or reviewing plans. When a principle conflicts with a user request, surface the conflict — don't silently work around it.
+
+The long-form developer reference is `PRINCIPLES.md` at the repo root. The artist-facing version is the *Design Principles* section in `docs/about/02-design-principles.md`. All three sources cover the same nine principles in the same order.
+
+## 1. One concept, one authoritative source
+
+When proposing data structures, check if the concept already exists elsewhere in the codebase. Examples of shared concepts in this project:
+
+- `Settings.internalBpm` is THE bpm. Classic LFOs (`src/modulation/ModMatrix.ts`), Timeline sequencer (`src/sequencer/Sequencer.ts`), and Graph `clock` nodes (`src/modulation/graph/nodes/sources.ts`) all read from it. Never create a second BPM field.
+- `PARAM_DOCS` in `src/ui/help/paramDocs.ts` drives both in-app Help and the About page's Param Reference (`src/about/autogen.ts`). Never hardcode docs in two places.
+- The graph node registry (`src/modulation/graph/registry.ts`) drives both runtime instantiation and the auto-generated Node Catalog on the About page. Never duplicate node descriptions.
+- `migrateSettings()` in `src/state/Settings.ts` is the single migration entry point for settings, presets, and projects. Never re-implement migration logic at a callsite.
+- `LiveValuesStore` in `src/modulation/LiveValues.ts` is the only place the renderer reads modulated values. Never create a parallel live cache.
+- `ResolutionManager` in `src/renderer/ResolutionManager.ts` is the single sizing authority for renderer / postfx / pattern render targets.
+
+Before adding state: search for existing concepts. If found, consume the existing source. If not, create one authoritative location and document it.
+
+## 2. Base values and live values are separate
+
+Every modulatable parameter has TWO values:
+
+- **Base** — what the UI knob displays and what the user edits. Read from `Settings.get(key)`; written by UI controls via `Settings.set(key, value)`.
+- **Live** — what the renderer reads each frame. Computed as `base + sum(modulation contributions)` inside `LiveValuesStore` and queried via `liveValues.get(key)`.
+
+Rules:
+
+- UI controls write to base only. Never write modulation output to `Settings`.
+- Modulation engines write contributions to live only. They call `liveValues.setContributions(namespace, offsets, factors)` once per frame; contributions absent from the new map are cleared on the same frame.
+- The renderer reads live only. Shader uniforms bind to `liveValues.get(key)`, never to `Settings.get(key)`.
+
+When implementing a new modulation source: writes go to `LiveValuesStore`, not `Settings`. When implementing a new control: reads/writes go to `Settings`, not `LiveValuesStore`. If you find yourself blurring this, stop and ask.
+
+Forbidden pattern: `settings.set('zPush', liveValues.get('zPush'))` inside any modulation lifecycle (enable, disable, tick, reset). The pre-v9 bug. Disabling that source will leave the parameter stuck.
+
+## 3. No silent fallbacks
+
+If a feature has a configured mode (MIDI Clock, mic input, specific CV device, file reference) and that mode's prerequisite is missing, surface the state — do NOT silently fall back to a default.
+
+Concrete cases this codebase already handles correctly (mirror these):
+
+- MIDI Clock selected, no clock received for 2 seconds → show "no clock" indicator, hold last-known rate, do NOT use `internalBpm`.
+- Configured MIDI device disconnected → show disconnect indicator, do NOT auto-pick a different device.
+- AC-coupled audio interface suspected → warn the user that DC voltages will drift, do NOT silently filter garbage.
+- Recent Project on Firefox/Safari with no persistent file handle → show project name, require re-pick, do NOT silently load a stale path.
+- Settings file with `formatVersion > current` → `console.warn` and normalize on save, do NOT silently truncate fields.
+
+Fallback to a default IS appropriate when no specific mode is configured. Internal BPM is the default when `Sync = Internal`; that's fine. Fallback when a specific mode IS configured is never appropriate.
+
+## 4. Explicit user action required for audio output
+
+ANY feature that produces sound or sends voltage to external hardware MUST:
+
+- Default to disabled. Load configurations but never auto-enable.
+- Default to quiet (audio output: −18 dB or quieter; CV output: 0V on first enable).
+- Implement soft-start ramps from zero on enable (100 ms minimum for CV; 500 ms preferred for audio).
+- Sit behind a hard limiter (`DynamicsCompressorNode` for audio; sample-level clamping for CV — `±10V` is the project convention).
+- Reset to disabled on page load and on project load, regardless of saved state. Enforce this structurally inside `migrateSettings()` so no loader can forget.
+- Use an isolated `AudioContext` when the surface routes to its own destination (CV out via `setSinkId`; sonification on its own context).
+- Detect and prevent mic-input feedback paths (auto-force master to 0 with a UI banner when feedback risk is present).
+
+When proposing audio/CV output features: the safety stack is mandatory. Do not propose features that skip these requirements "for simplicity." Reference implementations: `src/audio/Sonification.ts` (audio voice) and `src/audio/CVOutput.ts` (voltage output).
+
+## 5. Coexistence over replacement
+
+When proposing new systems that overlap with existing functionality, default to coexistence rather than replacement:
+
+- ModMatrix (Classic modulation, `src/modulation/ModMatrix.ts`) and GraphEngine (`src/modulation/graph/GraphEngine.ts`) both exist; `Settings.modMode` selects `classic | graph | both`.
+- Presets (`.preset.json`), Timelines (`.timeline.json`), and Projects (`.synth.json`) all exist as separate save formats with different scopes.
+- Pattern Generator is a layer (`patternEnabled` + `patternBlendMode` + `patternMix`) alongside webcam / file / screen sources, NOT a fourth `sourceKind` enum value that excludes them.
+- Graph Beginner view and Advanced view are both valid; one constrains the surface, the other exposes the full canvas.
+- In-app Help dock and the About page both ship; quick-while-working and read-in-depth are different jobs.
+
+Before proposing a replacement: ask why the existing system can't continue to serve its current users. If the answer is "the new system is cleaner," that's not sufficient. Replacements should only happen when the existing system is broken or unmaintainable, not when a new design is more elegant.
+
+When uncertain, propose coexistence and let the user explicitly choose to deprecate. True deprecation gets its own explicit user notification (see Principle 6) and a wind-down period.
+
+## 6. Migrations are explicit
+
+When changing a saved data format (presets, timelines, projects, settings):
+
+- Bump the version field (`_v` for Settings/presets, `formatVersion` for projects).
+- Add an idempotent migration step to `migrateSettings()` (or `migrateProject()` / `migrateTimeline()` as appropriate).
+- Preserve old data when shape changes: keyframes past a shortened timeline are flagged, not deleted; legacy fields are converted, not dropped.
+- Notify the user when non-trivial migrations occur (toast or banner: *"Old format upgraded — N items adjusted"*).
+- Never silently pick values when multiple historical sources could be used. Example: if introducing a shared BPM and old data has multiple per-feature BPM values, do NOT auto-pick "the most recent" — leave at default and surface the prior values so the user picks.
+- Forward-compat: a file with a newer version than the current code logs `console.warn` and normalizes on save; never truncates silently.
+
+If proposing a schema change without a versioned migration: stop and add one. If proposing a migration that silently rewrites user-detectable behavior: stop and add a notification.
+
+## 7. Match the user's mental model, not the engineer's
+
+When designing data structures or UI:
+
+- Users think of Pattern Generator as a *layer* compositing on top of video. Not as `sourceKind = 'pattern'`.
+- Users think of preset keyframes as *structural moments* and automation lanes as *per-knob animation*. Not as one keyframe object with different parameter scopes.
+- Users think of Classic and Graph modulation as different mental models (DAW-style matrix vs voltage-control patcher). Not as alternate UI skins over one underlying graph.
+- Users think of Preset, Timeline, and Project as serving different sharing/persistence needs. Not as nested fields of one document.
+
+When proposing architecture, ask: how will users describe this when explaining it to a friend? Match the structure to that explanation, not to whatever is convenient to implement.
+
+User-facing labels belong to users (e.g. "MIDI Out"). Engineering convenience names belong to engineering (e.g. `slot.midiOutEnabled`). Don't expose the engineering names through the UI.
+
+## 8. Documentation lands with the feature
+
+Every feature change includes:
+
+- In-app Help content updates (`src/ui/help/content.ts` or `src/ui/help/paramDocs.ts`).
+- About page content updates (markdown source under `docs/about/`).
+- Auto-generated reference updates: extend `PARAM_DOCS` for any new modulatable Settings key; register a complete `NodeDef<T>` (description / inputs / outputs / params) for any new Graph node.
+
+Documentation is NOT a follow-up task. A feature shipping without docs is incomplete.
+
+When proposing a feature: include the documentation deltas in the plan. If the plan doesn't mention docs, flag it. Pure internal refactors that don't change user-facing behavior are the only exception.
+
+## 9. Smallest working scope first
+
+When asked to build a feature:
+
+- Propose the minimum version that works end-to-end before suggesting maximalist scope.
+- Stage related features serially when they share architecture; parallel when they don't.
+- Concrete examples of staged scope in this project: Sonification = single voice (not polyphonic); Graph mode = Beginner view first, Advanced after; Pattern Generator v1 = visual rendering only, v2 added the `pattern-output` modulation source bus; CV output = five channel types (cv/gate/trigger/clock/pitch), extensions on request.
+- Acceptance criteria define "working," not "feature-complete by some external standard."
+
+When a user requests a maximalist version: confirm by asking if a v1 should land first. If they confirm "yes, full version now," proceed; if they say "v1 first," scope accordingly.
+
+"Minimum" still means smallest *correct* version. A data-format migration that has to handle every prior version is still a minimum — leaving versions out would be wrong, not small.
+
+## Cross-cutting requirements
+
+In addition to the principles above:
+
+- When proposing plans in plan mode, include a **Confirm before building** section at the end listing key decisions.
+- Flag conflicts between user requests and these principles rather than silently working around them. Surface the conflict and ask.
+- Treat these principles as constraints, not suggestions. They were derived from observed practice on this project; the list is the artifact, not a starting point for invention.
+- This file is the authoritative source for project conventions Cursor applies. If something here is unclear, ask for clarification rather than guessing.
+- `PRINCIPLES.md` at the repo root is the long-form reference. Link to it when explaining a principle in depth. Do not duplicate its content here; this file is the directive form.

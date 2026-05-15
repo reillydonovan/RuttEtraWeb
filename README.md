@@ -335,6 +335,14 @@ The synth ships with two levels of documentation:
 
 ---
 
+## Design principles
+
+This codebase follows nine design principles that have shaped every feature in the v1–v10 release cycle: one authoritative source per concept, a strict base / live split for modulatable parameters, no silent fallbacks when a configured mode loses its prerequisite, explicit user action required for any audio or CV output (with a mandatory safety stack), coexistence over replacement, explicit versioned migrations, a data model that matches the user's mental model rather than the engineer's convenience, documentation that lands with the feature, and the smallest working scope first. New features and refactors are measured against these rules before they ship.
+
+The long-form reference is [`PRINCIPLES.md`](./PRINCIPLES.md) at the repo root. An artist-facing version lives in the About page under *Design Principles*. A directive version for AI tools lives at [`.cursor/rules/principles.mdc`](./.cursor/rules/principles.mdc) and is applied automatically when working in this repo with Cursor.
+
+---
+
 ## OSC bridge quick start
 
 ```bash
