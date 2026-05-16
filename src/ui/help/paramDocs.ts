@@ -13,7 +13,8 @@
 
 export type PanelGroup =
   | 'Source' | 'Pattern' | 'DCU' | 'Color/PostFX' | 'Geometry' | 'Camera'
-  | 'Modulation' | 'MIDI' | 'Audio' | 'OSC' | 'CV' | 'Record' | 'Share' | 'UI';
+  | 'Modulation' | 'MIDI' | 'Audio' | 'OSC' | 'CV' | 'Record' | 'Share'
+  | 'XR' | 'UI';
 
 export interface ParamDoc {
   description: string;
@@ -186,6 +187,20 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   recordFps:             { description: 'Capture frame rate.', panel: 'Record' },
   recordBitrateMbps:     { description: 'Video bitrate (Mbps).', panel: 'Record' },
   recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
+
+  // ----- XR (v11) -----
+  xrMeshScale: {
+    description: 'How big the scanline mesh appears when you put on a headset. Tabletop ≈ desk model (default), Roomscale ≈ walk-through, Architectural ≈ stand-still-and-look. Picked before Enter VR/AR and changeable mid-session.',
+    panel: 'XR',
+  },
+  xrAutoEndOnVisibilityChange: {
+    description: 'End the XR session automatically when this browser tab is hidden (minimize, tab switch). Alt-tabbing to a different window does NOT count — the tab is still visible, so Quest Link / SteamVR keeps rendering.',
+    panel: 'XR',
+  },
+  xrPerformanceProfile: {
+    description: 'Performance profile applied during XR sessions, separate from the desktop profile. Stereo rendering doubles GPU load so balanced is the default. Auto picks based on detected headset hint.',
+    panel: 'XR',
+  },
 
   // ----- UI -----
   panelDock:        { description: 'Side panel docks to the left or right edge.', panel: 'UI' },

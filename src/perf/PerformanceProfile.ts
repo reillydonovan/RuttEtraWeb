@@ -18,7 +18,7 @@
  * properties for the renderer / RAF loop to consult.
  */
 
-import { PerformanceProfileId, SettingsStore } from '../state/Settings';
+import { PerformanceProfileId, Settings, SettingsStore, XrPerformanceProfileId } from '../state/Settings';
 
 export interface PerformanceProfileSnapshot {
   id: PerformanceProfileId;
@@ -68,6 +68,47 @@ export function getProfile(id: PerformanceProfileId): PerformanceProfileSnapshot
   return PROFILES[id];
 }
 
+/**
+ * XR profile data — the in-headset tuning knobs that the desktop
+ * `PerformanceProfileSnapshot` doesn't cover. v1 skips postfx in XR
+ * per the spec's Option A, so bloom / chroma / vignette flags don't
+ * apply; the two knobs that matter at the three.js level are:
+ *
+ *   - `framebufferScale`: passed to `renderer.xr.setFramebufferScaleFactor`,
+ *      controls the actual XR layer resolution. Lower = faster, blurrier.
+ *   - `foveation`: passed to `renderer.xr.setFoveation` (0..1), enables
+ *      fixed foveated rendering on Quest etc. Higher = more periphery
+ *      blur, faster. No-op on devices that don't support it.
+ *
+ * The `auto` value is resolved at `XRManager.startSession` time to one
+ * of the concrete IDs based on a detected-headset hint. v1 falls back
+ * to `balanced` when no hint is available.
+ */
+export interface XrProfileSnapshot {
+  id: Exclude<XrPerformanceProfileId, 'auto'>;
+  framebufferScale: number;
+  foveation: number;
+}
+
+const XR_PROFILES: Record<Exclude<XrPerformanceProfileId, 'auto'>, XrProfileSnapshot> = {
+  quality:  { id: 'quality',  framebufferScale: 0.9, foveation: 0.0 },
+  balanced: { id: 'balanced', framebufferScale: 0.8, foveation: 0.5 },
+  battery:  { id: 'battery',  framebufferScale: 0.7, foveation: 1.0 },
+};
+
+export function resolveXrProfile(
+  id: XrPerformanceProfileId,
+  headsetHint?: 'quest2' | 'quest3' | 'pcvr' | 'unknown',
+): XrProfileSnapshot {
+  if (id !== 'auto') return XR_PROFILES[id];
+  switch (headsetHint) {
+    case 'quest2': return XR_PROFILES.battery;
+    case 'quest3': return XR_PROFILES.balanced;
+    case 'pcvr':   return XR_PROFILES.quality;
+    default:       return XR_PROFILES.balanced;
+  }
+}
+
 export interface PerformanceTargets {
   /** Mutate visual passes. */
   setBloomEnabled(on: boolean): void;
@@ -86,6 +127,15 @@ export class PerformanceProfileManager {
   private current: PerformanceProfileSnapshot;
   /** Manual override (from FrameBudgetWatcher toast). */
   private overrideId: PerformanceProfileId | null = null;
+  /**
+   * XR-session bookkeeping. Set on `beginXrSession`, cleared on
+   * `endXrSession`. Captures the persisted per-mode profile map at
+   * session start so we can detect whether the user changed it
+   * mid-session and pick the right restore behavior.
+   */
+  private xrStash: {
+    perMode: Settings['performanceProfile'];
+  } | null = null;
 
   constructor(settings: SettingsStore, targets: PerformanceTargets) {
     this.settings = settings;
@@ -115,4 +165,64 @@ export class PerformanceProfileManager {
   }
 
   snapshot(): PerformanceProfileSnapshot { return this.current; }
+
+  /**
+   * Snapshot the current per-mode performance profile map. Called by
+   * `XRManager` on session start so that `endXrSession()` can decide
+   * whether the user changed the desktop profile mid-XR (in which case
+   * the new choice is preserved) or not (in which case the stash is
+   * re-applied for the active layout mode).
+   *
+   * The desktop profile is NOT mutated during the XR session — XR
+   * rendering bypasses postfx in v1 and three.js controls the
+   * framebuffer dims via `XRWebGLLayer`, so the desktop profile's
+   * dprCap / renderScaleFloor / frameIntervalMs simply don't apply
+   * while presenting. The stash exists purely for restore semantics.
+   */
+  beginXrSession(): void {
+    const perMode = this.settings.get('performanceProfile');
+    this.xrStash = { perMode: { ...perMode } };
+  }
+
+  /**
+   * Resolve the XR-end restore behavior:
+   *
+   *   - `{ kind: 'restored' }`: the user did NOT change the desktop
+   *     profile during the XR session; the stash is re-applied for
+   *     the supplied layout mode (a no-op in practice, since nothing
+   *     mutated, but signaled so the caller can refresh UI).
+   *   - `{ kind: 'kept-user-change', newProfileId }`: the user DID
+   *     change the desktop profile during XR; the new choice is kept
+   *     and the caller should toast "Desktop profile kept at <id>
+   *     (changed during XR session)."
+   *   - `{ kind: 'no-stash' }`: defensive — `endXrSession` was called
+   *     without a matching `beginXrSession`. No restore action taken.
+   */
+  endXrSession(layoutMode: 'compact' | 'standard' | 'expansive'): XrEndResult {
+    const stash = this.xrStash;
+    this.xrStash = null;
+    if (!stash) return { kind: 'no-stash' };
+
+    const nowPerMode = this.settings.get('performanceProfile');
+    if (
+      nowPerMode.compact   === stash.perMode.compact &&
+      nowPerMode.standard  === stash.perMode.standard &&
+      nowPerMode.expansive === stash.perMode.expansive
+    ) {
+      this.applyForMode(layoutMode);
+      return { kind: 'restored' };
+    }
+    return {
+      kind: 'kept-user-change',
+      newProfileId: nowPerMode[layoutMode],
+    };
+  }
+
+  /** True between `beginXrSession` and `endXrSession`. */
+  get inXrSession(): boolean { return this.xrStash !== null; }
 }
+
+export type XrEndResult =
+  | { kind: 'restored' }
+  | { kind: 'kept-user-change'; newProfileId: PerformanceProfileId }
+  | { kind: 'no-stash' };

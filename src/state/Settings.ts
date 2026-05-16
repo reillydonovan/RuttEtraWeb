@@ -22,6 +22,29 @@ export type ModMode = 'classic' | 'graph' | 'both';
 export type RenderMode = 'scanlines' | 'dots' | 'wireframe';
 export type CameraMode = 'orbit' | 'fly';
 export type PerformanceProfileId = 'quality' | 'balanced' | 'battery';
+
+/**
+ * XR mesh framing presets. Picked before / during an XR session; controls
+ * how big the scanline mesh appears relative to the user's body. See
+ * `XRManager.applyMeshFraming` for the per-preset scale + position math.
+ *
+ *   - `tabletop`     ~1m × 0.6m × 0.4m, 1m in front at chest height
+ *   - `roomscale`    ~3m × 2m × 1.5m, 2m ahead — user can walk through
+ *   - `architectural` ~10m × 6m × 4m, large; "stand still and look"
+ */
+export type XrMeshScale = 'tabletop' | 'roomscale' | 'architectural';
+
+/**
+ * XR-specific performance profile. Stereo rendering at headset refresh
+ * rates roughly doubles GPU cost, so this is a separate axis from the
+ * desktop profile rather than reusing the same enum:
+ *
+ *   - `auto`     XRManager picks based on detected headset hint
+ *   - `quality`  full scan rate, full postfx (when postfx-in-XR ships)
+ *   - `balanced` (default) reduced scan rate, no chroma / feedback
+ *   - `battery`  half scan rate, target 72Hz where supported
+ */
+export type XrPerformanceProfileId = 'auto' | 'quality' | 'balanced' | 'battery';
 export type FitMode = 'letterbox' | 'fill' | 'stretch';
 
 export type ModSource =
@@ -831,6 +854,44 @@ export interface Settings {
    * user must explicitly re-enable through the Sonification UI.
    */
   sonification: SonificationConfig;
+
+  // ---------- WebXR (v11) ----------
+  /**
+   * Mesh framing preset used at XR session start. The user picks this
+   * before clicking Enter VR / Enter AR; it can also be changed mid-
+   * session to re-frame on the fly. Default `tabletop` keeps the mesh
+   * around the size of a desk model, comfortable for seated use.
+   *
+   * The active XR session mode itself (`'immersive-vr' | 'immersive-ar' |
+   * null`) is NOT a Settings field — it's runtime state owned by
+   * `XRManager` and read via `xrManager.sessionMode`. Putting session
+   * state in Settings would serialize it into projects and require a
+   * structural force-null on load; keeping it on the manager matches
+   * the data model to its actual lifetime.
+   */
+  xrMeshScale: XrMeshScale;
+  /**
+   * End the XR session automatically when the browser tab becomes
+   * hidden (visibilitychange → document.hidden true). Default true.
+   *
+   * Wired to the `visibilitychange` event, NOT to `blur` — alt-tabbing
+   * to a different desktop window typically leaves the tab visible
+   * (Quest Link continues to render), and the documented workflow is
+   * to reach over to the desktop keyboard while wearing the headset.
+   * Killing the session on every alt-tab would break that workflow;
+   * killing it on tab-hidden / minimize is the right safety net.
+   */
+  xrAutoEndOnVisibilityChange: boolean;
+  /**
+   * XR-only performance profile, separate from the per-layout-mode
+   * desktop `performanceProfile`. Stash-and-restore: `XRManager`
+   * saves the active desktop profile on session start, applies this
+   * profile while presenting, and restores the saved desktop profile
+   * on session end — unless the user changed the desktop profile
+   * mid-session, in which case their newer choice is kept and the
+   * change is surfaced via a toast.
+   */
+  xrPerformanceProfile: XrPerformanceProfileId;
 }
 
 // --------------------------------------------------------------------
@@ -1095,6 +1156,11 @@ export const DEFAULTS: Settings = {
 
   // ---------- Sonification (v10) ----------
   sonification: { ...DEFAULT_SONIFICATION, mappings: { ...DEFAULT_SONIFICATION.mappings } },
+
+  // ---------- WebXR (v11) ----------
+  xrMeshScale: 'tabletop',
+  xrAutoEndOnVisibilityChange: true,
+  xrPerformanceProfile: 'balanced',
 };
 
 // --------------------------------------------------------------------
@@ -1102,7 +1168,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 10;
+const CURRENT_VERSION = 11;
 
 interface Versioned { _v?: number }
 
@@ -1386,6 +1452,24 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       };
     }
     s._v = 10;
+  }
+
+  // v10 -> v11: WebXR. Add the three new user-facing keys with
+  // sensible defaults. The active session mode itself is NOT a
+  // Settings field — it's runtime state owned by `XRManager` —
+  // so no force-null-on-load carve-out is needed here. Rolling
+  // back to v10 code drops the unknown fields harmlessly.
+  if ((s._v ?? 1) < 11) {
+    if (s.xrMeshScale === undefined) {
+      s.xrMeshScale = DEFAULTS.xrMeshScale;
+    }
+    if (s.xrAutoEndOnVisibilityChange === undefined) {
+      s.xrAutoEndOnVisibilityChange = DEFAULTS.xrAutoEndOnVisibilityChange;
+    }
+    if (s.xrPerformanceProfile === undefined) {
+      s.xrPerformanceProfile = DEFAULTS.xrPerformanceProfile;
+    }
+    s._v = 11;
   }
 
   // CV output safety: regardless of version, force every loaded CV-output

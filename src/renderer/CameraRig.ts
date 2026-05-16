@@ -132,6 +132,22 @@ export class CameraRig {
     this.trackball.update();
   }
 
+  /**
+   * Snapshot the current camera position / target / orientation / fov
+   * into a `CameraView`. Used by `XRManager` to stash the pre-XR camera
+   * so it can be restored when the headset session ends — keeps the
+   * desktop view exactly where it was before the user put the headset on.
+   */
+  currentView(): CameraView {
+    const tgt = this.trackball.target;
+    return {
+      posX: this.camera.position.x, posY: this.camera.position.y, posZ: this.camera.position.z,
+      targetX: tgt.x, targetY: tgt.y, targetZ: tgt.z,
+      upX: this.camera.up.x, upY: this.camera.up.y, upZ: this.camera.up.z,
+      fov: this.camera.fov,
+    };
+  }
+
   setMode(mode: CameraMode): void {
     if (mode === this.mode) return;
     this.mode = mode;

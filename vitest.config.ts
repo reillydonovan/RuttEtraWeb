@@ -18,6 +18,11 @@ export default defineConfig({
       // v10: PatternRegistry is pure data + OscilloscopeBuffer is a thin
       // wrapper around a Float32Array; both run fine in node without WebGL.
       'src/renderer/patterns/**/*.test.ts',
+      // v11: WebXR manager. Uses the jsdom environment (declared at the
+      // top of XRManager.test.ts via `// @vitest-environment jsdom`) so
+      // `document.visibilitychange` and `navigator.xr` can be exercised
+      // directly; everything else here stays in node.
+      'src/renderer/__tests__/*.test.ts',
       // v10: Settings migration is pure, schema-only logic — exercises
       // sonification's "always force enabled=false" rule and the v9→v10
       // backfill paths.

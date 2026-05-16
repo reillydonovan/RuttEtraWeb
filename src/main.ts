@@ -43,6 +43,8 @@ import { createColorPostFxSection } from './ui/sections/ColorPostFxSection';
 import { createGeometrySection } from './ui/sections/GeometrySection';
 import { createPresetsSection } from './ui/sections/PresetsSection';
 import { createPerformanceSection } from './ui/sections/PerformanceSection';
+import { createXrSection } from './ui/sections/XrSection';
+import { XRManager } from './renderer/XRManager';
 import { layoutManager } from './ui/layout/LayoutManager';
 import { ResponsivePanel } from './ui/layout/ResponsivePanel';
 import { DebugOverlay } from './ui/layout/DebugOverlay';
@@ -185,6 +187,27 @@ async function bootSynth(): Promise<void> {
   let currentDprCap = 2;
   let currentRenderScaleFloor = 0.5;
   let currentFrameInterval = 1000 / 60;
+
+  // -------------------------- WebXR manager (v11) ----------------------
+  // Owns the immersive-vr / immersive-ar session lifecycle. The toast
+  // hook deliberately reuses `projectToast` (defined further down) via
+  // a thunked indirection: the hook is constructed once but reads the
+  // current function ref each show() so the late-defined toast is
+  // reachable. Constructed BEFORE the panel sections so the XR section
+  // can subscribe to start/end events from the manager.
+  let xrToastImpl: ((msg: string) => void) | null = null;
+  const xrManager = new XRManager(
+    {
+      renderer,
+      scene: ruttEtra.scene,
+      meshGroup: ruttEtra.group,
+      cameraRig,
+      settings,
+      perfMgr,
+      getLayoutMode: () => layout.current(),
+    },
+    { show: (msg) => xrToastImpl?.(msg) },
+  );
 
   // -------------------------- I/O subsystems ---------------------------
   // MIDI/Audio/OSC are lazy-loaded but the matrix needs them at construction.
@@ -532,6 +555,11 @@ async function bootSynth(): Promise<void> {
     setTimeout(() => el.remove(), 4000);
   }
 
+  // XR uses the same toast surface as Project — wired here so the
+  // late-defined `projectToast` is reachable from the early-constructed
+  // `xrManager` via the captured `xrToastImpl` reference.
+  xrToastImpl = projectToast;
+
   // The Project section sits at the top of the synth tab — it's
   // the "save your work" entry point. Built lazily to avoid pulling
   // the FS Access glue into the initial bundle when a user never
@@ -569,6 +597,7 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
+  panel.addSection({ tab: 'synth', title: 'XR',                    body: createXrSection(settings, xrManager) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, liveValues, cv: io.cv, gamepad: io.gamepad, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
   panel.addSection({ tab: 'synth', title: 'Geometry',              body: createGeometrySection(settings) });
@@ -770,6 +799,16 @@ async function bootSynth(): Promise<void> {
     const now = performance.now();
     const dt = clock.getDelta();
     const t = clock.elapsedTime;
+    // WebXR (v11): three.js drives the loop from the XR session's RAF
+    // when `renderer.xr.isPresenting` is true, and from the standard
+    // window RAF otherwise — `renderer.setAnimationLoop(frame)` below
+    // wires both paths through the same callback. In XR, the EffectComposer
+    // pipeline cannot render into the XR layer's framebuffer (each pass
+    // owns a screen-sized RT that conflicts with the per-eye buffer), so
+    // we branch to `renderer.render(scene, camera)` directly and skip
+    // postfx. Same modulation, sequencer, audio, video tap — only the
+    // final draw surface changes.
+    const presenting = renderer.xr.isPresenting;
 
     io.midiClock.tick(dt);
     io.fft.tick(dt);
@@ -800,13 +839,19 @@ async function bootSynth(): Promise<void> {
     // already in `cvOut.classicSources` / `cvOut.graphSources`.
     io.cvOut.tick(dt);
     sequencer.tick(dt);
-    cameraRig.tick(dt);
+    // CameraRig is desktop-only — during XR the head IS the camera
+    // (three.js's XRCamera receives pose updates from the headset).
+    // Skipping the rig tick avoids fighting the XR pose; the rig's
+    // pre-XR view is stashed by XRManager and restored on session end.
+    if (!presenting) cameraRig.tick(dt);
     ruttEtra.updateSpectrum(io.fft.bands);
     ruttEtra.tick(dt, t);
 
     // Honor profile's frameIntervalMs (battery profile caps to 30 fps).
-    if (now - lastDraw + 0.5 < currentFrameInterval) {
-      requestAnimationFrame(frame);
+    // Ignored in XR: the headset's compositor sets the cadence; we MUST
+    // submit a frame each time three.js calls us or the runtime reprojects
+    // our last frame and the user sees judder.
+    if (!presenting && now - lastDraw + 0.5 < currentFrameInterval) {
       return;
     }
     lastDraw = now;
@@ -819,7 +864,14 @@ async function bootSynth(): Promise<void> {
       patternRenderer.tick(t, dt, ruttEtra.videoTexture);
     }
 
-    postfx.render(dt);
+    if (presenting) {
+      // Direct render to the XR layer framebuffer. EffectComposer is
+      // skipped per the v1 spec (Option A — raw mesh in stereo). Bloom,
+      // feedback, CRT all return when the user exits XR.
+      renderer.render(ruttEtra.scene, cameraRig.camera);
+    } else {
+      postfx.render(dt);
+    }
     watcher.onFrame(dt);
 
     frames++;
@@ -835,10 +887,11 @@ async function bootSynth(): Promise<void> {
       const srcPart = st.kind === 'none' ? 'no source' : `${st.kind} ${st.width}×${st.height}`;
       hud.textContent = `${fps.toFixed(0)} fps  ·  ${srcPart}${renderPart}`;
     }
-
-    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  // Use three.js's XR-aware loop — this is identical to RAF when no
+  // XR session is active and switches to the headset's compositor RAF
+  // automatically when `renderer.xr.setSession(...)` is called.
+  renderer.setAnimationLoop(frame);
 
   // -------------------------- Audio gate helper ---------------------
   function mountAudioGate(): void {

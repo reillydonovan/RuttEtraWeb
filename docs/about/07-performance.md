@@ -66,6 +66,24 @@ Each profile is a coarse hint — individual sliders still override. Switching p
 - **Fit modes** — `Match window`, `Fit to window`, `Fixed`. `Fit` letterboxes if aspect ratios don't match; `Match window` resamples to fit; `Fixed` shows actual pixels (with scrollbars at small viewports).
 - **Render scale** — supersampling factor for anti-aliasing (`1.0` = native, `2.0` = render twice the linear resolution then downsample). Costs GPU time, dramatically smooths sharp scanline edges.
 
+### WebXR — VR and AR headsets
+
+The Rutt/Etra has always been a three-dimensional instrument rendered through a two-dimensional window. WebXR removes that flattening. Connect a headset and you can step inside the mesh — walk around the scanlines, look at the displacement from underneath, see the terrain you've been editing as actual terrain.
+
+The instrument doesn't change in headset. The synth is the same synth; only the rendering surface changes. You continue to edit on your desktop keyboard while wearing the headset, and your edits appear in three dimensions in front of your face in real time.
+
+**Entering a session.** Connect a WebXR-capable headset to a desktop browser (Chrome or Edge — Safari and Firefox have limited support). Open the **XR** section in the control panel. Click **Enter VR** (opaque headset display, mesh in a black void) or **Enter AR** (passthrough cameras showing your physical room with the mesh overlaid). The first session per page load shows a one-shot safety reminder; dismissible per Principle 4.
+
+**Mesh scale** picks the framing. **Tabletop** (default) puts a desk-model-sized mesh 1m in front of you at chest height — comfortable for seated use. **Roomscale** scales up to ~3m × 2m so you can walk through the mesh. **Architectural** scales to ~10m × 6m × 4m — you're dwarfed; stand still and look around (v1 has no teleport).
+
+**Performance** has its own profile (Auto / Quality / Balanced / Battery) separate from your desktop profile, because stereo rendering at headset refresh rate roughly doubles GPU cost. Auto picks based on detected headset. The desktop profile is restored on session end — unless you changed it during the XR session, in which case your new choice is kept and a toast confirms it.
+
+**What stays editable.** Everything. Modulation, timelines, audio analysis, MIDI/OSC/CV, recording — all continue running normally during the XR session because there's only one synth instance. The headset just renders a different camera into the same scene. Alt-tab to your desktop window or reach over to the keyboard to make changes; they appear in the headset immediately.
+
+AR passthrough (on Quest 3, Vision Pro, and other passthrough-capable devices) puts the mesh in your physical room. The scanlines float in your space. The synth becomes part of where you are. (See Design Principles — [*Two ways to do something is sometimes correct*](#two-ways).)
+
+**Ending.** Remove the headset, click **Exit XR**, or hide the tab — the session ends cleanly and the desktop view returns exactly where you left it. Post-processing (bloom, CRT, feedback) is skipped in headset for v1 — the raw mesh in stereo is its own aesthetic and worth experiencing before per-eye postfx returns as a later stage. (See Design Principles — [*Small versions that work*](#small-versions).)
+
 ### Recording
 
 - **Format** — Auto, MP4, WebM-VP9, WebM-VP8. Auto picks the highest-quality codec the current browser supports. MP4 is ideal for direct social/media upload; WebM is better for archival.

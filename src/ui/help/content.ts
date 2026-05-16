@@ -562,6 +562,77 @@ Camera position, source kind, recording settings, and panel UI flags never
 animate. Edit \`excludedParams\` on a timeline if you want a different list.
 `;
 
+const MD_XR = `
+# WebXR — VR and AR headsets
+
+This synth supports viewing in VR headsets and AR passthrough devices. The
+headset shows you the same running synth that's on your desktop screen —
+edits you make on the desktop appear in the headset in real time.
+
+To use it: connect a WebXR-capable headset (Meta Quest with Quest Link,
+SteamVR-compatible device, Apple Vision Pro), open the **XR** section in
+the control panel, and click **Enter VR** or **Enter AR**. The browser
+will ask for permission the first time.
+
+In **VR**, the synth appears in a black void at the scale you choose. You
+can walk around it (in roomscale) or stand still and look. The mesh
+exists in three dimensions — what looks flat on your monitor is actually
+a terrain you can move through.
+
+In **AR** (on devices that support passthrough — Quest 3, Vision Pro,
+others), the mesh appears in your physical room. The synth becomes part
+of your space rather than a separate world.
+
+## Mesh scale
+
+| Preset | Roughly | Use when |
+|--------|---------|----------|
+| Tabletop | desk model, 1m ahead at chest height | seated, browsing, default |
+| Roomscale | 3m × 2m × 1.5m volume ahead | you have a clear roomscale area |
+| Architectural | 10m × 6m × 4m | you want to be dwarfed; stand still |
+
+Change scale before entering or mid-session — the mesh re-frames in place.
+
+## Performance
+
+XR rendering is stereo at headset refresh rate, roughly doubling GPU cost.
+**Balanced** is the default. **Auto** picks based on a headset hint (Quest 2 →
+battery, Quest 3 → balanced, PCVR → quality). The XR session uses a
+separate profile from your desktop profile, and your desktop profile is
+restored when the session ends.
+
+If you change your desktop profile during an XR session, your new choice
+is preserved on session end and a toast confirms it.
+
+## What stays editable
+
+Everything. The desktop UI continues to function while you're in the
+headset — alt-tab or reach over to the keyboard to edit the DCU, drop
+modulation, load a preset, scrub the timeline. All edits appear in the
+headset view immediately because there's only one synth instance.
+
+## Ending the session
+
+Remove the headset, click **Exit XR**, or close the browser tab. Hiding
+or minimizing the tab also ends the session by default (toggleable via
+the \`xrAutoEndOnVisibilityChange\` setting). Your synth state is exactly
+where you left it.
+
+## Supported browsers
+
+| Browser | Support |
+|---------|---------|
+| Chrome / Edge (desktop) | Full — VR + AR via connected headset |
+| Quest browser (native)  | Full — but a future "two-browser" stage |
+| Vision Pro Safari       | AR; VR varies |
+| Firefox                 | Limited — may not work |
+| Safari (macOS)          | Not supported |
+
+Postfx (bloom, CRT, feedback) is skipped in headset for v1 — the raw
+mesh in stereo is its own aesthetic. Per-eye postfx will return as a
+later stage.
+`;
+
 const MD_PROJECT = `
 # Project — save your work
 
@@ -915,6 +986,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'mod',        label: 'Modulation',     markdown: MD_MOD },
   { id: 'timeline',   label: 'Timeline',       markdown: MD_TIMELINE },
   { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
+  { id: 'xr',         label: 'WebXR',          markdown: MD_XR },
   { id: 'tips',       label: 'Tips & gotchas', markdown: MD_TIPS },
   { id: 'about',      label: 'About',          markdown: MD_ABOUT },
 ];

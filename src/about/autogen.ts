@@ -52,7 +52,7 @@ export function buildParamReferenceHtml(): string {
   const ORDER = [
     'Source', 'DCU', 'Camera', 'Color/PostFX', 'Geometry',
     'Modulation', 'MIDI', 'Audio', 'OSC', 'CV',
-    'Record', 'Share', 'UI',
+    'Record', 'Share', 'XR', 'UI',
   ];
   const sortedKeys = ORDER.filter((k) => groups.has(k))
     .concat([...groups.keys()].filter((k) => !ORDER.includes(k)).sort());
