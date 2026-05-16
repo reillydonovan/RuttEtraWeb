@@ -855,6 +855,49 @@ export interface Settings {
    */
   sonification: SonificationConfig;
 
+  // ---------- Stereoscopic recording (v12) ----------
+  /**
+   * Master enable for the side-by-side stereoscopic recording mode.
+   * When true, `CanvasRecorder.start()` sources its video track from
+   * `StereoCompositor`'s offscreen canvas (two camera renders per
+   * frame, side-by-side composite) instead of the main display
+   * canvas, and pipes the resulting MP4 blob through the SV3D
+   * metadata injector before download.
+   *
+   * Persists across sessions — it's a recording configuration choice,
+   * not runtime state. Recording itself still requires the Start
+   * button per frame; this toggle just chooses which pipeline runs
+   * when the user does start.
+   */
+  stereoRecordingEnabled: boolean;
+  /**
+   * Interpupillary distance in centimeters. 6.3 is the average human
+   * IPD; smaller produces a subtler stereo effect (more comfortable
+   * for some viewers), larger exaggerates the depth. Converted to
+   * world units at recording start using a reference of 1m mesh
+   * width — see `StereoCompositor.computeWorldIpd` for the scaling.
+   */
+  stereoIpdCm: number;
+  /**
+   * Whether to inject the YouTube-compatible SV3D box into MP4
+   * recordings on stop. Defaults true: the user gets a YouTube-ready
+   * file out of the box. Toggle off to keep the raw side-by-side
+   * file when editing externally / uploading to non-YouTube targets.
+   *
+   * Only applies when the recording container is MP4; WebM
+   * recordings have no equivalent metadata format and the toggle
+   * is a no-op there (the file is still side-by-side stereo, just
+   * not auto-detectable on YouTube).
+   */
+  stereoInjectMetadata: boolean;
+  /**
+   * Stereoscopic frame layout. Side-by-side is the v1 format and
+   * the only value the type currently allows; the union is open
+   * so future top-bottom / anaglyph stages can extend it without
+   * a schema migration.
+   */
+  stereoFormat: 'side-by-side';
+
   // ---------- WebXR (v11) ----------
   /**
    * Mesh framing preset used at XR session start. The user picks this
@@ -1161,6 +1204,12 @@ export const DEFAULTS: Settings = {
   xrMeshScale: 'tabletop',
   xrAutoEndOnVisibilityChange: true,
   xrPerformanceProfile: 'balanced',
+
+  // ---------- Stereoscopic recording (v12) ----------
+  stereoRecordingEnabled: false,
+  stereoIpdCm: 6.3,
+  stereoInjectMetadata: true,
+  stereoFormat: 'side-by-side',
 };
 
 // --------------------------------------------------------------------
@@ -1168,7 +1217,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 11;
+const CURRENT_VERSION = 12;
 
 interface Versioned { _v?: number }
 
@@ -1470,6 +1519,29 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       s.xrPerformanceProfile = DEFAULTS.xrPerformanceProfile;
     }
     s._v = 11;
+  }
+
+  // v11 -> v12: Stereoscopic recording. Add the four new keys with
+  // defaults. `stereoRecordingEnabled` defaults to false on purpose
+  // — same posture as every other output-shaping setting on this
+  // synth — but it's a persistent configuration choice, not a
+  // runtime state, so it's allowed to round-trip through projects.
+  // Recording still requires an explicit Start click; this toggle
+  // just chooses which pipeline runs.
+  if ((s._v ?? 1) < 12) {
+    if (s.stereoRecordingEnabled === undefined) {
+      s.stereoRecordingEnabled = DEFAULTS.stereoRecordingEnabled;
+    }
+    if (s.stereoIpdCm === undefined) {
+      s.stereoIpdCm = DEFAULTS.stereoIpdCm;
+    }
+    if (s.stereoInjectMetadata === undefined) {
+      s.stereoInjectMetadata = DEFAULTS.stereoInjectMetadata;
+    }
+    if (s.stereoFormat === undefined) {
+      s.stereoFormat = DEFAULTS.stereoFormat;
+    }
+    s._v = 12;
   }
 
   // CV output safety: regardless of version, force every loaded CV-output

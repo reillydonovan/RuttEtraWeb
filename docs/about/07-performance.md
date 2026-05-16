@@ -94,6 +94,22 @@ AR passthrough (on Quest 3, Vision Pro, and other passthrough-capable devices) p
 
 The **Resolution** picker determines recording dimensions. Set Resolution to FHD before clicking Record if you want a 1920×1080 output.
 
+### Stereoscopic 3D recording
+
+The synth records stereoscopic 3D video — the kind that plays back in a VR headset, through red-and-cyan glasses, or on a 3D TV, all from one file. Turn on stereoscopic recording in the Record section, choose how strong you want the 3D effect to be, and record as usual. The output file is wide — twice as wide as your usual recordings — because it carries the left-eye view on one half and the right-eye view on the other.
+
+Uploaded to YouTube, the file is automatically recognized as 3D — the synth tags it for you. Viewers can play it back in whatever mode their device supports: VR for headset users, anaglyph for paper-glasses users, side-by-side for 3D TVs, flat for everyone else. One upload, many ways to watch.
+
+The **IPD** slider controls how strong the 3D effect is. The default 6.3 cm matches average human eye spacing. Smaller values are subtler; larger values exaggerate depth. The synth converts cm to world units based on your mesh size, so the on-screen effect is consistent regardless of how big you've made the mesh.
+
+The **Preview stereo** button switches the main viewport to side-by-side rendering for three seconds so you can check the effect before committing to a take.
+
+If your browser doesn't support MP4 recording (Firefox, older Safari), the synth still records valid side-by-side stereo — as WebM instead of MP4 — and tells you to flag it manually in YouTube Studio's Editor → 3D when you upload. The file still plays in 3D; it just doesn't auto-detect.
+
+Stereoscopic recording is more demanding than normal recording — the synth renders the scene twice for every frame. If you notice slowdown, try dropping to a lower resolution or switching to the Balanced performance profile.
+
+The stereoscopic output doesn't include the postfx effects (bloom, CRT scanlines, feedback) yet — same architectural reason as in headset, and per-eye postfx is a future stage shared between stereo recording and WebXR. For now, the stereoscopic output shows the raw mesh, which is its own kind of beautiful. (See Design Principles — [*Small versions that work*](#small-versions).)
+
 ### Timeline recording
 
 The Timeline sequencer (Record panel → Timeline tab) lets you compose a piece by adding **keyframes** at specific bars. Shortening a timeline preserves keyframes past the new end — they're flagged in the editor and don't play, but they reappear if you lengthen the timeline again, so trimming is never destructive. (See Design Principles — [*Saved work is preserved, even when it changes*](#saved-work-preserved).)

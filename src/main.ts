@@ -374,9 +374,41 @@ async function bootSynth(): Promise<void> {
 
   // Recorder + broadcaster — both lazy.
   const recordMod = await import('./record/Recorder');
-  const recorder = new recordMod.CanvasRecorder(canvas, sonification);
+  const stereoMetaMod = await import('./record/StereoMetadata');
+  const recorder = new recordMod.CanvasRecorder(
+    canvas,
+    sonification,
+    stereoMetaMod.injectStereoscopicMetadata,
+  );
   const broadcastMod = await import('./stream/Broadcaster');
   const broadcaster = new broadcastMod.Broadcaster(sonification);
+
+  // Stereoscopic recording compositor (v12). Owns its own offscreen
+  // canvas + secondary WebGLRenderer; shares the scene and reads the
+  // live `cameraRig.camera` pose each frame. Constructed eagerly so
+  // the Record section can probe it for presence — the GL context
+  // is created in the constructor but stays idle until `start()`.
+  const stereoCompositor = new (await import('./record/StereoCompositor')).StereoCompositor({
+    scene: ruttEtra.scene,
+    sourceCamera: cameraRig.camera,
+    meshGroup: ruttEtra.group,
+    settings,
+  });
+  // Recompute world-IPD whenever the slider moves so a preview or
+  // running session re-frames in place. No-op when not active.
+  settings.subscribe('stereoIpdCm', () => stereoCompositor.refreshIpd());
+
+  // Preview state — a simple expiring timer that main.ts's render
+  // loop reads each frame. When active, the loop swaps the postfx
+  // path for `compositor.renderPreviewTo(renderer, w, h)` so the
+  // user sees the side-by-side composite on the visible canvas.
+  let stereoPreviewExpiresAt = 0;
+  const stereoPreview = {
+    isActive: () => performance.now() < stereoPreviewExpiresAt,
+    start: (durationMs: number) => {
+      stereoPreviewExpiresAt = performance.now() + durationMs;
+    },
+  };
 
   video.addEventListener('loadedmetadata', () => {
     ruttEtra.attachVideo();
@@ -644,7 +676,13 @@ async function bootSynth(): Promise<void> {
       import('./ui/sections/CVOutputSection'),
       import('./ui/sections/SonificationSection'),
     ]);
-    panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, recorder, sequencer) });
+    panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, {
+      recorder,
+      sequencer,
+      stereoCompositor,
+      stereoPreview,
+      toast: { show: projectToast },
+    }) });
     panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, canvas) });
     panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
@@ -864,11 +902,26 @@ async function bootSynth(): Promise<void> {
       patternRenderer.tick(t, dt, ruttEtra.videoTexture);
     }
 
+    // Stereo recording: the offscreen compositor runs its own
+    // side-by-side render each frame regardless of what the visible
+    // canvas is showing. Driven here so the per-frame ordering
+    // (modulation → scene update → stereo render) is identical to
+    // the monoscopic path.
+    if (stereoCompositor.isActive()) stereoCompositor.tick();
+
     if (presenting) {
       // Direct render to the XR layer framebuffer. EffectComposer is
       // skipped per the v1 spec (Option A — raw mesh in stereo). Bloom,
       // feedback, CRT all return when the user exits XR.
       renderer.render(ruttEtra.scene, cameraRig.camera);
+    } else if (stereoPreview.isActive()) {
+      // 3-second preview: render side-by-side to the visible canvas
+      // so the user can see what their stereo recording will look
+      // like before they commit. Same compositor primitive, just
+      // drawn into the main renderer's framebuffer.
+      const w = canvas.width;
+      const h = canvas.height;
+      stereoCompositor.renderPreviewTo(renderer, w, h);
     } else {
       postfx.render(dt);
     }

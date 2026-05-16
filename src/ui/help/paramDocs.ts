@@ -188,6 +188,25 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   recordBitrateMbps:     { description: 'Video bitrate (Mbps).', panel: 'Record' },
   recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
 
+  // ----- Stereoscopic recording (v12) -----
+  stereoRecordingEnabled: {
+    description: 'Record side-by-side stereoscopic 3D video. The output file is twice as wide as the configured resolution (left eye on the left half, right eye on the right). YouTube auto-detects 3D when MP4 is available; non-MP4 browsers still produce valid side-by-side files for manual upload tagging.',
+    panel: 'Record',
+  },
+  stereoIpdCm: {
+    description: 'Interpupillary distance for the stereo offset, in centimeters. 6.3cm is average human IPD. Smaller = subtler 3D (more comfortable), larger = exaggerated depth.',
+    range: '1.0..15.0',
+    panel: 'Record',
+  },
+  stereoInjectMetadata: {
+    description: 'Inject the YouTube SV3D metadata box into the MP4 on stop, so YouTube recognizes the upload as 3D automatically. Off = raw side-by-side file with no metadata (for external editing / non-YouTube workflows). No effect on WebM recordings.',
+    panel: 'Record',
+  },
+  stereoFormat: {
+    description: 'Frame layout for stereoscopic recording. v1 ships side-by-side; top-bottom and anaglyph are reserved for later stages.',
+    panel: 'Record',
+  },
+
   // ----- XR (v11) -----
   xrMeshScale: {
     description: 'How big the scanline mesh appears when you put on a headset. Tabletop ≈ desk model (default), Roomscale ≈ walk-through, Architectural ≈ stand-still-and-look. Picked before Enter VR/AR and changeable mid-session.',

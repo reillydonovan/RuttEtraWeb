@@ -15,10 +15,32 @@
  * mixing inside the MediaRecorder.
  */
 
+import type { InjectionResult, StereoMetadataInjector } from './StereoMetadata';
+
 /** Sonification capture interface — only what the recorder needs from
  *  `Sonification`. Kept duck-typed so tests can stub it. */
 export interface SonificationCapture {
   getCaptureStream(): MediaStream | null;
+}
+
+/**
+ * Stereo recording source. Tells the recorder where to pull video
+ * frames from when stereoscopic mode is engaged. The compositor's
+ * lifecycle (start / stop / tick) is owned by the caller — Recorder
+ * just consumes the stream and reads the output dimensions for the
+ * UI status line.
+ */
+export interface StereoRecordingSource {
+  /** MediaStream of the side-by-side composite canvas at the given fps. */
+  getStream(fps: number): MediaStream;
+  /** Composite-canvas width (2× per-eye width). Read for status display. */
+  outputWidth(): number;
+  /** Composite-canvas height. Read for status display. */
+  outputHeight(): number;
+  /** Prepare the offscreen canvas + cameras. Called before `MediaRecorder` starts. */
+  start(eyeWidth: number, eyeHeight: number): void;
+  /** End the compositor's per-frame render. Called once MediaRecorder has stopped. */
+  stop(): void;
 }
 
 export interface RecordOptions {
@@ -28,7 +50,33 @@ export interface RecordOptions {
   preferredFormat?: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
   /** Optional slug prepended to the auto-generated filename (no extension). */
   filenameHint?: string;
+  /**
+   * Stereoscopic recording opts. When `enabled` is true, the recorder
+   * sources its video track from `source.getStream(fps)` instead of
+   * the main canvas's captureStream, and pipes the final blob through
+   * `injectMetadata` (when MP4 is the active container).
+   *
+   * `source` is required when `enabled`; the typing keeps the two
+   * fields linked so callers can't ask for stereo without providing
+   * the compositor. `eyeWidth` / `eyeHeight` size the composite
+   * canvas the recorder is reading from.
+   */
+  stereo?: {
+    enabled: true;
+    source: StereoRecordingSource;
+    eyeWidth: number;
+    eyeHeight: number;
+    /** Inject st3d metadata into MP4 output. No effect on WebM. */
+    injectMetadata: boolean;
+  };
 }
+
+/**
+ * Outcome of stereo metadata injection, forwarded from `injectStereoscopicMetadata`
+ * to the caller's toast hook so the user can be told what happened.
+ * `null` means stereo wasn't requested for this recording.
+ */
+export type StereoFinalizeOutcome = InjectionResult | null;
 
 const FORMAT_CHAIN: { id: string; mime: string; ext: string }[] = [
   { id: 'mp4',      mime: 'video/mp4;codecs=avc1.42E01F',     ext: 'mp4' },
@@ -50,11 +98,46 @@ export class CanvasRecorder {
   private outStream: MediaStream | null = null;
   private listeners = new Set<(state: 'idle' | 'recording' | 'finalizing') => void>();
   private startTime = 0;
+  /** Stereo-mode state captured at `start()` so `finalize()` knows
+   *  whether to call the injector and which source to `stop()`. Null
+   *  for monoscopic recordings. */
+  private stereoState: {
+    source: StereoRecordingSource;
+    injectMetadata: boolean;
+  } | null = null;
+  /** Where to send the post-finalize outcome (toast plumbing). Null
+   *  means "don't notify" — the recording still saves either way. */
+  private outcomeListener: ((outcome: StereoFinalizeOutcome) => void) | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
     private sonification: SonificationCapture | null = null,
+    /**
+     * SV3D-equivalent metadata injector for stereo recordings.
+     * Production code passes `injectStereoscopicMetadata` from
+     * `./StereoMetadata`; tests pass a stub to exercise the
+     * `failed` / `skipped` branches without needing a real MP4.
+     * Defaults to undefined — without an injector, stereo
+     * recording still produces the side-by-side file, just with
+     * no st3d box added.
+     */
+    private injector: StereoMetadataInjector | null = null,
   ) {}
+
+  /** Swap the metadata injector at runtime. Used by tests; also a
+   *  reasonable knob for production if a future stage adds a
+   *  user-pickable injector strategy. */
+  setInjector(injector: StereoMetadataInjector | null): void {
+    this.injector = injector;
+  }
+
+  /** Subscribe to the per-recording outcome — fired once on finalize.
+   *  Used by `RecordSection` to surface a toast describing whether
+   *  metadata was injected, skipped (non-MP4 container), or failed. */
+  subscribeOutcome(fn: (outcome: StereoFinalizeOutcome) => void): () => void {
+    this.outcomeListener = fn;
+    return () => { if (this.outcomeListener === fn) this.outcomeListener = null; };
+  }
 
   isRecording(): boolean {
     return this.recorder?.state === 'recording';
@@ -91,6 +174,7 @@ export class CanvasRecorder {
     if (this.isRecording()) return;
     this.chunks = [];
     this.currentHint = opts.filenameHint ?? null;
+    this.stereoState = null;
 
     const preferred = opts.preferredFormat ?? 'auto';
     const pick = pickFormat(preferred);
@@ -98,7 +182,25 @@ export class CanvasRecorder {
     this.currentMime = pick.mime;
     this.currentExt = pick.ext;
 
-    const videoStream = (this.canvas as any).captureStream(opts.fps) as MediaStream;
+    let videoStream: MediaStream;
+    if (opts.stereo?.enabled) {
+      // Stereo path: start the compositor (it sizes its offscreen
+      // canvas to 2× eye width), grab its captureStream, and stash
+      // the source for cleanup at finalize. Filename gets a stereo
+      // marker so the user can tell apart mono and stereo files
+      // when they live in the same folder.
+      opts.stereo.source.start(opts.stereo.eyeWidth, opts.stereo.eyeHeight);
+      videoStream = opts.stereo.source.getStream(opts.fps);
+      this.stereoState = {
+        source: opts.stereo.source,
+        injectMetadata: opts.stereo.injectMetadata,
+      };
+      this.currentHint = (opts.filenameHint ? `${opts.filenameHint}-` : '') + 'stereo-sbs';
+    } else {
+      videoStream = (this.canvas as HTMLCanvasElement & {
+        captureStream(fps?: number): MediaStream;
+      }).captureStream(opts.fps);
+    }
 
     // Collect every audio track we want in the output: mic (when
     // requested AND available) plus the sonification voice (when the
@@ -123,14 +225,35 @@ export class CanvasRecorder {
       : new MediaStream([...videoStream.getVideoTracks(), ...audioTracks]);
     this.outStream = combined;
 
-    const rec = new MediaRecorder(combined, {
-      mimeType: this.currentMime,
-      videoBitsPerSecond: opts.bitsPerSecond,
-    });
+    // MediaRecorder can throw on stream construction when the
+    // requested frame is too large for the browser's encoder
+    // (commonly: 4K stereo = 7680×2160 exceeds H.264 Main / VP9
+    // tier limits on many GPUs). Catch and re-throw with a clear
+    // message so the caller's status line can be specific instead
+    // of the browser's opaque "NotSupportedError".
+    let rec: MediaRecorder;
+    try {
+      rec = new MediaRecorder(combined, {
+        mimeType: this.currentMime,
+        videoBitsPerSecond: opts.bitsPerSecond,
+      });
+    } catch (err) {
+      // If we started the stereo compositor, tear it down — we
+      // promised to pair `start` with `stop` per the source contract.
+      if (this.stereoState) {
+        this.stereoState.source.stop();
+        this.stereoState = null;
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      const hint = opts.stereo?.enabled
+        ? ` (stereo output is ${opts.stereo.eyeWidth * 2}×${opts.stereo.eyeHeight}; try a lower Resolution preset for stereo recording)`
+        : '';
+      throw new Error(`MediaRecorder rejected this configuration: ${reason}${hint}`);
+    }
     rec.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) this.chunks.push(e.data);
     };
-    rec.onstop = () => this.finalize();
+    rec.onstop = () => { void this.finalize(); };
     rec.start(1000); // emit chunks every second so a long recording survives a tab crash
     this.recorder = rec;
     this.startTime = performance.now();
@@ -153,8 +276,32 @@ export class CanvasRecorder {
     this.recorder.stop();
   }
 
-  private finalize(): void {
-    const blob = new Blob(this.chunks, { type: this.currentMime });
+  private async finalize(): Promise<void> {
+    let blob = new Blob(this.chunks, { type: this.currentMime });
+    let outcome: StereoFinalizeOutcome = null;
+
+    // Stereo path: stop the compositor and (when an MP4 was produced
+    // AND the user wants metadata) route the blob through the
+    // injector. The blob is always saved either way — injection
+    // failure is surfaced, never silently swallowed.
+    if (this.stereoState) {
+      this.stereoState.source.stop();
+      if (this.stereoState.injectMetadata && this.injector) {
+        try {
+          outcome = await this.injector(blob);
+          blob = outcome.blob;
+        } catch (err) {
+          // Defensive: a throwing injector shouldn't lose the file.
+          outcome = {
+            kind: 'failed',
+            blob,
+            reason: err instanceof Error ? err.message : 'injector threw',
+          };
+        }
+      }
+      this.stereoState = null;
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -169,6 +316,10 @@ export class CanvasRecorder {
     this.outStream = null;
     this.recorder = null;
     this.emit('idle');
+
+    // Fire the stereo outcome AFTER 'idle' so the toast doesn't
+    // arrive while the section UI still reads as recording.
+    if (this.outcomeListener) this.outcomeListener(outcome);
 
     // Release wake lock + tap haptic.
     void Promise.all([

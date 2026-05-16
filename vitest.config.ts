@@ -14,6 +14,9 @@ export default defineConfig({
       'src/modulation/**/*.test.ts',
       // v9: pure helpers in CVInput / GamepadInput are testable without a DOM.
       'src/audio/**/*.test.ts',
+      // v12: stereoscopic metadata injection — pure-function MP4 box
+      // surgery, exhaustively testable in node without a DOM.
+      'src/record/**/*.test.ts',
       'src/input/**/*.test.ts',
       // v10: PatternRegistry is pure data + OscilloscopeBuffer is a thin
       // wrapper around a Float32Array; both run fine in node without WebGL.

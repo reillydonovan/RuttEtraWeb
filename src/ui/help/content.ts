@@ -633,6 +633,82 @@ mesh in stereo is its own aesthetic. Per-eye postfx will return as a
 later stage.
 `;
 
+const MD_STEREO = `
+# Stereoscopic 3D recording
+
+The synth can record stereoscopic 3D video — a side-by-side video file
+with separate left- and right-eye views. Uploaded to YouTube, viewers
+can play it back in VR headsets, anaglyph (red/cyan glasses), 3D TVs,
+or as flat video. One file, multiple playback modes.
+
+To enable: open the **Record** section, check **Enable stereoscopic
+recording**, and start recording as usual. The output file is twice as
+wide as a normal recording (3840×1080 for Full HD) and contains the
+left view on the left half, right view on the right half.
+
+## IPD — how strong the 3D effect is
+
+**IPD** (interpupillary distance) controls the offset between the two
+eye cameras. The default **6.3 cm** matches average human eye spacing.
+Smaller values produce a subtler effect (good for viewers who find
+strong stereo uncomfortable). Larger values produce more dramatic
+depth — past about 10 cm the effect gets uncomfortable for most
+viewers but can be useful for tight scenes.
+
+The cm value is converted to world units based on the mesh's actual
+size, so a 6.3 cm IPD looks the same on screen regardless of how you
+have the mesh scaled.
+
+## YouTube metadata
+
+**Inject YouTube 3D metadata** is on by default. With this enabled,
+the exported MP4 file is automatically tagged so YouTube recognizes
+it as 3D and offers viewers the appropriate playback modes. The tag
+is a standard \`st3d\` box per Google's spatial-media spec, added to
+the MP4 container after recording stops.
+
+If you're editing the file in other software before uploading, you
+may want to turn this off and let your editor manage the metadata.
+
+## When MP4 isn't available
+
+YouTube's auto-detection requires MP4. On browsers that don't support
+MP4 recording (Firefox, older Safari), the synth still records the
+side-by-side file — it just comes out as WebM. A toast on stop
+explains what happened and points you at YouTube Studio's manual 3D
+flag (**Editor → 3D**) so the file still uploads as 3D, just with
+one extra click instead of zero.
+
+## Preview before recording
+
+The **Preview stereo (3 s)** button switches the main viewport to
+side-by-side rendering for three seconds. Use it to check the stereo
+effect before committing to a long take — IPD too aggressive, camera
+roll throwing the stereo off, all visible immediately.
+
+## Output dimensions and performance
+
+The Record section shows the exact output dimensions for your current
+Resolution preset. At Full HD that's 3840×1080. At 4K it's 7680×2160
+— large enough that some browser encoders refuse it; you'll see a
+warning in the section if you're set up to attempt it.
+
+Stereoscopic recording renders the scene **twice per frame**, roughly
+tripling per-frame render cost. The synth defaults to 30 fps for
+stereo recording (vs 60 mono) and the Balanced performance profile is
+a good companion if your frame rate drops noticeably.
+
+## Postfx is not applied to stereoscopic output
+
+Same architectural reason as XR: \`EffectComposer\` doesn't compose
+with per-eye stereo rendering without significant work, so v1 ships
+raw mesh in stereo. The mesh-in-stereo aesthetic is its own thing —
+clean wireframe geometry without the desktop CRT signature.
+
+Per-eye postfx is a future stage — same engineering work as per-eye
+postfx in XR, and they'll likely land together.
+`;
+
 const MD_PROJECT = `
 # Project — save your work
 
@@ -987,6 +1063,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'timeline',   label: 'Timeline',       markdown: MD_TIMELINE },
   { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
   { id: 'xr',         label: 'WebXR',          markdown: MD_XR },
+  { id: 'stereo',     label: '3D Recording',   markdown: MD_STEREO },
   { id: 'tips',       label: 'Tips & gotchas', markdown: MD_TIPS },
   { id: 'about',      label: 'About',          markdown: MD_ABOUT },
 ];
