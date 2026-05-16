@@ -933,10 +933,15 @@ async function bootSynth(): Promise<void> {
       frames = 0;
       fpsClock = now;
       const st = source.getState();
-      const rW = resolutionManager.actualWidth;
-      const rH = resolutionManager.actualHeight;
+      // Use canvas.width × canvas.height (the actual drawing-buffer size)
+      // rather than resolutionManager.actualWidth (the preset's logical
+      // size, which ignores renderScale). When renderScale < 1 the two
+      // values diverge; the canvas dimensions are what MediaRecorder
+      // and captureStream actually see, so they're the honest number.
       const resId = settings.get('renderResolutionId');
-      const renderPart = (rW > 0 && resId !== 'match') ? `  ·  render ${rW}×${rH}` : '';
+      const renderPart = resId !== 'match'
+        ? `  ·  render ${canvas.width}×${canvas.height}`
+        : '';
       const srcPart = st.kind === 'none' ? 'no source' : `${st.kind} ${st.width}×${st.height}`;
       hud.textContent = `${fps.toFixed(0)} fps  ·  ${srcPart}${renderPart}`;
     }

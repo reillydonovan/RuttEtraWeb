@@ -10,6 +10,7 @@ import { SettingsStore } from '../../state/Settings';
 import { CanvasRecorder } from '../../record/Recorder';
 import { Sequencer } from '../../sequencer/Sequencer';
 import { StereoCompositor } from '../../record/StereoCompositor';
+import { RESOLUTION_PRESETS } from '../../renderer/ResolutionManager';
 import { row, group, slider, toggle, dropdown, button, readout } from '../widgets';
 
 /**
@@ -57,8 +58,62 @@ export function createRecordSection(
 
   const root = document.createElement('div');
 
+  // Authoritative recording dimensions = the main canvas's actual
+  // drawing buffer size. This is what captureStream() and the stereo
+  // compositor both read, so using it as the single source of truth
+  // keeps mono and stereo consistent even when renderScale ≠ 1.
+  //
+  // Why not use the preset's logical dimensions?  Because
+  // ResolutionManager sets canvas.width = presetWidth × renderScale.
+  // The preset says "4K" but if renderScale=0.75, the canvas (and thus
+  // the recording) is 2880×1620.  Reading canvas.width is always honest.
+  function getCanvasSize(): { w: number; h: number } {
+    const cv = document.getElementById('stage') as HTMLCanvasElement | null
+      ?? document.querySelector('canvas');
+    return { w: cv?.width ?? 1280, h: cv?.height ?? 720 };
+  }
+
+  // Alias used for the stereo compositor eye dimensions — per-eye is
+  // half the composite width. The caller passes this to
+  // StereoCompositor.start(), which sets its own canvas to 2×eyeW.
+  function getEyeResolution(): { w: number; h: number } {
+    return getCanvasSize();
+  }
+
   const cfg = group('Configuration');
+
+  // Resolution readout — tells the user exactly what pixel dimensions
+  // they will record, and why. Line 1: the actual canvas drawing-buffer
+  // size (what captureStream reads — no computation from settings).
+  // Line 2: the two settings that produced those dimensions, so the user
+  // knows which control to change if the number isn't what they wanted.
+  //
+  // This surfaces the source-vs-render terminology collision: the Source
+  // section's "Resolution" picker controls webcam capture quality
+  // (requestedWidth/Height), not render output size.
+  const resReadout = readout();
+  resReadout.style.cssText = 'font-size:11px; opacity:0.75; margin-bottom:4px;';
+  function refreshResReadout(): void {
+    const { w, h } = getCanvasSize();
+    const id = settings.get('renderResolutionId');
+    const presetLabel = RESOLUTION_PRESETS.find((p) => p.id === id)?.label ?? id;
+    const scale = settings.get('renderScale');
+    resReadout.innerHTML =
+      `Recording at: <b>${w} × ${h}</b><br>` +
+      `<span style="opacity:0.8">(Render resolution: ${presetLabel} · Render scale ${scale.toFixed(2)}) — change in <b>Camera → Resolution</b></span>`;
+  }
+  refreshResReadout();
+  // Refresh whenever any setting that affects canvas dimensions changes.
+  settings.subscribe('renderResolutionId',      refreshResReadout);
+  settings.subscribe('renderScale',             refreshResReadout);
+  settings.subscribe('renderResolutionCustomW', refreshResReadout);
+  settings.subscribe('renderResolutionCustomH', refreshResReadout);
+  // Also refresh after the browser has had a chance to resize the canvas
+  // (e.g. on window resize — the canvas changes 120ms later via scheduleResize).
+  window.addEventListener('resize', () => setTimeout(refreshResReadout, 150));
+
   cfg.body.append(
+    resReadout,
     row('Format', dropdown(settings, 'recordPreferredFormat', [
       { value: 'auto',     label: 'Auto (best available)' },
       { value: 'mp4',      label: 'MP4 / H.264' },
@@ -70,33 +125,6 @@ export function createRecordSection(
     row('Include Mic', toggle(settings, 'recordIncludeMic')),
   );
   root.appendChild(cfg.root);
-
-  // Helper to read the configured per-eye recording resolution. Falls
-  // back to the visible canvas size when "Match Window" is selected.
-  function getEyeResolution(): { w: number; h: number } {
-    const id = settings.get('renderResolutionId');
-    // RESOLUTION_PRESETS lives in ResolutionManager; we hard-code the
-    // common cases here to avoid a circular import. The Custom and
-    // Match Window cases fall back to the canvas's actual pixel size.
-    const presets: Record<string, [number, number]> = {
-      sd:    [854, 480],
-      hd:    [1280, 720],
-      fhd:   [1920, 1080],
-      qhd:   [2560, 1440],
-      uhd:   [3840, 2160],
-      dci4k: [4096, 2160],
-    };
-    const preset = presets[id];
-    if (preset) return { w: preset[0], h: preset[1] };
-    if (id === 'custom') {
-      return {
-        w: settings.get('renderResolutionCustomW'),
-        h: settings.get('renderResolutionCustomH'),
-      };
-    }
-    const cv = document.querySelector('canvas');
-    return { w: cv?.width ?? 1280, h: cv?.height ?? 720 };
-  }
 
   const status = readout();
   const startBtn = button('Start Recording', async () => {
@@ -257,6 +285,9 @@ export function createRecordSection(
     details.append(dimsLine, fourKWarn);
 
     function refreshDims(): void {
+      // getEyeResolution() now reads canvas.width/height directly, so
+      // this readout stays in sync with the mono resolution readout
+      // above and reflects renderScale correctly.
       const eye = getEyeResolution();
       const compositeW = eye.w * 2;
       dimsLine.textContent = `Output: ${compositeW}×${eye.h} side-by-side (eye: ${eye.w}×${eye.h})`;
@@ -269,9 +300,11 @@ export function createRecordSection(
       }
     }
     refreshDims();
-    settings.subscribe('renderResolutionId', refreshDims);
+    settings.subscribe('renderResolutionId',      refreshDims);
+    settings.subscribe('renderScale',             refreshDims);
     settings.subscribe('renderResolutionCustomW', refreshDims);
     settings.subscribe('renderResolutionCustomH', refreshDims);
+    window.addEventListener('resize', () => setTimeout(refreshDims, 150));
 
     // Preview button. Asks main.ts to swap stereo-preview rendering
     // in for 3 seconds. The button stays disabled while a preview or
