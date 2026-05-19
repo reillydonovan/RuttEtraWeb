@@ -939,6 +939,23 @@ export interface Settings {
    */
   stereoFormat: 'side-by-side';
 
+  // ---------- Anaglyph (v16) ----------
+  /**
+   * Render the main view in red-cyan anaglyph mode. When true the
+   * EffectComposer postfx pipeline is bypassed (same constraint as XR).
+   * The output lands on the main canvas, so recording, WHIP streaming,
+   * and canvas capture all pick up the anaglyph image automatically.
+   * View with standard red-cyan glasses.
+   */
+  anaglyphEnabled: boolean;
+  /**
+   * Eye separation for anaglyph rendering, in centimetres. Independent
+   * of `stereoIpdCm` (the recording IPD) so the two can be tuned
+   * separately. Mapped to Three.js StereoCamera.eyeSep (metres) at
+   * render time. Default 6.4 cm = standard human IPD.
+   */
+  anaglyphIpdCm: number;
+
   // ---------- WebXR (v11) ----------
   /**
    * Mesh framing preset used at XR session start. The user picks this
@@ -1257,6 +1274,8 @@ export const DEFAULTS: Settings = {
   stereoIpdCm: 6.3,
   stereoInjectMetadata: true,
   stereoFormat: 'side-by-side',
+  anaglyphEnabled: false,
+  anaglyphIpdCm: 6.4,
 };
 
 // --------------------------------------------------------------------
@@ -1264,7 +1283,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 15;
+const CURRENT_VERSION = 16;
 
 interface Versioned { _v?: number }
 
@@ -1638,6 +1657,14 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     }));
   }
   s.cvOutputEnabled = false;
+
+  // v15 -> v16: Anaglyph viewing mode. Two new keys — enabled (default
+  // false) and IPD in cm (default 6.4 = standard human IPD in metres).
+  if ((s._v ?? 1) < 16) {
+    if (s.anaglyphEnabled === undefined) s.anaglyphEnabled = DEFAULTS.anaglyphEnabled;
+    if (s.anaglyphIpdCm   === undefined) s.anaglyphIpdCm   = DEFAULTS.anaglyphIpdCm;
+    s._v = 16;
+  }
 
   // Video audio safety: force disabled on every load. A saved "enabled"
   // state must not auto-play audio on the next page load. The user must

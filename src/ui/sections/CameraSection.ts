@@ -104,6 +104,28 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   ].join('<br>');
   root.appendChild(help);
 
+  // ── Anaglyph ────────────────────────────────────────────────────────
+  // Renders in red-cyan anaglyph so the user can view (and record/stream)
+  // the 3D scene with standard anaglyph glasses. Post-processing (bloom,
+  // CRT, feedback) is bypassed while active — the same trade-off as XR.
+  // Recording and WHIP streaming automatically capture the anaglyph output
+  // since they read from the same canvas.
+  const ag = group('Anaglyph 3D');
+
+  const agNote = document.createElement('p');
+  agNote.className = 'section-note';
+  agNote.textContent =
+    'View in red-cyan anaglyph. Requires red-cyan glasses. '
+    + 'Post-processing (bloom, CRT, feedback) is paused while active. '
+    + 'Recording and streaming automatically capture the anaglyph output.';
+
+  ag.body.append(
+    agNote,
+    row('Enable', toggle(settings, 'anaglyphEnabled')),
+    row('Eye Sep (cm)', slider(settings, 'anaglyphIpdCm', 1.0, 15.0, 0.1)),
+  );
+  root.appendChild(ag.root);
+
   // Live readout of camera position/target
   const ro = readout();
   ro.style.marginTop = '6px';

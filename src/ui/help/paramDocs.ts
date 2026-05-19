@@ -33,6 +33,8 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   videoAudioEnabled:       { description: 'Unmute the video file or stream source so its audio plays through system speakers. Disabled on every page load to prevent accidental sound.', panel: 'Source' },
   videoAudioVolume:        { description: 'Output level for the video audio track. 0 = silent, 1 = full. Only active when Video Audio is enabled.', panel: 'Source' },
   recordIncludeVideoAudio: { description: 'Bake the video file or stream audio track into the recording. Independent of the speaker-playback toggle — you can record the audio without hearing it, or vice versa. No effect when the active source has no audio track.', panel: 'Record' },
+  anaglyphEnabled: { description: 'Switch the main canvas to red-cyan anaglyph mode. View with standard red-cyan glasses. Post-processing (bloom, CRT, feedback) is paused while active. Recording and streaming automatically capture the anaglyph output.', panel: 'Camera' },
+  anaglyphIpdCm:   { description: 'Eye separation for anaglyph rendering in centimetres. Tuned independently from the stereo-recording IPD. Lower values reduce depth intensity; higher values exaggerate it. Typical human IPD is 6.0–6.7 cm.', panel: 'Camera' },
 
   // ----- Pattern Generator (v10) -----
   patternEnabled:    { description: 'Master toggle for the synthesized pattern layer. When OFF the live video texture feeds the DCU directly (no extra GPU cost).', panel: 'Pattern' },

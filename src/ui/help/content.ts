@@ -569,6 +569,51 @@ Camera position, source kind, recording settings, and panel UI flags never
 animate. Edit \`excludedParams\` on a timeline if you want a different list.
 `;
 
+const MD_ANAGLYPH = `
+# Anaglyph 3D
+
+Render the synth in **red-cyan anaglyph** — the classic 3D format viewed with
+standard red-cyan glasses. The left and right eye views are colour-separated
+and composited directly onto the main canvas using Dubois matrices, which give
+more accurate colour preservation than simple channel-splitting.
+
+## Controls
+
+| Control | Description |
+|---------|-------------|
+| **Enable** | Switches the canvas to anaglyph mode. Toggle off to return to normal view. |
+| **Eye Sep (cm)** | Inter-pupillary distance in centimetres. Default 6.4 cm matches average human IPD. Increase for stronger depth; decrease to reduce eye strain on close objects. |
+
+Both controls are in the **Camera → Anaglyph 3D** group.
+
+## What works in anaglyph mode
+
+- All synthesizer parameters (scanlines, mesh, warp, modulation, sequencer)
+- Recording — the exported video is an anaglyph file playable with any video
+  player when viewed with red-cyan glasses
+- WHIP / canvas-capture streaming — the stream carries the anaglyph image
+- Side-by-side stereo recording (from the Record panel) — operates on its own
+  offscreen canvas and is unaffected by anaglyph mode
+
+## What is paused
+
+- **Post-processing** (bloom, CRT overlay, feedback) — bypassed while anaglyph
+  is active, the same trade-off as WebXR. Postfx return when you disable
+  anaglyph.
+
+## Tips
+
+- Red-cyan glasses are inexpensive and widely available. Cardboard clip-ons
+  work fine for casual viewing.
+- If depth feels too strong or causes eye strain, reduce **Eye Sep** toward
+  3–4 cm.
+- The **Eye Sep** here is tuned independently from the **IPD (cm)** slider in
+  the Record panel's Stereoscopic 3D group — you can use different values for
+  live viewing and offline rendering.
+- Anaglyph and WebXR should not be enabled simultaneously; disable one before
+  starting the other.
+`;
+
 const MD_XR = `
 # WebXR — VR and AR headsets
 
@@ -1269,6 +1314,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'timeline',   label: 'Timeline',       markdown: MD_TIMELINE },
   { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
   { id: 'xr',         label: 'WebXR',          markdown: MD_XR },
+  { id: 'anaglyph',   label: 'Anaglyph 3D',   markdown: MD_ANAGLYPH },
   { id: 'stereo',     label: '3D Recording',   markdown: MD_STEREO },
   { id: 'video-audio', label: 'Video Audio',   markdown: MD_VIDEO_AUDIO },
   { id: 'stream',     label: 'Streaming',      markdown: MD_STREAM },

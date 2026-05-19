@@ -110,6 +110,20 @@ Stereoscopic recording is more demanding than normal recording — the synth ren
 
 The stereoscopic output doesn't include the postfx effects (bloom, CRT scanlines, feedback) yet — same architectural reason as in headset, and per-eye postfx is a future stage shared between stereo recording and WebXR. For now, the stereoscopic output shows the raw mesh, which is its own kind of beautiful. (See Design Principles — [*Small versions that work*](#small-versions).)
 
+### Anaglyph 3D viewing
+
+Anaglyph is the classic two-colour 3D format: the left and right eye views are colour-separated and composited onto the canvas using **Dubois matrices** (which preserve colours better than simple red-minus-blue channel splitting). View the result with standard red-cyan glasses.
+
+**Camera → Anaglyph 3D → Enable** switches the canvas. **Eye Sep (cm)** sets the inter-pupillary distance — the default 6.4 cm matches average human IPD; reduce it toward 3–4 cm if depth causes eye strain.
+
+Because the anaglyph output replaces the main canvas, everything that reads from the canvas picks it up automatically:
+
+- **Recording** — the downloaded file is a standard anaglyph video.
+- **WHIP streaming** — the anaglyph image is broadcast in real time.
+- **Screen sharing / screen capture source** — anaglyph output is shared.
+
+Post-processing (bloom, CRT, feedback) is paused while anaglyph is active — the same trade-off as WebXR — and returns when you disable it. The Eye Sep slider here is independent from the one in the Record panel's Stereoscopic 3D section, so you can tune live viewing and offline rendering separately.
+
 ### Timeline recording
 
 The Timeline sequencer (Record panel → Timeline tab) lets you compose a piece by adding **keyframes** at specific bars. Shortening a timeline preserves keyframes past the new end — they're flagged in the editor and don't play, but they reappear if you lengthen the timeline again, so trimming is never destructive. (See Design Principles — [*Saved work is preserved, even when it changes*](#saved-work-preserved).)

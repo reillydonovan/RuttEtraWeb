@@ -411,6 +411,36 @@ async function bootSynth(): Promise<void> {
   // running session re-frames in place. No-op when not active.
   settings.subscribe('stereoIpdCm', () => stereoCompositor.refreshIpd());
 
+  // Anaglyph renderer (v16). Lazily instantiated on first enable so the
+  // AnaglyphEffect module (including its GLSL shaders and render targets)
+  // doesn't load until the user actually turns the mode on. The instance
+  // is reused across enable/disable cycles — dispose() is only called
+  // when the page unloads.
+  let anaglyphRenderer: import('./renderer/AnaglyphRenderer').AnaglyphRenderer | null = null;
+  async function getAnaglyphRenderer() {
+    if (!anaglyphRenderer) {
+      const { AnaglyphRenderer } = await import('./renderer/AnaglyphRenderer');
+      anaglyphRenderer = await AnaglyphRenderer.create(renderer, canvas.clientWidth, canvas.clientHeight);
+      anaglyphRenderer.setIpd(settings.get('anaglyphIpdCm'));
+    }
+    return anaglyphRenderer;
+  }
+  // Propagate IPD changes immediately if the renderer is already alive.
+  settings.subscribe('anaglyphIpdCm', (cm) => anaglyphRenderer?.setIpd(cm));
+  // Warm up on first enable so there's no one-frame hitch.
+  settings.subscribe('anaglyphEnabled', (enabled) => {
+    if (enabled) void getAnaglyphRenderer();
+  });
+  // Resize internal render targets whenever the canvas changes size.
+  window.addEventListener('resize', () => {
+    if (anaglyphRenderer) {
+      // Use the drawing-buffer size that ResolutionManager has already applied.
+      anaglyphRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    }
+  });
+  // Pre-warm when the setting is already on (e.g. loaded from saved preset).
+  if (settings.get('anaglyphEnabled')) void getAnaglyphRenderer();
+
   // Preview state — a simple expiring timer that main.ts's render
   // loop reads each frame. When active, the loop swaps the postfx
   // path for `compositor.renderPreviewTo(renderer, w, h)` so the
@@ -1020,6 +1050,13 @@ async function bootSynth(): Promise<void> {
       const w = canvas.width;
       const h = canvas.height;
       stereoCompositor.renderPreviewTo(renderer, w, h);
+    } else if (settings.get('anaglyphEnabled') && anaglyphRenderer) {
+      // Anaglyph mode: render left + right eye with Dubois-matrix
+      // red-cyan channel splitting directly to the main canvas.
+      // EffectComposer is bypassed (same constraint as XR). Recording,
+      // WHIP streaming, and canvas capture all see the composited
+      // anaglyph image automatically since they read from this canvas.
+      anaglyphRenderer.render(ruttEtra.scene, cameraRig.camera);
     } else {
       postfx.render(dt);
     }
