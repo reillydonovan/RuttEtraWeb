@@ -1217,7 +1217,7 @@ export const DEFAULTS: Settings = {
 
   recordIncludeMic: false,
   recordIncludeVideoAudio: false,
-  recordBitrateMbps: 8,
+  recordBitrateMbps: 25,
   recordPreferredFormat: 'auto',
   recordFps: 60,
 

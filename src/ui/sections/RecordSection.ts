@@ -112,16 +112,28 @@ export function createRecordSection(
   // (e.g. on window resize — the canvas changes 120ms later via scheduleResize).
   window.addEventListener('resize', () => setTimeout(refreshResReadout, 150));
 
+  // Quality note — shown because thin wire-art is the hardest case
+  // for block-DCT codecs and users frequently under-set bitrate.
+  const qualityNote = document.createElement('p');
+  qualityNote.className = 'section-note';
+  qualityNote.innerHTML =
+    'Line art and thin meshes need <b>high bitrate</b> to avoid compression '
+    + 'artifacts — more than typical video. '
+    + '25 Mbps is a good baseline for 1080p; use 50–100 Mbps for 4K or '
+    + 'when fine wire detail must be preserved. '
+    + 'VP9 delivers better quality than H.264 at the same bitrate.';
+
   cfg.body.append(
     resReadout,
+    qualityNote,
     row('Format', dropdown(settings, 'recordPreferredFormat', [
       { value: 'auto',     label: 'Auto (best available)' },
       { value: 'mp4',      label: 'MP4 / H.264' },
       { value: 'webm-vp9', label: 'WebM / VP9' },
       { value: 'webm-vp8', label: 'WebM / VP8' },
     ])),
-    row('FPS',     slider(settings, 'recordFps',         15, 120, 1)),
-    row('Bitrate', slider(settings, 'recordBitrateMbps', 1,  40,  0.5)),
+    row('FPS',     slider(settings, 'recordFps',          15, 120, 1)),
+    row('Bitrate', slider(settings, 'recordBitrateMbps',   1, 100, 1)),
     row('Include Mic', toggle(settings, 'recordIncludeMic')),
     row('Include Video Audio', toggle(settings, 'recordIncludeVideoAudio')),
   );

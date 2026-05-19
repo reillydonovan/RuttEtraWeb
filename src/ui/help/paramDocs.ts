@@ -193,7 +193,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   // ----- Record -----
   recordPreferredFormat: { description: 'Preferred container/codec for recordings.', panel: 'Record' },
   recordFps:             { description: 'Capture frame rate.', panel: 'Record' },
-  recordBitrateMbps:     { description: 'Video bitrate (Mbps).', panel: 'Record' },
+  recordBitrateMbps:     { description: 'Video bitrate in Mbps. Range: 1–100. Default 25 Mbps. Line art and thin meshes need higher bitrate than typical video — use 50–100 Mbps for 4K or when fine wire detail must be preserved.', panel: 'Record' },
   recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
 
   // ----- Stereoscopic recording (v12) -----
