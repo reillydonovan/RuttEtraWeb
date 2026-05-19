@@ -50,7 +50,7 @@ keyframe-based timeline so the whole thing can perform itself.
 const MD_QUICKSTART = `
 # Quick start
 
-1. Click **REQUEST WEBCAM**, or in the Source panel pick **Screen Share** or **Upload File**.
+1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
 3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ).
 4. Open the **MIDI** or **Audio** tab to add reactive control.
@@ -552,10 +552,17 @@ The **Record** panel has a **Record Timeline** button: it seeks to bar 0,
 disables looping for one pass, plays the timeline, and downloads a video named
 after the timeline when it reaches the end.
 
+## Adding keyframes
+
+Three ways to add a keyframe at a position on the track:
+
+- **Double-click** empty track space (recommended — works on all platforms)
+- **Ctrl+click** (Cmd+click on Mac) empty track space
+- **Right-click** empty track space → "Add keyframe at bar …" (may be intercepted by system features on Windows with tablet / pen / touchpad drivers)
+
 ## Keyframe context menu
 Right-click any diamond for: preview, **replace snapshot with current**,
-duplicate, lock, change easing, or delete. Right-click empty track to add a
-keyframe at that bar.
+duplicate, lock, change easing, or delete.
 
 ## Excluded parameters
 Camera position, source kind, recording settings, and panel UI flags never
@@ -832,7 +839,7 @@ const MD_TIPS = `
 # Tips & gotchas
 
 - **Webcam permission denied.** Click the address-bar lock icon and grant camera permission, then reload. Some browsers block webcam on \`http://\` — use \`https://\` or \`localhost\`.
-- **Black screen but FPS is fine.** Check the **Source** panel; the active source might be paused. Try pressing **REQUEST WEBCAM** again.
+- **Black screen but FPS is fine.** Check the **Source** panel; the active source might be paused or disconnected. Reconnect from the Source panel.
 - **MIDI device not listed.** Web MIDI requires a secure context (\`https://\` or \`localhost\`). Safari ships an experimental flag.
 - **OSC won't connect.** Start the bridge in \`tools/osc-bridge/\` — see its README. Default URL is \`ws://localhost:8081\`.
 - **Recording produces tiny files.** Some browsers don't expose \`MediaRecorder\` for canvases at high resolution. Try lowering FPS or switching format to \`webm-vp8\`.
@@ -1051,6 +1058,163 @@ const INTERNAL_KEYS = new Set<keyof Settings>([
 ]);
 
 // =====================================================================
+// Stream URL
+// =====================================================================
+
+const MD_STREAM = `
+# Stream URL
+
+Connect to a live video stream or remote video file directly from the
+Source section. No plugins, virtual cameras, or browser extensions
+needed — the stream plays inside the existing video element and feeds
+the synth's scanline mesh exactly like a webcam or file source.
+
+## Supported formats
+
+| Format | Extension | Notes |
+|--------|-----------|-------|
+| HLS    | \`.m3u8\` | Works in all modern browsers. Safari uses native playback; Chrome / Firefox / Edge use hls.js (loaded on demand). |
+| Direct video | \`.mp4\`, \`.webm\`, \`.mov\` | Any URL the browser can play as a \`<video src>\`. |
+| RTSP relay | — | RTSP is a native protocol; browsers can't connect directly. Run a relay (e.g. \`ffmpeg\` → HLS, or MediaMTX with WebRTC output). See below. |
+| MPEG-DASH | \`.mpd\` | Not supported. Re-mux to HLS with \`ffmpeg -i in.mpd -c copy out.m3u8\`. |
+
+## How to connect
+
+1. Open **Source → Stream URL**.
+2. Paste a URL and click **Use Stream**.
+3. A "Connecting…" status appears while the stream loads. Errors are
+   displayed inline — no silent failures.
+
+The URL is saved across sessions so you don't need to re-paste it
+after a page refresh. The stream does **not** auto-reconnect on load —
+click "Use Stream" again to reconnect.
+
+## Professional software (Millumin, Resolume, TouchDesigner, etc.)
+
+These applications can't send video directly to a browser. Bridge options:
+
+**OBS Studio (free, cross-platform)** — set OBS as a virtual camera
+output from the software, then pick it under **Webcam** in the synth.
+Works on macOS and Windows.
+
+**NDI (macOS / Windows)** — many applications output NDI. Install
+*NDI Tools* or *NDI Virtual Input* (free from ndi.tv) to expose the
+NDI source as a virtual webcam. Appears as a regular webcam in the
+synth's device list.
+
+**Syphon → virtual camera (macOS only)** — applications with Syphon
+output can feed into *Syphon Virtual Camera* (free), which then
+appears as a webcam in Chrome.
+
+**HLS relay (any OS)** — if the software can send an RTMP or RTSP
+stream, run a minimal relay:
+\`\`\`
+# ffmpeg: RTMP in → HLS segments on localhost
+ffmpeg -i rtmp://localhost:1935/live/stream \\
+  -c copy -f hls -hls_time 1 -hls_list_size 3 \\
+  /tmp/stream/index.m3u8
+# Then serve that folder over HTTP and paste the URL here.
+\`\`\`
+
+## RTSP / RTMP from cameras or encoders
+
+Browsers cannot connect to RTSP or RTMP natively. Recommended relay
+options:
+
+- **MediaMTX** (formerly rtsp-simple-server, free) — accepts RTSP/RTMP
+  and re-streams as HLS. Paste the \`.m3u8\` URL into Stream URL.
+- **ffmpeg** — see the HLS relay snippet above.
+- **Node-RED** with \`node-red-contrib-rtsp-client\` — if you're
+  already running a Node-RED automation server.
+
+## Latency
+
+HLS buffering adds 2–10 s of latency depending on segment length.
+For low-latency monitoring, use **Screen Capture** (browser tab) or
+a WebRTC relay (not currently built-in). HLS is best for pre-recorded
+streams, broadcast feeds, and IP camera setups where a few seconds
+of latency is acceptable.
+
+## CORS
+
+The stream server must allow \`Access-Control-Allow-Origin: *\` (or
+your page's origin). Streams that block cross-origin requests will
+fail with a network error in the status readout. If you control the
+server, add the header; if not, a relay (see above) that you control
+is the workaround.
+
+---
+
+# Output streaming — WHIP
+
+Send the synth's canvas as a live stream to external servers and
+software. Open **Share → WHIP Output**, paste an endpoint URL, and
+click **Start WHIP**. The server receives the canvas as a WebRTC
+stream and re-distributes it as HLS, RTMP, or WebRTC — whatever it
+supports.
+
+## What is WHIP?
+
+WHIP (WebRTC HTTP Ingestion Protocol) is a simple standard for browsers
+to push a WebRTC stream to a server with one HTTP request. It's the
+*send* counterpart to HLS's *receive* role. OBS, MediaMTX, Cloudflare
+Stream, and LiveKit all support it.
+
+## Compatible servers
+
+| Server | How to get a WHIP endpoint | Notes |
+|--------|---------------------------|-------|
+| **OBS 30+** | Tools → WHIP Server → Start | Listens on \`http://localhost:8080/whip\` by default. No token needed. |
+| **MediaMTX** | Add a path in \`mediamtx.yml\`; endpoint is \`http://localhost:8889/whip/<name>\` | Free, self-hosted; also produces HLS, RTMP, RTSP output from the same path. |
+| **Cloudflare Stream** | Streaming → WHIP endpoint; requires Bearer token (API token from Cloudflare dashboard) | Cloud-hosted; streams to Cloudflare CDN automatically. |
+| **LiveKit Cloud** | Room settings → WHIP ingress; requires Bearer token | Cloud-hosted; distributes to LiveKit rooms and HLS. |
+| **Janus WebRTC** | janus-gateway WHIP plugin | Self-hosted; flexible routing. |
+
+## How to use with OBS
+
+1. In OBS: **Tools → WHIP Server → Start WHIP Server** (OBS 30.0+).
+2. OBS shows the endpoint URL (default: \`http://localhost:8080/whip\`).
+3. In the synth: **Share → WHIP Output → Endpoint**. Paste the URL.
+4. Click **Start WHIP**. OBS shows "connected" in its WHIP server panel.
+5. In OBS, add a **Media Source** or use OBS to re-stream to Twitch,
+   YouTube, or record locally.
+
+## How to use with MediaMTX (local relay, any platform)
+
+MediaMTX converts between WHIP, HLS, RTMP, RTSP, and WebRTC — useful
+for getting the synth into OBS without OBS's built-in WHIP server.
+
+\`\`\`
+# Install: https://github.com/bluenviron/mediamtx/releases
+# Run with defaults — WHIP path is available immediately:
+./mediamtx
+
+# In the synth: Share → WHIP Output → Endpoint
+# Paste: http://localhost:8889/whip/synth
+# Start WHIP.
+
+# MediaMTX outputs at:
+#   HLS:    http://localhost:8888/synth
+#   RTMP:   rtmp://localhost:1935/synth
+#   RTSP:   rtsp://localhost:8554/synth
+#   WebRTC: http://localhost:8889/synth   (web player)
+\`\`\`
+
+## Bearer token (for cloud servers)
+
+Cloudflare Stream and LiveKit require an API token in the **Token** field.
+Copy the token from your cloud dashboard. It is stored locally in your
+browser settings and never included in preset exports.
+
+## Peer-to-peer broadcast
+
+**Share → P2P Broadcast** is a separate, simpler option: the synth
+generates a one-time share URL. Anyone who opens that URL sees the live
+canvas in their browser — no server required. Use this for quick sharing;
+use WHIP for integration with production tools, recording, or CDN delivery.
+`;
+
+// =====================================================================
 // Tabs
 // =====================================================================
 
@@ -1064,6 +1228,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
   { id: 'xr',         label: 'WebXR',          markdown: MD_XR },
   { id: 'stereo',     label: '3D Recording',   markdown: MD_STEREO },
+  { id: 'stream',     label: 'Streaming',      markdown: MD_STREAM },
   { id: 'tips',       label: 'Tips & gotchas', markdown: MD_TIPS },
   { id: 'about',      label: 'About',          markdown: MD_ABOUT },
 ];

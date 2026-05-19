@@ -2,7 +2,7 @@
 
 The shortest path to your first scanline mesh. Each step is one short action.
 
-1. Click **REQUEST WEBCAM** on the boot overlay (or the equivalent button at the top of the **Source** panel). Grant camera access.
+1. On the boot overlay, choose a source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator alone. Grant camera access if prompted.
 2. Open the **Presets** panel and click **Phosphor Green** to load a starting look.
 3. Drag inside the viewport — your cursor rotates the camera around the scanline mesh.
 4. Open the **DCU** panel and adjust **Z Push**. The scanlines lift and fall as you turn it.

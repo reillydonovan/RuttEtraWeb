@@ -60,23 +60,87 @@ html, body, #app {
   margin-bottom: 4px;
 }
 .boot-line.dim { color: var(--re-text-dim); text-shadow: none; }
-#start-btn {
-  margin-top: 18px;
-  padding: 14px 28px;
+
+/* Source picker grid */
+#boot-sources {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+.boot-src {
+  padding: 10px 18px;
   background: transparent;
   color: var(--re-accent);
   border: 1px solid var(--re-accent);
   font-family: var(--re-mono);
-  font-size: 22px;
+  font-size: 15px;
   letter-spacing: 0.1em;
   cursor: pointer;
-  text-shadow: var(--re-glow);
-  box-shadow: 0 0 12px rgba(95,255,133,0.3) inset;
+  transition: background 100ms;
+  min-width: 90px;
+}
+.boot-src:hover { background: rgba(95,255,133,0.1); }
+
+/* Stream URL expansion row (hidden until STREAM URL clicked) */
+#boot-stream-row {
+  display: none;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+  justify-content: center;
+}
+#boot-stream-row.visible { display: flex; }
+#boot-stream-input {
+  background: transparent;
+  color: var(--re-accent);
+  border: 1px solid var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 14px;
+  padding: 6px 10px;
+  width: 260px;
+  letter-spacing: 0.04em;
+}
+#boot-stream-input::placeholder { color: var(--re-text-dim); opacity: 0.7; }
+#boot-stream-connect {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--re-accent);
+  border: 1px solid var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
   transition: background 100ms;
 }
-#start-btn:hover {
-  background: rgba(95,255,133,0.1);
+#boot-stream-connect:hover { background: rgba(95,255,133,0.1); }
+
+/* Inline error/status */
+.boot-error {
+  margin-top: 10px;
+  font-family: var(--re-mono);
+  font-size: 13px;
+  color: var(--re-warn, #ff8c42);
+  min-height: 1.4em;
+  letter-spacing: 0.04em;
 }
+.boot-error:empty { display: none; }
+
+/* Skip / dismiss link */
+#boot-skip {
+  display: block;
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-align: center;
+}
+#boot-skip:hover { color: var(--re-accent); }
 
 /* HUD line at top showing FPS / source */
 #hud {

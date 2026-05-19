@@ -29,6 +29,14 @@ export class TimelineTrack {
     this.el = document.createElement('div');
     this.el.className = 'rw-tl-track';
     this.el.addEventListener('contextmenu', this.onTrackContext);
+    // Double-click on empty track space adds a keyframe — primary path
+    // for Windows users where system-level features (Windows Ink, tablet
+    // drivers, precision touchpad gestures) can intercept right-click
+    // before the browser sees it. Also matches the MIDI piano-roll
+    // convention that most users already know.
+    this.el.addEventListener('dblclick', this.onTrackDblClick);
+    // Ctrl+click: third path, unambiguous on all platforms.
+    this.el.addEventListener('click', this.onTrackClick);
     this.el.addEventListener('dragover', this.onDragOver);
     this.el.addEventListener('dragleave', this.onDragLeave);
     this.el.addEventListener('drop', this.onDrop);
@@ -143,6 +151,38 @@ export class TimelineTrack {
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+  };
+
+  // ====== add keyframe via double-click / Ctrl+click ======
+
+  /** Resolve click/dblclick position to a bar number. Returns null if the
+   *  event originated on a keyframe diamond (so we don't accidentally add
+   *  a keyframe when interacting with an existing one). */
+  private barFromTrackEvent(ev: MouseEvent): number | null {
+    const t = this.seq.timeline;
+    if (!t) return null;
+    // Ignore events that bubble up from a diamond — they have their own handlers.
+    if ((ev.target as HTMLElement).closest('.rw-tl-kf')) return null;
+    const rect = this.el.getBoundingClientRect();
+    const x = ev.clientX - rect.left + this.el.scrollLeft;
+    return Math.max(0, Math.min(t.lengthBars, x / this.pixelsPerBar));
+  }
+
+  private onTrackDblClick = (ev: MouseEvent): void => {
+    const bar = this.barFromTrackEvent(ev);
+    if (bar === null) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.seq.addKeyframe(bar);
+  };
+
+  private onTrackClick = (ev: MouseEvent): void => {
+    if (!ev.ctrlKey && !ev.metaKey) return; // only Ctrl/Cmd+click
+    const bar = this.barFromTrackEvent(ev);
+    if (bar === null) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.seq.addKeyframe(bar);
   };
 
   // ====== context menus ======

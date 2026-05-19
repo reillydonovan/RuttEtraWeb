@@ -36,8 +36,20 @@
       <div id="overlay">
         <div id="boot-message">
           <div class="boot-line">RUTT/ETRA WEB SYNTHESIZER v0.1</div>
-          <div class="boot-line dim">awaiting video source...</div>
-          <button id="start-btn">REQUEST WEBCAM</button>
+          <div class="boot-line dim">select a source to begin</div>
+          <div id="boot-sources">
+            <button class="boot-src" id="boot-webcam">WEBCAM</button>
+            <button class="boot-src" id="boot-screen">SCREEN</button>
+            <button class="boot-src" id="boot-file">FILE</button>
+            <button class="boot-src" id="boot-stream-btn">STREAM URL</button>
+          </div>
+          <div id="boot-stream-row">
+            <input id="boot-stream-input" type="url" placeholder="https://…/stream.m3u8" />
+            <button id="boot-stream-connect">CONNECT</button>
+          </div>
+          <input id="boot-file-input" type="file" accept="video/*" style="display:none" />
+          <div class="boot-error" id="boot-error"></div>
+          <button id="boot-skip">continue without video →</button>
         </div>
       </div>
       <aside id="panel-root"></aside>

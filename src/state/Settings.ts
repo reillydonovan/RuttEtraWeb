@@ -569,13 +569,36 @@ export const DEFAULT_SONIFICATION: SonificationConfig = {
 
 export interface Settings {
   // ---------- Source ----------
-  sourceKind: 'webcam' | 'file' | 'screen' | 'none';
+  sourceKind: 'webcam' | 'file' | 'screen' | 'stream' | 'none';
   deviceId: string;
   mirrorH: boolean;
   mirrorV: boolean;
   requestedWidth: number;
   requestedHeight: number;
   requestedFps: number;
+  /**
+   * Last URL used with "Use Stream". Persisted so the user doesn't need
+   * to re-paste the address every session. The source does NOT auto-reconnect
+   * on load — the URL is just remembered for convenience. Explicit user
+   * action is required to start any source (Principle 4 applied to video:
+   * the synth does not grab external resources by surprise).
+   */
+  streamUrl: string;
+  /**
+   * WHIP endpoint URL for canvas output streaming. Empty = not configured.
+   * The synth sends an SDP offer to this URL (POST) and receives an SDP
+   * answer. The WHIP server (OBS, MediaMTX, Cloudflare Stream, LiveKit)
+   * re-distributes as HLS, RTMP, or WebRTC from its side.
+   * Not auto-connected on load — explicit "Start WHIP" required.
+   */
+  whipEndpoint: string;
+  /**
+   * Optional Bearer token for authenticated WHIP servers (Cloudflare
+   * Stream, LiveKit Cloud, etc.). Empty = no Authorization header sent.
+   * Stored in settings so the user doesn't have to re-paste it each
+   * session; treat this value as a secret you don't share in exports.
+   */
+  whipBearerToken: string;
 
   // ---------- Pattern Generator (v10) ----------
   // A synthesized video-signal layer that runs PARALLEL to the video
@@ -1011,6 +1034,9 @@ export const DEFAULTS: Settings = {
   requestedWidth: 640,
   requestedHeight: 480,
   requestedFps: 30,
+  streamUrl: '',
+  whipEndpoint: '',
+  whipBearerToken: '',
 
   // Pattern Generator (v10) — defaults to OFF, sineBands selected so a
   // user enabling it for the first time sees the most musically useful
@@ -1217,7 +1243,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 12;
+const CURRENT_VERSION = 14;
 
 interface Versioned { _v?: number }
 
@@ -1542,6 +1568,27 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       s.stereoFormat = DEFAULTS.stereoFormat;
     }
     s._v = 12;
+  }
+
+  // v12 -> v13: Stream URL source. One new key — the remembered URL from
+  // the last "Use Stream" session. Empty string = no remembered URL.
+  // The source does NOT auto-reconnect on load; this is purely a UX
+  // convenience so users don't re-paste long RTSP/HLS relay URLs.
+  if ((s._v ?? 1) < 13) {
+    if (s.streamUrl === undefined) {
+      s.streamUrl = DEFAULTS.streamUrl;
+    }
+    s._v = 13;
+  }
+
+  // v13 -> v14: WHIP output streaming. Two new keys for the WHIP endpoint
+  // URL and optional bearer token. Both default to empty (feature off).
+  // whipBearerToken is treated as a secret: it is NOT included in preset
+  // exports (see serialization exclusion list below).
+  if ((s._v ?? 1) < 14) {
+    if (s.whipEndpoint === undefined)    s.whipEndpoint    = DEFAULTS.whipEndpoint;
+    if (s.whipBearerToken === undefined) s.whipBearerToken = DEFAULTS.whipBearerToken;
+    s._v = 14;
   }
 
   // CV output safety: regardless of version, force every loaded CV-output

@@ -6,7 +6,7 @@
  * tears down the previous stream cleanly.
  */
 
-export type SourceKind = 'webcam' | 'file' | 'screen' | 'none';
+export type SourceKind = 'webcam' | 'file' | 'screen' | 'stream' | 'none';
 
 export interface SourceState {
   kind: SourceKind;
@@ -29,6 +29,8 @@ export class VideoSourceManager {
     kind: 'none', label: '', width: 0, height: 0, stream: null,
   };
   private fileObjectUrl: string | null = null;
+  /** hls.js instance, alive for the duration of an active HLS stream. */
+  private hlsInstance: import('hls.js').default | null = null;
 
   constructor(public readonly video: HTMLVideoElement) {
     video.muted = true;
@@ -120,8 +122,104 @@ export class VideoSourceManager {
     this.update({ kind: 'file', label: file.name, stream: null });
   }
 
+  /**
+   * Connect to a remote video stream.
+   *
+   * URL routing:
+   *   - `.m3u8` / `application/vnd.apple.mpegurl` → HLS
+   *     Safari: native (no extra library).
+   *     Chrome / Firefox / Edge: hls.js, dynamically imported on first use.
+   *   - `.mpd` → MPEG-DASH. Not supported natively; throws with a clear
+   *     message recommending re-muxing to HLS or using a direct video URL.
+   *   - Anything else → set as a direct `<video src>` and let the browser
+   *     decide. Works for MP4/WebM relay URLs, RTSP over WebRTC proxy, etc.
+   *
+   * Rejects with a human-readable Error on URL parse failure, missing
+   * browser support, or HLS fatal error (Principle 3 — no silent fallbacks).
+   */
+  async useStreamUrl(rawUrl: string): Promise<void> {
+    this.stop();
+
+    let url: URL;
+    try {
+      url = new URL(rawUrl.trim());
+    } catch {
+      throw new Error(`Invalid URL: "${rawUrl.trim()}"`);
+    }
+
+    const pathname = url.pathname.toLowerCase();
+    const isHls = pathname.endsWith('.m3u8')
+      || url.searchParams.has('format') && url.searchParams.get('format') === 'hls';
+    const isDash = pathname.endsWith('.mpd');
+
+    if (isDash) {
+      throw new Error(
+        'MPEG-DASH streams (.mpd) are not supported. ' +
+        'Re-mux to HLS (.m3u8) using ffmpeg or use a direct MP4/WebM URL.'
+      );
+    }
+
+    const shortLabel = url.hostname + (pathname !== '/' ? pathname.split('/').pop() ?? '' : '');
+
+    if (isHls) {
+      // --- Safari: native HLS support ---
+      if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
+        this.video.src = rawUrl.trim();
+        this.video.load();
+        await this.video.play().catch(() => {});
+        this.update({ kind: 'stream', label: shortLabel, stream: null });
+        return;
+      }
+
+      // --- Other browsers: hls.js ---
+      const { default: Hls } = await import('hls.js').catch(() => {
+        throw new Error('Failed to load HLS library. Check your network and try again.');
+      });
+
+      if (!Hls.isSupported()) {
+        throw new Error(
+          'HLS playback is not supported in this browser. ' +
+          'Try Chrome, Firefox, or Edge, or use a direct MP4/WebM URL.'
+        );
+      }
+
+      const hls = new Hls({ enableWorker: false });
+      this.hlsInstance = hls;
+
+      await new Promise<void>((resolve, reject) => {
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          this.video.play().catch(() => {});
+          resolve();
+        });
+        hls.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data.fatal) {
+            hls.destroy();
+            this.hlsInstance = null;
+            reject(new Error(`HLS stream error: ${data.details}`));
+          }
+        });
+        hls.loadSource(rawUrl.trim());
+        hls.attachMedia(this.video);
+      });
+
+      this.update({ kind: 'stream', label: shortLabel, stream: null });
+      return;
+    }
+
+    // --- Direct video URL (MP4, WebM, or any browser-playable source) ---
+    this.video.srcObject = null;
+    this.video.src = rawUrl.trim();
+    this.video.load();
+    await this.video.play().catch(() => {});
+    this.update({ kind: 'stream', label: shortLabel, stream: null });
+  }
+
   /** Stop the active source and release resources. */
   stop(): void {
+    if (this.hlsInstance) {
+      this.hlsInstance.destroy();
+      this.hlsInstance = null;
+    }
     if (this.state.stream) {
       for (const t of this.state.stream.getTracks()) t.stop();
     }

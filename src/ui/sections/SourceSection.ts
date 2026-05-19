@@ -1,5 +1,5 @@
 /**
- * Source section — pick a video source (webcam / screen / file)
+ * Source section — pick a video source (webcam / screen / file / stream URL)
  * plus mirror toggles and capture-quality settings.
  *
  * As of v10 also hosts the Pattern Generator group: a parallel
@@ -163,6 +163,59 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   });
   fl.body.append(row('File', fileInp));
   root.appendChild(fl.root);
+
+  // Stream URL
+  const su = group('Stream URL');
+  const urlInp = document.createElement('input');
+  urlInp.type = 'url';
+  urlInp.className = 'rw-text';
+  urlInp.placeholder = 'https://…/stream.m3u8';
+  urlInp.value = settings.get('streamUrl');
+  urlInp.style.width = '100%';
+  urlInp.addEventListener('change', () => settings.set('streamUrl', urlInp.value));
+
+  const streamStatus = readout();
+  streamStatus.style.color = 'var(--re-text-dim)';
+  streamStatus.style.whiteSpace = 'pre-line';
+  streamStatus.style.fontSize = '0.85em';
+  streamStatus.textContent = '';
+
+  const useStreamBtn = button('Use Stream', async () => {
+    const url = urlInp.value.trim();
+    if (!url) {
+      streamStatus.style.color = 'var(--re-warn)';
+      streamStatus.textContent = 'Enter a URL first.';
+      return;
+    }
+    streamStatus.style.color = 'var(--re-text-dim)';
+    streamStatus.textContent = 'Connecting…';
+    try {
+      await source.useStreamUrl(url);
+      settings.set('streamUrl', url);
+      settings.set('sourceKind', 'stream');
+      streamStatus.style.color = 'var(--re-text-dim)';
+      streamStatus.textContent = '';
+    } catch (err) {
+      streamStatus.style.color = 'var(--re-warn)';
+      streamStatus.textContent = (err as Error).message;
+    }
+  }, 'primary');
+
+  const streamNote = readout();
+  streamNote.style.color = 'var(--re-text-dim)';
+  streamNote.style.fontSize = '0.82em';
+  streamNote.textContent =
+    'Formats: HLS (.m3u8), direct MP4/WebM URL.\n' +
+    'MPEG-DASH (.mpd) not supported — re-mux to HLS.\n' +
+    'The URL is remembered but not auto-reconnected on load.';
+
+  su.body.append(
+    row('URL', urlInp),
+    row('', useStreamBtn),
+    streamStatus,
+    streamNote,
+  );
+  root.appendChild(su.root);
 
   // Mirror controls
   const m = group('Mirror');

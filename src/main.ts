@@ -72,8 +72,18 @@ async function bootSynth(): Promise<void> {
   const canvas = document.getElementById('stage') as HTMLCanvasElement;
   const video = document.getElementById('src-video') as HTMLVideoElement;
   const overlay = document.getElementById('overlay') as HTMLElement;
-  const startBtn = document.getElementById('start-btn') as HTMLButtonElement;
   const panelHost = document.getElementById('panel-root') as HTMLElement;
+  // Boot source picker elements
+  const bootWebcam   = document.getElementById('boot-webcam')         as HTMLButtonElement;
+  const bootScreen   = document.getElementById('boot-screen')         as HTMLButtonElement;
+  const bootFile     = document.getElementById('boot-file')           as HTMLButtonElement;
+  const bootStreamBtn = document.getElementById('boot-stream-btn')    as HTMLButtonElement;
+  const bootStreamRow = document.getElementById('boot-stream-row')    as HTMLElement;
+  const bootStreamInput = document.getElementById('boot-stream-input') as HTMLInputElement;
+  const bootStreamConnect = document.getElementById('boot-stream-connect') as HTMLButtonElement;
+  const bootFileInput = document.getElementById('boot-file-input')   as HTMLInputElement;
+  const bootError    = document.getElementById('boot-error')          as HTMLElement;
+  const bootSkip     = document.getElementById('boot-skip')           as HTMLButtonElement;
   const hud = document.getElementById('hud') as HTMLElement;
 
   // -------------------------- Layout + perf wiring --------------------------
@@ -382,6 +392,8 @@ async function bootSynth(): Promise<void> {
   );
   const broadcastMod = await import('./stream/Broadcaster');
   const broadcaster = new broadcastMod.Broadcaster(sonification);
+  const { WhipPublisher } = await import('./stream/WhipPublisher');
+  const whipPublisher = new WhipPublisher(sonification);
 
   // Stereoscopic recording compositor (v12). Owns its own offscreen
   // canvas + secondary WebGLRenderer; shares the scene and reads the
@@ -413,12 +425,16 @@ async function bootSynth(): Promise<void> {
   video.addEventListener('loadedmetadata', () => {
     ruttEtra.attachVideo();
   });
+  // The overlay is a one-time welcome screen, not a persistent "no source"
+  // indicator. Once dismissed (by connecting any source or clicking skip) it
+  // never re-shows — the HUD line already reports the active source state.
+  let overlayDismissed = false;
+  function dismissOverlay(): void {
+    overlayDismissed = true;
+    overlay.classList.add('hidden');
+  }
   source.subscribe((st) => {
-    if (st.kind !== 'none') {
-      overlay.classList.add('hidden');
-    } else {
-      overlay.classList.remove('hidden');
-    }
+    if (st.kind !== 'none') dismissOverlay();
   });
 
   // -------------------------- Project save/load -------------------------
@@ -683,7 +699,7 @@ async function bootSynth(): Promise<void> {
       stereoPreview,
       toast: { show: projectToast },
     }) });
-    panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, canvas) });
+    panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, whipPublisher, canvas) });
     panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
@@ -777,8 +793,16 @@ async function bootSynth(): Promise<void> {
     mountAudioGate();
   }
 
-  // -------------------------- Webcam start gesture ---------------------
-  startBtn.addEventListener('click', async () => {
+  // -------------------------- Boot source picker ---------------------------
+  function bootErr(msg: string): void {
+    bootError.textContent = msg;
+  }
+  function bootClearErr(): void {
+    bootError.textContent = '';
+  }
+
+  bootWebcam.addEventListener('click', async () => {
+    bootClearErr();
     try {
       await source.useWebcam({
         width:  settings.get('requestedWidth'),
@@ -789,12 +813,67 @@ async function bootSynth(): Promise<void> {
       settings.set('sourceKind', 'webcam');
       settings.set('audioGestureUnlocked', true);
     } catch (err) {
-      const e = err as Error;
-      const line = document.createElement('div');
-      line.className = 'boot-line dim';
-      line.textContent = `Couldn't access webcam: ${e.message}. Try a file or screen share from the Source panel.`;
-      document.getElementById('boot-message')?.appendChild(line);
+      bootErr(`Webcam: ${(err as Error).message}`);
     }
+  });
+
+  bootScreen.addEventListener('click', async () => {
+    bootClearErr();
+    try {
+      await source.useScreen({ fps: settings.get('requestedFps') });
+      settings.set('sourceKind', 'screen');
+    } catch (err) {
+      bootErr(`Screen: ${(err as Error).message}`);
+    }
+  });
+
+  bootFile.addEventListener('click', () => {
+    bootClearErr();
+    bootFileInput.click();
+  });
+  bootFileInput.addEventListener('change', () => {
+    const f = bootFileInput.files?.[0];
+    if (!f) return;
+    source.useFile(f);
+    settings.set('sourceKind', 'file');
+  });
+
+  // STREAM URL: toggle inline input row
+  bootStreamBtn.addEventListener('click', () => {
+    bootClearErr();
+    bootStreamRow.classList.toggle('visible');
+    if (bootStreamRow.classList.contains('visible')) {
+      bootStreamInput.focus();
+    }
+  });
+
+  // Pre-populate stream URL input from saved setting
+  bootStreamInput.value = settings.get('streamUrl');
+
+  async function connectBootStream(): Promise<void> {
+    const url = bootStreamInput.value.trim();
+    if (!url) { bootErr('Enter a URL first.'); return; }
+    bootClearErr();
+    bootStreamConnect.textContent = 'Connecting…';
+    bootStreamConnect.disabled = true;
+    try {
+      await source.useStreamUrl(url);
+      settings.set('streamUrl', url);
+      settings.set('sourceKind', 'stream');
+    } catch (err) {
+      bootErr((err as Error).message);
+    } finally {
+      bootStreamConnect.textContent = 'CONNECT';
+      bootStreamConnect.disabled = false;
+    }
+  }
+  bootStreamConnect.addEventListener('click', connectBootStream);
+  bootStreamInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') connectBootStream();
+  });
+
+  bootSkip.addEventListener('click', () => {
+    dismissOverlay();
   });
 
   // -------------------------- Resize handling ---------------------------

@@ -24,9 +24,12 @@ export interface ParamDoc {
 
 export const PARAM_DOCS: Record<string, ParamDoc> = {
   // ----- Source -----
-  sourceKind: { description: 'Active video source: webcam, screen share, or file.', panel: 'Source' },
-  mirrorH:    { description: 'Mirror the input left/right.', panel: 'Source' },
-  mirrorV:    { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
+  sourceKind:    { description: 'Active video source: webcam, screen share, file, or stream URL.', panel: 'Source' },
+  mirrorH:       { description: 'Mirror the input left/right.', panel: 'Source' },
+  mirrorV:       { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
+  streamUrl:        { description: 'Last URL used with "Use Stream". Accepts HLS (.m3u8), MPEG-DASH (.mpd), or any direct video URL the browser can play. Not auto-connected on load — click "Use Stream" to reconnect.', panel: 'Source' },
+  whipEndpoint:     { description: 'WHIP server URL for live output streaming. POST endpoint that accepts an SDP offer and returns an SDP answer (MediaMTX, OBS WHIP, Cloudflare Stream, LiveKit, etc.).', panel: 'Share' },
+  whipBearerToken:  { description: 'Optional Bearer token for authenticated WHIP servers (Cloudflare Stream, LiveKit Cloud). Leave empty for open/local servers. Stored locally — not exported in presets.', panel: 'Share' },
 
   // ----- Pattern Generator (v10) -----
   patternEnabled:    { description: 'Master toggle for the synthesized pattern layer. When OFF the live video texture feeds the DCU directly (no extra GPU cost).', panel: 'Pattern' },
