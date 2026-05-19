@@ -164,6 +164,7 @@ export class VideoSourceManager {
     const shortLabel = url.hostname + (pathname !== '/' ? pathname.split('/').pop() ?? '' : '');
 
     if (isHls) {
+      this.video.loop = false;  // HLS is a live/segmented feed — don't loop
       // --- Safari: native HLS support ---
       if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
         this.video.src = rawUrl.trim();
@@ -211,6 +212,7 @@ export class VideoSourceManager {
     // --- Direct video URL (MP4, WebM, or any browser-playable source) ---
     this.video.srcObject = null;
     this.video.src = rawUrl.trim();
+    this.video.loop = true;   // treat static files like useFile — loop by default
     this.video.load();
     await this.video.play().catch(() => {});
     this.update({ kind: 'stream', label: shortLabel, stream: null });

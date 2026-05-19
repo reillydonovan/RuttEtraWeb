@@ -166,6 +166,13 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   fileInp.accept = 'video/*';
   fileInp.className = 'rw-text';
 
+  // Filename label — shows the active file's name regardless of which entry
+  // point loaded it (panel picker or boot overlay). Hidden when no file active.
+  const fileLabel = readout();
+  fileLabel.style.color = 'var(--re-text-dim)';
+  fileLabel.style.fontSize = '0.82em';
+  fileLabel.style.display = 'none';
+
   // Shared notice shown whenever any video file is loaded in this group.
   const videoNotice = readout();
   videoNotice.style.color = 'var(--re-text-dim)';
@@ -190,16 +197,19 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
     applyVideoColorMode();
   });
 
-  // Also show the notice whenever a file source becomes active from
-  // *any* entry point (e.g. the boot overlay file button).
+  // Reactive to any file source activation (panel picker OR boot overlay).
   source.subscribe((st) => {
     if (st.kind === 'file') {
+      fileLabel.textContent = st.label || '';
+      fileLabel.style.display = st.label ? '' : 'none';
       videoNotice.textContent = VIDEO_COLOR_NOTICE;
       videoNotice.style.display = '';
+    } else {
+      fileLabel.style.display = 'none';
     }
   });
 
-  fl.body.append(row('File', fileInp), videoNotice);
+  fl.body.append(row('File', fileInp), fileLabel, videoNotice);
 
   // Sample video — only shown when the operator has deployed a file at the
   // sample URL. HEAD request runs once on section creation; the row stays
