@@ -123,6 +123,7 @@ export function createRecordSection(
     row('FPS',     slider(settings, 'recordFps',         15, 120, 1)),
     row('Bitrate', slider(settings, 'recordBitrateMbps', 1,  40,  0.5)),
     row('Include Mic', toggle(settings, 'recordIncludeMic')),
+    row('Include Video Audio', toggle(settings, 'recordIncludeVideoAudio')),
   );
   root.appendChild(cfg.root);
 
@@ -135,10 +136,11 @@ export function createRecordSection(
       }
       const eye = getEyeResolution();
       await recorder.start({
-        fps:             settings.get('recordFps'),
-        bitsPerSecond:   settings.get('recordBitrateMbps') * 1_000_000,
-        includeMic:      settings.get('recordIncludeMic'),
-        preferredFormat: settings.get('recordPreferredFormat'),
+        fps:               settings.get('recordFps'),
+        bitsPerSecond:     settings.get('recordBitrateMbps') * 1_000_000,
+        includeMic:        settings.get('recordIncludeMic'),
+        includeVideoAudio: settings.get('recordIncludeVideoAudio'),
+        preferredFormat:   settings.get('recordPreferredFormat'),
         ...(stereoEnabled && stereoCompositor ? {
           stereo: {
             enabled: true,
@@ -209,11 +211,12 @@ export function createRecordSection(
         savedLoop = t.loop;
         sequencer.setLoopOverride(false);
         await recorder.start({
-          fps:             settings.get('recordFps'),
-          bitsPerSecond:   settings.get('recordBitrateMbps') * 1_000_000,
-          includeMic:      settings.get('recordIncludeMic'),
-          preferredFormat: settings.get('recordPreferredFormat'),
-          filenameHint:    t.name,
+          fps:               settings.get('recordFps'),
+          bitsPerSecond:     settings.get('recordBitrateMbps') * 1_000_000,
+          includeMic:        settings.get('recordIncludeMic'),
+          includeVideoAudio: settings.get('recordIncludeVideoAudio'),
+          preferredFormat:   settings.get('recordPreferredFormat'),
+          filenameHint:      t.name,
         });
         armed = true;
         sequencer.play();

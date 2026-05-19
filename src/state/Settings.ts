@@ -600,6 +600,16 @@ export interface Settings {
    */
   whipBearerToken: string;
 
+  /**
+   * Play the audio track of the active video file / stream source through
+   * the system speakers. Disabled by default — see Principle 4 (no
+   * accidental sound). Only meaningful for `sourceKind` 'file' or 'stream';
+   * webcam/screen audio is handled by the Audio section.
+   */
+  videoAudioEnabled: boolean;
+  /** Output volume for the video audio track. 0.0 – 1.0. */
+  videoAudioVolume: number;
+
   // ---------- Pattern Generator (v10) ----------
   // A synthesized video-signal layer that runs PARALLEL to the video
   // source (webcam / file / screen). Toggle `patternEnabled` to flip
@@ -802,6 +812,14 @@ export interface Settings {
 
   // ---------- Recorder ----------
   recordIncludeMic: boolean;
+  /**
+   * Bake the video file / stream's own audio track into the recording.
+   * Independent of `videoAudioEnabled` (speaker playback) — you can
+   * include audio in the recording without hearing it through speakers,
+   * and vice versa. Default false; always cleared on page load alongside
+   * `recordIncludeMic` so no audio captures start unexpectedly.
+   */
+  recordIncludeVideoAudio: boolean;
   recordBitrateMbps: number;
   recordPreferredFormat: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
   recordFps: number;
@@ -1037,6 +1055,8 @@ export const DEFAULTS: Settings = {
   streamUrl: '',
   whipEndpoint: '',
   whipBearerToken: '',
+  videoAudioEnabled: false,
+  videoAudioVolume: 1.0,
 
   // Pattern Generator (v10) — defaults to OFF, sineBands selected so a
   // user enabling it for the first time sees the most musically useful
@@ -1179,6 +1199,7 @@ export const DEFAULTS: Settings = {
   mobileColorAutoSet: false,
 
   recordIncludeMic: false,
+  recordIncludeVideoAudio: false,
   recordBitrateMbps: 8,
   recordPreferredFormat: 'auto',
   recordFps: 60,
@@ -1243,7 +1264,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 14;
+const CURRENT_VERSION = 15;
 
 interface Versioned { _v?: number }
 
@@ -1591,6 +1612,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s._v = 14;
   }
 
+  // v14 -> v15: Video audio playback (speaker + recording).
+  //   videoAudioEnabled / videoAudioVolume — speaker passthrough.
+  //   recordIncludeVideoAudio — bake video audio into recordings.
+  // All three default to safe values (disabled / 1.0 / disabled).
+  if ((s._v ?? 1) < 15) {
+    if (s.videoAudioEnabled      === undefined) s.videoAudioEnabled      = DEFAULTS.videoAudioEnabled;
+    if (s.videoAudioVolume       === undefined) s.videoAudioVolume       = DEFAULTS.videoAudioVolume;
+    if (s.recordIncludeVideoAudio === undefined) s.recordIncludeVideoAudio = DEFAULTS.recordIncludeVideoAudio;
+    s._v = 15;
+  }
+
   // CV output safety: regardless of version, force every loaded CV-output
   // channel to start with `enabled=false`. This is the "outputs start
   // muted on page load" guarantee from the v9 spec — saved configurations
@@ -1606,6 +1638,11 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     }));
   }
   s.cvOutputEnabled = false;
+
+  // Video audio safety: force disabled on every load. A saved "enabled"
+  // state must not auto-play audio on the next page load. The user must
+  // re-enable after each session (Principle 4).
+  s.videoAudioEnabled = false;
 
   // Sonification safety: regardless of version (covers v10+ records too,
   // not just the v9→v10 step above), force `enabled=false` on every

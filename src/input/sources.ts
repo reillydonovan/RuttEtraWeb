@@ -218,6 +218,43 @@ export class VideoSourceManager {
     this.update({ kind: 'stream', label: shortLabel, stream: null });
   }
 
+  /**
+   * Control playback of the video element's own audio track.
+   * Disabled by default (video.muted = true) — call this in response to
+   * an explicit user action only (Principle 4: no accidental sound).
+   *
+   * @param enabled  false = muted (default). true = audible.
+   * @param volume   0.0 – 1.0 output level (default 1.0).
+   */
+  setAudio(enabled: boolean, volume = 1.0): void {
+    this.video.muted  = !enabled;
+    this.video.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  /**
+   * Return a MediaStream containing only the audio tracks from the
+   * video element, suitable for mixing into a `MediaRecorder` stream.
+   *
+   * Uses `HTMLMediaElement.captureStream()` (Chrome / Firefox). Returns
+   * `null` when the API is absent (Safari), when no source is active, or
+   * when the active source has no audio tracks. The `video.muted` state
+   * is irrelevant here — `captureStream()` operates on the raw media data,
+   * not the speaker-output path, so audio can be baked into a recording
+   * even when speaker playback is disabled.
+   */
+  getCaptureStream(): MediaStream | null {
+    if (this.state.kind === 'none') return null;
+    const el = this.video as HTMLVideoElement & {
+      captureStream?(): MediaStream;
+      mozCaptureStream?(): MediaStream;
+    };
+    const stream = el.captureStream?.() ?? el.mozCaptureStream?.();
+    if (!stream) return null;
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) return null;
+    return new MediaStream(audioTracks);
+  }
+
   /** Stop the active source and release resources. */
   stop(): void {
     if (this.hlsInstance) {

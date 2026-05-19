@@ -10,8 +10,9 @@
  *   - mic (optional, via getUserMedia)
  *   - sonification voice (optional, when the synth's audible-output
  *     subsystem is enabled — captured post-master, post-limiter)
+ *   - video element audio (optional, via HTMLMediaElement.captureStream)
  *
- * Both can be active simultaneously. The browser handles cross-track
+ * All three can be active simultaneously. The browser handles cross-track
  * mixing inside the MediaRecorder.
  */
 
@@ -20,6 +21,16 @@ import type { InjectionResult, StereoMetadataInjector } from './StereoMetadata';
 /** Sonification capture interface — only what the recorder needs from
  *  `Sonification`. Kept duck-typed so tests can stub it. */
 export interface SonificationCapture {
+  getCaptureStream(): MediaStream | null;
+}
+
+/**
+ * Video element audio capture interface — only what the recorder needs
+ * from `VideoSourceManager`. Kept duck-typed so tests can stub it.
+ * Returns `null` when no source is active, the API is unavailable
+ * (Safari), or the active source has no audio track.
+ */
+export interface VideoAudioCapture {
   getCaptureStream(): MediaStream | null;
 }
 
@@ -47,6 +58,11 @@ export interface RecordOptions {
   fps: number;
   bitsPerSecond?: number;
   includeMic?: boolean;
+  /** Bake the video element's own audio track into the recording.
+   *  Independent of speaker-playback (`videoAudioEnabled` setting).
+   *  No-op when the active source has no audio or `VideoAudioCapture`
+   *  was not provided to the `CanvasRecorder` constructor. */
+  includeVideoAudio?: boolean;
   preferredFormat?: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
   /** Optional slug prepended to the auto-generated filename (no extension). */
   filenameHint?: string;
@@ -117,11 +133,13 @@ export class CanvasRecorder {
      * Production code passes `injectStereoscopicMetadata` from
      * `./StereoMetadata`; tests pass a stub to exercise the
      * `failed` / `skipped` branches without needing a real MP4.
-     * Defaults to undefined — without an injector, stereo
-     * recording still produces the side-by-side file, just with
-     * no st3d box added.
+     * Defaults to null — without an injector, stereo recording
+     * still produces the side-by-side file, just with no st3d box.
      */
     private injector: StereoMetadataInjector | null = null,
+    /** Video element audio capture. Pass `VideoSourceManager` directly;
+     *  the duck-typed interface means tests can stub it. */
+    private videoAudioCapture: VideoAudioCapture | null = null,
   ) {}
 
   /** Swap the metadata injector at runtime. Used by tests; also a
@@ -203,9 +221,10 @@ export class CanvasRecorder {
     }
 
     // Collect every audio track we want in the output: mic (when
-    // requested AND available) plus the sonification voice (when the
-    // synth's audio-output subsystem is currently producing a stream).
-    // The browser mixes them inside MediaRecorder.
+    // requested AND available), the sonification voice (when the
+    // synth's audio-output subsystem is currently producing a stream),
+    // and the video element's own audio track (when requested AND the
+    // source has one). The browser mixes all tracks inside MediaRecorder.
     const audioTracks: MediaStreamTrack[] = [];
     if (opts.includeMic) {
       try {
@@ -213,6 +232,18 @@ export class CanvasRecorder {
         for (const t of this.micStream.getAudioTracks()) audioTracks.push(t);
       } catch (err) {
         console.warn('Mic unavailable; recording video only.', err);
+      }
+    }
+    if (opts.includeVideoAudio) {
+      const vaStream = this.videoAudioCapture?.getCaptureStream();
+      if (vaStream) {
+        for (const t of vaStream.getAudioTracks()) audioTracks.push(t);
+      } else {
+        // No-op: source has no audio track, API is unsupported (Safari),
+        // or videoAudioCapture was not provided. Continue without audio
+        // rather than throwing — Principle 3: errors must be visible,
+        // but a missing audio track is not a fatal recording error.
+        console.warn('Video audio requested but not available for this source or browser.');
       }
     }
     const sonStream = this.sonification?.getCaptureStream();

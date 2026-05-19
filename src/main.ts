@@ -389,6 +389,7 @@ async function bootSynth(): Promise<void> {
     canvas,
     sonification,
     stereoMetaMod.injectStereoscopicMetadata,
+    source,  // VideoAudioCapture — duck-typed via getCaptureStream()
   );
   const broadcastMod = await import('./stream/Broadcaster');
   const broadcaster = new broadcastMod.Broadcaster(sonification);
@@ -436,6 +437,20 @@ async function bootSynth(): Promise<void> {
   source.subscribe((st) => {
     if (st.kind !== 'none') dismissOverlay();
   });
+
+  // ---------------------- Video audio passthrough -----------------------
+  // Propagate videoAudioEnabled / videoAudioVolume settings to the video
+  // element whenever either key changes. Both keys force `muted = true` on
+  // page load (migration), so no sound plays without an explicit toggle.
+  function applyVideoAudio() {
+    source.setAudio(
+      settings.get('videoAudioEnabled'),
+      settings.get('videoAudioVolume'),
+    );
+  }
+  settings.subscribe('videoAudioEnabled', applyVideoAudio);
+  settings.subscribe('videoAudioVolume',  applyVideoAudio);
+  applyVideoAudio();
 
   // -------------------------- Project save/load -------------------------
   // The "save your work" feature. Owns:

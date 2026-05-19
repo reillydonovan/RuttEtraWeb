@@ -1069,6 +1069,37 @@ const INTERNAL_KEYS = new Set<keyof Settings>([
 ]);
 
 // =====================================================================
+// Video Audio
+// =====================================================================
+
+const MD_VIDEO_AUDIO = `
+# Video Audio
+
+The synth is silent by default. When a **video file** or **stream URL** source
+is active you can optionally pass its audio track through to your system
+speakers using the **Video Audio** group in the Source panel.
+
+## Controls
+
+| Control | Description |
+|---------|-------------|
+| **Enable** | Unmutes the video element. Disabled again on every page load — you must re-enable each session intentionally. |
+| **Volume** | 0 – 100 % output level. Adjustable while playing. |
+
+## Notes
+
+- Audio is **not** passed through for webcam or screen-capture sources; their
+  mic/system audio is handled by the browser's own MediaStream API and the
+  **Audio** section.
+- The "disabled on page load" rule exists to prevent surprise audio playback
+  after saving a preset or refreshing the page (Principle 4 of the design
+  principles — the synth doesn't make sound by accident).
+- If your video has no audio track the toggle has no effect; no error is shown.
+- Enabling audio counts as a user gesture in all supported browsers, so browser
+  autoplay restrictions are satisfied automatically.
+`;
+
+// =====================================================================
 // Stream URL
 // =====================================================================
 
@@ -1239,6 +1270,7 @@ export const HELP_TABS: HelpTab[] = [
   { id: 'project',    label: 'Project',        markdown: MD_PROJECT },
   { id: 'xr',         label: 'WebXR',          markdown: MD_XR },
   { id: 'stereo',     label: '3D Recording',   markdown: MD_STEREO },
+  { id: 'video-audio', label: 'Video Audio',   markdown: MD_VIDEO_AUDIO },
   { id: 'stream',     label: 'Streaming',      markdown: MD_STREAM },
   { id: 'tips',       label: 'Tips & gotchas', markdown: MD_TIPS },
   { id: 'about',      label: 'About',          markdown: MD_ABOUT },

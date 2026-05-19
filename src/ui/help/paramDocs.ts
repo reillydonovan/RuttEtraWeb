@@ -28,8 +28,11 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   mirrorH:       { description: 'Mirror the input left/right.', panel: 'Source' },
   mirrorV:       { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
   streamUrl:        { description: 'Last URL used with "Use Stream". Accepts HLS (.m3u8), MPEG-DASH (.mpd), or any direct video URL the browser can play. Not auto-connected on load — click "Use Stream" to reconnect.', panel: 'Source' },
-  whipEndpoint:     { description: 'WHIP server URL for live output streaming. POST endpoint that accepts an SDP offer and returns an SDP answer (MediaMTX, OBS WHIP, Cloudflare Stream, LiveKit, etc.).', panel: 'Share' },
-  whipBearerToken:  { description: 'Optional Bearer token for authenticated WHIP servers (Cloudflare Stream, LiveKit Cloud). Leave empty for open/local servers. Stored locally — not exported in presets.', panel: 'Share' },
+  whipEndpoint:      { description: 'WHIP server URL for live output streaming. POST endpoint that accepts an SDP offer and returns an SDP answer (MediaMTX, OBS WHIP, Cloudflare Stream, LiveKit, etc.).', panel: 'Share' },
+  whipBearerToken:   { description: 'Optional Bearer token for authenticated WHIP servers (Cloudflare Stream, LiveKit Cloud). Leave empty for open/local servers. Stored locally — not exported in presets.', panel: 'Share' },
+  videoAudioEnabled:       { description: 'Unmute the video file or stream source so its audio plays through system speakers. Disabled on every page load to prevent accidental sound.', panel: 'Source' },
+  videoAudioVolume:        { description: 'Output level for the video audio track. 0 = silent, 1 = full. Only active when Video Audio is enabled.', panel: 'Source' },
+  recordIncludeVideoAudio: { description: 'Bake the video file or stream audio track into the recording. Independent of the speaker-playback toggle — you can record the audio without hearing it, or vice versa. No effect when the active source has no audio track.', panel: 'Record' },
 
   // ----- Pattern Generator (v10) -----
   patternEnabled:    { description: 'Master toggle for the synthesized pattern layer. When OFF the live video texture feeds the DCU directly (no extra GPU cost).', panel: 'Pattern' },

@@ -299,6 +299,54 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   );
   root.appendChild(su.root);
 
+  // ── Video Audio ──────────────────────────────────────────────────────
+  // Allows playback of the video file or stream's own audio track through
+  // the system speakers. Principle 4: disabled by default — the user must
+  // explicitly enable it each session (the migration also force-clears
+  // videoAudioEnabled on every page load so no audio starts unexpectedly).
+  const va = group('Video Audio');
+
+  const audioSafetyNote = document.createElement('p');
+  audioSafetyNote.className = 'section-note';
+  audioSafetyNote.textContent =
+    'Plays the audio track of the active video file or stream. '
+    + 'Disabled on every page load — check your speaker volume before enabling.';
+
+  const audioEnabledToggle = toggle(settings, 'videoAudioEnabled');
+
+  const volSlider = document.createElement('input');
+  volSlider.type = 'range';
+  volSlider.min  = '0';
+  volSlider.max  = '1';
+  volSlider.step = '0.01';
+  volSlider.value = String(settings.get('videoAudioVolume'));
+  volSlider.className = 'param-slider';
+  volSlider.addEventListener('input', () => {
+    settings.set('videoAudioVolume', parseFloat(volSlider.value));
+  });
+  settings.subscribe('videoAudioVolume', (v) => {
+    volSlider.value = String(v);
+  });
+
+  const volReadout = document.createElement('span');
+  volReadout.className = 'param-readout';
+  function refreshVolReadout() {
+    volReadout.textContent = Math.round(settings.get('videoAudioVolume') * 100) + '%';
+  }
+  refreshVolReadout();
+  settings.subscribe('videoAudioVolume', refreshVolReadout);
+
+  const volRow = document.createElement('div');
+  volRow.className = 'param-row';
+  volRow.append(volSlider, volReadout);
+
+  va.body.append(
+    audioSafetyNote,
+    row('Enable', audioEnabledToggle),
+    row('Volume', volRow),
+  );
+  root.appendChild(va.root);
+
   // Mirror controls
   const m = group('Mirror');
   m.body.append(
