@@ -111,18 +111,48 @@ export class PostFX {
     height: number,
     private live: LiveValuesStore,
   ) {
-    this.composer = new EffectComposer(renderer);
+    // Use a half-float HDR render target with 4× MSAA for the composer's
+    // internal ping-pong buffers:
+    //
+    //  • HalfFloatType — preserves HDR values (> 1.0) from the scene so
+    //    the bloom and ACES tonemapping in OutputPass operate on the full
+    //    luminance range rather than 0-1-clamped 8-bit values.
+    //
+    //  • samples: 4 — multi-sample anti-aliasing on the RenderPass's target.
+    //    `antialias: true` on WebGLRenderer only applies to the canvas's
+    //    default framebuffer, which the EffectComposer never writes to
+    //    directly. Without samples here, wire geometry renders with hard
+    //    1-pixel edges regardless of the renderer's MSAA setting.
+    //    WebGL 2 resolves the MSAA buffer automatically before the next pass
+    //    samples it as a texture.
+    //
+    // HalfFloat is always supported in WebGL 2 (all modern browsers). On
+    // any platform where it somehow fails, Three.js falls back to unsigned
+    // byte automatically.
+    const composerRT = new THREE.WebGLRenderTarget(width, height, {
+      samples: 4,
+      type:    THREE.HalfFloatType,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+    });
+    this.composer = new EffectComposer(renderer, composerRT);
     this.composer.setSize(width, height);
     this.composer.setPixelRatio(renderer.getPixelRatio());
 
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
 
-    this.feedbackRT = new THREE.WebGLRenderTarget(width, height, {
+    // feedbackRT must match the PHYSICAL pixel dimensions of the composer's
+    // internal render targets (width × pixelRatio). Using logical pixels
+    // would produce a low-res buffer that gets upscaled each frame, turning
+    // the feedback into a blurry smear when DPR > 1.
+    const physW = Math.floor(width  * renderer.getPixelRatio());
+    const physH = Math.floor(height * renderer.getPixelRatio());
+    this.feedbackRT = new THREE.WebGLRenderTarget(physW, physH, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
+      type: THREE.HalfFloatType,
     });
 
     this.feedbackPass = new ShaderPass({
@@ -186,7 +216,12 @@ export class PostFX {
     // Bloom resolution is divided by `bloomRTDivisor` set via setBloomRTDivisor.
     this.bloom.resolution.set(width / this.bloomRTDivisor, height / this.bloomRTDivisor);
     (this.crt.uniforms.uResolution.value as THREE.Vector2).set(width, height);
-    this.feedbackRT.setSize(width, height);
+    // feedbackRT must stay at physical pixel dimensions — using logical
+    // dimensions would make it smaller than the composer's ping-pong
+    // buffers on HiDPI displays.
+    const physW = Math.floor(width  * this.renderer.getPixelRatio());
+    const physH = Math.floor(height * this.renderer.getPixelRatio());
+    this.feedbackRT.setSize(physW, physH);
   }
 
   /** Set bloom render-target divisor (1=full, 2=half, 4=quarter). */
