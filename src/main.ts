@@ -836,6 +836,10 @@ async function bootSynth(): Promise<void> {
     if (!f) return;
     source.useFile(f);
     settings.set('sourceKind', 'file');
+    settings.set('colorMode', 'video');
+    responsive.toast(
+      'Color mode set to Video — scanlines now use the source\'s own colors. Adjust in Color / PostFX.',
+    );
   });
 
   // STREAM URL: toggle inline input row

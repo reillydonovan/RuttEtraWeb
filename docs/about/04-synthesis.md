@@ -153,10 +153,12 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 ### Camera
 
+Switch modes from the **Camera panel → Mode dropdown** (top of the panel).
+
 The viewport's 3D camera operates in two modes:
 
-- **Orbit** (default) — drag to rotate around the mesh, scroll/pinch to dolly. Free rotation in all directions. **Reset Up** snaps the vertical axis back without changing position; useful for un-tumbling.
-- **Fly** — first-person free-flight. WASD to translate, `Q/E` for vertical, `Shift` to sprint, `Space` for boost.
+- **Orbit** (default) — drag to rotate around the mesh, scroll/pinch to dolly. Free rotation in all directions. **Reset Up** snaps the vertical axis back without changing position; useful for un-tumbling after going over the poles.
+- **Fly** — first-person free-flight. Click the canvas to capture the pointer, then: `WASD` to translate, `Q / E` for vertical, `Shift` to sprint, `Space` for boost. Move the mouse to aim. Click again or press `Esc` to release pointer lock. *Not available on touch/mobile — the Mode dropdown hides the Fly option on those devices.*
 
 The **Resolution** dropdown picks a target render frame size: SD / HD / FHD / QHD / 4K, plus Custom and Fit modes (Match window, Fit to window). Recordings inherit this size — set it before clicking Record if you want the file to be exactly 1920×1080.
 

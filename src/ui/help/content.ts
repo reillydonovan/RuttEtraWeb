@@ -50,7 +50,7 @@ keyframe-based timeline so the whole thing can perform itself.
 const MD_QUICKSTART = `
 # Quick start
 
-1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source.
+1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
 3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ).
 4. Open the **MIDI** or **Audio** tab to add reactive control.
@@ -954,6 +954,17 @@ export function generateControlsMarkdown(filter?: string): string {
     // Camera section gets a small button & gesture reference appended —
     // these aren't param keys but matter for the user.
     if (g === 'Camera' && cameraButtonsMatch(tokens)) {
+      out += '### Camera — mode\n\n';
+      out += 'Switch modes from **Camera panel → Mode** (top of the panel).\n\n';
+      out += '**Orbit (default)** — drag to rotate, scroll to zoom, right-drag to pan.\n\n';
+      out += '**Fly** — click the canvas to capture the pointer, then use the controls below. Click again or press `Esc` to release.\n\n';
+      out += '| Fly key | Action |\n|---|---|\n';
+      out += '| `W / S` | Forward / back |\n';
+      out += '| `A / D` | Strafe left / right |\n';
+      out += '| `Q / E` | Move down / up |\n';
+      out += '| `Shift` | Sprint (3× speed) |\n';
+      out += '| `Space` | Boost (10× speed) |\n';
+      out += '| Mouse move | Aim (pointer locked) |\n\n';
       out += '### Camera buttons & gestures\n\n';
       out += '| Action | What |\n|---|---|\n';
       out += '| **Reset View** [R] | Snaps to your saved default view. |\n';

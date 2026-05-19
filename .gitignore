@@ -5,3 +5,11 @@ dist
 .env
 .env.local
 .vite
+
+# Sample video files — place your video at public/samples/sample.mp4 on the server.
+# Never commit actual video files; only .gitkeep is tracked.
+public/samples/*.mp4
+public/samples/*.webm
+public/samples/*.mov
+public/samples/*.mkv
+public/samples/*.avi

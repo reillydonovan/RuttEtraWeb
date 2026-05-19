@@ -14,6 +14,16 @@ import {
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
 import { row, group, toggle, button, readout, slider, dropdown } from '../widgets';
+
+/**
+ * URL of the operator-supplied sample video. Falls back to the conventional
+ * path `/samples/sample.mp4` (relative to page origin) if no env variable is
+ * set. The `public/samples/` folder is tracked in git (via .gitkeep) but its
+ * video contents are .gitignored — deploy the file to your server separately.
+ */
+const SAMPLE_VIDEO_URL: string =
+  (import.meta.env.VITE_SAMPLE_VIDEO_URL as string | undefined)?.trim() ||
+  '/samples/sample.mp4';
 import {
   PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL,
 } from '../../renderer/patterns/PatternRegistry';
@@ -155,13 +165,75 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   fileInp.type = 'file';
   fileInp.accept = 'video/*';
   fileInp.className = 'rw-text';
+
+  // Shared notice shown whenever any video file is loaded in this group.
+  const videoNotice = readout();
+  videoNotice.style.color = 'var(--re-text-dim)';
+  videoNotice.style.fontSize = '0.82em';
+  videoNotice.style.display = 'none';
+
+  const VIDEO_COLOR_NOTICE =
+    'Color mode set to Video — scanlines now use the source\'s own colors. ' +
+    'Adjust in the Color / PostFX panel.';
+
+  function applyVideoColorMode(): void {
+    settings.set('colorMode', 'video');
+    videoNotice.textContent = VIDEO_COLOR_NOTICE;
+    videoNotice.style.display = '';
+  }
+
   fileInp.addEventListener('change', () => {
     const f = fileInp.files?.[0];
     if (!f) return;
     source.useFile(f);
     settings.set('sourceKind', 'file');
+    applyVideoColorMode();
   });
-  fl.body.append(row('File', fileInp));
+
+  // Also show the notice whenever a file source becomes active from
+  // *any* entry point (e.g. the boot overlay file button).
+  source.subscribe((st) => {
+    if (st.kind === 'file') {
+      videoNotice.textContent = VIDEO_COLOR_NOTICE;
+      videoNotice.style.display = '';
+    }
+  });
+
+  fl.body.append(row('File', fileInp), videoNotice);
+
+  // Sample video — only shown when the operator has deployed a file at the
+  // sample URL. HEAD request runs once on section creation; the row stays
+  // hidden permanently if the file doesn't exist.
+  const sampleRow = document.createElement('div');
+  sampleRow.style.display = 'none';
+  const sampleErr = readout();
+  sampleErr.style.color = 'var(--re-warn)';
+  sampleErr.style.fontSize = '0.85em';
+  sampleErr.textContent = '';
+
+  const loadSampleBtn = button('Load Sample Video', async () => {
+    sampleErr.textContent = '';
+    videoNotice.style.display = 'none';
+    try {
+      await source.useStreamUrl(SAMPLE_VIDEO_URL);
+      settings.set('sourceKind', 'stream');
+      applyVideoColorMode();
+    } catch (err) {
+      sampleErr.textContent = (err as Error).message;
+    }
+  });
+  const sampleHint = readout();
+  sampleHint.style.color = 'var(--re-text-dim)';
+  sampleHint.style.fontSize = '0.82em';
+  sampleHint.textContent = SAMPLE_VIDEO_URL;
+  sampleRow.append(row('', loadSampleBtn), sampleHint, sampleErr);
+  fl.body.append(sampleRow);
+
+  // HEAD check — reveal the sample row only if the file is actually present.
+  fetch(SAMPLE_VIDEO_URL, { method: 'HEAD' })
+    .then((r) => { if (r.ok) sampleRow.style.display = ''; })
+    .catch(() => { /* file absent or CORS — keep row hidden */ });
+
   root.appendChild(fl.root);
 
   // Stream URL

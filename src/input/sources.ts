@@ -142,7 +142,9 @@ export class VideoSourceManager {
 
     let url: URL;
     try {
-      url = new URL(rawUrl.trim());
+      // Accept both absolute URLs and root-relative paths (/samples/…).
+      // The second argument resolves relative paths against the page origin.
+      url = new URL(rawUrl.trim(), window.location.href);
     } catch {
       throw new Error(`Invalid URL: "${rawUrl.trim()}"`);
     }
