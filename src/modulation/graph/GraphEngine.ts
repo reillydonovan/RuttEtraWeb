@@ -118,9 +118,12 @@ export class GraphEngine {
     return v == null ? 0 : v;
   }
 
-  /** Set of param keys this engine is currently writing. */
+  /** Set of param keys this engine is currently writing. Disabled
+   *  bindings are excluded so their activity LEDs go dark. */
   getActiveTargets(): Set<string> {
-    return new Set(this.patch.bindings.map((b) => b.paramKey));
+    return new Set(
+      this.patch.bindings.filter((b) => b.enabled !== false).map((b) => b.paramKey),
+    );
   }
 
   /** Last `tick()` wall-clock duration in milliseconds. Used by the debug overlay. */
@@ -185,6 +188,14 @@ export class GraphEngine {
     for (const id of this.compiled.order) {
       const cn = this.compiled.byId.get(id);
       if (!cn) continue;
+      // v17: muted node — skip its tick entirely; every output reads 0 so
+      // downstream nodes and bindings see silence. State is retained, so
+      // re-enabling resumes (LFO phase etc. simply kept advancing from
+      // wherever init left it — deterministic and cheap).
+      if (cn.node.enabled === false) {
+        for (const k of Object.keys(cn.outputs)) cn.outputs[k] = 0;
+        continue;
+      }
       // Build inputs map.
       for (const port of Object.keys(cn.node.inputs)) {
         const fromId = cn.node.inputs[port];
@@ -222,6 +233,9 @@ export class GraphEngine {
     const offsets = new Map<string, number>();
     const factors = new Map<string, number>();
     for (const b of this.compiled.bindings) {
+      // v17: muted binding — contributes nothing; the same-frame
+      // setContributions clear snaps its target back to base.
+      if (b.enabled === false) continue;
       const src = this.compiled.byId.get(b.sourceNodeId);
       if (!src) continue;
       const port = b.sourcePort ?? 'out';

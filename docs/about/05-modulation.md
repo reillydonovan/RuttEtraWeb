@@ -48,7 +48,8 @@ Graph mode is a signal-flow patcher modeled directly on the original Rutt/Etra's
 
 - **Beginner view** — same expandable rows as Classic, but each row maps under the hood to a source node + a binding (= an Output node). Add / remove rows to add / remove bindings.
 - **Advanced view** — the full node graph canvas with palette, Probe tool, Library, and inspector. Drag from output to input ports. Right-click a node for context actions.
-- **Library** — built-in starter patches: Audio Ring Mod, Video Brightness Tracking, Beat-Synced Step Sequencer, Motion-Triggered Glitch, Slewed Pitch Follow, Reactive Crossfade, Edge-Driven Focus.
+- **Library** — built-in starter patches: Audio Ring Mod, Video Brightness Tracking, Beat-Synced Step Sequencer, Motion-Triggered Glitch, Slewed Pitch Follow, Reactive Crossfade, Edge-Driven Focus. Below them, **My Patches**: name the current graph and Save to keep your own copies (same name overwrites); click a card to load, × to delete. Saved patches live in this browser's local storage — the *active* patch still travels inside Presets and Projects as before.
+- **Mute without deleting** — every node has an **enabled** checkbox in the inspector (muted nodes dim on the canvas and output silence downstream), and each binding row has its own enable checkbox. A muted binding's target snaps back to its base value instantly — same no-stickiness rule as everything else in the modulation system.
 - **Probe** — click any node output port to read its live value in the inspector. Essential for debugging tangled patches.
 - **Convert to Graph** — at the bottom of the Classic body, a button that builds an equivalent graph patch from the current Classic slots and switches you to Graph mode. Use it as a starting point when a Classic patch has outgrown its inline controls.
 

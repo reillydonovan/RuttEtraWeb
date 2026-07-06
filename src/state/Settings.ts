@@ -1283,7 +1283,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 16;
+const CURRENT_VERSION = 17;
 
 interface Versioned { _v?: number }
 
@@ -1664,6 +1664,24 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     if (s.anaglyphEnabled === undefined) s.anaglyphEnabled = DEFAULTS.anaglyphEnabled;
     if (s.anaglyphIpdCm   === undefined) s.anaglyphIpdCm   = DEFAULTS.anaglyphIpdCm;
     s._v = 16;
+  }
+
+  // v16 -> v17: per-node / per-binding enable flags on the graph patch.
+  // Backfill `enabled: true` explicitly so saved patches carry the field
+  // (missing is also treated as enabled at the engine boundary, but an
+  // explicit value keeps serialized patches self-describing). Idempotent.
+  if ((s._v ?? 1) < 17) {
+    const g = s.modGraph as GraphPatch | null | undefined;
+    if (g && typeof g === 'object' && Array.isArray(g.nodes)) {
+      s.modGraph = {
+        ...g,
+        nodes: g.nodes.map((n) => ({ ...n, enabled: n.enabled ?? true })),
+        bindings: Array.isArray(g.bindings)
+          ? g.bindings.map((b) => ({ ...b, enabled: b.enabled ?? true }))
+          : [],
+      };
+    }
+    s._v = 17;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

@@ -174,6 +174,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     el.style.left = `${pos.x}px`;
     el.style.top = `${pos.y}px`;
     if (node.id === selectedId) el.classList.add('selected');
+    if (node.enabled === false) el.classList.add('rw-graph-node--muted');
 
     const head = document.createElement('div');
     head.className = 'rw-graph-node-head';

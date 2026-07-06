@@ -87,6 +87,43 @@
   font-size: 11px;
   line-height: 1.3;
 }
+.rw-graph-library-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.rw-graph-library-row .rw-graph-library-card { flex: 1; }
+.rw-graph-library-del {
+  background: transparent;
+  border: 1px dashed var(--re-line);
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  cursor: pointer;
+  padding: 0 8px;
+}
+.rw-graph-library-del:hover { color: #ff6b6b; border-color: #ff6b6b; }
+.rw-graph-library-save {
+  display: flex;
+  gap: 4px;
+}
+.rw-graph-library-save input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+/* v17: muted node — retained but silent */
+.rw-graph-node--muted { opacity: 0.38; }
+.rw-graph-node--muted .rw-graph-node-head::after {
+  content: ' ·muted';
+  color: var(--re-text-dim);
+  font-size: 10px;
+}
 
 /* Beginner view */
 .rw-beginner-view {

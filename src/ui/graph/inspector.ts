@@ -65,6 +65,24 @@ export function createInspector(opts: InspectorOptions): {
     desc.textContent = def.description;
     root.appendChild(desc);
 
+    // v17: node mute. Unchecked = node tick skipped, outputs read 0.
+    const enabledRow = document.createElement('label');
+    enabledRow.className = 'rw-graph-inspector-row';
+    const enabledLabel = document.createElement('span');
+    enabledLabel.className = 'rw-graph-inspector-label';
+    enabledLabel.textContent = 'enabled';
+    const enabledCb = document.createElement('input');
+    enabledCb.type = 'checkbox';
+    enabledCb.checked = node.enabled !== false;
+    enabledCb.addEventListener('change', () => {
+      const p = opts.getPatch();
+      const n = p.nodes.find((x) => x.id === node.id);
+      if (n) n.enabled = enabledCb.checked;
+      opts.setPatch(p);
+    });
+    enabledRow.append(enabledLabel, enabledCb);
+    root.appendChild(enabledRow);
+
     if (REGION_NODE_TYPES.has(node.type)) {
       root.appendChild(createRegionPicker({
         node,
@@ -251,7 +269,14 @@ export function createInspector(opts: InspectorOptions): {
       setSelected(node);
     });
 
-    row.append(portSel, tgtSel, amount, modeSel, del);
+    // v17: binding mute — retains the binding, contributes nothing.
+    const en = document.createElement('input');
+    en.type = 'checkbox';
+    en.checked = binding.enabled !== false;
+    en.title = 'Enable binding';
+    en.addEventListener('change', () => mutateBinding(binding.id, (b) => { b.enabled = en.checked; }));
+
+    row.append(en, portSel, tgtSel, amount, modeSel, del);
     return row;
   }
 

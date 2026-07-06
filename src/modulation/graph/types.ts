@@ -52,10 +52,24 @@ export interface GraphNode {
   inputs: Record<string, string | null>;
   /** Optional canvas position for the advanced-view editor. */
   position?: { x: number; y: number };
+  /**
+   * v17: mute without deleting. `false` = the node's tick is skipped and
+   * every output reads 0 (downstream nodes and bindings see silence).
+   * Missing/`undefined` is treated as enabled; `migrateSettings` v17
+   * backfills `true` explicitly on saved patches.
+   */
+  enabled?: boolean;
 }
 
 export interface TargetBinding {
   id: string;
+  /**
+   * v17: mute this binding without deleting it. `false` = contributes
+   * nothing this frame (cleared by the same-frame `setContributions`
+   * semantics, so the param snaps back to base instantly). Missing =
+   * enabled; backfilled to `true` by the v17 migration.
+   */
+  enabled?: boolean;
   /** Settings key (validated at engine boundary). */
   paramKey: string;
   sourceNodeId: string;
