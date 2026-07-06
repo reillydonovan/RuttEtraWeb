@@ -1,7 +1,23 @@
 import { defineConfig, Plugin } from 'vite';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { marked } from 'marked';
+
+// Build stamp, injected as the __BUILD_INFO__ global: package version +
+// short git commit + build date. Shown in the panel title bar so a
+// deployed page can be matched to a commit at a glance (no more
+// comparing bundle hashes to find out what's live).
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
+let commit = 'unknown';
+try {
+  commit = execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim();
+} catch { /* no git (e.g. tarball build) — 'unknown' is fine */ }
+const BUILD_INFO = {
+  version: pkg.version,
+  commit,
+  builtAt: new Date().toISOString().slice(0, 10),
+};
 
 // PWA / Service Worker support has been removed. It caused stale-cache
 // lock-ups on Hostinger (LiteSpeed default 7-day Cache-Control on JS)
@@ -59,6 +75,9 @@ function aboutMarkdown(): Plugin {
 
 export default defineConfig({
   base: './',
+  define: {
+    __BUILD_INFO__: JSON.stringify(BUILD_INFO),
+  },
   server: {
     port: 5173,
     host: true,

@@ -257,6 +257,16 @@ body.viewer-mode #about-link { display: none; }
   letter-spacing: 0.12em;
   text-shadow: var(--re-glow);
 }
+/* Build stamp (version · commit) beside the title */
+.rw-panel-build {
+  color: var(--re-text-dim);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  align-self: flex-end;
+  margin-left: 6px;
+  cursor: help;
+}
+#panel-root.collapsed .rw-panel-build { display: none; }
 .rw-panel-actions {
   display: flex; gap: 6px;
 }

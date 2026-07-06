@@ -66,6 +66,16 @@ export class ControlPanel {
     titleText.textContent = 'RUTT/ETRA';
     title.appendChild(titleText);
 
+    // Build stamp — answers "which version is live?" at a glance. Also
+    // logged to the console for bug reports from the field.
+    const build = document.createElement('div');
+    build.className = 'rw-panel-build';
+    build.textContent = `v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit}`;
+    build.title = `Built ${__BUILD_INFO__.builtAt} from commit ${__BUILD_INFO__.commit}`;
+    title.appendChild(build);
+    // eslint-disable-next-line no-console
+    console.info(`[ruttetra] v${__BUILD_INFO__.version} ${__BUILD_INFO__.commit} (${__BUILD_INFO__.builtAt})`);
+
     const actions = document.createElement('div');
     actions.className = 'rw-panel-actions';
 

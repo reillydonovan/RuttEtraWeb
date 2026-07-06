@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+/** Build stamp injected by `define` in vite.config.ts — package version,
+ *  short git commit, and build date. Shown in the panel title bar. */
+declare const __BUILD_INFO__: { version: string; commit: string; builtAt: string };
+
 declare module '*.glsl?raw' {
   const src: string;
   export default src;
