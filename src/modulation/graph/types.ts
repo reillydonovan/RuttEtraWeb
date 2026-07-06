@@ -52,7 +52,13 @@ export interface GraphNode {
   type: NodeType;
   /** Node-specific config. Numbers / strings / booleans only — JSON-serializable. */
   params: Record<string, number | string | boolean>;
-  /** Input port name -> source node id. `null` means the port is unpatched. */
+  /**
+   * Input port name -> source reference. `null` = unpatched. A plain
+   * node id reads the source's DEFAULT output; v25 adds the
+   * `nodeId#portName` form to select a specific output port on
+   * multi-output nodes (e.g. `sync1#phase`). Old patches (plain ids)
+   * load unchanged; `splitInputRef` is the single parser.
+   */
   inputs: Record<string, string | null>;
   /** Optional canvas position for the advanced-view editor. */
   position?: { x: number; y: number };
@@ -105,6 +111,18 @@ export interface TargetBinding {
 export interface GraphPatch {
   nodes: GraphNode[];
   bindings: TargetBinding[];
+}
+
+/**
+ * Parse an input reference (v25). `'n1'` → `{ nodeId: 'n1', port: null }`
+ * (default output); `'n1#phase'` → `{ nodeId: 'n1', port: 'phase' }`.
+ * The single parser shared by the engine, topo sort, cable layer, and
+ * editor — one concept, one source.
+ */
+export function splitInputRef(ref: string): { nodeId: string; port: string | null } {
+  const hash = ref.indexOf('#');
+  if (hash <= 0) return { nodeId: ref, port: null };
+  return { nodeId: ref.slice(0, hash), port: ref.slice(hash + 1) || null };
 }
 
 // --------------------------------------------------------------------

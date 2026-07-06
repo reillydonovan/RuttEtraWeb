@@ -29,7 +29,7 @@ import { allDefs, getDef } from './registry';
 import { topoSort } from './topo';
 import {
   CompiledNode, CompiledPatch, CurveType, GraphPatch,
-  NodeContext, NodeDeps, TargetBinding,
+  NodeContext, NodeDeps, TargetBinding, splitInputRef,
 } from './types';
 
 export interface GraphEngineDeps extends NodeDeps {
@@ -196,18 +196,22 @@ export class GraphEngine {
         for (const k of Object.keys(cn.outputs)) cn.outputs[k] = 0;
         continue;
       }
-      // Build inputs map.
+      // Build inputs map. v25: refs may be `nodeId#port` — split once
+      // and read the named output (default 'out').
       for (const port of Object.keys(cn.node.inputs)) {
-        const fromId = cn.node.inputs[port];
-        if (!fromId) { inputBuf[port] = 0; continue; }
+        const ref = cn.node.inputs[port];
+        if (!ref) { inputBuf[port] = 0; continue; }
+        const { nodeId: fromId, port: srcPort } = splitInputRef(ref);
         const isCycleEdge = this.compiled.cycleEdges.some(
           (e) => e.from === fromId && e.to === id && e.toPort === port,
         );
         const src = this.compiled.byId.get(fromId);
         if (!src) { inputBuf[port] = 0; continue; }
-        const portRef = parseSourcePort(cn.node.inputs, fromId, port) ?? 'out';
         const out = isCycleEdge ? src.prevOutputs : src.outputs;
-        inputBuf[port] = sanitize(out[portRef] ?? out['out'] ?? 0);
+        // Plain-id refs mean "the source's default (first) output" — the
+        // same convention the editor uses when writing refs.
+        const fallback = src.def.outputs[0]?.name ?? 'out';
+        inputBuf[port] = sanitize(out[srcPort ?? fallback] ?? out[fallback] ?? 0);
       }
       // Reset outputs map and tick.
       for (const k of Object.keys(cn.outputs)) cn.outputs[k] = 0;
@@ -384,24 +388,6 @@ function bindingOutputStage(b: TargetBinding): Partial<OutputStageParams> | null
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
-}
-
-/**
- * The patch stores `inputs[toPort] = fromNodeId` (single string, not
- * `nodeId.port`). For multi-output sources we'll still default to `'out'`.
- * If we later allow `"nodeId#port"` syntax this is the lookup point.
- */
-function parseSourcePort(
-  inputs: Record<string, string | null>,
-  fromId: string,
-  toPort: string,
-): string | null {
-  const ref = inputs[toPort];
-  if (!ref || ref === fromId) return null;
-  // Future: allow `nodeId#portName` syntax.
-  const hash = ref.indexOf('#');
-  if (hash > 0 && ref.slice(0, hash) === fromId) return ref.slice(hash + 1);
-  return null;
 }
 
 // Re-export for tests / engine consumers that don't want to pull from registry.

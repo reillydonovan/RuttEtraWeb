@@ -4,13 +4,16 @@
  * Layout: [palette | canvas (cables + nodes) | inspector].
  *
  * Nodes are absolute-positioned DOM elements; cables are drawn on a
- * single `<canvas>` (`CableLayer`) overlapping the canvas region. Pan /
- * zoom are not (yet) implemented at the canvas level — nodes are
- * draggable, the canvas auto-sizes to its host. A future pass can add
- * pan/zoom by translating the canvas-coordinate space.
+ * single `<canvas>` (`CableLayer`) overlapping the canvas region. v25:
+ * the nodes layer pans (drag empty canvas) and zooms (wheel, cursor-
+ * anchored, 0.4×–2.5×) via a CSS transform; the cable canvas stays in
+ * screen space and measures live port rects, so cables track free.
  *
  * Patching:
- *   - Click an output port to start a cable; click an input port to drop.
+ *   - Drag from an output port to an input port (rubber-band cable), OR
+ *     click the output then click the input — both work.
+ *   - Multi-output nodes connect per-port: refs are stored as
+ *     `nodeId#port` when a non-default output is picked (v25).
  *   - Click an existing input port circle to disconnect.
  *   - Right-click a node to delete (also Backspace when focused).
  *   - Drag a node by its header.
@@ -19,7 +22,7 @@
  * Enter / Backspace) for accessibility and touch parity.
  */
 
-import { GraphNode, GraphPatch, NodeType } from '../../modulation/graph/types';
+import { GraphNode, GraphPatch, NodeType, splitInputRef } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
 import { createPalette } from './palette';
 import { createInspector } from './inspector';
@@ -95,6 +98,49 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   let dragging: { id: string; offsetX: number; offsetY: number } | null = null;
   let engine: GraphEngine | null = null;
   void deps.getEngine().then((e) => { engine = e; });
+
+  // v25: pan/zoom viewport state — applied as a CSS transform on the
+  // nodes layer only; the cable canvas stays in screen space and its
+  // anchors are measured from live rects, so cables track automatically.
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+  let panning: { startX: number; startY: number; panX: number; panY: number } | null = null;
+  nodesLayer.style.transformOrigin = '0 0';
+  function applyViewport(): void {
+    nodesLayer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    cable.requestRedraw(currentPatch(), resolver);
+  }
+  center.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const cr = center.getBoundingClientRect();
+    const cx = e.clientX - cr.left;
+    const cy = e.clientY - cr.top;
+    const next = Math.min(2.5, Math.max(0.4, zoom * Math.exp(-e.deltaY * 0.0012)));
+    // Keep the point under the cursor stationary.
+    panX = cx - (cx - panX) * (next / zoom);
+    panY = cy - (cy - panY) * (next / zoom);
+    zoom = next;
+    applyViewport();
+  }, { passive: false });
+  center.addEventListener('mousedown', (e) => {
+    // Background drag pans (nodes/ports/toolbar handle their own mousedown
+    // with stopPropagation-equivalent checks below).
+    const target = e.target as HTMLElement;
+    if (target !== center && target !== cable.el && target !== nodesLayer) return;
+    panning = { startX: e.clientX, startY: e.clientY, panX, panY };
+    // Clicking empty canvas also cancels an in-progress connection.
+    if (pending) {
+      pending = null;
+      cable.setPending(null);
+      center.classList.remove('connecting');
+    }
+    e.preventDefault();
+  });
+
+  // v25: guard so a drag-release connection doesn't immediately re-fire
+  // through the port's click handler (mouseup + click on the same dot).
+  let ignoreClicksUntil = 0;
 
   function currentPatch(): GraphPatch {
     return deps.settings.get('modGraph') ?? { nodes: [], bindings: [] };
@@ -246,9 +292,57 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
 
     dot.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (performance.now() < ignoreClicksUntil) return;
       handlePortClick(nodeId, port, side);
     });
+    // v25: drag-to-wire — mousedown on an output dot starts the pending
+    // connection immediately (the rubber-band follows the cursor; drop
+    // on an input dot to connect). Click-click continues to work: a
+    // release that isn't over an input dot keeps the pending cable live.
+    if (side === 'out') {
+      dot.addEventListener('mousedown', (e) => {
+        if (probing) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startPending(nodeId, port);
+      });
+    }
     return wrap;
+  }
+
+  function startPending(nodeId: string, port: string): void {
+    pending = { fromNodeId: nodeId, fromPort: port };
+    center.classList.add('connecting');
+    updatePendingCable(null);
+  }
+
+  /** Update the rubber-band endpoint (canvas-relative). Pass null to pin
+   *  it at the source anchor (before the first mousemove). */
+  function updatePendingCable(cursor: { x: number; y: number } | null): void {
+    if (!pending) { cable.setPending(null); return; }
+    const from = getPortAnchor(pending.fromNodeId, pending.fromPort, 'out');
+    if (!from) { cable.setPending(null); return; }
+    cable.setPending({ from, to: cursor ?? from });
+  }
+
+  function connectPendingTo(nodeId: string, toPort: string): void {
+    if (!pending) return;
+    const cur = currentPatch();
+    const node = cur.nodes.find((n) => n.id === nodeId);
+    if (node) {
+      // v25: encode the source port when it isn't the node's default
+      // output — old-format plain ids keep meaning "default output".
+      const srcNode = cur.nodes.find((n) => n.id === pending!.fromNodeId);
+      const srcDef = srcNode ? getDef(srcNode.type) : null;
+      const defaultOut = srcDef?.outputs[0]?.name ?? 'out';
+      node.inputs[toPort] = pending.fromPort === defaultOut
+        ? pending.fromNodeId
+        : `${pending.fromNodeId}#${pending.fromPort}`;
+    }
+    pending = null;
+    cable.setPending(null);
+    center.classList.remove('connecting');
+    writePatch(cur);
   }
 
   // ---------- Interaction ----------
@@ -259,8 +353,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       return;
     }
     if (side === 'out') {
-      pending = { fromNodeId: nodeId, fromPort: port };
-      center.classList.add('connecting');
+      startPending(nodeId, port);
       return;
     }
     // Input clicked.
@@ -271,19 +364,16 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       if (node && node.inputs[port]) { node.inputs[port] = null; writePatch(cur); }
       return;
     }
-    const cur = currentPatch();
-    const node = cur.nodes.find((n) => n.id === nodeId);
-    if (node) node.inputs[port] = pending.fromNodeId;
-    writePatch(cur);
-    pending = null;
-    center.classList.remove('connecting');
+    connectPendingTo(nodeId, port);
   }
 
   function deleteNode(id: string): void {
     const cur = currentPatch();
     cur.nodes = cur.nodes.filter((n) => n.id !== id);
     for (const n of cur.nodes) for (const k of Object.keys(n.inputs)) {
-      if (n.inputs[k] === id) n.inputs[k] = null;
+      const ref = n.inputs[k];
+      // v25: refs may be `nodeId#port` — match on the node id.
+      if (ref && splitInputRef(ref).nodeId === id) n.inputs[k] = null;
     }
     cur.bindings = cur.bindings.filter((b) => b.sourceNodeId !== id);
     if (selectedId === id) selectedId = null;
@@ -300,7 +390,11 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     cur.nodes.push({
       id, type, params: {},
       inputs,
-      position: { x: DEFAULT_NODE_X + cur.nodes.length * 12, y: DEFAULT_NODE_Y + cur.nodes.length * 12 },
+      // v25: place inside the visible viewport regardless of pan/zoom.
+      position: {
+        x: Math.max(0, (DEFAULT_NODE_X - panX) / zoom + cur.nodes.length * 12),
+        y: Math.max(0, (DEFAULT_NODE_Y - panY) / zoom + cur.nodes.length * 12),
+      },
     });
     selectedId = id;
     writePatch(cur);
@@ -321,18 +415,51 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   // ---------- Drag / resize wiring ----------
 
   function onMouseMove(e: MouseEvent): void {
+    // v25: background pan.
+    if (panning) {
+      panX = panning.panX + (e.clientX - panning.startX);
+      panY = panning.panY + (e.clientY - panning.startY);
+      applyViewport();
+      return;
+    }
+    // v25: rubber-band follows the cursor while a connection is pending.
+    if (pending && !dragging) {
+      const cr = center.getBoundingClientRect();
+      updatePendingCable({ x: e.clientX - cr.left, y: e.clientY - cr.top });
+    }
     if (!dragging) return;
     const cur = currentPatch();
     const node = cur.nodes.find((n) => n.id === dragging!.id);
     if (!node) return;
     const cr = nodesLayer.getBoundingClientRect();
+    // The layer rect is in screen (scaled) space — divide by zoom to get
+    // layout coordinates.
     node.position = {
-      x: Math.max(0, e.clientX - cr.left - dragging.offsetX),
-      y: Math.max(0, e.clientY - cr.top - dragging.offsetY),
+      x: Math.max(0, (e.clientX - cr.left - dragging.offsetX) / zoom),
+      y: Math.max(0, (e.clientY - cr.top - dragging.offsetY) / zoom),
     };
     writePatch(cur);
   }
-  function onMouseUp(): void { dragging = null; }
+  function onMouseUp(e: MouseEvent): void {
+    dragging = null;
+    panning = null;
+    // v25: drag-to-wire release — if the cursor is over an input dot,
+    // complete the connection and swallow the trailing click.
+    if (pending) {
+      const doc = root.ownerDocument;
+      const under = doc.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const dot = under?.closest<HTMLElement>('.rw-graph-port-dot');
+      if (dot && dot.dataset.side === 'in') {
+        const nodeEl = dot.closest<HTMLElement>('[data-node-id]');
+        const nodeId = nodeEl?.dataset.nodeId;
+        const port = dot.dataset.port;
+        if (nodeId && port) {
+          connectPendingTo(nodeId, port);
+          ignoreClicksUntil = performance.now() + 250;
+        }
+      }
+    }
+  }
   // Attach to the view's own document at wire-up time AND re-attach if
   // the panel is adopted into the popout window (PanelPopout) — module-
   // scope `document` would stop receiving events there. The `attachDocs`
@@ -350,6 +477,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape' && pending) {
       pending = null;
+      cable.setPending(null);
       center.classList.remove('connecting');
     }
   }
@@ -389,6 +517,9 @@ function clone(p: GraphPatch): GraphPatch {
       params: { ...n.params },
       inputs: { ...n.inputs },
       position: n.position ? { ...n.position } : undefined,
+      // v17 mute flag must survive the clone or inspector edits would
+      // silently strip it.
+      enabled: n.enabled,
     })),
     bindings: p.bindings.map((b) => ({ ...b })),
   };

@@ -14,7 +14,7 @@
  * `prefers-reduced-motion`.
  */
 
-import { GraphPatch } from '../../modulation/graph/types';
+import { GraphPatch, splitInputRef } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
 
 export interface CableAnchorResolver {
@@ -32,6 +32,12 @@ export interface CableLayer {
   stop(): void;
   /** Schedule a redraw on the next frame using the latest patch + resolver. */
   requestRedraw(patch: GraphPatch, resolver: CableAnchorResolver): void;
+  /**
+   * v25: rubber-band cable while a connection is in progress. `from` is
+   * the source port anchor; `to` follows the cursor (both canvas-relative).
+   * Pass null to clear.
+   */
+  setPending(p: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string } | null): void;
 }
 
 const PORT_COLORS: Record<string, string> = {
@@ -56,6 +62,7 @@ export function createCableLayer(): CableLayer {
   let dashOffset = 0;
   let lastTime = 0;
   let running = false;
+  let pending: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string } | null = null;
 
   const reduceMotion = typeof matchMedia === 'function'
     ? matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -83,23 +90,33 @@ export function createCableLayer(): CableLayer {
     for (const node of patch.nodes) {
       const def = getDef(node.type);
       if (!def) continue;
-      for (const [toPort, fromId] of Object.entries(node.inputs)) {
-        if (!fromId) continue;
+      for (const [toPort, ref] of Object.entries(node.inputs)) {
+        if (!ref) continue;
+        // v25: refs may name a specific output port (`nodeId#port`).
+        const { nodeId: fromId, port: refPort } = splitInputRef(ref);
         const fromNode = patch.nodes.find((n) => n.id === fromId);
         if (!fromNode) continue;
         const fromDef = getDef(fromNode.type);
         if (!fromDef) continue;
-        const fromPort = fromDef.outputs[0]?.name ?? 'out';
+        const fromPortSpec = refPort
+          ? fromDef.outputs.find((o) => o.name === refPort) ?? fromDef.outputs[0]
+          : fromDef.outputs[0];
+        const fromPort = fromPortSpec?.name ?? 'out';
         const a = resolver.outputAnchor(fromId, fromPort);
         const b = resolver.inputAnchor(node.id, toPort);
         if (!a || !b) continue;
-        const portKind = fromDef.outputs[0]?.kind ?? 'control';
+        const portKind = fromPortSpec?.kind ?? 'control';
         const color = PORT_COLORS[portKind] ?? PORT_COLORS.control;
         const isHi = highlight
           && highlight.from === fromId && highlight.fromPort === fromPort
           && highlight.to === node.id && highlight.toPort === toPort;
         drawCable(a, b, color, !!isHi);
       }
+    }
+
+    // v25: rubber-band cable for the in-progress connection.
+    if (pending) {
+      drawCable(pending.from, pending.to, pending.color ?? PORT_COLORS.control, true);
     }
   }
 
@@ -152,5 +169,12 @@ export function createCableLayer(): CableLayer {
     if (!running) draw(patch, resolver);
   }
 
-  return { el, resize, draw, start, stop, requestRedraw };
+  function setPending(p: typeof pending): void {
+    pending = p;
+    // Redraw immediately so the rubber-band tracks the cursor even when
+    // the animation loop is idle (prefers-reduced-motion).
+    if (lastPatch && lastResolver) draw(lastPatch, lastResolver);
+  }
+
+  return { el, resize, draw, start, stop, requestRedraw, setPending };
 }

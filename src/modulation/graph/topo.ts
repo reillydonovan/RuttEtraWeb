@@ -14,7 +14,7 @@
  * a deterministic order keyed off node ids.
  */
 
-import { GraphPatch } from './types';
+import { GraphPatch, splitInputRef } from './types';
 
 export interface TopoResult {
   /** Topological order. All node ids present, even those involved in cycles. */
@@ -34,8 +34,11 @@ export function topoSort(patch: GraphPatch): TopoResult {
     incoming.set(n.id, []);
   }
   for (const n of patch.nodes) {
-    for (const [toPort, fromId] of Object.entries(n.inputs)) {
-      if (fromId == null) continue;
+    for (const [toPort, ref] of Object.entries(n.inputs)) {
+      if (ref == null) continue;
+      // v25: refs may carry a source port (`nodeId#port`) — ordering
+      // only cares about the node.
+      const fromId = splitInputRef(ref).nodeId;
       if (!nodeIds.has(fromId)) continue; // dangling reference; ignore.
       outgoing.get(fromId)!.push({ to: n.id, toPort });
       incoming.get(n.id)!.push({ from: fromId, toPort });

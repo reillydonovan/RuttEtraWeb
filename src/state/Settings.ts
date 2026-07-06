@@ -1413,7 +1413,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 24;
+const CURRENT_VERSION = 25;
 
 interface Versioned { _v?: number }
 
@@ -1906,6 +1906,16 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       }
     }
     s._v = 24;
+  }
+
+  // v24 -> v25: graph input refs may now use the `nodeId#port` form to
+  // select a specific output port on multi-output nodes. No data
+  // transformation — plain-id refs remain valid and keep meaning "the
+  // default output" — but the version bump records that files written
+  // at v25 may contain the new form (v24-and-earlier code would read a
+  // `#` ref as a dangling node id and treat the input as unpatched).
+  if ((s._v ?? 1) < 25) {
+    s._v = 25;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

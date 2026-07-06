@@ -205,3 +205,57 @@ describe('GraphEngine — perf', () => {
     expect(avgMs).toBeLessThan(1.0);
   });
 });
+
+// ---------------------------------------------------------------
+// v25: per-output-port input refs (`nodeId#port`)
+// ---------------------------------------------------------------
+describe('per-port input refs (v25)', () => {
+  it('reads the named output of a multi-output source', () => {
+    // sync at division 4 emits phase 0, .25, .5, .75 — inverter flips it.
+    const patch: GraphPatch = {
+      nodes: [
+        { id: 's1', type: 'sync', params: { division: '4' }, inputs: {} },
+        { id: 'inv', type: 'inverter', params: {}, inputs: { in: 's1#phase' } },
+      ],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'inv', amount: 1, mode: 'additive' },
+      ],
+    };
+    const { engine, live } = makeEngine(patch);
+    engine.tick(1 / 60); // sync frame 0: phase 0
+    expect(live.getLive('zPush')).toBeCloseTo(1, 6); // base 1 + (-0)
+    engine.tick(1 / 60); // sync frame 1: phase 0.25 -> inverter -0.25
+    expect(live.getLive('zPush')).toBeCloseTo(1 - 0.25, 6);
+  });
+
+  it('plain-id refs still read the default output (pre-v25 patches)', () => {
+    const patch: GraphPatch = {
+      nodes: [
+        { id: 's1', type: 'sync', params: { division: '4' }, inputs: {} },
+        { id: 'inv', type: 'inverter', params: {}, inputs: { in: 's1' } },
+      ],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'inv', amount: 1, mode: 'additive' },
+      ],
+    };
+    const { engine, live } = makeEngine(patch);
+    engine.tick(1 / 60); // default output is 'pulse' (first) = 1 on frame 0
+    expect(live.getLive('zPush')).toBeCloseTo(1 - 1, 6);
+  });
+
+  it('a #-ref participates in topo ordering (source ticks first)', () => {
+    // If ordering were broken the inverter would read a stale 0 forever.
+    const patch: GraphPatch = {
+      nodes: [
+        { id: 'zz-late', type: 'constant', params: { value: 0.5 }, inputs: {} },
+        { id: 'aa-early', type: 'inverter', params: {}, inputs: { in: 'zz-late#out' } },
+      ],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'aa-early', amount: 1, mode: 'additive' },
+      ],
+    };
+    const { engine, live } = makeEngine(patch);
+    engine.tick(1 / 60);
+    expect(live.getLive('zPush')).toBeCloseTo(1 - 0.5, 6);
+  });
+});
