@@ -85,3 +85,22 @@ describe('migrateSettings v22 -> v23 (dual raster)', () => {
     expect(migrateSettings(kept)._v).toBe(kept._v);
   });
 });
+
+describe('migrateSettings v23 -> v24 (shaped feedback + analog character)', () => {
+  it('backfills defaults that preserve pre-v24 rendering exactly', () => {
+    const out = migrateSettings({ _v: 23 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(24);
+    expect(out.feedbackShape).toBe('full');
+    expect(out.analogEnabled).toBe(false);
+    expect(out.feedbackShapeX).toBe(0.5);
+    expect(out.analogNoise).toBe(0.15);
+  });
+
+  it('preserves explicit values', () => {
+    const kept = migrateSettings({ _v: 23, feedbackShape: 'circle', analogEnabled: true, analogHum: 0.5 });
+    expect(kept.feedbackShape).toBe('circle');
+    // analogEnabled is a persisted visual preference — not force-reset.
+    expect(kept.analogEnabled).toBe(true);
+    expect(kept.analogHum).toBe(0.5);
+  });
+});

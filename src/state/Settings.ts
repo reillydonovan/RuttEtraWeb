@@ -203,6 +203,9 @@ export type ModTarget =
   | 'threshold' | 'contrast' | 'gamma'
   | 'bloomIntensity' | 'bloomRadius'
   | 'scanlineIntensity' | 'chromaAmount' | 'feedbackDecay'
+  // v24: shape-masked feedback + analog character
+  | 'feedbackShapeX' | 'feedbackShapeY' | 'feedbackShapeRadius' | 'feedbackShapeSoftness'
+  | 'analogNoise' | 'analogDropout' | 'analogHum'
   | 'cameraFov'
   // v2: I/O-routable targets
   | 'audioGain' | 'audioFloor' | 'beatSensitivity'
@@ -775,6 +778,21 @@ export interface Settings {
 
   feedbackEnabled: boolean;
   feedbackDecay: number;
+  // ---------- v24: shape-masked feedback ----------
+  /** 'full' = classic whole-frame trails; 'circle'/'box' confine trails
+   *  to a movable region (center/radius/softness all modulatable). */
+  feedbackShape: 'full' | 'circle' | 'box';
+  feedbackShapeX: number;        // 0..1 UV center
+  feedbackShapeY: number;        // 0..1 UV center
+  feedbackShapeRadius: number;   // 0..1
+  feedbackShapeSoftness: number; // 0..0.5 feather
+
+  // ---------- v24: analog character ----------
+  /** Wear layer: video grain, dropout lines, rolling hum bar. */
+  analogEnabled: boolean;
+  analogNoise: number;    // 0..1 grain amount
+  analogDropout: number;  // 0..1 dropout-line probability scaler
+  analogHum: number;      // 0..1 hum-bar depth
 
   // ---------- Geometry ----------
   renderMode: RenderMode;
@@ -1258,6 +1276,15 @@ export const DEFAULTS: Settings = {
 
   feedbackEnabled: false,
   feedbackDecay: 0.9,
+  feedbackShape: 'full',
+  feedbackShapeX: 0.5,
+  feedbackShapeY: 0.5,
+  feedbackShapeRadius: 0.35,
+  feedbackShapeSoftness: 0.1,
+  analogEnabled: false,
+  analogNoise: 0.15,
+  analogDropout: 0.1,
+  analogHum: 0.1,
 
   renderMode: 'scanlines',
   thickLines: false,
@@ -1386,7 +1413,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 23;
+const CURRENT_VERSION = 24;
 
 interface Versioned { _v?: number }
 
@@ -1862,6 +1889,23 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       }
     }
     s._v = 23;
+  }
+
+  // v23 -> v24: shape-masked feedback + analog character. Backfill at
+  // defaults ('full' shape and analogEnabled=false preserve pre-v24
+  // rendering exactly). Purely visual — no force-reset. Idempotent.
+  if ((s._v ?? 1) < 24) {
+    const fxKeys: (keyof Settings)[] = [
+      'feedbackShape', 'feedbackShapeX', 'feedbackShapeY',
+      'feedbackShapeRadius', 'feedbackShapeSoftness',
+      'analogEnabled', 'analogNoise', 'analogDropout', 'analogHum',
+    ];
+    for (const k of fxKeys) {
+      if ((s as Record<string, unknown>)[k as string] === undefined) {
+        (s as Record<string, unknown>)[k as string] = DEFAULTS[k] as unknown;
+      }
+    }
+    s._v = 24;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

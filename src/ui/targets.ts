@@ -34,6 +34,13 @@ export const TARGETS: TargetOption[] = [
   { v: 'scanlineIntensity', l: 'Scanline Intensity' },
   { v: 'chromaAmount', l: 'Chroma Amount' },
   { v: 'feedbackDecay', l: 'Feedback Decay' },
+  { v: 'feedbackShapeX', l: 'Feedback Shape X' },
+  { v: 'feedbackShapeY', l: 'Feedback Shape Y' },
+  { v: 'feedbackShapeRadius', l: 'Feedback Shape Radius' },
+  { v: 'feedbackShapeSoftness', l: 'Feedback Shape Softness' },
+  { v: 'analogNoise', l: 'Analog: Noise' },
+  { v: 'analogDropout', l: 'Analog: Dropout' },
+  { v: 'analogHum', l: 'Analog: Hum' },
   { v: 'cameraFov', l: 'Camera FOV' },
   // I/O routing-friendly targets (audio-driven)
   { v: 'audioGain', l: 'Audio Gain' },

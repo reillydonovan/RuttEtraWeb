@@ -57,8 +57,26 @@ export function createColorPostFxSection(settings: SettingsStore): HTMLElement {
   fb.body.append(
     row('Feedback', toggle(settings, 'feedbackEnabled', 'long-exposure trails')),
     row('Decay',    slider(settings, 'feedbackDecay', 0.5, 0.999, 0.001), '0.9≈0.1s · 0.99≈1s · 0.999≈11s'),
+    row('Shape', dropdown(settings, 'feedbackShape', [
+      { value: 'full', label: 'Full frame' },
+      { value: 'circle', label: 'Circle' },
+      { value: 'box', label: 'Box' },
+    ])),
+    row('Shape X',  slider(settings, 'feedbackShapeX', 0, 1, 0.001)),
+    row('Shape Y',  slider(settings, 'feedbackShapeY', 0, 1, 0.001)),
+    row('Radius',   slider(settings, 'feedbackShapeRadius', 0.05, 0.8, 0.001)),
+    row('Softness', slider(settings, 'feedbackShapeSoftness', 0, 0.5, 0.001)),
   );
   root.appendChild(fb.root);
+
+  const analog = group('Analog Character');
+  analog.body.append(
+    row('Analog',  toggle(settings, 'analogEnabled', 'grain / dropout / hum')),
+    row('Noise',   slider(settings, 'analogNoise', 0, 1, 0.001)),
+    row('Dropout', slider(settings, 'analogDropout', 0, 1, 0.001)),
+    row('Hum Bar', slider(settings, 'analogHum', 0, 1, 0.001)),
+  );
+  root.appendChild(analog.root);
 
   return root;
 }

@@ -133,6 +133,15 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   vignetteAmount:   { description: 'Vignette strength.', panel: 'Color/PostFX' },
   feedbackEnabled:  { description: 'Long-exposure feedback trails (CRT burn-in). Each frame is max-blended with the decaying previous output, so trails appear wherever bright content moves or fades. The trail history resets on every enable.', panel: 'Color/PostFX' },
   feedbackDecay:    { description: 'Per-frame trail retention. 0.9 ≈ 0.1 s half-life (tight motion smear), 0.99 ≈ 1 s (comet tails), 0.999 ≈ 11 s (true burn-in).', range: '0.5..0.999', panel: 'Color/PostFX' },
+  feedbackShape:    { description: 'Confine feedback trails to a region: Full frame (classic), Circle, or Box. The shape can be moved live — its center, radius, and softness are all modulation targets.', panel: 'Color/PostFX' },
+  feedbackShapeX:   { description: 'Feedback shape center, horizontal (0 = left, 1 = right). Patch an LFO here to orbit the trail region around the frame.', range: '0..1', panel: 'Color/PostFX' },
+  feedbackShapeY:   { description: 'Feedback shape center, vertical (0 = top, 1 = bottom).', range: '0..1', panel: 'Color/PostFX' },
+  feedbackShapeRadius:   { description: 'Feedback shape size (circle radius or box half-width, UV units).', range: '0.05..0.8', panel: 'Color/PostFX' },
+  feedbackShapeSoftness: { description: 'Feather width at the shape edge. 0 = hard cut.', range: '0..0.5', panel: 'Color/PostFX' },
+  analogEnabled:    { description: 'Analog character layer: video grain, tape-style dropout lines, and a rolling hum bar — the worn-signal wear-and-tear aesthetic.', panel: 'Color/PostFX' },
+  analogNoise:      { description: 'Per-pixel video grain amount.', range: '0..1', panel: 'Color/PostFX' },
+  analogDropout:    { description: 'Probability scaler for one-frame horizontal dropout tears.', range: '0..1', panel: 'Color/PostFX' },
+  analogHum:        { description: 'Depth of the slow-rolling horizontal hum bar (mains interference on an old monitor).', range: '0..1', panel: 'Color/PostFX' },
 
   // ----- Geometry / render -----
   renderMode:       { description: 'Wireframe (lines) vs filled triangles vs points.', panel: 'Geometry' },

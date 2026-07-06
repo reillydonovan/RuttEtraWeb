@@ -40,7 +40,19 @@ const CRT_FRAG = /* glsl */`
   uniform float uScanlineOn;
   uniform float uChromaOn;
   uniform float uVignetteOn;
+  // v24: analog character (AUDIT items 20 + 22) — grain, dropout
+  // lines, rolling hum bar. The Izotope-Vinyl-style wear layer, video
+  // flavored.
+  uniform float uAnalogOn;
+  uniform float uNoiseAmt;
+  uniform float uDropoutAmt;
+  uniform float uHumAmt;
+  uniform float uTimeSec;
   varying vec2 vUv;
+
+  float hash12(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  }
 
   void main() {
     vec2 uv = vUv;
@@ -68,6 +80,23 @@ const CRT_FRAG = /* glsl */`
       col.rgb *= clamp(v, 0.0, 1.0);
     }
 
+    // v24: analog character — grain, dropout lines, rolling hum bar.
+    if (uAnalogOn > 0.5) {
+      // Per-pixel, per-frame video grain.
+      float g = hash12(uv * uResolution + fract(uTimeSec) * 61.7) - 0.5;
+      col.rgb += g * uNoiseAmt * 0.35;
+      // Sparse horizontal dropout lines: occasional rows tear bright
+      // or dark for one refresh, like tape wear.
+      float rowKey = hash12(vec2(floor(uv.y * 270.0), floor(uTimeSec * 24.0)));
+      if (rowKey > 1.0 - uDropoutAmt * 0.05) {
+        float polarity = step(0.5, hash12(vec2(rowKey, 7.0)));
+        col.rgb = mix(col.rgb, vec3(polarity), 0.6);
+      }
+      // Slow-rolling hum bar (mains interference on an old monitor).
+      float hum = sin((uv.y + uTimeSec * 0.11) * 6.28318);
+      col.rgb *= 1.0 - uHumAmt * 0.25 * (0.5 + 0.5 * hum);
+    }
+
     gl_FragColor = col;
   }
 `;
@@ -76,10 +105,24 @@ const FEEDBACK_FRAG = /* glsl */`
   uniform sampler2D tDiffuse;   // current scene
   uniform sampler2D tPrev;      // previous accumulator
   uniform float uDecay;         // 0..1 (higher = longer trails)
+  // v24: shape-masked feedback (AUDIT item 19). Mode 0 = full frame
+  // (classic), 1 = circle, 2 = box. Trails only accumulate inside the
+  // shape; center/radius/softness are modulatable, so the region can
+  // be moved around the frame live.
+  uniform float uShapeMode;
+  uniform vec2  uShapeCenter;   // 0..1 UV space
+  uniform float uShapeRadius;   // 0..1
+  uniform float uShapeSoft;     // feather width
   varying vec2 vUv;
   void main() {
     vec3 cur = texture2D(tDiffuse, vUv).rgb;
-    vec3 old = texture2D(tPrev, vUv).rgb * uDecay;
+    float mask = 1.0;
+    if (uShapeMode > 0.5) {
+      vec2 d = vUv - uShapeCenter;
+      float dist = (uShapeMode > 1.5) ? max(abs(d.x), abs(d.y)) : length(d);
+      mask = 1.0 - smoothstep(uShapeRadius - uShapeSoft, uShapeRadius, dist);
+    }
+    vec3 old = texture2D(tPrev, vUv).rgb * uDecay * mask;
     gl_FragColor = vec4(max(cur, old), 1.0);
   }
 `;
@@ -139,6 +182,10 @@ class FeedbackAccumulatorPass extends Pass {
         tDiffuse: { value: null },
         tPrev:    { value: this.accumA.texture },
         uDecay:   { value: decay },
+        uShapeMode:   { value: 0 },
+        uShapeCenter: { value: new THREE.Vector2(0.5, 0.5) },
+        uShapeRadius: { value: 0.35 },
+        uShapeSoft:   { value: 0.1 },
       },
       vertexShader: VERT,
       fragmentShader: FEEDBACK_FRAG,
@@ -153,6 +200,20 @@ class FeedbackAccumulatorPass extends Pass {
 
   setDecay(v: number): void {
     this.feedbackMaterial.uniforms.uDecay.value = v;
+  }
+
+  /** v24: shape mask controls (0 full / 1 circle / 2 box). */
+  setShapeMode(mode: number): void {
+    this.feedbackMaterial.uniforms.uShapeMode.value = mode;
+  }
+  setShapeCenter(x: number, y: number): void {
+    (this.feedbackMaterial.uniforms.uShapeCenter.value as THREE.Vector2).set(x, y);
+  }
+  setShapeRadius(v: number): void {
+    this.feedbackMaterial.uniforms.uShapeRadius.value = v;
+  }
+  setShapeSoftness(v: number): void {
+    this.feedbackMaterial.uniforms.uShapeSoft.value = v;
   }
 
   /** Clear the trail history (applied lazily on the next render). */
@@ -291,6 +352,11 @@ export class PostFX {
         uScanlineOn:        { value: settings.get('scanlineEnabled') ? 1 : 0 },
         uChromaOn:          { value: settings.get('chromaEnabled') ? 1 : 0 },
         uVignetteOn:        { value: settings.get('vignetteEnabled') ? 1 : 0 },
+        uAnalogOn:          { value: settings.get('analogEnabled') ? 1 : 0 },
+        uNoiseAmt:          { value: settings.get('analogNoise') },
+        uDropoutAmt:        { value: settings.get('analogDropout') },
+        uHumAmt:            { value: settings.get('analogHum') },
+        uTimeSec:           { value: 0 },
       },
       vertexShader: VERT,
       fragmentShader: CRT_FRAG,
@@ -327,11 +393,15 @@ export class PostFX {
     this.renderPass.camera = camera;
   }
 
+  private timeSec = 0;
+
   render(dt: number): void {
     // Feedback accumulation happens inside FeedbackAccumulatorPass at its
     // point in the chain — no post-render snapshot needed (the old
     // snapshot approach read a buffer that later passes had already
     // overwritten; see the pass's docblock).
+    this.timeSec += Number.isFinite(dt) ? Math.max(0, Math.min(0.5, dt)) : 1 / 60;
+    this.crt.uniforms.uTimeSec.value = this.timeSec;
     this.composer.render(dt);
   }
 
@@ -363,5 +433,25 @@ export class PostFX {
       if (v) this.feedbackPass.requestClear();
     });
     live.subscribe('feedbackDecay',   (v) => { this.feedbackPass.setDecay(v); });
+
+    // v24: shape-masked feedback. Center/radius/softness are
+    // modulatable so the region can orbit the frame from an LFO.
+    s.subscribe('feedbackShape', (shape) => {
+      this.feedbackPass.setShapeMode(shape === 'circle' ? 1 : shape === 'box' ? 2 : 0);
+    });
+    live.subscribe('feedbackShapeX', (x) => {
+      this.feedbackPass.setShapeCenter(x, this.live.getLive('feedbackShapeY'));
+    });
+    live.subscribe('feedbackShapeY', (y) => {
+      this.feedbackPass.setShapeCenter(this.live.getLive('feedbackShapeX'), y);
+    });
+    live.subscribe('feedbackShapeRadius',   (v) => { this.feedbackPass.setShapeRadius(v); });
+    live.subscribe('feedbackShapeSoftness', (v) => { this.feedbackPass.setShapeSoftness(v); });
+
+    // v24: analog character.
+    s.subscribe('analogEnabled', (v) => { this.crt.uniforms.uAnalogOn.value = v ? 1 : 0; });
+    live.subscribe('analogNoise',   (v) => { this.crt.uniforms.uNoiseAmt.value = v; });
+    live.subscribe('analogDropout', (v) => { this.crt.uniforms.uDropoutAmt.value = v; });
+    live.subscribe('analogHum',     (v) => { this.crt.uniforms.uHumAmt.value = v; });
   }
 }
