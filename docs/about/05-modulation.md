@@ -55,6 +55,8 @@ Graph mode is a signal-flow patcher modeled directly on the original Rutt/Etra's
 
 The full **Node Catalog** is auto-generated in the Reference section below, with every node's inputs, outputs, params, and description. New nodes appear there as soon as they're added to the source tree.
 
+Two additions round out the classic voltage-control trio (v22): **Envelope (ADSR)** — a true gate-triggered attack/decay/sustain/release generator (feed it a Beat pulse, comparator, or Sync (V) pulse and shape any parameter like a VCA), and **Filter (LP/HP/BP)** — a control-rate resonant state-variable filter for smoothing, wiggle-isolating, or ringing a signal around a cutoff. With oscillators, envelopes, filters, and multipliers all patchable, "anything that can modify sound can also modify image."
+
 ### Video as control signal
 
 The synth's own video input is itself a CV source. Four nodes pull control signals from the picture:

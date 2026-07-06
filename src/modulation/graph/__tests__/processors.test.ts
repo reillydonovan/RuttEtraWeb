@@ -205,3 +205,77 @@ describe('track-and-hold', () => {
     expect(outs.out).toBe(0.9);
   });
 });
+
+// ---------------------------------------------------------------
+// v22: Envelope (ADSR) + Filter (control-rate SVF)
+// ---------------------------------------------------------------
+describe('envelope node (v22)', () => {
+  it('idles at 0 with no gate', () => {
+    const out = runNode('envelope', 30, { inputs: { gate: 0 } });
+    expect(out.out).toBe(0);
+  });
+
+  it('attacks toward 1 while gate is high, then decays toward sustain', () => {
+    const values: number[] = [];
+    runNode('envelope', 120, {
+      params: { attackMs: 50, decayMs: 100, sustain: 0.5, releaseMs: 100 },
+      inputs: { gate: 1 },
+      onTick: (_f, o) => values.push(o.out),
+    });
+    const peak = Math.max(...values);
+    expect(peak).toBeCloseTo(1, 2);
+    // After 2 seconds it should sit near sustain.
+    expect(values[values.length - 1]).toBeCloseTo(0.5, 1);
+    // Attack rises monotonically at the start.
+    expect(values[3]).toBeGreaterThan(values[1]);
+  });
+
+  it('releases toward 0 when the gate drops', () => {
+    let gate = 1;
+    const values: number[] = [];
+    runNode('envelope', 240, {
+      params: { attackMs: 20, decayMs: 50, sustain: 0.8, releaseMs: 50 },
+      inputs: new Proxy({}, { get: (_t, k) => (k === 'gate' ? gate : 0) }) as Record<string, number>,
+      onTick: (f, o) => {
+        values.push(o.out);
+        if (f === 119) gate = 0;
+      },
+    });
+    expect(values[110]).toBeGreaterThan(0.5); // sustained
+    expect(values[239]).toBeLessThan(0.02);   // released
+  });
+});
+
+describe('filter node (v22)', () => {
+  it('lowpass passes DC', () => {
+    const out = runNode('filter', 600, {
+      params: { type: 'lowpass', cutoffHz: 2, resonance: 0 },
+      inputs: { in: 1 },
+    });
+    expect(out.out).toBeCloseTo(1, 1);
+  });
+
+  it('highpass blocks DC', () => {
+    const out = runNode('filter', 600, {
+      params: { type: 'highpass', cutoffHz: 2, resonance: 0 },
+      inputs: { in: 1 },
+    });
+    expect(Math.abs(out.out)).toBeLessThan(0.05);
+  });
+
+  it('resonance rings: overshoot on a step exceeds the non-resonant path', () => {
+    let peakFlat = 0, peakRes = 0;
+    runNode('filter', 120, {
+      params: { type: 'lowpass', cutoffHz: 4, resonance: 0 },
+      inputs: { in: 1 },
+      onTick: (_f, o) => { peakFlat = Math.max(peakFlat, o.out); },
+    });
+    runNode('filter', 120, {
+      params: { type: 'lowpass', cutoffHz: 4, resonance: 0.9 },
+      inputs: { in: 1 },
+      onTick: (_f, o) => { peakRes = Math.max(peakRes, o.out); },
+    });
+    expect(peakRes).toBeGreaterThan(peakFlat + 0.1);
+    expect(peakRes).toBeGreaterThan(1); // genuine overshoot
+  });
+});

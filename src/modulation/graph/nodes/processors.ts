@@ -422,3 +422,98 @@ register<THState>({
     outputs.out = state.value;
   },
 });
+
+// ---------- Envelope (ADSR, v22) ----------
+//
+// The true envelope generator the catalog lacked (AUDIT item 6):
+// gate-in, ADSR out. Attack/decay/release are exponential approaches
+// (analog-RC feel); attack aims 30% past 1.0 and clamps so it actually
+// completes. Rising gate edge retriggers the attack FROM THE CURRENT
+// VALUE (no click); falling edge enters release from wherever it is.
+
+type EnvPhase = 'idle' | 'attack' | 'decay' | 'release';
+interface EnvState { phase: EnvPhase; value: number; gateWasHigh: boolean }
+
+register<EnvState>({
+  type: 'envelope',
+  category: 'Processors',
+  label: 'Envelope (ADSR)',
+  description: 'Gate-triggered attack/decay/sustain/release envelope — patch a beat, comparator, or Sync pulse into gate and shape any parameter like a VCA.',
+  inputs: [{ name: 'gate', kind: 'gate' }],
+  outputs: [{ name: 'out', kind: 'control' }],
+  params: {
+    attackMs:  { kind: 'number', min: 1, max: 10000, step: 1, default: 50 },
+    decayMs:   { kind: 'number', min: 1, max: 10000, step: 1, default: 200 },
+    sustain:   { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.6 },
+    releaseMs: { kind: 'number', min: 1, max: 10000, step: 1, default: 400 },
+  },
+  init: () => ({ phase: 'idle' as EnvPhase, value: 0, gateWasHigh: false }),
+  tick(ctx, state, ins, params, outputs) {
+    const gateHigh = (ins.gate ?? 0) > 0.5;
+    if (gateHigh && !state.gateWasHigh) state.phase = 'attack';
+    if (!gateHigh && state.gateWasHigh && state.phase !== 'idle') state.phase = 'release';
+    state.gateWasHigh = gateHigh;
+
+    const approach = (target: number, ms: number): void => {
+      const tau = Math.max(0.001, ms / 1000);
+      state.value += (target - state.value) * (1 - Math.exp(-ctx.dt / tau));
+    };
+    const sustain = +(params.sustain as number);
+
+    switch (state.phase) {
+      case 'attack':
+        // Aim 30% past full scale so the exponential actually reaches 1.
+        approach(1.3, +(params.attackMs as number));
+        if (state.value >= 1) { state.value = 1; state.phase = 'decay'; }
+        break;
+      case 'decay':
+        approach(sustain, +(params.decayMs as number));
+        // Sustain is a hold, not a terminal — stay in decay approaching it.
+        break;
+      case 'release':
+        approach(0, +(params.releaseMs as number));
+        if (state.value <= 0.0005) { state.value = 0; state.phase = 'idle'; }
+        break;
+      case 'idle':
+        state.value = 0;
+        break;
+    }
+    outputs.out = state.value;
+  },
+});
+
+// ---------- Filter (control-rate SVF, v22) ----------
+//
+// Chamberlin state-variable filter running at the graph's control rate.
+// Cutoff tops out at 12 Hz — safely below the ~30 Hz control-rate
+// Nyquist so the SVF stays stable at 60 fps. Resonance rings the way a
+// modular filter does when you wobble a signal through it.
+
+interface SvfState { low: number; band: number }
+
+register<SvfState>({
+  type: 'filter',
+  category: 'Processors',
+  label: 'Filter (LP/HP/BP)',
+  description: 'Control-rate resonant filter (state-variable). Lowpass smooths, highpass isolates wiggle, bandpass rings around the cutoff — resonance adds overshoot like an analog filter.',
+  inputs: [{ name: 'in', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control' }],
+  params: {
+    type:      { kind: 'enum', options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass' },
+    cutoffHz:  { kind: 'number', min: 0.01, max: 12, step: 0.01, default: 2 },
+    resonance: { kind: 'number', min: 0, max: 0.95, step: 0.01, default: 0 },
+  },
+  init: () => ({ low: 0, band: 0 }),
+  tick(ctx, state, ins, params, outputs) {
+    const x = ins.in ?? 0;
+    const fc = +(params.cutoffHz as number);
+    // Chamberlin coefficients; f clamped for stability at large dt.
+    const f = Math.min(1.2, 2 * Math.sin(Math.PI * fc * ctx.dt));
+    const q = 1 - +(params.resonance as number); // damping
+    state.low += f * state.band;
+    const high = x - state.low - q * state.band;
+    state.band += f * high;
+    const type = String(params.type);
+    outputs.out = type === 'highpass' ? high : type === 'bandpass' ? state.band : state.low;
+  },
+});

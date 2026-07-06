@@ -39,6 +39,8 @@ export type NodeType =
   | 'mixer' | 'multiplier' | 'crossfade' | 'min' | 'max'
   | 'comparator' | 'sample-and-hold' | 'slew' | 'quantize'
   | 'curve' | 'delay' | 'track-and-hold'
+  // v22: true ADSR envelope generator + control-rate resonant filter
+  | 'envelope' | 'filter'
   // Logic / utility
   | 'trigger-to-gate' | 'gate-to-trigger' | 'clock-divider' | 'sequencer';
 
