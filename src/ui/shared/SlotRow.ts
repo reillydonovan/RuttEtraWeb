@@ -191,6 +191,11 @@ export interface SlotRowAdapter {
      */
     slewRise?: NumAdapter;
     slewFall?: NumAdapter;
+    /**
+     * v20: apply mode — additive (offset) vs multiplicative (factor).
+     * Classic maps to `slot.mode`; Beginner maps to `binding.mode`.
+     */
+    applyMode?: EnumAdapter;
   };
 
   // -------------------- MIDI out (optional) --------------------
@@ -666,6 +671,10 @@ function buildGamepadGroup(g: NonNullable<SlotRowAdapter['gamepad']>): BodyGroup
 function buildOutputStageGroup(o: SlotRowAdapter['output']): BodyGroup {
   const g = buildGroup('Output');
   const refreshers: Array<() => void> = [];
+  if (o.applyMode) {
+    const modeUi = buildDropdownRow('Apply', o.applyMode);
+    refreshers.push(modeUi.refresh); g.body.appendChild(modeUi.root);
+  }
   const curveUi = buildDropdownRow<OutputCurve>('Curve', o.curve);
   refreshers.push(curveUi.refresh); g.body.appendChild(curveUi.root);
   const minUi = buildNumField('Min', o.min); refreshers.push(minUi.refresh); g.body.appendChild(minUi.root);

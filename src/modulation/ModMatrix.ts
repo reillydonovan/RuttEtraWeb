@@ -261,6 +261,7 @@ export class ModMatrix {
     const safeDt = Math.max(0, Math.min(0.5, dtSec));
 
     const offsets = new Map<string, number>();
+    const factors = new Map<string, number>();
     const slotValues = new Array<number>(slots.length);
     const debug = debugLogEnabled();
     const wantSample = debug && (now - this.lastDebugLogTime) >= 1.0;
@@ -306,7 +307,15 @@ export class ModMatrix {
         continue;
       }
 
-      offsets.set(t as string, (offsets.get(t as string) ?? 0) + shaped * slot.amount);
+      // v20: apply mode. Multiplicative slots contribute a factor
+      // (1 + value·amount) — identical formula to Graph multiplicative
+      // bindings, combined by LiveValues as (base + Σoffsets)·Πfactors.
+      if (slot.mode === 'multiplicative') {
+        const f = factors.get(t as string) ?? 1;
+        factors.set(t as string, f * (1 + shaped * slot.amount));
+      } else {
+        offsets.set(t as string, (offsets.get(t as string) ?? 0) + shaped * slot.amount);
+      }
     }
 
     if (wantSample && rawValues) {
@@ -325,10 +334,9 @@ export class ModMatrix {
       }
     }
 
-    // Push every active target's offset, AND clear any prior keys we've
-    // dropped (handled internally by setContributions). ModMatrix has no
-    // multiplicative contributions today, so factors stay empty.
-    this.liveValues.setContributions('classic', offsets);
+    // Push every active target's offsets AND factors, clearing any prior
+    // keys we've dropped (handled internally by setContributions).
+    this.liveValues.setContributions('classic', offsets, factors);
 
     // MIDI-out: emit each enabled slot's value (-1..1 -> 0..1) as CC.
     if (this.midiManager) {

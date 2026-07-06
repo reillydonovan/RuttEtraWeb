@@ -150,6 +150,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   'modSlot.outputMax':        { description: 'Upper bound of the output stage.', range: '-2..2', panel: 'Modulation' },
   'modSlot.outputOffset':     { description: 'DC offset added after curve + range mapping.', range: '-1..1', panel: 'Modulation' },
   'modSlot.outputInvert':     { description: 'Multiply the post-output-stage value by -1 right before the Amount knob.', panel: 'Modulation' },
+  'modSlot.mode':             { description: 'How the slot applies to its target: Additive sums an offset onto the base value; Multiplicative contributes a (1 + value × amount) factor — the classic patched-multiplier, great for tremolo/VCA-style depth control of other modulation. Live value = (base + offsets) × factors.', panel: 'Modulation' },
   'modSlot.slewRiseMs':       { description: 'Glide time when the slot value rises. 0 = instant (off). Smooths stepped sources — a Step-curve LFO with 200 ms slew becomes a portamento staircase.', range: '0..5000 ms', panel: 'Modulation' },
   'modSlot.slewFallMs':       { description: 'Glide time when the slot value falls. 0 = instant (off). Same exponential slew as the Graph Slew node.', range: '0..5000 ms', panel: 'Modulation' },
   'modSlot.constantValue':    { description: 'Value emitted by the Constant source. Useful as a static offset whose Amount can be modulated by another slot or by MIDI.', range: '-1..1', panel: 'Modulation' },

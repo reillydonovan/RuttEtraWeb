@@ -21,7 +21,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - Classic slot LFO caps at **20 Hz** (`src/ui/sections/ModulationSection.ts:506`, min 0.001); Graph `lfo` node caps at **30 Hz** (`src/modulation/graph/nodes/sources.ts:29`).
 - ⚠️ **Why it conflicts**: all modulation is computed once per render frame (`matrix.tick(dt)` at `src/main.ts:988`, `graphEngine?.tick(dt)` at `main.ts:1002`), so the effective Nyquist is ~30 Hz at 60 fps. Raising the slider cap alone would just alias. True audio-rate modulation needs a different substrate: an AudioWorklet-rate oscillator whose output is consumed per-frame (like CV input already does), or oscillation evaluated inside the DCU shader (like the pattern shaders do). This is a design decision, not a slider tweak.
 
-### 2. LFO smooth-vs-stepped output option — 🟡 partial `[Faithful]`
+### 2. LFO smooth-vs-stepped output option — ✅ **DONE** (`c6a7a16`, v18: per-slot Slew ↑/↓ via shared `slewToward`)
+
+### 2-original. Audit detail — 🟡 partial `[Faithful]`
 - Graph mode has a real **Slew** node (rise/fall 0–5000 ms, `src/modulation/graph/nodes/processors.ts:282-308`) — insertable anywhere.
 - Classic slots have **no** output smoothing; the output-stage `'step'` curve is a hard 3-level quantizer (more stepped, not less — `src/modulation/outputStage.ts:98-102`). Source-specific smoothing exists only for audio (attack/release) and joystick (1-pole LP) (`ModMatrix.ts:575-615`).
 - **Missing**: a per-slot slew/glide control in Classic. Touches `ModSlot` schema → migration.
@@ -44,8 +46,8 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - GraphEngine does arbitrary topo-sorted output→input chaining across ~48 node types: 6 sources, 17 processors, 4 logic, 6 video, 11 inputs, 4 audio (`src/modulation/graph/`). Audio→image (audio-envelope/band/pitch/onset) and image→signal (video-luma/motion/edge/color, pattern-output) both work.
 - **Gaps**: ❌ no true ADSR **envelope generator** node (closest: one-shot `ramp` with trigger; `audio-envelope` is a follower); ❌ no **filter** node (no lowpass/biquad/resonance — `slew` is the only smoother); ❌ no audio-output sink from the graph (sonification is a separate one-way subsystem; the graph's only outward sink is `cv-output`).
 
-### 7. Subsonic voltages — ✅ implemented
-- Classic LFO floor is **0.001 Hz** (1000 s period, `ModulationSection.ts:506`); ramps to 600 s. Minor polish: Graph lfo floor is 0.01 Hz — could align to 0.001.
+### 7. Subsonic voltages — ✅ implemented (polish landed: `61c8bce`)
+- Classic LFO floor is **0.001 Hz** (1000 s period, `ModulationSection.ts:506`); ramps to 600 s. Graph lfo floor aligned to 0.001 Hz.
 
 ## Second raster / dual trace
 
@@ -68,7 +70,7 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - ✅ `rotate90` binary toggle, end-to-end (UI `DcuSection.ts:51`, shader `ruttEtra.vert.glsl:113-115`, docs `paramDocs.ts:90`).
 - ❌ Continuous in-plane rotation knob: `hSpin`/`vSpin` are 3D-axis spins (with sin/cos, `ruttEtra.vert.glsl:121-125`), not total image rotation. Missing piece: a `rotation` angle param (0–360°, modulatable) composed with the `rotate90` switch.
 
-### 13. Vertical center voltage-control input — ✅ implemented (minor docs debt) `[Faithful — hardware reference]`
+### 13. Vertical center voltage-control input — ✅ implemented; docs debt closed (`7b03693`) `[Faithful — hardware reference]`
 - `vCenter` exists (`Settings.ts:162,667`, UI `DcuSection.ts:44`) **and** is a routing target (`src/ui/targets.ts:27`) → already drivable by CV in via Classic slot or Graph. `vPos` likewise.
 - 🟡 Docs gap: `vCenter`/`hCenter` have **no `PARAM_DOCS` entry** — violates docs-land-with-feature; fix in housekeeping.
 
@@ -81,7 +83,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - CV in: per-channel range/polarity/invert/calibration-offset (`CVInput.ts:85-97,336-347`). OSC: per-binding min/max+curve. Graph: `range` (remap in→out), `scale`, `offset` nodes — the canonical rescale-anywhere path.
 - 🟡 Only nit: CV *input* UI has no free gain multiplier (range/polarity/invert only); graph nodes cover it downstream.
 
-### 16. Type custom values; custom min/max ranges — 🟡 split verdict
+### 16. Type custom values; custom min/max ranges — ✅ **DONE** (typing pre-existing; custom ranges `c35cc47`, v19 `paramRangeOverrides` + right-click range editor, ±5×-span envelope)
+
+### 16-original. Audit detail — 🟡 split verdict
 - ✅ Typing: every slider has an inline `<input type="number">` (`src/ui/widgets.ts:88-99,236-239`), a tap/long-press numeric modal (`widgets.ts:314-353`), and keyboard step/fine-adjust (arrows, PgUp/Dn, Home/End).
 - ❌ Custom ranges: slider min/max are hardcoded call-site arguments (`widgets.ts:79-85`); no UI overrides a param's range anywhere. Per-binding min/max (MIDI/OSC) scales binding output, not the param's own range. ⚠️ If custom ranges are persisted per-param, that's a new Settings structure → migration; also must interact carefully with modulation clamping (base clamps vs live clamps).
 
@@ -100,7 +104,10 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 ### 20. Analog-degradation effects (Izotope Vinyl reference) — ❌ absent `[Rutt+]`
 - Post-FX inventory is bloom, scanline overlay, chromatic aberration (clean RGB split), vignette, feedback. No grain, scratches, hum bars, dropout, wear, or chroma bleed.
 
-### 21. "Burn in didn't do shit" — 🟡 explained; naming/UX bug, not a missing subsystem
+### 21. "Burn in didn't do shit" — ✅ **FIXED** (`809da83`) — it was a real accumulation bug
+The feedback accumulator snapshotted the pass *input* from a buffer later passes had already overwritten — trails never compounded (one-frame echo). Replaced with `FeedbackAccumulatorPass` (private ping-pong accumulation at the pass's point in the chain, clear-on-enable). Decay docs now give concrete half-lives. Original analysis below.
+
+### 21-original. Audit detail (pre-fix) — 🟡 explained; naming/UX bug, not a missing subsystem
 - "Burn-In" is just the **UI label for the feedback pass** (item 18): the group title (`ColorPostFxSection.ts:56`), the paramDoc ("CRT burn-in"), and a preset (`presets.ts:100-113`, decay 0.94). There is no separate burn-in effect.
 - Likely why it "didn't do shit": `feedbackEnabled` defaults **false**; the `max()` blend only leaves trails where bright content *moves* — on static or dark scenes it's invisible; and decay 0.9 fades in ~1s. Options for the build phase: make the effect legible (additive/persist blend option, longer decay range, default demo preset), and/or rename so "burn-in" isn't promising phosphor memory it doesn't deliver.
 
@@ -109,7 +116,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 
 ## Graphs / sequencing / keyframing
 
-### 23. Graphs removable / individually enable-disable-able — 🟡 partial, with a capability asymmetry
+### 23. Graphs removable / individually enable-disable-able — ✅ **DONE** (`1816593`, v17: node/binding `enabled` flags + My Patches user library). Follow-up noted: patch library is localStorage-only; embedding it in `.synth.json` Projects is a future step.
+
+### 23-original. Audit detail — 🟡 partial, with a capability asymmetry
 - ✅ Node delete (right-click/Backspace, cascades edges+bindings — `AdvancedView.ts:281-290`); ✅ whole-engine disable via `modMode` (`GraphEngine.ts:148-156`); ✅ Classic slots have a per-slot `enabled` toggle (`Settings.ts:85`, `ModMatrix.ts:269-273`).
 - ❌ No per-node or per-binding `enabled`/bypass flag in the graph (`types.ts:46-55,57-85`) — only destructive delete or `amount=0`. ❌ No user patch **library**: 7 hard-coded read-only starter templates, one active patch (`library.ts:19-126`); you cannot save/delete named patches.
 - ⚠️ Both fixes touch the serialized `GraphPatch` (lives inside Settings) → `_v` bump + migration backfill (`enabled: true` default).
@@ -132,11 +141,15 @@ Gaps, in rough severity order:
 
 ## UI / UX
 
-### 26. Reduce menu-diving — 🟡 shallow but zero fast-nav
+### 26. Reduce menu-diving — 🟡 **PARTIAL, review-gated** (`06b0ec9`): param search (`/`) + tab cycling (`[`/`]`) shipped; structural approaches (palette / pinned performance strip / learn-from-the-knob) specified in `docs/design/anti-menu-diving.md`, awaiting owner decision. Also fixed docs-drift: reference table listed unimplemented 1-9/F/H shortcuts.
+
+### 26-original. Audit detail — 🟡 shallow but zero fast-nav
 - IA is a 3-tab shell (Synth/I-O/Help) with collapsible accordion sections. Depth measured: DCU param **0–1 clicks** (open by default); modulation slot target **~3**; CV out channel setting **~3–4** (includes "+ Add output" on first use).
 - Missing entirely: param search / command palette, favorites/pinning, keyboard section jumps, and learn-from-the-knob (MIDI/OSC/CV learn is initiated from the I/O sections, not by right-clicking a slider). Those four are the highest-leverage anti-menu-diving features.
 
-### 27. Two-screen support (controls on one display, output on another) — 🟡 approximation only
+### 27. Two-screen support — ✅ **DONE** (`d25b4fd`): ⧉ pops the live panel DOM into a same-origin window (shared JS context, zero sync); drag handlers made ownerDocument-safe. Known v1 limits documented in About. `?view=` remains the cross-machine path.
+
+### 27-original. Audit detail — 🟡 approximation only
 - ❌ No `window.open` popout, Document Picture-in-Picture, Presentation API, or `BroadcastChannel` anywhere in `src`.
 - 🟡 Works today: `?view=<peerId>` viewer mode — second window/device shows output fullscreen over WebRTC (`main.ts:1167-1207`) — but requires starting a broadcast, adds WebRTC latency/compression, and is one-way. A same-machine popout (Document PiP for the canvas, or a BroadcastChannel-synced control window) does not exist and would be the proper fix.
 
@@ -153,7 +166,9 @@ Vendored `AnaglyphEffectIpd` with a real settable `eyeSep` (upstream kept its St
 
 ## Housekeeping
 
-### 29. README reconcile — ❌ confirmed stale
+### 29. README reconcile — ✅ **DONE** (`dbecbe6`)
+
+### 29-original. Audit detail — ❌ confirmed stale
 - README "Recent changes" stops at v10; code is at v12 (XR, anaglyph, StereoCompositor, WHIP, hls.js, sample video). Structure tree omits `src/sequencer/`, `src/project/`, `src/perf/`, `src/platform/`, `src/ui/layout/`, `src/ui/timeline/`. Settings at `_v: 16`. (Drift already noted in CLAUDE.md.)
 
 ---

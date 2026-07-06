@@ -610,6 +610,11 @@ function createSlot(
       invert: { get: () => get().outputInvert, set: (v) => update({ outputInvert: v }) },
       slewRise: { get: () => get().slewRiseMs ?? 0, set: (v) => update({ slewRiseMs: Math.max(0, v) }), min: 0, max: 5000, step: 1 },
       slewFall: { get: () => get().slewFallMs ?? 0, set: (v) => update({ slewFallMs: Math.max(0, v) }), min: 0, max: 5000, step: 1 },
+      applyMode: {
+        get: () => get().mode ?? 'additive',
+        set: (v) => update({ mode: v as 'additive' | 'multiplicative' }),
+        options: [{ v: 'additive', l: 'Additive (+)' }, { v: 'multiplicative', l: 'Multiply (×)' }],
+      },
     },
     midiOut: {
       enabled: { get: () => get().midiOutEnabled, set: (v) => update({ midiOutEnabled: v }) },

@@ -136,6 +136,20 @@ export interface ModSlot {
   outputOffset: number;         // -1..1, default 0
   outputInvert: boolean;        // default false
 
+  // ---------- v20: apply mode ----------
+  /**
+   * How this slot's value combines onto its target (v20):
+   *   'additive'       — offset: live = (base + Σ) · Π   [the classic sum]
+   *   'multiplicative' — factor: contributes (1 + value·amount) to Π —
+   *                      amount 0 = no effect, matching the Graph
+   *                      binding's identical mode. Rutt-faithful: this is
+   *                      the "multiplier" patched between a source and a
+   *                      destination input.
+   * CV-out targets (`cv:N`) ignore this — the raw value is what leaves
+   * the jack.
+   */
+  mode: 'additive' | 'multiplicative';
+
   // ---------- v18: per-slot slew (glide) ----------
   /**
    * Rise / fall slew on the post-output-stage value, in ms. 0 = off
@@ -1063,6 +1077,8 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   outputOffset: 0,
   outputInvert: false,
 
+  mode: 'additive',
+
   slewRiseMs: 0,
   slewFallMs: 0,
 
@@ -1305,7 +1321,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 19;
+const CURRENT_VERSION = 20;
 
 interface Versioned { _v?: number }
 
@@ -1726,6 +1742,18 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       s.paramRangeOverrides = {};
     }
     s._v = 19;
+  }
+
+  // v19 -> v20: Classic slot apply mode (additive | multiplicative).
+  // Backfill 'additive' — the only behavior that existed pre-v20.
+  if ((s._v ?? 1) < 20) {
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as ModSlot[]).map((slot) => ({
+        ...slot,
+        mode: (slot as Partial<ModSlot>).mode ?? 'additive',
+      }));
+    }
+    s._v = 20;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

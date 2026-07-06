@@ -508,6 +508,13 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
           get: () => liveBinding().outputInvert ?? false,
           set: (v) => mutate((_c, _s, b) => { if (b) b.outputInvert = v; }),
         },
+        // v20: expose the binding's apply mode in Beginner view too —
+        // previously only the Advanced inspector could set it.
+        applyMode: {
+          get: () => liveBinding().mode ?? 'additive',
+          set: (v) => mutate((_c, _s, b) => { if (b) b.mode = v as 'additive' | 'multiplicative'; }),
+          options: [{ v: 'additive', l: 'Additive (+)' }, { v: 'multiplicative', l: 'Multiply (×)' }],
+        },
       },
 
       copy: () => {

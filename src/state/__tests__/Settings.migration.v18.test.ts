@@ -30,3 +30,20 @@ describe('migrateSettings v17 -> v18', () => {
     expect(migrateSettings(once)._v).toBe(once._v);
   });
 });
+
+describe('migrateSettings v19 -> v20', () => {
+  it('backfills mode=additive on saved slots, preserving explicit values', () => {
+    const v19 = {
+      _v: 19,
+      modSlots: [
+        { enabled: true, source: 'sine', target: 'zPush', amount: 0.5 },
+        { enabled: true, source: 'sine', target: 'zPush', amount: 0.5, mode: 'multiplicative' },
+      ],
+    };
+    const out = migrateSettings(v19);
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(20);
+    const slots = out.modSlots as ModSlot[];
+    expect(slots[0].mode).toBe('additive');
+    expect(slots[1].mode).toBe('multiplicative');
+  });
+});
