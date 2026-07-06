@@ -101,6 +101,8 @@ export interface SlotRowAdapter {
   // LFO group (waveform sources)
   lfo?: {
     frequency: NumAdapter;
+    /** v21: Lo/Mid/Hi range switch (×0.01 / ×1 / ×10 on frequency). */
+    freqRange?: EnumAdapter;
     phase: NumAdapter;
     duty: NumAdapter;
     depth?: NumAdapter;       // omitted for Graph (graph LFO has bipolar instead)
@@ -428,6 +430,11 @@ function buildLfoGroup(lfo: NonNullable<SlotRowAdapter['lfo']>): BodyGroup {
   const freqUi = buildNumField('Rate (Hz)', lfo.frequency);
   refreshers.push(freqUi.refresh);
   g.body.appendChild(freqUi.root);
+  if (lfo.freqRange) {
+    const rangeUi = buildDropdownRow('Range', lfo.freqRange);
+    refreshers.push(rangeUi.refresh);
+    g.body.appendChild(rangeUi.root);
+  }
   let divUi: DropdownUi | null = null;
   if (lfo.clockDivision) {
     divUi = buildDropdownRow('Division', lfo.clockDivision);

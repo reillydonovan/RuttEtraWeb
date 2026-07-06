@@ -179,6 +179,7 @@ export class RuttEtraScene {
       uCenter:       { value: new THREE.Vector2(0, 0) },
 
       uRotate90:     { value: 0 },
+      uRotation:     { value: 0 },
       uHSpin:        { value: 0 },
       uVSpin:        { value: 0 },
       uHReverse:     { value: 0 },
@@ -297,6 +298,9 @@ export class RuttEtraScene {
     live.subscribe('vCenter', (v) => (u.uCenter.value as THREE.Vector2).setY(v));
 
     s.subscribe('rotate90', (v) => { u.uRotate90.value = v ? 1 : 0; });
+    // v21: continuous rotation knob — degrees in Settings, radians in the
+    // shader. Modulatable, so it reads live.
+    live.subscribe('rotation', (v) => { u.uRotation.value = (v * Math.PI) / 180; });
     live.subscribe('hSpin', (v) => { u.uHSpin.value = v; });
     live.subscribe('vSpin', (v) => { u.uVSpin.value = v; });
     s.subscribe('hReverse', (v) => { u.uHReverse.value = v ? 1 : 0; });

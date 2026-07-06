@@ -87,6 +87,15 @@ export interface ModSlot {
   target: ModTarget | 'none';
   amount: number;
   frequency: number;
+  /**
+   * v21: coarse frequency range switch (Lo/Mid/Hi) on the LFO — a
+   * multiplier on `frequency` in Free sync mode (×0.01 / ×1 / ×10),
+   * like the range switch on the original hardware's oscillators.
+   * 'high' above ~20 Hz enters stroboscopic territory: modulation is
+   * evaluated once per frame, so the visual aliases against the frame
+   * rate (true audio-rate is a separate design track — AUDIT item 1).
+   */
+  freqRange: 'low' | 'mid' | 'high';
   phase: number;
   duty: number;
   rampTimeSec: number;
@@ -183,7 +192,7 @@ export interface ModSlot {
 export type ModTarget =
   | 'hPos' | 'vPos' | 'hSize' | 'vSize' | 'aspect'
   | 'zPush' | 'zBias' | 'intensity' | 'focus'
-  | 'hCenter' | 'vCenter' | 'hSpin' | 'vSpin'
+  | 'hCenter' | 'vCenter' | 'hSpin' | 'vSpin' | 'rotation'
   | 'hLinearity' | 'vLinearity' | 'skip'
   | 'threshold' | 'contrast' | 'gamma'
   | 'bloomIntensity' | 'bloomRadius'
@@ -698,6 +707,12 @@ export interface Settings {
   vSpinRate: number;
 
   rotate90: boolean;
+  /**
+   * v21: continuous in-plane rotation of the raster in DEGREES, composed
+   * after the 0/90 switch, pivoting on H/V Center. Modulatable — the
+   * shader reads the live value (converted to radians).
+   */
+  rotation: number;
 
   scanRate: number;
   cols: number;
@@ -1044,6 +1059,7 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   target: 'none',
   amount: 0.25,
   frequency: 0.5,
+  freqRange: 'mid',
   phase: 0,
   duty: 0.5,
   rampTimeSec: 4,
@@ -1160,6 +1176,7 @@ export const DEFAULTS: Settings = {
   hSpinRate: 0, vSpinRate: 0,
 
   rotate90: false,
+  rotation: 0,
 
   scanRate: 240,
   cols: 320,
@@ -1321,7 +1338,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 20;
+const CURRENT_VERSION = 21;
 
 interface Versioned { _v?: number }
 
@@ -1754,6 +1771,20 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       }));
     }
     s._v = 20;
+  }
+
+  // v20 -> v21: continuous rotation knob + LFO range switch. `rotation`
+  // defaults to 0 deg (identity); `freqRange` defaults to 'mid' (×1),
+  // both exactly preserving pre-v21 behavior. Idempotent.
+  if ((s._v ?? 1) < 21) {
+    if (s.rotation === undefined) s.rotation = DEFAULTS.rotation;
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as ModSlot[]).map((slot) => ({
+        ...slot,
+        freqRange: (slot as Partial<ModSlot>).freqRange ?? 'mid',
+      }));
+    }
+    s._v = 21;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

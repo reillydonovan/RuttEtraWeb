@@ -148,3 +148,23 @@ describe('pattern-output', () => {
     expect(out.out).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------
+// v21: LFO range switch (Lo x0.01 / Mid x1 / High x10)
+// ---------------------------------------------------------------
+describe('lfo range switch (v21)', () => {
+  it('high range advances phase 10x faster than mid', () => {
+    // 1 Hz at dt=1/60: mid completes 0.5 cycles in 30 ticks; high does 5.
+    // Compare instantaneous outputs after a quarter period.
+    const midOut = runNode('lfo', 16, { params: { shape: 'saw', rate: 1, range: 'mid' } });
+    const highOut = runNode('lfo', 16, { params: { shape: 'saw', rate: 0.1, range: 'high' } });
+    // 0.1 Hz x10 == 1 Hz x1 — identical phase advance.
+    expect(highOut.out).toBeCloseTo(midOut.out, 6);
+  });
+
+  it('low range is x0.01', () => {
+    const slow = runNode('lfo', 60, { params: { shape: 'saw', rate: 1, range: 'low' } });
+    const ref  = runNode('lfo', 60, { params: { shape: 'saw', rate: 0.01, range: 'mid' } });
+    expect(slow.out).toBeCloseTo(ref.out, 6);
+  });
+});

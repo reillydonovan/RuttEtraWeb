@@ -47,3 +47,20 @@ describe('migrateSettings v19 -> v20', () => {
     expect(slots[1].mode).toBe('multiplicative');
   });
 });
+
+describe('migrateSettings v20 -> v21', () => {
+  it('backfills rotation=0 and freqRange=mid', () => {
+    const v20 = {
+      _v: 20,
+      modSlots: [{ enabled: true, source: 'sine', target: 'zPush', amount: 0.5 }],
+    };
+    const out = migrateSettings(v20);
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(21);
+    expect(out.rotation).toBe(0);
+    expect((out.modSlots as ModSlot[])[0].freqRange).toBe('mid');
+    // Explicit values preserved.
+    const kept = migrateSettings({ _v: 20, rotation: 45, modSlots: [{ freqRange: 'high' }] });
+    expect(kept.rotation).toBe(45);
+    expect((kept.modSlots as ModSlot[])[0].freqRange).toBe('high');
+  });
+});

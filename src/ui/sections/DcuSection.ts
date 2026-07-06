@@ -49,6 +49,7 @@ export function createDcuSection(settings: SettingsStore): HTMLElement {
     row('H Reverse',  toggle(settings, 'hReverse', 'flip across H axis')),
     row('V Reverse',  toggle(settings, 'vReverse', 'flip across V axis')),
     row('Display 0/90', toggle(settings, 'rotate90', 'rotate raster 90 degrees')),
+    row('Rotation',   slider(settings, 'rotation', -180, 180, 0.1), 'degrees — knob + switch compose'),
   );
 
   const stopSpinBtn = button('Stop All Spin', () => {
@@ -99,7 +100,7 @@ export function createDcuSection(settings: SettingsStore): HTMLElement {
       intensity: 1, focus: 0,
       hCenter: 0, vCenter: 0,
       hSpin: 0, vSpin: 0, hSpinRate: 0, vSpinRate: 0,
-      hReverse: false, vReverse: false, rotate90: false,
+      hReverse: false, vReverse: false, rotate90: false, rotation: 0,
       scanRate: 240, cols: 320,
       hLinearity: 0, vLinearity: 0,
       skip: 0, threshold: 0.04, contrast: 1, gamma: 1,

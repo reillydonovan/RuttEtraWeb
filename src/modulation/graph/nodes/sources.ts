@@ -29,13 +29,18 @@ register<LFOState>({
     // Floor matches the Classic slot LFO (0.001 Hz = 1000 s period) so
     // subsonic sweeps are available in both engines.
     rate:     { kind: 'number', min: 0.001, max: 30,  step: 0.001, default: 1 },
+    // v21: Lo/Mid/Hi range switch — ×0.01 / ×1 / ×10 on `rate`, like the
+    // range switch on the original hardware's oscillators. 'high' above
+    // ~20 Hz effective aliases against the frame rate (stroboscopic).
+    range:    { kind: 'enum', options: ['low', 'mid', 'high'], default: 'mid' },
     phase:    { kind: 'number', min: 0,    max: 1,   step: 0.001, default: 0 },
     duty:     { kind: 'number', min: 0.05, max: 0.95, step: 0.01, default: 0.5 },
     bipolar:  { kind: 'boolean', default: true },
   },
   init: () => ({ phase: 0 }),
   tick(ctx, state, _ins, params, outputs) {
-    const rate = +(params.rate as number);
+    const rangeMult = params.range === 'low' ? 0.01 : params.range === 'high' ? 10 : 1;
+    const rate = +(params.rate as number) * rangeMult;
     const offset = +(params.phase as number);
     const duty = +(params.duty as number);
     // Emit at the current phase, then advance — keeps frame 0 at phase 0

@@ -26,6 +26,7 @@ export const TARGETS: TargetOption[] = [
   { v: 'intensity', l: 'Intensity' }, { v: 'focus', l: 'Focus' },
   { v: 'hCenter', l: 'H Center' }, { v: 'vCenter', l: 'V Center' },
   { v: 'hSpin', l: 'H Spin' },     { v: 'vSpin', l: 'V Spin' },
+  { v: 'rotation', l: 'Rotation' },
   { v: 'hLinearity', l: 'H Linearity' }, { v: 'vLinearity', l: 'V Linearity' },
   { v: 'skip', l: 'Skip' },
   { v: 'threshold', l: 'Threshold' }, { v: 'contrast', l: 'Contrast' }, { v: 'gamma', l: 'Gamma' },

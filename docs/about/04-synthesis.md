@@ -134,6 +134,9 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 - **H Spin Rate / V Spin Rate** — auto-rotation speed. The mesh spins continuously; combine with damped LFO modulation for tumbling.
 - **H Reverse / V Reverse** — flip handedness on each spin axis without changing magnitude.
 - **Display 0° / 90°** — discrete flip equivalent to swapping the original hardware's 90° toggle.
+- **Rotation** — continuous in-plane rotation in degrees (knob + switch, exactly like the hardware's rotation control: the knob composes on top of the 0/90 switch, pivoting on H/V Center). Modulatable — an LFO here gives a slow tumble; CV in gives voltage-controlled rotation.
+
+**Collapse the scan**: H Size and V Size both pass through zero — dial either to `0` to collapse the raster to a line, or both for a point. This is the faithful "zoom to zero" gesture (the deflection dies, not the camera).
 
 #### Scan
 

@@ -580,8 +580,9 @@ export class ModMatrix {
       default: {
         // Free-running: derive phase from the global wallclock so
         // changing `slot.frequency` rescales smoothly without a jump
-        // (matches v7 behavior).
-        phase01 = (slot.frequency * now) % 1;
+        // (matches v7 behavior). v21: the Lo/Mid/Hi range switch
+        // multiplies the dialed frequency (×0.01 / ×1 / ×10).
+        phase01 = (slot.frequency * freqRangeMultiplier(slot.freqRange) * now) % 1;
         if (phase01 < 0) phase01 += 1;
         break;
       }
@@ -661,6 +662,17 @@ export class ModMatrix {
 type WaveformKind = 'sine' | 'triangle' | 'square' | 'saw' | 'pulse';
 
 /** Phase-based waveform sample in -1..+1. `phase01` is wrapped to [0,1). */
+/**
+ * v21: Lo/Mid/Hi range switch multiplier (Free sync only — MIDI/Tempo
+ * sync rates come from the clock). Shared literal with the Graph lfo
+ * node's `range` param.
+ */
+export function freqRangeMultiplier(range: 'low' | 'mid' | 'high' | undefined): number {
+  if (range === 'low') return 0.01;
+  if (range === 'high') return 10;
+  return 1;
+}
+
 function waveform(kind: WaveformKind, phase01: number, duty: number): number {
   const t = ((phase01 % 1) + 1) % 1;
   switch (kind) {

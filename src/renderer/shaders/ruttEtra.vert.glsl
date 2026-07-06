@@ -38,6 +38,7 @@ uniform vec2  uPos;            // H Pos, V Pos
 uniform vec2  uCenter;         // H/V rotation pivot
 
 uniform float uRotate90;       // 0 or 1 (Display 0/90)
+uniform float uRotation;       // radians — continuous in-plane rotation (v21)
 uniform float uHSpin;          // radians around X axis
 uniform float uVSpin;          // radians around Y axis
 uniform float uHReverse;       // 0 or 1
@@ -110,9 +111,13 @@ void main() {
   // 7. H/V Position
   p.xy += uPos;
 
-  // 8. Display 0/90 rotation (around DCU center)
+  // 8. Display rotation (around DCU center): the 0/90 switch composed
+  //    with the continuous Rotation knob (v21) — knob + switch, sin/cos,
+  //    matching the hardware's total-rotation control.
   vec2 d = p.xy - uCenter;
   if (uRotate90 > 0.5) d = vec2(-d.y, d.x);
+  float cR = cos(uRotation), sR = sin(uRotation);
+  d = vec2(d.x * cR - d.y * sR, d.x * sR + d.y * cR);
 
   // 9. H Spin (rotation around horizontal axis -> affects Y/Z)
   //    V Spin (rotation around vertical axis   -> affects X/Z)

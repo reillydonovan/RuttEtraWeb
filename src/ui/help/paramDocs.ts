@@ -90,7 +90,9 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   vSpinRate:  { description: 'Auto-rotate around the X axis at this rate.', panel: 'DCU' },
   hReverse:   { description: 'Flip horizontal scan direction.', panel: 'DCU' },
   vReverse:   { description: 'Flip vertical scan direction.', panel: 'DCU' },
-  rotate90:   { description: 'Rotate the entire raster 90°.', panel: 'DCU' },
+  rotate90:   { description: 'Rotate the entire raster 90° (switch). Composes with the continuous Rotation knob.', panel: 'DCU' },
+  rotation:   { description: 'Continuous in-plane rotation of the raster (degrees), pivoting on H/V Center, composed after the 0/90 switch. Modulatable — patch an LFO for a slow tumble.', range: '-180..180', panel: 'DCU' },
+  'modSlot.freqRange': { description: 'Coarse LFO range switch: Low ×0.01, Mid ×1, High ×10 on the dialed Rate (Free sync only). High above ~20 Hz effective is stroboscopic — modulation is computed per frame, so it aliases against the frame rate.', panel: 'Modulation' },
 
   // ----- Color / PostFX -----
   colorMode:        { description: 'Phosphor look: grayscale, green, amber, custom tint, or sampled video color.', panel: 'Color/PostFX' },

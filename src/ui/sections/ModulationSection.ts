@@ -507,6 +507,15 @@ function createSlot(
     sourceKind: 'unsupported',
     lfo: {
       frequency: { get: () => get().frequency, set: (v) => update({ frequency: v }), min: 0.001, max: 20, step: 0.001 },
+      freqRange: {
+        get: () => get().freqRange ?? 'mid',
+        set: (v) => update({ freqRange: v as ModSlot['freqRange'] }),
+        options: [
+          { v: 'low', l: 'Low (×0.01)' },
+          { v: 'mid', l: 'Mid (×1)' },
+          { v: 'high', l: 'High (×10)' },
+        ],
+      },
       phase:     { get: () => get().phase,     set: (v) => update({ phase: v }),     min: 0,     max: 1,  step: 0.001 },
       duty:      { get: () => get().duty,      set: (v) => update({ duty: v }),      min: 0.05,  max: 0.95, step: 0.001 },
       depth:     { get: () => get().lfoDepth,  set: (v) => update({ lfoDepth: v }),  min: 0,     max: 1,  step: 0.001 },
