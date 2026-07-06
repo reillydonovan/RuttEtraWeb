@@ -193,6 +193,12 @@ export type ModTarget =
   | 'hPos' | 'vPos' | 'hSize' | 'vSize' | 'aspect'
   | 'zPush' | 'zBias' | 'intensity' | 'focus'
   | 'hCenter' | 'vCenter' | 'hSpin' | 'vSpin' | 'rotation'
+  // v23: dual raster — raster B params + the wipe position
+  | 'dualTracePos'
+  | 'bHPos' | 'bVPos' | 'bHSize' | 'bVSize' | 'bZPush' | 'bZBias'
+  | 'bIntensity' | 'bHCenter' | 'bVCenter' | 'bHSpin' | 'bVSpin'
+  | 'bRotation' | 'bHLinearity' | 'bVLinearity'
+  | 'bThreshold' | 'bContrast' | 'bGamma'
   | 'hLinearity' | 'vLinearity' | 'skip'
   | 'threshold' | 'contrast' | 'gamma'
   | 'bloomIntensity' | 'bloomRadius'
@@ -714,6 +720,28 @@ export interface Settings {
    */
   rotation: number;
 
+  // ---------- v23: dual raster ----------
+  /**
+   * Feature flag (default OFF): render a second, independently modulated
+   * raster (B) from the same video signal. When off, the singleton path
+   * is completely untouched (mesh B invisible, shader mask bypassed).
+   */
+  dualRasterEnabled: boolean;
+  /** 'wipe' = dual-trace slider splits the frame; 'alternate' = row interleave. */
+  dualMode: 'wipe' | 'alternate';
+  /** Wipe split 0..1: 0 = all A, 1 = all B; B grows from the top. Modulatable. */
+  dualTracePos: number;
+  /** Raster B deflection + luminance params (share scan/source/color with A). */
+  bHPos: number; bVPos: number;
+  bHSize: number; bVSize: number;
+  bZPush: number; bZBias: number;
+  bIntensity: number;
+  bHCenter: number; bVCenter: number;
+  bHSpin: number; bVSpin: number;
+  bRotation: number;
+  bHLinearity: number; bVLinearity: number;
+  bThreshold: number; bContrast: number; bGamma: number;
+
   scanRate: number;
   cols: number;
 
@@ -1184,6 +1212,19 @@ export const DEFAULTS: Settings = {
   rotate90: false,
   rotation: 0,
 
+  dualRasterEnabled: false,
+  dualMode: 'wipe',
+  dualTracePos: 0,
+  bHPos: 0, bVPos: 0,
+  bHSize: 1, bVSize: 1,
+  bZPush: 0.9, bZBias: 0,
+  bIntensity: 1,
+  bHCenter: 0, bVCenter: 0,
+  bHSpin: 0, bVSpin: 0,
+  bRotation: 0,
+  bHLinearity: 0, bVLinearity: 0,
+  bThreshold: 0.04, bContrast: 1, bGamma: 1,
+
   scanRate: 240,
   cols: 320,
 
@@ -1345,7 +1386,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 22;
+const CURRENT_VERSION = 23;
 
 interface Versioned { _v?: number }
 
@@ -1803,6 +1844,25 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   // MIDI clock out: forced OFF on every load — outward-facing signal,
   // same posture as CV output. The user re-arms it per session.
   s.midiClockOutEnabled = false;
+
+  // v22 -> v23: dual raster. Backfill the flag (default OFF), mode,
+  // wipe position, and every raster-B key at raster-A defaults. Purely
+  // visual — the flag is a persisted preference, no force-reset needed.
+  if ((s._v ?? 1) < 23) {
+    const dualKeys: (keyof Settings)[] = [
+      'dualRasterEnabled', 'dualMode', 'dualTracePos',
+      'bHPos', 'bVPos', 'bHSize', 'bVSize', 'bZPush', 'bZBias',
+      'bIntensity', 'bHCenter', 'bVCenter', 'bHSpin', 'bVSpin',
+      'bRotation', 'bHLinearity', 'bVLinearity',
+      'bThreshold', 'bContrast', 'bGamma',
+    ];
+    for (const k of dualKeys) {
+      if ((s as Record<string, unknown>)[k as string] === undefined) {
+        (s as Record<string, unknown>)[k as string] = DEFAULTS[k] as unknown;
+      }
+    }
+    s._v = 23;
+  }
 
   // Video audio safety: force disabled on every load. A saved "enabled"
   // state must not auto-play audio on the next page load. The user must

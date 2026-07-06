@@ -92,6 +92,28 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   vReverse:   { description: 'Flip vertical scan direction.', panel: 'DCU' },
   rotate90:   { description: 'Rotate the entire raster 90° (switch). Composes with the continuous Rotation knob.', panel: 'DCU' },
   rotation:   { description: 'Continuous in-plane rotation of the raster (degrees), pivoting on H/V Center, composed after the 0/90 switch. Modulatable — patch an LFO for a slow tumble.', range: '-180..180', panel: 'DCU' },
+
+  // ----- Dual raster (v23) -----
+  dualRasterEnabled: { description: 'Render a second, independently modulated raster (B) from the same video signal — a dual-trace scope on the bench. OFF = the classic single-raster path, completely unchanged.', panel: 'DCU' },
+  dualMode:     { description: 'Wipe: the trace slider splits the frame (B on top, A below, both full resolution). Alternate: rasters interleave row-by-row at half vertical resolution each; the slider does not apply.', panel: 'DCU' },
+  dualTracePos: { description: 'Dual-trace wipe position: 0 = all raster A, 1 = all raster B. Modulatable — sweep it with an LFO or CV for a live wipe.', range: '0..1', panel: 'DCU' },
+  bHPos:       { description: 'Raster B: horizontal centering.', panel: 'DCU' },
+  bVPos:       { description: 'Raster B: vertical centering.', panel: 'DCU' },
+  bHSize:      { description: 'Raster B: horizontal stretch (bipolar; through zero collapses).', panel: 'DCU' },
+  bVSize:      { description: 'Raster B: vertical stretch (bipolar).', panel: 'DCU' },
+  bZPush:      { description: 'Raster B: brightness-to-Z displacement.', range: '-4..4', panel: 'DCU' },
+  bZBias:      { description: 'Raster B: Z offset before displacement.', range: '-2..2', panel: 'DCU' },
+  bIntensity:  { description: 'Raster B: scanline brightness multiplier.', range: '0..3', panel: 'DCU' },
+  bHCenter:    { description: 'Raster B: horizontal rotation pivot.', range: '-1..1', panel: 'DCU' },
+  bVCenter:    { description: 'Raster B: vertical rotation pivot.', range: '-1..1', panel: 'DCU' },
+  bHSpin:      { description: 'Raster B: rotation around the horizontal axis (radians).', panel: 'DCU' },
+  bVSpin:      { description: 'Raster B: rotation around the vertical axis (radians).', panel: 'DCU' },
+  bRotation:   { description: 'Raster B: continuous in-plane rotation (degrees).', range: '-180..180', panel: 'DCU' },
+  bHLinearity: { description: 'Raster B: horizontal linearity bow.', panel: 'DCU' },
+  bVLinearity: { description: 'Raster B: vertical linearity bow.', panel: 'DCU' },
+  bThreshold:  { description: 'Raster B: black-crush threshold.', range: '0..1', panel: 'DCU' },
+  bContrast:   { description: 'Raster B: contrast before scanning.', range: '0..3', panel: 'DCU' },
+  bGamma:      { description: 'Raster B: gamma correction.', range: '0.2..3', panel: 'DCU' },
   'modSlot.freqRange': { description: 'Coarse LFO range switch: Low ×0.01, Mid ×1, High ×10 on the dialed Rate (Free sync only). High above ~20 Hz effective is stroboscopic — modulation is computed per frame, so it aliases against the frame rate.', panel: 'Modulation' },
 
   // ----- Color / PostFX -----

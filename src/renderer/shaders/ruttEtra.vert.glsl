@@ -47,6 +47,12 @@ uniform float uVReverse;       // 0 or 1
 uniform float uSkip;           // 0..0.95 — fraction of rows dropped
 uniform float uRows;           // total row count for skip math
 
+// v23: dual raster. Mode 0 = off (single raster, identical to pre-v23),
+// 1 = wipe (split by uWipe), 2 = alternate lines (row parity).
+uniform float uDualMode;
+uniform float uDualSide;       // 0 = raster A, 1 = raster B
+uniform float uWipe;           // 0..1 — B occupies the top uWipe fraction
+
 uniform float uTime;           // seconds (for any time-driven shader effects)
 
 uniform sampler2D uSpectrum;       // 1xN texture of FFT bands (R channel)
@@ -140,6 +146,20 @@ void main() {
   //     LineSegments connecting their vertices are clipped.
   float row = floor(uv.y * (uRows - 1.0) + 0.5);
   float keep = step(uSkip, fract(row * 0.6180339887)); // pseudo-random per row
+
+  // 12. Dual raster row mask (v23). Rides the same offscreen-discard
+  //     mechanism as Skip. uv.y is 0 at the TOP screen row, so
+  //     "uv.y < uWipe" is the top region — raster B's territory in
+  //     wipe mode.
+  if (uDualMode > 1.5) {
+    // Alternate lines: even rows = A, odd rows = B.
+    float parity = mod(row, 2.0);
+    keep *= (abs(parity - uDualSide) < 0.5) ? 1.0 : 0.0;
+  } else if (uDualMode > 0.5) {
+    float topRegion = 1.0 - step(uWipe, uv.y);
+    keep *= (uDualSide > 0.5) ? topRegion : 1.0 - topRegion;
+  }
+
   vAlive = keep;
   if (keep < 0.5) {
     p = vec3(0.0, 0.0, -1e6);

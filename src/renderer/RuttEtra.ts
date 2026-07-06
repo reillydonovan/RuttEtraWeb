@@ -38,6 +38,15 @@ export class RuttEtraScene {
 
   private uniforms!: { [key: string]: THREE.IUniform };
 
+  // v23: dual raster (feature-flagged, default off). Raster B is a second
+  // LineSegments SHARING raster A's BufferGeometry, with its own material
+  // whose uniforms bind to the b* Settings keys. When the flag is off
+  // mesh B is invisible and uDualMode stays 0 — the singleton path is
+  // untouched.
+  private materialB!: THREE.ShaderMaterial;
+  private meshB: THREE.LineSegments | null = null;
+  private uniformsB!: { [key: string]: THREE.IUniform };
+
   private spectrumTexture: THREE.DataTexture | null = null;
   private spectrumData: Float32Array = new Float32Array(32);
   private spectrumBandCount = 32;
@@ -77,6 +86,7 @@ export class RuttEtraScene {
     tex.generateMipmaps = false;
     this.videoTexture = tex;
     this.uniforms.uVideo.value = tex;
+    this.uniformsB.uVideo.value = tex;
     this.updateTexel();
   }
 
@@ -85,6 +95,7 @@ export class RuttEtraScene {
     const w = this.video.videoWidth || 640;
     const h = this.video.videoHeight || 480;
     (this.uniforms.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
+    (this.uniformsB.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
   }
 
   /**
@@ -97,9 +108,11 @@ export class RuttEtraScene {
    */
   setExternalVideoTexture(tex: THREE.Texture, width: number, height: number): void {
     this.uniforms.uVideo.value = tex;
+    this.uniformsB.uVideo.value = tex;
     const w = Math.max(1, width | 0);
     const h = Math.max(1, height | 0);
     (this.uniforms.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
+    (this.uniformsB.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
   }
 
   setSize(_width: number, _height: number): void {
@@ -133,6 +146,7 @@ export class RuttEtraScene {
 
   dispose(): void {
     this.material?.dispose();
+    this.materialB?.dispose();
     this.mesh?.geometry.dispose();
     this.videoTexture?.dispose();
     this.spectrumTexture?.dispose();
@@ -152,12 +166,41 @@ export class RuttEtraScene {
     tex.needsUpdate = true;
     this.spectrumTexture = tex;
     if (this.uniforms) this.uniforms.uSpectrum.value = tex;
+    if (this.uniformsB) this.uniformsB.uSpectrum.value = tex;
   }
 
   // -------------------- internals --------------------
 
   private createMaterial(): void {
-    this.uniforms = {
+    this.uniforms = this.makeUniformSet(0);
+    this.uniformsB = this.makeUniformSet(1);
+
+    this.ensureSpectrumTexture(this.spectrumBandCount);
+
+    this.material = new THREE.ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader: vertSrc,
+      fragmentShader: fragSrc,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    // Raster B material — same shaders, its own uniform set. Constructing
+    // the object is cheap; the GPU program only compiles if mesh B ever
+    // renders (flag on).
+    this.materialB = new THREE.ShaderMaterial({
+      uniforms: this.uniformsB,
+      vertexShader: vertSrc,
+      fragmentShader: fragSrc,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+  }
+
+  /** Full uniform set for one raster. `side` feeds uDualSide (0 = A, 1 = B). */
+  private makeUniformSet(side: 0 | 1): { [key: string]: THREE.IUniform } {
+    return {
       uVideo:        { value: null },
       uVideoTexel:   { value: new THREE.Vector2(1 / 640, 1 / 480) },
 
@@ -198,18 +241,12 @@ export class RuttEtraScene {
       uSpectrumAmount:  { value: 0.5 },
       uSpectrumStride:  { value: 1.0 },
       uSpectrumOn:      { value: 0 },
+
+      // v23: dual raster
+      uDualMode:     { value: 0 },
+      uDualSide:     { value: side },
+      uWipe:         { value: 0 },
     };
-
-    this.ensureSpectrumTexture(this.spectrumBandCount);
-
-    this.material = new THREE.ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader: vertSrc,
-      fragmentShader: fragSrc,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
   }
 
   /** (Re)build the scan-line geometry with current cols/rows. */
@@ -221,11 +258,17 @@ export class RuttEtraScene {
     this.currentCols = cols;
     this.currentRows = rows;
     this.uniforms.uRows.value = rows;
+    this.uniformsB.uRows.value = rows;
 
     if (this.mesh) {
       this.group.remove(this.mesh);
       this.mesh.geometry.dispose();
       this.mesh = null;
+    }
+    if (this.meshB) {
+      // Shares mesh A's geometry (already disposed above) — just detach.
+      this.group.remove(this.meshB);
+      this.meshB = null;
     }
 
     const segPerRow = cols - 1;
@@ -258,6 +301,14 @@ export class RuttEtraScene {
     mesh.frustumCulled = false;
     this.group.add(mesh);
     this.mesh = mesh;
+
+    // Raster B: same geometry, material B, only in the scene while the
+    // dual-raster flag is on.
+    const meshB = new THREE.LineSegments(geom, this.materialB);
+    meshB.frustumCulled = false;
+    meshB.visible = this.settings.get('dualRasterEnabled');
+    this.group.add(meshB);
+    this.meshB = meshB;
   }
 
   // -------------------- settings -> uniforms --------------------
@@ -266,28 +317,39 @@ export class RuttEtraScene {
     const s = this.settings;
     const live = this.live;
     const u = this.uniforms;
+    const uB = this.uniformsB;
 
     // Non-modulatable params keep using `settings.subscribe` directly.
     // Modulatable params route through `live.subscribe` so the renderer
     // sees `(base + sum_offsets) * product_factors` instead of just
     // `Settings.get(key)`. The two reads are intentional — the UI knob
     // continues to read/write the BASE via `settings`.
-    s.subscribe('mirrorH', (v) => (u.uMirror.value as THREE.Vector2).setX(v ? 1 : 0));
-    s.subscribe('mirrorV', (v) => (u.uMirror.value as THREE.Vector2).setY(v ? 1 : 0));
+    //
+    // v23: params SHARED between rasters update both uniform sets;
+    // raster B's independent deflection/luminance params bind the b*
+    // keys to uB further down.
+    s.subscribe('mirrorH', (v) => {
+      (u.uMirror.value as THREE.Vector2).setX(v ? 1 : 0);
+      (uB.uMirror.value as THREE.Vector2).setX(v ? 1 : 0);
+    });
+    s.subscribe('mirrorV', (v) => {
+      (u.uMirror.value as THREE.Vector2).setY(v ? 1 : 0);
+      (uB.uMirror.value as THREE.Vector2).setY(v ? 1 : 0);
+    });
 
-    live.subscribe('focus',     (v) => { u.uFocus.value = v; });
+    live.subscribe('focus',     (v) => { u.uFocus.value = v; uB.uFocus.value = v; });
     live.subscribe('threshold', (v) => { u.uThreshold.value = v; });
     live.subscribe('contrast',  (v) => { u.uContrast.value = v; });
     live.subscribe('gamma',     (v) => { u.uGamma.value = v; });
 
     live.subscribe('zPush',   (v) => { u.uZPush.value = v; });
     live.subscribe('zBias',   (v) => { u.uZBias.value = v; });
-    s.subscribe('zInvert', (v) => { u.uZInvert.value = v ? 1 : 0; });
+    s.subscribe('zInvert', (v) => { u.uZInvert.value = v ? 1 : 0; uB.uZInvert.value = v ? 1 : 0; });
 
     live.subscribe('hLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setX(v));
     live.subscribe('vLinearity', (v) => (u.uLinearity.value as THREE.Vector2).setY(v));
 
-    live.subscribe('aspect', (v) => { u.uAspect.value = v; });
+    live.subscribe('aspect', (v) => { u.uAspect.value = v; uB.uAspect.value = v; });
     live.subscribe('hSize',  (v) => (u.uSize.value as THREE.Vector2).setX(v));
     live.subscribe('vSize',  (v) => (u.uSize.value as THREE.Vector2).setY(v));
 
@@ -297,21 +359,56 @@ export class RuttEtraScene {
     live.subscribe('hCenter', (v) => (u.uCenter.value as THREE.Vector2).setX(v));
     live.subscribe('vCenter', (v) => (u.uCenter.value as THREE.Vector2).setY(v));
 
-    s.subscribe('rotate90', (v) => { u.uRotate90.value = v ? 1 : 0; });
+    s.subscribe('rotate90', (v) => { u.uRotate90.value = v ? 1 : 0; uB.uRotate90.value = v ? 1 : 0; });
     // v21: continuous rotation knob — degrees in Settings, radians in the
     // shader. Modulatable, so it reads live.
     live.subscribe('rotation', (v) => { u.uRotation.value = (v * Math.PI) / 180; });
     live.subscribe('hSpin', (v) => { u.uHSpin.value = v; });
     live.subscribe('vSpin', (v) => { u.uVSpin.value = v; });
-    s.subscribe('hReverse', (v) => { u.uHReverse.value = v ? 1 : 0; });
-    s.subscribe('vReverse', (v) => { u.uVReverse.value = v ? 1 : 0; });
+    s.subscribe('hReverse', (v) => { u.uHReverse.value = v ? 1 : 0; uB.uHReverse.value = v ? 1 : 0; });
+    s.subscribe('vReverse', (v) => { u.uVReverse.value = v ? 1 : 0; uB.uVReverse.value = v ? 1 : 0; });
 
-    live.subscribe('skip', (v) => { u.uSkip.value = v; });
+    live.subscribe('skip', (v) => { u.uSkip.value = v; uB.uSkip.value = v; });
 
     live.subscribe('intensity', (v) => { u.uIntensity.value = v; });
 
+    // ---- v23: raster B independent params (b* keys -> uB) ----
+    live.subscribe('bThreshold', (v) => { uB.uThreshold.value = v; });
+    live.subscribe('bContrast',  (v) => { uB.uContrast.value = v; });
+    live.subscribe('bGamma',     (v) => { uB.uGamma.value = v; });
+    live.subscribe('bZPush',     (v) => { uB.uZPush.value = v; });
+    live.subscribe('bZBias',     (v) => { uB.uZBias.value = v; });
+    live.subscribe('bHLinearity', (v) => (uB.uLinearity.value as THREE.Vector2).setX(v));
+    live.subscribe('bVLinearity', (v) => (uB.uLinearity.value as THREE.Vector2).setY(v));
+    live.subscribe('bHSize',   (v) => (uB.uSize.value as THREE.Vector2).setX(v));
+    live.subscribe('bVSize',   (v) => (uB.uSize.value as THREE.Vector2).setY(v));
+    live.subscribe('bHPos',    (v) => (uB.uPos.value as THREE.Vector2).setX(v));
+    live.subscribe('bVPos',    (v) => (uB.uPos.value as THREE.Vector2).setY(v));
+    live.subscribe('bHCenter', (v) => (uB.uCenter.value as THREE.Vector2).setX(v));
+    live.subscribe('bVCenter', (v) => (uB.uCenter.value as THREE.Vector2).setY(v));
+    live.subscribe('bRotation', (v) => { uB.uRotation.value = (v * Math.PI) / 180; });
+    live.subscribe('bHSpin',   (v) => { uB.uHSpin.value = v; });
+    live.subscribe('bVSpin',   (v) => { uB.uVSpin.value = v; });
+    live.subscribe('bIntensity', (v) => { uB.uIntensity.value = v; });
+
+    // ---- v23: dual-raster controls ----
+    const applyDualMode = (): void => {
+      const enabled = s.get('dualRasterEnabled');
+      const mode = enabled ? (s.get('dualMode') === 'alternate' ? 2 : 1) : 0;
+      u.uDualMode.value = mode;
+      uB.uDualMode.value = mode;
+      if (this.meshB) this.meshB.visible = enabled;
+    };
+    s.subscribe('dualRasterEnabled', applyDualMode);
+    s.subscribe('dualMode', applyDualMode);
+    live.subscribe('dualTracePos', (v) => {
+      u.uWipe.value = v;
+      uB.uWipe.value = v;
+    });
+
     s.subscribe('colorMode', (mode) => {
       u.uColorMode.value = COLOR_MODE_INDEX[mode];
+      uB.uColorMode.value = COLOR_MODE_INDEX[mode];
       this.applyTint(mode, this.settings.get('customTint'));
     });
     s.subscribe('customTint', (hex) => this.applyTint(this.settings.get('colorMode'), hex));
@@ -325,32 +422,34 @@ export class RuttEtraScene {
     s.subscribe('scanRate', () => this.rebuildGeometry());
 
     s.subscribe('renderMode', (mode) => {
-      if (mode === 'wireframe') {
-        this.material.blending = THREE.NormalBlending;
-        this.material.depthWrite = true;
-      } else {
-        this.material.blending = THREE.AdditiveBlending;
-        this.material.depthWrite = false;
+      const wire = mode === 'wireframe';
+      for (const m of [this.material, this.materialB]) {
+        m.blending = wire ? THREE.NormalBlending : THREE.AdditiveBlending;
+        m.depthWrite = wire;
       }
     });
 
     s.subscribe('audioSpectrum', (spec) => {
-      u.uSpectrumOn.value     = spec.enabled ? 1 : 0;
-      u.uSpectrumAmount.value = spec.amount;
-      u.uSpectrumStride.value = spec.stride;
+      for (const set of [u, uB]) {
+        set.uSpectrumOn.value     = spec.enabled ? 1 : 0;
+        set.uSpectrumAmount.value = spec.amount;
+        set.uSpectrumStride.value = spec.stride;
+      }
     });
-    live.subscribe('spectrumAmount', (v) => { u.uSpectrumAmount.value = v; });
-    live.subscribe('spectrumStride', (v) => { u.uSpectrumStride.value = v; });
+    live.subscribe('spectrumAmount', (v) => { u.uSpectrumAmount.value = v; uB.uSpectrumAmount.value = v; });
+    live.subscribe('spectrumStride', (v) => { u.uSpectrumStride.value = v; uB.uSpectrumStride.value = v; });
     s.subscribe('audioBandCount', (n) => this.ensureSpectrumTexture(n));
   }
 
   private applyTint(mode: ColorMode, customHex: string): void {
-    const tint = this.uniforms.uTint.value as THREE.Color;
-    switch (mode) {
-      case 'phosphorGreen':  tint.copy(PHOSPHOR_GREEN); break;
-      case 'phosphorAmber':  tint.copy(PHOSPHOR_AMBER); break;
-      case 'phosphorCustom': tint.set(customHex); break;
-      default:               tint.set('#ffffff');
+    for (const set of [this.uniforms, this.uniformsB]) {
+      const tint = set.uTint.value as THREE.Color;
+      switch (mode) {
+        case 'phosphorGreen':  tint.copy(PHOSPHOR_GREEN); break;
+        case 'phosphorAmber':  tint.copy(PHOSPHOR_AMBER); break;
+        case 'phosphorCustom': tint.set(customHex); break;
+        default:               tint.set('#ffffff');
+      }
     }
   }
 }

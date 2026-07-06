@@ -138,6 +138,16 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 **Collapse the scan**: H Size and V Size both pass through zero — dial either to `0` to collapse the raster to a line, or both for a point. This is the faithful "zoom to zero" gesture (the deflection dies, not the camera).
 
+#### Dual Raster
+
+The **Dual Raster** section adds a second, independently modulated raster (B) fed by the same video signal — a dual-trace scope on the bench:
+
+- **Wipe mode** — the **Trace** slider splits the frame: fully down = all raster A, fully up = all raster B, anywhere between = B on top, A below, both at full resolution with independent controls. Trace position is modulatable (`Dual: Trace Position` in any Target dropdown) — sweep it with an LFO or CV for a live wipe.
+- **Alternate lines** — rasters interleave row-by-row (half vertical resolution each); the slider doesn't apply.
+- Raster B has its own position, size, Z push/bias, intensity, rotation/spin, linearity, and luminance shaping — every one a `B: …` modulation target. Scan rate/columns, the video source, mirrors, and color mode are shared with A in this version.
+
+When the toggle is off, nothing about the classic single-raster path changes — no extra draw call, no shader work.
+
 #### Scan
 
 - **Scan Rate** — the count of horizontal scanlines drawn per frame. `100` is sparse and graphic; `480` is video-rate; `1080` and up shifts into a thick mesh look.

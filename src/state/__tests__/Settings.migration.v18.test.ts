@@ -64,3 +64,24 @@ describe('migrateSettings v20 -> v21', () => {
     expect((kept.modSlots as ModSlot[])[0].freqRange).toBe('high');
   });
 });
+
+describe('migrateSettings v22 -> v23 (dual raster)', () => {
+  it('backfills the flag OFF and every b* key at raster-A defaults', () => {
+    const out = migrateSettings({ _v: 22 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(23);
+    expect(out.dualRasterEnabled).toBe(false);
+    expect(out.dualMode).toBe('wipe');
+    expect(out.dualTracePos).toBe(0);
+    expect(out.bHSize).toBe(1);
+    expect(out.bZPush).toBe(0.9);
+    expect(out.bThreshold).toBe(0.04);
+  });
+
+  it('preserves explicit values and is idempotent', () => {
+    const kept = migrateSettings({ _v: 22, dualRasterEnabled: true, bZPush: 2 });
+    // The flag is a persisted preference (visual-only) — NOT force-reset.
+    expect(kept.dualRasterEnabled).toBe(true);
+    expect(kept.bZPush).toBe(2);
+    expect(migrateSettings(kept)._v).toBe(kept._v);
+  });
+});

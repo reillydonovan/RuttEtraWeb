@@ -37,6 +37,7 @@ import type { GraphEngine } from './modulation/graph/GraphEngine';
 import { ControlPanel } from './ui/ControlPanel';
 import { createSourceSection } from './ui/sections/SourceSection';
 import { createDcuSection } from './ui/sections/DcuSection';
+import { createDualRasterSection } from './ui/sections/DualRasterSection';
 import { createModulationContainerSection } from './ui/sections/ModulationContainerSection';
 import { createCameraSection } from './ui/sections/CameraSection';
 import { createColorPostFxSection } from './ui/sections/ColorPostFxSection';
@@ -727,6 +728,7 @@ async function bootSynth(): Promise<void> {
 
   panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'XR',                    body: createXrSection(settings, xrManager) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });

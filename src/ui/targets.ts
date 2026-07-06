@@ -63,6 +63,18 @@ export const TARGETS: TargetOption[] = [
   { v: 'patternScopeTrigger',   l: 'Pattern: Scope Trigger' },
   { v: 'patternScopePersist',   l: 'Pattern: Scope Persist' },
   { v: 'patternScopeThickness', l: 'Pattern: Scope Thickness' },
+  // Dual raster (v23) — the wipe slider + every raster-B param. Voltage
+  // control of the dual-trace position (item 11) falls out of this list.
+  { v: 'dualTracePos', l: 'Dual: Trace Position' },
+  { v: 'bHPos', l: 'B: H Position' }, { v: 'bVPos', l: 'B: V Position' },
+  { v: 'bHSize', l: 'B: H Size' },    { v: 'bVSize', l: 'B: V Size' },
+  { v: 'bZPush', l: 'B: Z Push' },    { v: 'bZBias', l: 'B: Z Bias' },
+  { v: 'bIntensity', l: 'B: Intensity' },
+  { v: 'bHCenter', l: 'B: H Center' }, { v: 'bVCenter', l: 'B: V Center' },
+  { v: 'bHSpin', l: 'B: H Spin' },     { v: 'bVSpin', l: 'B: V Spin' },
+  { v: 'bRotation', l: 'B: Rotation' },
+  { v: 'bHLinearity', l: 'B: H Linearity' }, { v: 'bVLinearity', l: 'B: V Linearity' },
+  { v: 'bThreshold', l: 'B: Threshold' }, { v: 'bContrast', l: 'B: Contrast' }, { v: 'bGamma', l: 'B: Gamma' },
 ];
 
 /** Same list, in `{ value, label }` shape for the LearnBinding widget. */
