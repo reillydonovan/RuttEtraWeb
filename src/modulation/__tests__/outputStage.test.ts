@@ -49,3 +49,40 @@ describe('applyOutputStage', () => {
     expect(applyOutputStage(0.1, { ...DEFAULT_OUTPUT_STAGE, outputCurve: 'step' })).toBeCloseTo(0, 8);
   });
 });
+
+// ---------------------------------------------------------------
+// v18: slewToward — shared by the Graph Slew node and Classic slots
+// ---------------------------------------------------------------
+import { slewToward } from '../outputStage';
+
+describe('slewToward (v18)', () => {
+  it('is identity when both times are 0 (slew off)', () => {
+    expect(slewToward(0, 1, 1 / 60, 0, 0)).toBe(1);
+    expect(slewToward(0.7, -0.3, 1 / 60, 0, 0)).toBe(-0.3);
+  });
+
+  it('rises toward the target without overshooting', () => {
+    let v = 0;
+    for (let i = 0; i < 30; i++) v = slewToward(v, 1, 1 / 60, 100, 100);
+    expect(v).toBeGreaterThan(0.9);
+    expect(v).toBeLessThanOrEqual(1);
+  });
+
+  it('uses the fall time when the signal decreases', () => {
+    // Fast rise, slow fall: after a drop the value should linger high.
+    let v = 1;
+    v = slewToward(v, 0, 1 / 60, 1, 2000);
+    expect(v).toBeGreaterThan(0.98);
+    // And with slow rise / fast fall the drop is instant-ish.
+    let w = 1;
+    w = slewToward(w, 0, 1 / 60, 2000, 1);
+    expect(w).toBeLessThan(0.01);
+  });
+
+  it('is dt-agnostic: one big step ~= many small steps', () => {
+    let small = 0;
+    for (let i = 0; i < 60; i++) small = slewToward(small, 1, 1 / 60, 500, 500);
+    const big = slewToward(0, 1, 1, 500, 500);
+    expect(Math.abs(small - big)).toBeLessThan(1e-6);
+  });
+});

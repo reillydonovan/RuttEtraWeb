@@ -136,6 +136,16 @@ export interface ModSlot {
   outputOffset: number;         // -1..1, default 0
   outputInvert: boolean;        // default false
 
+  // ---------- v18: per-slot slew (glide) ----------
+  /**
+   * Rise / fall slew on the post-output-stage value, in ms. 0 = off
+   * (instant, the pre-v18 behavior). Mirrors the Graph `slew` node's
+   * exponential `1 - exp(-dt/tau)` approach — same math via the shared
+   * `slewToward()` helper in `modulation/outputStage.ts`.
+   */
+  slewRiseMs: number;           // 0..5000, default 0
+  slewFallMs: number;           // 0..5000, default 0
+
   /** Constant source value, used only when source === 'constant'. */
   constantValue: number;        // -1..1, default 0
 
@@ -1045,6 +1055,9 @@ export const DEFAULT_MOD_SLOT: ModSlot = {
   outputOffset: 0,
   outputInvert: false,
 
+  slewRiseMs: 0,
+  slewFallMs: 0,
+
   constantValue: 0,
 
   cvChannel: 0,
@@ -1283,7 +1296,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 17;
+const CURRENT_VERSION = 18;
 
 interface Versioned { _v?: number }
 
@@ -1682,6 +1695,19 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       };
     }
     s._v = 17;
+  }
+
+  // v17 -> v18: per-slot slew (glide) on Classic slots. Both default to
+  // 0 ms = off, preserving pre-v18 behavior exactly. Idempotent.
+  if ((s._v ?? 1) < 18) {
+    if (Array.isArray(s.modSlots)) {
+      s.modSlots = (s.modSlots as ModSlot[]).map((slot) => ({
+        ...slot,
+        slewRiseMs: (slot as Partial<ModSlot>).slewRiseMs ?? 0,
+        slewFallMs: (slot as Partial<ModSlot>).slewFallMs ?? 0,
+      }));
+    }
+    s._v = 18;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

@@ -184,6 +184,13 @@ export interface SlotRowAdapter {
     max: NumAdapter;
     offset: NumAdapter;
     invert: BoolAdapter;
+    /**
+     * v18: per-slot slew (Classic only). Graph rows omit these — in
+     * Graph mode you insert a Slew node instead (coexistence: same math,
+     * different patching surface).
+     */
+    slewRise?: NumAdapter;
+    slewFall?: NumAdapter;
   };
 
   // -------------------- MIDI out (optional) --------------------
@@ -665,6 +672,14 @@ function buildOutputStageGroup(o: SlotRowAdapter['output']): BodyGroup {
   const maxUi = buildNumField('Max', o.max); refreshers.push(maxUi.refresh); g.body.appendChild(maxUi.root);
   const offUi = buildNumField('Offset', o.offset); refreshers.push(offUi.refresh); g.body.appendChild(offUi.root);
   const invUi = buildToggleRow('Invert', o.invert, 'invert output'); refreshers.push(invUi.refresh); g.body.appendChild(invUi.root);
+  if (o.slewRise) {
+    const riseUi = buildNumField('Slew ↑ ms', o.slewRise);
+    refreshers.push(riseUi.refresh); g.body.appendChild(riseUi.root);
+  }
+  if (o.slewFall) {
+    const fallUi = buildNumField('Slew ↓ ms', o.slewFall);
+    refreshers.push(fallUi.refresh); g.body.appendChild(fallUi.root);
+  }
   return { root: g.root, refresh(): void { for (const r of refreshers) r(); } };
 }
 

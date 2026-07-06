@@ -102,3 +102,30 @@ export function applyCurve(v: number, curve: OutputCurve): number {
     }
   }
 }
+
+/**
+ * Exponential rise/fall slew limiter — the single shared implementation
+ * used by the Graph `slew` node and (v18) Classic per-slot slew.
+ *
+ * `1 - exp(-dt/tau)` keeps the approach dt-agnostic; tau at or below
+ * 0.5 ms is treated as "off" (returns the target exactly), matching the
+ * Graph node's historical threshold.
+ *
+ * @param current  Last output value.
+ * @param target   This frame's input value.
+ * @param dtSec    Frame delta in seconds.
+ * @param riseMs   Time constant when the signal is rising.
+ * @param fallMs   Time constant when the signal is falling.
+ */
+export function slewToward(
+  current: number,
+  target: number,
+  dtSec: number,
+  riseMs: number,
+  fallMs: number,
+): number {
+  const tau = (target > current ? riseMs : fallMs) / 1000;
+  if (tau <= 0.0005) return target;
+  const k = 1 - Math.exp(-dtSec / tau);
+  return current + (target - current) * k;
+}

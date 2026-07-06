@@ -28,7 +28,7 @@ Each row in the Classic matrix is a complete patch. Walk through one end-to-end:
 1. **Source dropdown** — pick LFO (sine / triangle / square / saw / pulse), Ramp (up / down / triangle / hold), Audio (envelope), Audio Band [n], Beat, MIDI CC/Note/Velocity/Clock, OSC, Joystick X/Y/Z, Constant, CV Input (audio), CV Input (OSC), Gamepad Axis, Gamepad Button.
 2. **▼ Expand** — opens source-specific controls below the row.
 3. For an **LFO**: Rate, Shape, Phase, Duty (square/pulse only), Depth, Sync (Free/MIDI/Tempo), **Retrigger** button, Polarity (bipolar / unipolar).
-4. **Output stage** (every source) — Curve (Linear / Exp / Log / S / Step), Range Min / Max, Offset, Invert.
+4. **Output stage** (every source) — Curve (Linear / Exp / Log / S / Step), Range Min / Max, Offset, Invert, and **Slew ↑/↓** glide times (Classic only; 0 ms = off). Slew smooths the post-curve value — pair the Step curve with a 200 ms slew for a portamento staircase. In Graph mode, insert a Slew node instead; both use the same exponential math.
 5. **Amount** — master level. Classic Amount range is ±5; Graph Amount range is ±20 (extreme for parameter sweeps).
 6. **Target** — the parameter this patch modulates. CV-output channels appear here too as `CV Out: Ch N`.
 7. **Copy / Paste / Reset / Delete** icon row at the right edge of the patch header.

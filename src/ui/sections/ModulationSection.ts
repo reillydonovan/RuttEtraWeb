@@ -605,6 +605,8 @@ function createSlot(
       max:    { get: () => get().outputMax,    set: (v) => update({ outputMax: v }),    min: -2, max: 2, step: 0.001 },
       offset: { get: () => get().outputOffset, set: (v) => update({ outputOffset: v }), min: -1, max: 1, step: 0.001 },
       invert: { get: () => get().outputInvert, set: (v) => update({ outputInvert: v }) },
+      slewRise: { get: () => get().slewRiseMs ?? 0, set: (v) => update({ slewRiseMs: Math.max(0, v) }), min: 0, max: 5000, step: 1 },
+      slewFall: { get: () => get().slewFallMs ?? 0, set: (v) => update({ slewFallMs: Math.max(0, v) }), min: 0, max: 5000, step: 1 },
     },
     midiOut: {
       enabled: { get: () => get().midiOutEnabled, set: (v) => update({ midiOutEnabled: v }) },

@@ -7,6 +7,7 @@
  */
 
 import { register } from '../registry';
+import { slewToward } from '../../outputStage';
 
 // ---------- Attenuator ----------
 
@@ -293,16 +294,12 @@ register<SlewState>({
   init: () => ({ value: 0 }),
   tick(ctx, state, ins, params, outputs) {
     const target = ins.in ?? 0;
-    const rise = +(params.riseMs as number) / 1000;
-    const fall = +(params.fallMs as number) / 1000;
-    const tau = target > state.value ? rise : fall;
-    if (tau <= 0.0005) {
-      state.value = target;
-    } else {
-      // Exponential approach with `1 - exp(-dt/tau)` keeps it dt-agnostic.
-      const k = 1 - Math.exp(-ctx.dt / tau);
-      state.value += (target - state.value) * k;
-    }
+    // Shared implementation with the Classic per-slot slew (v18) —
+    // one concept, one source (modulation/outputStage.ts).
+    state.value = slewToward(
+      state.value, target, ctx.dt,
+      +(params.riseMs as number), +(params.fallMs as number),
+    );
     outputs.out = state.value;
   },
 });

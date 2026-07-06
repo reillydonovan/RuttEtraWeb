@@ -20,7 +20,7 @@ describe('migrateSettings v16 -> v17', () => {
       },
     };
     const out = migrateSettings(v16);
-    expect(out._v).toBe(17);
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(17);
     const g = out.modGraph as GraphPatch;
     expect(g.nodes[0].enabled).toBe(true);
     // Explicit false is user intent — preserved, not clobbered.
@@ -30,9 +30,9 @@ describe('migrateSettings v16 -> v17', () => {
 
   it('is idempotent and tolerates a null graph', () => {
     const once = migrateSettings({ _v: 16, modGraph: null });
-    expect(once._v).toBe(17);
+    expect(once._v ?? 0).toBeGreaterThanOrEqual(17);
     expect(once.modGraph).toBeNull();
     const twice = migrateSettings(once);
-    expect(twice._v).toBe(17);
+    expect(twice._v).toBe(once._v);
   });
 });

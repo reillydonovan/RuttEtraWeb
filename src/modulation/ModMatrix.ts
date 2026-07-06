@@ -44,7 +44,7 @@ export interface CVOutputLike {
 }
 import { activeTargetsBus } from './ActiveTargetsBus';
 import { divisionToHz } from './tempo';
-import { applyOutputStage } from './outputStage';
+import { applyOutputStage, slewToward } from './outputStage';
 import { LiveValuesStore } from './LiveValues';
 
 /**
@@ -92,6 +92,8 @@ interface SlotState {
    * re-running the source code.
    */
   lastShaped: number;
+  /** v18: slew tracker — last post-slew output value. */
+  slewValue: number;
 }
 
 function makeSlotState(): SlotState {
@@ -104,6 +106,7 @@ function makeSlotState(): SlotState {
     lastSyncedHz: 0,
     syncedPhase: 0,
     lastShaped: 0,
+    slewValue: 0,
   };
 }
 
@@ -269,11 +272,19 @@ export class ModMatrix {
       if (!slot.enabled || slot.target === 'none') {
         slotValues[i] = 0;
         if (rawValues) rawValues[i] = 0;
+        // Reset the slew tracker so a re-enabled slot glides up from 0
+        // rather than resuming from a stale pre-disable value. (Disable
+        // itself is instant — no slew — per the no-stickiness rule.)
+        if (this.slotStates[i]) this.slotStates[i].slewValue = 0;
         continue;
       }
       const state = this.ensureSlotState(i);
       const raw = this.computeSlotRaw(slot, i, state, now, safeDt, internalBpm);
-      const shaped = applyOutputStage(raw, slot);
+      let shaped = applyOutputStage(raw, slot);
+      // v18: per-slot slew (glide) on the post-output-stage value.
+      // 0 ms rise+fall = instant (identity), the pre-v18 behavior.
+      shaped = slewToward(state.slewValue, shaped, safeDt, slot.slewRiseMs ?? 0, slot.slewFallMs ?? 0);
+      state.slewValue = shaped;
       slotValues[i] = shaped;
       state.lastShaped = shaped;
       if (rawValues) rawValues[i] = raw;
