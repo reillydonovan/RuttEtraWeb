@@ -420,7 +420,7 @@ async function bootSynth(): Promise<void> {
   async function getAnaglyphRenderer() {
     if (!anaglyphRenderer) {
       const { AnaglyphRenderer } = await import('./renderer/AnaglyphRenderer');
-      anaglyphRenderer = await AnaglyphRenderer.create(renderer, canvas.clientWidth, canvas.clientHeight);
+      anaglyphRenderer = await AnaglyphRenderer.create(renderer, ruttEtra.group, canvas.clientWidth, canvas.clientHeight);
       anaglyphRenderer.setIpd(settings.get('anaglyphIpdCm'));
     }
     return anaglyphRenderer;

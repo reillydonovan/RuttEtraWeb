@@ -59,6 +59,7 @@
 
 import * as THREE from 'three';
 import { SettingsStore } from '../state/Settings';
+import { worldIpdFromCm } from '../renderer/stereoIpd';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
@@ -213,12 +214,9 @@ export class StereoCompositor {
     const box = new THREE.Box3().setFromObject(this.meshGroup);
     const size = new THREE.Vector3();
     box.getSize(size);
-    const meshWidth = size.x;
-    if (!isFinite(meshWidth) || meshWidth <= 0) {
-      return ipdCm / 100;
-    }
-    // Reference: a 1-unit-wide mesh maps cm directly to world units.
-    return (ipdCm / 100) * meshWidth;
+    // Shared cm→world convention with the anaglyph renderer — see
+    // src/renderer/stereoIpd.ts (one concept, one source).
+    return worldIpdFromCm(ipdCm, size.x);
   }
 
   private updateEyeCameras(eyeW: number, eyeH: number): void {
