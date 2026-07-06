@@ -14,7 +14,8 @@ describe('migrateSettings v17 -> v18', () => {
       ],
     };
     const out = migrateSettings(v17);
-    expect(out._v).toBe(18);
+    // Note: assert ≥, not ===, so later migration steps don't break this test.
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(18);
     const slots = out.modSlots as ModSlot[];
     expect(slots[0].slewRiseMs).toBe(0);
     expect(slots[0].slewFallMs).toBe(0);
@@ -25,7 +26,7 @@ describe('migrateSettings v17 -> v18', () => {
 
   it('is idempotent', () => {
     const once = migrateSettings({ _v: 17, modSlots: [] });
-    expect(once._v).toBe(18);
-    expect(migrateSettings(once)._v).toBe(18);
+    expect(once._v ?? 0).toBeGreaterThanOrEqual(18);
+    expect(migrateSettings(once)._v).toBe(once._v);
   });
 });

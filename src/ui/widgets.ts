@@ -11,6 +11,7 @@
  */
 
 import { Settings, SettingsStore, DEFAULTS } from '../state/Settings';
+import { clampRangeOverride, isDefaultRange } from '../state/paramRanges';
 import { layoutManager } from './layout/LayoutManager';
 import { presentSheetPicker } from './widgets/BottomSheetPicker';
 import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus';
@@ -87,44 +88,75 @@ export function slider(
   wrap.className = 'rw-slider';
   const range = document.createElement('input');
   range.type = 'range';
-  range.min = String(min);
-  range.max = String(max);
   range.step = String(step);
   const num = document.createElement('input');
   num.type = 'number';
-  num.min = String(min);
-  num.max = String(max);
   num.step = String(step);
   num.className = 'rw-num';
   wrap.append(range, num);
 
   const defaultValue = (DEFAULTS as unknown as Record<string, unknown>)[key as string] as number;
 
+  // v19: effective bounds — the designed (min, max) unless the user has
+  // stored a range override for this key. All derived state (stops,
+  // scrub mapping, aria, attrs) reads these and is refreshed by
+  // applyEffRange() whenever the override changes.
+  let effMin = min;
+  let effMax = max;
+
   // Compact-mode stop-chips + tappable readout. Always built and inserted
   // into the DOM; CSS hides them outside compact and hides the native
   // range / number input inside compact. This way a layout flip
   // (`?layout=` override or window resize) is purely a CSS swap with no
   // JS rebuild required.
-  const stops = computeStops(min, max, step, 5);
+  let chips: HTMLButtonElement[] = [];
+  let stops: number[] = [];
   const stopBar = document.createElement('div');
   stopBar.className = 'rw-slider-stops';
-  const chips: HTMLButtonElement[] = stops.map((v) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'rw-slider-stop';
-    b.textContent = formatNum(v, step);
-    b.addEventListener('click', () => settings.set(key, v as never));
-    return b;
+  const rebuildStops = (): void => {
+    stops = computeStops(effMin, effMax, step, 5);
+    chips = stops.map((v) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rw-slider-stop';
+      b.textContent = formatNum(v, step);
+      b.addEventListener('click', () => settings.set(key, v as never));
+      return b;
+    });
+    stopBar.replaceChildren(...chips);
+  };
+
+  const rangeEditFor = (): RangeEditOptions => ({
+    defMin: min,
+    defMax: max,
+    current: { min: effMin, max: effMax },
+    onChange: (next) => {
+      const cur = { ...(settings.get('paramRangeOverrides') ?? {}) };
+      const normalized = next ? clampRangeOverride(min, max, next.min, next.max) : null;
+      if (!normalized || isDefaultRange(min, max, normalized)) {
+        delete cur[key as string];
+      } else {
+        cur[key as string] = normalized;
+      }
+      settings.set('paramRangeOverrides', cur as never);
+    },
   });
-  stopBar.append(...chips);
+
+  const openModal = (): void => {
+    openNumericModal(`Enter ${String(key)}`, settings.get(key) as number, effMin, effMax, step, (v) => {
+      settings.set(key, v as never);
+    }, rangeEditFor());
+  };
 
   const readoutBtn = document.createElement('button');
   readoutBtn.type = 'button';
   readoutBtn.className = 'rw-slider-readout';
-  readoutBtn.addEventListener('click', () => {
-    openNumericModal(`Enter ${String(key)}`, settings.get(key) as number, min, max, step, (v) => {
-      settings.set(key, v as never);
-    });
+  readoutBtn.addEventListener('click', openModal);
+
+  // Desktop path to the same modal (incl. range editing): right-click.
+  wrap.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    openModal();
   });
 
   // Compact-mode touchable scrub bar — a div, not an <input type="range">.
@@ -135,8 +167,6 @@ export function slider(
   const scrubBar = document.createElement('div');
   scrubBar.className = 'rw-slider-scrub';
   scrubBar.setAttribute('role', 'slider');
-  scrubBar.setAttribute('aria-valuemin', String(min));
-  scrubBar.setAttribute('aria-valuemax', String(max));
   scrubBar.setAttribute('aria-orientation', 'horizontal');
   scrubBar.setAttribute('aria-label', String(key));
   scrubBar.tabIndex = 0;
@@ -148,13 +178,13 @@ export function slider(
 
   const decimals = step < 1 ? Math.max(0, -Math.floor(Math.log10(step))) : 0;
   const snapToStep = (raw: number): number => {
-    const snapped = Math.round((raw - min) / step) * step + min;
-    return parseFloat(Math.max(min, Math.min(max, snapped)).toFixed(decimals + 3));
+    const snapped = Math.round((raw - effMin) / step) * step + effMin;
+    return parseFloat(Math.max(effMin, Math.min(effMax, snapped)).toFixed(decimals + 3));
   };
   const updateFromPointer = (clientX: number): void => {
     const r = scrubBar.getBoundingClientRect();
     const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-    settings.set(key, snapToStep(min + t * (max - min)) as never);
+    settings.set(key, snapToStep(effMin + t * (effMax - effMin)) as never);
   };
   // Document-level pointermove/pointerup listeners are more robust on iOS
   // Safari than element-level setPointerCapture: inside the bottom-sheet's
@@ -202,8 +232,8 @@ export function slider(
       case 'ArrowRight': case 'ArrowUp':   next += step; break;
       case 'PageDown':                     next -= big;  break;
       case 'PageUp':                       next += big;  break;
-      case 'Home':                         next = min;   break;
-      case 'End':                          next = max;   break;
+      case 'Home':                         next = effMin; break;
+      case 'End':                          next = effMax; break;
       case 'Backspace': case 'Delete':     next = defaultValue; break;
       default: return;
     }
@@ -217,7 +247,7 @@ export function slider(
     range.value = String(v);
     num.value = formatNum(v, step);
     readoutBtn.textContent = formatNum(v, step);
-    const t = max === min ? 0 : (v - min) / (max - min);
+    const t = effMax === effMin ? 0 : (v - effMin) / (effMax - effMin);
     const pct = Math.max(0, Math.min(1, t)) * 100;
     scrubFill.style.width = `${pct}%`;
     scrubKnob.style.left = `${pct}%`;
@@ -230,6 +260,25 @@ export function slider(
     }
     chips.forEach((c, i) => c.classList.toggle('selected', i === best));
   };
+
+  // v19: apply the effective bounds to every derived control. Runs once
+  // at build and again whenever the override map changes (including on
+  // preset / project load, since those write Settings keys).
+  const applyEffRange = (): void => {
+    const o = (settings.get('paramRangeOverrides') ?? {})[key as string];
+    const normalized = o ? clampRangeOverride(min, max, o.min, o.max) : null;
+    effMin = normalized?.min ?? min;
+    effMax = normalized?.max ?? max;
+    range.min = String(effMin); range.max = String(effMax);
+    num.min = String(effMin);   num.max = String(effMax);
+    scrubBar.setAttribute('aria-valuemin', String(effMin));
+    scrubBar.setAttribute('aria-valuemax', String(effMax));
+    wrap.classList.toggle('rw-slider--custom-range', normalized != null);
+    rebuildStops();
+    apply(settings.get(key) as number);
+  };
+  settings.subscribe('paramRangeOverrides', () => applyEffRange());
+
   settings.subscribe(key, (v) => apply(v as number));
 
   range.addEventListener('input', () => settings.set(key, +range.value as never));
@@ -289,9 +338,7 @@ export function slider(
       pressStartX = ev.clientX; pressStartY = ev.clientY;
       pressTimer = window.setTimeout(() => {
         pressTimer = null;
-        openNumericModal(`Enter ${String(key)}`, settings.get(key) as number, min, max, step, (v) => {
-          settings.set(key, v as never);
-        });
+        openModal();
       }, 700);
       range.addEventListener('pointermove', onMove);
       const stop = () => {
@@ -311,9 +358,21 @@ function clampNumber(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/** v19: optional range-editing section on the numeric modal. */
+interface RangeEditOptions {
+  /** Designed bounds — the "Reset range" target and clamp reference. */
+  defMin: number;
+  defMax: number;
+  /** Effective bounds when the modal opened. */
+  current: { min: number; max: number };
+  /** null = reset to designed bounds; otherwise the requested override. */
+  onChange(next: { min: number; max: number } | null): void;
+}
+
 function openNumericModal(
   title: string, current: number, min: number, max: number, step: number,
   onAccept: (v: number) => void,
+  rangeEdit?: RangeEditOptions,
 ): void {
   const overlay = document.createElement('div');
   overlay.className = 'rw-numeric-modal';
@@ -334,15 +393,59 @@ function openNumericModal(
   const ok = document.createElement('button');
   ok.className = 'rw-btn primary'; ok.type = 'button'; ok.textContent = 'OK';
   row.append(cancel, ok);
-  card.append(t, inp, row);
+  card.append(t, inp);
+
+  // Optional custom-range editor. The value clamp on OK uses whatever
+  // bounds are in these fields, so widening the range and typing a value
+  // beyond the old bounds works in a single visit.
+  let rangeMinInp: HTMLInputElement | null = null;
+  let rangeMaxInp: HTMLInputElement | null = null;
+  if (rangeEdit) {
+    const sub = document.createElement('div');
+    sub.className = 'rw-numeric-modal-subtitle';
+    sub.textContent = `Custom range (stock ${rangeEdit.defMin}..${rangeEdit.defMax})`;
+    rangeMinInp = document.createElement('input');
+    rangeMinInp.type = 'number'; rangeMinInp.inputMode = 'decimal';
+    rangeMinInp.value = String(rangeEdit.current.min);
+    rangeMinInp.title = 'Slider minimum';
+    rangeMaxInp = document.createElement('input');
+    rangeMaxInp.type = 'number'; rangeMaxInp.inputMode = 'decimal';
+    rangeMaxInp.value = String(rangeEdit.current.max);
+    rangeMaxInp.title = 'Slider maximum';
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'rw-btn'; resetBtn.type = 'button'; resetBtn.textContent = 'Reset range';
+    resetBtn.addEventListener('click', () => {
+      rangeMinInp!.value = String(rangeEdit.defMin);
+      rangeMaxInp!.value = String(rangeEdit.defMax);
+    });
+    const rangeRow = document.createElement('div');
+    rangeRow.className = 'rw-numeric-modal-range';
+    rangeRow.append(rangeMinInp, rangeMaxInp, resetBtn);
+    card.append(sub, rangeRow);
+  }
+
+  card.append(row);
   overlay.append(card);
   document.body.appendChild(overlay);
   inp.focus(); inp.select();
   const close = () => overlay.remove();
   cancel.addEventListener('click', close);
   ok.addEventListener('click', () => {
+    let lo = min, hi = max;
+    if (rangeEdit && rangeMinInp && rangeMaxInp) {
+      const wantMin = parseFloat(rangeMinInp.value);
+      const wantMax = parseFloat(rangeMaxInp.value);
+      const changed = wantMin !== rangeEdit.current.min || wantMax !== rangeEdit.current.max;
+      if (changed) {
+        const isReset = wantMin === rangeEdit.defMin && wantMax === rangeEdit.defMax;
+        rangeEdit.onChange(isReset ? null : { min: wantMin, max: wantMax });
+      }
+      if (Number.isFinite(wantMin) && Number.isFinite(wantMax) && wantMax > wantMin) {
+        lo = wantMin; hi = wantMax;
+      }
+    }
     const v = parseFloat(inp.value);
-    if (Number.isFinite(v)) onAccept(clampNumber(v, min, max));
+    if (Number.isFinite(v)) onAccept(clampNumber(v, lo, hi));
     close();
   });
   inp.addEventListener('keydown', (ev) => {

@@ -766,6 +766,14 @@ export interface Settings {
    */
   modSlotExpanded: boolean[];
 
+  /**
+   * v19: per-parameter slider range overrides, keyed by Settings key.
+   * Affects the UI control's dialable range only — live values remain
+   * unclamped (modulation can already exceed slider bounds). Overrides
+   * are normalized through `clampRangeOverride()` before storage.
+   */
+  paramRangeOverrides: Record<string, { min: number; max: number }>;
+
   modSlots: ModSlot[];
   /**
    * Active modulation engine(s). `'classic'` keeps the legacy 4-slot matrix
@@ -1192,6 +1200,7 @@ export const DEFAULTS: Settings = {
 
   internalBpm: 120,
   modSlotExpanded: [false, false, false, false],
+  paramRangeOverrides: {},
 
   modSlots: [
     { ...DEFAULT_MOD_SLOT },
@@ -1296,7 +1305,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 18;
+const CURRENT_VERSION = 19;
 
 interface Versioned { _v?: number }
 
@@ -1708,6 +1717,15 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
       }));
     }
     s._v = 18;
+  }
+
+  // v18 -> v19: per-parameter slider range overrides. Plain empty-object
+  // backfill; entries only appear when the user edits a range. Idempotent.
+  if ((s._v ?? 1) < 19) {
+    if (s.paramRangeOverrides === undefined || typeof s.paramRangeOverrides !== 'object' || s.paramRangeOverrides === null) {
+      s.paramRangeOverrides = {};
+    }
+    s._v = 19;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

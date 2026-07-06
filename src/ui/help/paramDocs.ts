@@ -241,5 +241,6 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   hudVisible:       { description: 'Show on-screen FPS/source HUD.', panel: 'UI' },
   helpAutoOpen:     { description: 'Auto-open this manual on first run.', panel: 'UI' },
   timelineDock:     { description: 'Position of the timeline dock: top, bottom, or hidden.', panel: 'UI' },
+  paramRangeOverrides: { description: 'Per-parameter custom slider ranges. Right-click any slider (or tap its readout) and edit the Custom Range fields — widen for extra headroom (up to 5× the stock span past each bound) or narrow for a vernier. The number box glows when a custom range is active. Reset Range restores stock bounds.', panel: 'UI' },
   timelineHeight:   { description: 'Pixel height of the timeline dock.', panel: 'UI' },
 };
