@@ -142,7 +142,10 @@ Gaps, in rough severity order:
 
 ## Bugs
 
-### 28. IPD doesn't work with the slider — ✅ root-caused (anaglyph slider is dead at the three.js layer)
+### 28. IPD doesn't work with the slider — ✅ **FIXED** (`5246580`)
+Vendored `AnaglyphEffectIpd` with a real settable `eyeSep` (upstream kept its StereoCamera closure-private — confirmed in r169 source); anaglyph + StereoCompositor now share one cm→world mapping (`src/renderer/stereoIpd.ts`, tested). Original root-cause analysis below.
+
+### 28-original. Audit detail (pre-fix)
 - Two IPD sliders exist. **Recording** stereo (`stereoIpdCm`, `RecordSection.ts:289` → `StereoCompositor.computeWorldIpd`, `StereoCompositor.ts:211-221`) is wired correctly and works. There is no IPD control in XR at all.
 - **Anaglyph** ("Eye Sep (cm)", `anaglyphIpdCm`, `CameraSection.ts:125`): the slider→Settings→subscriber wiring is correct (`main.ts:429`), but `AnaglyphRenderer.setIpd` writes `this.effect.eyeSep` (`AnaglyphRenderer.ts:88-90`) — and in three r0.169, `AnaglyphEffect` keeps its `StereoCamera` **private inside the constructor closure** and never reads an `eyeSep` property. The assignment sets a dead property; on-screen depth never changes. (The code's own comment at `AnaglyphRenderer.ts:36-39` admits it's trusting an undeclared runtime property.)
 - **Verify before fixing** (node_modules wasn't installed at audit time): confirm `node_modules/three/examples/jsm/effects/AnaglyphEffect.js` has no `eyeSep`. Fix direction: drive a `StereoCamera` directly (or vendor/extend the effect).
