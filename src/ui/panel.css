@@ -219,6 +219,23 @@ body.viewer-mode #about-link { display: none; }
   max-width: none;
 }
 .rw-popout-body #panel-root.rw-panel--popout.collapsed { width: 100%; }
+
+/* v19: panel-wide param search (AUDIT item 26) */
+.rw-panel-search { padding: 4px 8px; }
+.rw-panel-search input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 13px;
+  padding: 4px 8px;
+}
+.rw-panel-search input:focus { border-color: var(--re-accent); outline: none; }
+.rw-row--hit .rw-label { color: var(--re-accent); }
+.rw-row--dim { opacity: 0.35; }
+#panel-root.collapsed .rw-panel-search { display: none; }
 #panel-root.collapsed .rw-panel-body { display: none; }
 #panel-root.collapsed .rw-tabs { display: none; }
 #panel-root.collapsed .rw-panel-title-text { display: none; }

@@ -650,6 +650,25 @@ async function bootSynth(): Promise<void> {
     panel.addTitleAction(popoutBtn);
   }
 
+  // Panel-wide param search + tab hotkeys (v19, AUDIT item 26). `/`
+  // focuses the search, 1/2/3 switch panel tabs — both only when the
+  // keystroke isn't going into a text field.
+  const { createPanelSearch, isTypingTarget } = await import('./ui/PanelSearch');
+  const panelSearch = createPanelSearch(panelHost, settings);
+  panel.addBeforeTabs(panelSearch.el);
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
+    if (e.key === '/') { e.preventDefault(); panelSearch.focus(); return; }
+    // [ / ] cycle panel tabs. Deliberately NOT digit keys: the About
+    // reference reserves 1-9 for preset snapshot slots.
+    if (e.key === '[' || e.key === ']') {
+      const order: Array<'synth' | 'io' | 'help'> = ['synth', 'io', 'help'];
+      const cur = order.indexOf(settings.get('panelTab') ?? 'synth');
+      const next = (cur + (e.key === ']' ? 1 : order.length - 1)) % order.length;
+      settings.set('panelTab', order[next]);
+    }
+  });
+
   // Tiny ad-hoc toast for project events. Auto-dismisses after 4s.
   // Lives in the DOM only when a message is up — no permanent fixture.
   function projectToast(msg: string): void {

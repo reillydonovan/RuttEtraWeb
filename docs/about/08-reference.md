@@ -23,10 +23,9 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Project | `Ctrl+O` | Open Project (file picker) |
 | Project | `Ctrl+S` | Save Project (writes back to current file, or prompts if untitled) |
 | Project | `Ctrl+Shift+S` | Save Project As (name + location prompt) |
-| Global | `1`–`9` | Load preset snapshot slot |
-| Global | `F` | Toggle fullscreen (where supported) |
-| Global | `H` | Toggle Help panel |
-| Global | `?` | Focus the search box on this page |
+| Global | `/` | Focus the panel param search |
+| Global | `[` / `]` | Cycle panel tabs (Synth / I/O / Help) |
+| Global | `Alt+Shift+D` | Toggle the layout debug overlay |
 
 The Project shortcuts call `preventDefault()` to override the browser's built-in `Ctrl+S` ("save page as") and `Ctrl+O` ("open file") so they always reach the synth.
 

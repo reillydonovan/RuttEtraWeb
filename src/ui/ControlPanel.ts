@@ -47,6 +47,12 @@ export class ControlPanel {
     this.actionsBar.insertBefore(btn, this.actionsBar.firstChild);
   }
 
+  /** Insert an element between the title bar and the tab strip
+   *  (used by the panel-wide param search). */
+  addBeforeTabs(el: HTMLElement): void {
+    this.root.insertBefore(el, this.tabsBar);
+  }
+
   constructor(host: HTMLElement, private settings: SettingsStore) {
     this.root = host;
     this.root.setAttribute('data-dock', settings.get('panelDock'));
