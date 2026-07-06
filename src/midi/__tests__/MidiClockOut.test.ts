@@ -37,6 +37,8 @@ describe('schedulePulses', () => {
   it('tracks tempo: doubling BPM roughly doubles the pulse count', () => {
     const slow = schedulePulses(0, 0, 1000, 60).times.length;
     const fast = schedulePulses(0, 0, 1000, 120).times.length;
-    expect(fast / slow).toBeCloseTo(2, 1);
+    // Fencepost tolerance: counts are 24/25-ish vs 48/49-ish.
+    expect(fast / slow).toBeGreaterThan(1.8);
+    expect(fast / slow).toBeLessThan(2.2);
   });
 });
