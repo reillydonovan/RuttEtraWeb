@@ -26,7 +26,9 @@ register<LFOState>({
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
     shape:    { kind: 'enum', options: ['sine', 'triangle', 'saw', 'square', 'pulse'], default: 'sine' },
-    rate:     { kind: 'number', min: 0.01, max: 30,  step: 0.01, default: 1 },
+    // Floor matches the Classic slot LFO (0.001 Hz = 1000 s period) so
+    // subsonic sweeps are available in both engines.
+    rate:     { kind: 'number', min: 0.001, max: 30,  step: 0.001, default: 1 },
     phase:    { kind: 'number', min: 0,    max: 1,   step: 0.001, default: 0 },
     duty:     { kind: 'number', min: 0.05, max: 0.95, step: 0.01, default: 0.5 },
     bipolar:  { kind: 'boolean', default: true },
