@@ -82,7 +82,7 @@ Settings (base values, flat keys) ──→ LiveValuesStore ←── ModMatrix.
 
 ### Known drift
 
-The README's "Recent changes" section describes v10; the code has since gained v11 (WebXR) and v12 (stereoscopic recording, anaglyph, WHIP, hls.js, sample-video source via `VITE_SAMPLE_VIDEO_URL` in `.env`). The README's project-structure tree also predates `src/sequencer/`, `src/project/`, `src/perf/`, `src/platform/`, `src/ui/layout/`, and `src/ui/timeline/`. Trust the source over the README for current state.
+The README was reconciled to the v12+ state on 2026-07-05 (recent-changes section, structure tree, tech list). If README and source disagree, trust the source and fix the README in the same change.
 
 ## Debug helpers
 

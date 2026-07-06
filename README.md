@@ -25,7 +25,18 @@ npm run build
 
 ---
 
-## Recent changes (v10)
+## Recent changes (v11 → current)
+
+- **WebXR (v11)** — Enter VR/AR via `src/renderer/XRManager.ts`: mesh framing presets (tabletop / roomscale / architectural), a separate XR performance-profile axis, auto-end on tab hide. Post-processing is skipped in-headset for v1.
+- **Stereoscopic recording (v12)** — side-by-side stereo via a second offscreen renderer (`src/record/StereoCompositor.ts`), IPD control, and YouTube SV3D metadata injection into MP4s on stop (`src/record/StereoMetadata.ts`).
+- **Anaglyph mode** — red-cyan stereo on the main canvas (`src/renderer/AnaglyphRenderer.ts`); recording and streaming capture it automatically. Eye separation shares one cm→world mapping with stereo recording (`src/renderer/stereoIpd.ts`).
+- **WHIP output streaming** — publish the canvas as WebRTC to OBS 30+, MediaMTX, Cloudflare Stream, LiveKit (`src/stream/WhipPublisher.ts`).
+- **Stream input** — HLS (`.m3u8` via hls.js), MPEG-DASH, or any direct video URL as a source, with per-source audio routing (speaker playback and record-baking are independent toggles).
+- **Sample video source** — a "Load Sample" button backed by `public/samples/sample.mp4` (override with `VITE_SAMPLE_VIDEO_URL`, see `.env.example`).
+- **4× MSAA** on the composer's render target; higher default recording bitrate (25 Mbps).
+- **Source selection at startup** and About-page layout refresh.
+
+## Earlier: v10 release notes
 
 **May 2026** — **Pattern Generator source** — a synthesized "video signal" layer parallel to webcam / screen / file. Adds 16 fragment-shader patterns plus a fully-functional Oscilloscope mode that turns any signal you can sample (audio, mod-matrix slot, graph node port, settings param, beat pulse) into a phosphor scope trace that the DCU then displaces in Z. The original 1974 hardware was famously a hijacked oscilloscope; this is the Rutt-faithful version of an internal signal generator.
 
@@ -140,8 +151,6 @@ The symmetric counterpart to CV input. Drives Eurorack modules, CV-equipped synt
 - **0V startup ramp** — every false→true enable triggers a 100ms 0V→target ramp inside the worklet. No clicks, pops, or unexpected jumps.
 
 **Tests**: `CVOutput.test.ts` — 18 cases covering pitch math (including fractional notes, custom references, Buchla 1.2V/oct, calibration trim), scale quantization (chromatic / major / minor / pentatonic), and the voltage-clamp contract. Plus 4 new `cv-output` graph node cases.
-
-### CV input — drive any param with external analog voltages
 
 ### CV input — drive any param with external analog voltages
 
@@ -374,6 +383,10 @@ src/
 │   │   ├── PatternRenderer.ts  pattern RT + composit RT + per-kind material map + tick / setSize / dispose
 │   │   ├── OscilloscopeBuffer.ts circular FIFO + DataTexture upload + rising-edge trigger alignment
 │   │   └── shaders/            quad.vert + 16 pattern frag shaders + compositor (8 blend modes)
+│   ├── XRManager.ts            v11: WebXR session lifecycle, mesh framing, XR perf profiles
+│   ├── AnaglyphRenderer.ts     red-cyan on-canvas stereo (wraps vendored AnaglyphEffectIpd)
+│   ├── AnaglyphEffectIpd.ts    vendored three.js anaglyph effect with settable eye separation
+│   ├── stereoIpd.ts            shared cm→world IPD convention (anaglyph + stereo recording)
 │   └── shaders/
 │       ├── ruttEtra.vert.glsl  full DCU vertex pipeline + spectrum-driven Z term
 │       └── ruttEtra.frag.glsl  color modes + intensity + alpha falloff
@@ -387,11 +400,26 @@ src/
 │       ├── types.ts            GraphPatch, GraphNode, TargetBinding, NodeDef interfaces
 │       ├── registry.ts         node type registry + getDef() lookup
 │       ├── bootstrap.ts        auto-registers all node definitions at import time
-│       ├── nodes/              ~40 node implementations (sources, processors, logic, video, audio)
+│       ├── nodes/              ~48 node implementations (sources, processors, logic, video, audio, inputs, outputs)
 │       ├── VideoTap.ts         per-frame video texture luminance sampler (Video CV nodes)
-│       ├── BeginnerView.ts     beginner UI — looks like Classic, backed by graph
-│       ├── AdvancedView.ts     node-and-cable editor (SVG canvas, drag-to-wire)
-│       └── library.ts          graph patch save/load/export (localStorage + JSON)
+│       └── library.ts          starter patch templates
+├── sequencer/                  preset-keyframe timeline engine
+│   ├── Sequencer.ts            transport, playhead, bracketed keyframe lerp, undo/redo
+│   ├── types.ts                Timeline / Keyframe schema (versioned), excluded params
+│   ├── store.ts                timeline persistence + legacy-BPM migration toast
+│   ├── interp.ts               number/color lerp, enum step-at-midpoint
+│   └── easings.ts              linear/easeIn/easeOut/easeInOut/step/hold
+├── project/                    v10: .synth.json workspace format
+│   ├── Project.ts              snapshot/serialize/parse/migrate/apply (pure)
+│   ├── ProjectStore.ts         dirty tracking, recents, FS Access API + fallback
+│   ├── AutoSave.ts             60s dirty-snapshot to localStorage + recovery prompt
+│   └── RecoveredSession.ts     one-shot legacy-state packaging on first launch
+├── perf/
+│   ├── PerformanceProfile.ts   quality/balanced/battery profile manager
+│   └── FrameBudgetWatcher.ts   frame-time watchdog
+├── platform/
+│   ├── WakeLock.ts             keep-awake during performance
+│   └── HapticFeedback.ts       vibration feedback on supported devices
 ├── midi/
 │   ├── MidiManager.ts          requestMIDIAccess, device pickers, sendCC (7- and 14-bit)
 │   ├── MidiMapping.ts          binding registry, learn(), curves, last-value cache
@@ -402,15 +430,21 @@ src/
 │   ├── CVInput.ts              v9: multi-channel CV reader for DC-coupled audio interfaces
 │   ├── cv-worklet.js           v9: AudioWorkletProcessor — control-rate downsample + variance
 │   ├── CVOutput.ts             v9: multi-channel CV writer (own AudioContext + sinkId, ChannelMergerNode, type processors)
-│   └── cv-out-worklet.js       v9: AudioWorkletProcessor — smoothing + 0V startup ramp + hard sample clamp
+│   ├── cv-out-worklet.js       v9: AudioWorkletProcessor — smoothing + 0V startup ramp + hard sample clamp
+│   ├── Sonification.ts         v10: mesh→audio voice (osc→filter→amp→limiter, safety stack)
+│   └── MeshAnalyzer.ts         v10: 8 mesh statistics from the VideoTap readback
 ├── input/
 │   ├── sources.ts              webcam / screen / file source manager
 │   └── GamepadInput.ts         v9: gamepad / HID poller, axis variance for CV Learn
 ├── osc/OscClient.ts            WebSocket OSC client, learn(), auto-reconnect
-├── record/Recorder.ts          MediaRecorder wrapper, codec detection, download
+├── record/
+│   ├── Recorder.ts             MediaRecorder wrapper, codec detection, download
+│   ├── StereoCompositor.ts     v12: offscreen side-by-side stereo renderer
+│   └── StereoMetadata.ts       v12: YouTube SV3D MP4 box injection (pure, tested)
 ├── stream/
 │   ├── Broadcaster.ts          PeerJS broadcaster + QR share URL
-│   └── Viewer.ts               ?view=<id> fullscreen viewer with auto-reconnect
+│   ├── Viewer.ts               ?view=<id> fullscreen viewer with auto-reconnect
+│   └── WhipPublisher.ts        WHIP (WebRTC ingest) canvas output → OBS/MediaMTX/Cloudflare
 ├── about/                      v9: about.html entry — long-form manual page
 │   ├── main.ts                 loads markdown sections + injects autogen tables; nav, search, mobile TOC
 │   ├── autogen.ts              builds Param Reference + Node Catalog from paramDocs + graph registry
@@ -430,11 +464,17 @@ src/
     │   ├── paramDocs.ts        v9: pure-data param descriptions (shared by Help + about page)
     │   └── HelpSection.ts      Help panel renderer (Synth / I/O tab)
     ├── graph/
-    │   ├── PatchSection.ts     Graph mode container (Beginner / Advanced tabs)
     │   ├── BeginnerView.ts     beginner-view rows (uses shared SlotRow.ts)
-    │   ├── AdvancedView.ts     node editor canvas (SVG drag-and-wire)
+    │   ├── AdvancedView.ts     node editor canvas (click-to-wire, palette, inspector)
+    │   ├── CableLayer.ts       bezier cable rendering, kind-colored, animated flow
     │   ├── inspector.ts        binding inspector panel (Advanced view)
+    │   ├── Library.ts          starter-patch sidebar
+    │   ├── Probe.ts            signal probe scope
+    │   ├── RegionPicker.ts     video-region picker for video nodes
     │   └── graph.css           graph-specific styles
+    ├── layout/                 responsive panel system (TabBar, BottomSheet, TopStrip,
+    │                           LayoutManager, ResponsivePanel, DebugOverlay)
+    ├── timeline/               timeline dock UI (Dock, Track, Ruler, Inspector, Transport)
     └── sections/               one file per panel section
         ├── SourceSection.ts
         ├── DcuSection.ts
@@ -446,22 +486,27 @@ src/
         ├── PresetsSection.ts
         ├── RecordSection.ts
         ├── ShareSection.ts
+        ├── ProjectSection.ts              v10: New/Open/Save/Save As, recents, auto-save
+        ├── PatchSection.ts                Graph mode container (Beginner / Advanced tabs)
+        ├── XrSection.ts                   v11: Enter VR/AR, framing, XR perf profile
         ├── MidiSection.ts                 (I/O tab)
         ├── AudioSection.ts                (I/O tab)
         ├── OscSection.ts                  (I/O tab)
         ├── CVSection.ts                   v9: I/O tab — CV inputs + gamepad picker
-        └── CVOutputSection.ts             v9: I/O tab — CV outputs (per-channel type/source/range/test/calibrate)
+        ├── CVOutputSection.ts             v9: I/O tab — CV outputs (per-channel type/source/range/test/calibrate)
+        └── SonificationSection.ts         v10: I/O tab — mesh sonification voice + mappings
 
 docs/
 └── about/                       v9: long-form manual sources (markdown, rendered at build time)
     ├── 01-intro.md
-    ├── 02-quick-start.md
-    ├── 03-synthesis.md
-    ├── 04-modulation.md
-    ├── 05-io.md
-    ├── 06-performance.md
-    ├── 07-reference.md
-    └── 08-about.md
+    ├── 02-design-principles.md
+    ├── 03-quick-start.md
+    ├── 04-synthesis.md
+    ├── 05-modulation.md
+    ├── 06-io.md
+    ├── 07-performance.md
+    ├── 08-reference.md
+    └── 09-about.md
 
 scripts/
 └── check-about-bundle.cjs        v9: post-build sanity check — confirms about-*.js has no synth runtime
@@ -484,6 +529,7 @@ tools/
 - [Vite](https://vitejs.dev/) + vanilla TypeScript — no framework, fully static output
 - [three.js](https://threejs.org/) — WebGL rendering, EffectComposer, OrbitControls, PointerLockControls, DataTexture
 - [PeerJS](https://peerjs.com/) — WebRTC signaling (zero backend)
+- [hls.js](https://github.com/video-dev/hls.js) — HLS stream-input playback in non-Safari browsers
 - [qrcode](https://www.npmjs.com/package/qrcode) — QR code generation for share URLs
 - [marked](https://marked.js.org/) — markdown rendering (build-time only for about page)
 - Browser APIs — Web MIDI, Web Audio (`AnalyserNode`), `getUserMedia`, `getDisplayMedia`, `enumerateDevices`, `MediaRecorder`, `captureStream`
