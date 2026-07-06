@@ -40,6 +40,12 @@ export class ControlPanel {
   private sectionsByTitle = new Map<string, HTMLElement>();
   /** Original tab assignment for each section title (so a re-parent can restore it). */
   private sectionTab = new Map<string, TabId>();
+  private actionsBar!: HTMLElement;
+
+  /** Add a custom button to the title-bar action strip (before dock/collapse). */
+  addTitleAction(btn: HTMLButtonElement): void {
+    this.actionsBar.insertBefore(btn, this.actionsBar.firstChild);
+  }
 
   constructor(host: HTMLElement, private settings: SettingsStore) {
     this.root = host;
@@ -83,6 +89,7 @@ export class ControlPanel {
 
     actions.append(dockBtn, collapseBtn);
     title.appendChild(actions);
+    this.actionsBar = actions;
 
     // Tab strip
     const tabs = document.createElement('div');

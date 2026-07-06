@@ -62,7 +62,8 @@ export function openProbeOverlay(host: HTMLElement, opts: ProbeOptions): ProbeHa
   const onClick = (e: MouseEvent): void => {
     if (!overlay.contains(e.target as Node)) close();
   };
-  setTimeout(() => document.addEventListener('mousedown', onClick), 0);
+  // host.ownerDocument: dismiss-on-outside-click works in the popout too.
+  setTimeout(() => host.ownerDocument.addEventListener('mousedown', onClick), 0);
 
   function tick(): void {
     if (!running) return;
@@ -120,7 +121,7 @@ export function openProbeOverlay(host: HTMLElement, opts: ProbeOptions): ProbeHa
       cancelAnimationFrame(raf);
       clearTimeout(raf as unknown as number);
     }
-    document.removeEventListener('mousedown', onClick);
+    host.ownerDocument.removeEventListener('mousedown', onClick);
     overlay.remove();
     opts.onClose?.();
   }

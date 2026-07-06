@@ -145,7 +145,7 @@ export function slider(
   const openModal = (): void => {
     openNumericModal(`Enter ${String(key)}`, settings.get(key) as number, effMin, effMax, step, (v) => {
       settings.set(key, v as never);
-    }, rangeEditFor());
+    }, rangeEditFor(), wrap.ownerDocument);
   };
 
   const readoutBtn = document.createElement('button');
@@ -194,6 +194,10 @@ export function slider(
   let scrubLastTap = 0;
   scrubBar.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
+    // ownerDocument, not the module-scope document: the panel may live
+    // in the popout window (PanelPopout), whose events never reach the
+    // main document.
+    const doc = scrubBar.ownerDocument;
     const activeId = ev.pointerId;
     updateFromPointer(ev.clientX);
 
@@ -215,13 +219,13 @@ export function slider(
     };
     const onUp = (e: PointerEvent): void => {
       if (e.pointerId !== activeId) return;
-      document.removeEventListener('pointermove',   onMove);
-      document.removeEventListener('pointerup',     onUp);
-      document.removeEventListener('pointercancel', onUp);
+      doc.removeEventListener('pointermove',   onMove);
+      doc.removeEventListener('pointerup',     onUp);
+      doc.removeEventListener('pointercancel', onUp);
     };
-    document.addEventListener('pointermove',   onMove, { passive: false });
-    document.addEventListener('pointerup',     onUp);
-    document.addEventListener('pointercancel', onUp);
+    doc.addEventListener('pointermove',   onMove, { passive: false });
+    doc.addEventListener('pointerup',     onUp);
+    doc.addEventListener('pointercancel', onUp);
   });
   // Keyboard accessibility — left/right arrows, PageUp/Down, Home/End.
   scrubBar.addEventListener('keydown', (ev) => {
@@ -373,6 +377,7 @@ function openNumericModal(
   title: string, current: number, min: number, max: number, step: number,
   onAccept: (v: number) => void,
   rangeEdit?: RangeEditOptions,
+  hostDoc: Document = document,
 ): void {
   const overlay = document.createElement('div');
   overlay.className = 'rw-numeric-modal';
@@ -426,7 +431,8 @@ function openNumericModal(
 
   card.append(row);
   overlay.append(card);
-  document.body.appendChild(overlay);
+  // Appending auto-adopts into the host document (popout-safe).
+  hostDoc.body.appendChild(overlay);
   inp.focus(); inp.select();
   const close = () => overlay.remove();
   cancel.addEventListener('click', close);

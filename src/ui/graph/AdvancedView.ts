@@ -333,8 +333,18 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     writePatch(cur);
   }
   function onMouseUp(): void { dragging = null; }
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  // Attach to the view's own document at wire-up time AND re-attach if
+  // the panel is adopted into the popout window (PanelPopout) — module-
+  // scope `document` would stop receiving events there. The `attachDocs`
+  // set tracks which documents already have the listeners.
+  const attachedDocs = new WeakSet<Document>();
+  function attachDocListeners(doc: Document): void {
+    if (attachedDocs.has(doc)) return;
+    attachedDocs.add(doc);
+    doc.addEventListener('mousemove', onMouseMove);
+    doc.addEventListener('mouseup', onMouseUp);
+    doc.addEventListener('keydown', onKey);
+  }
 
   // Cancel pending connection on Esc.
   function onKey(e: KeyboardEvent): void {
@@ -343,7 +353,10 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       center.classList.remove('connecting');
     }
   }
-  document.addEventListener('keydown', onKey);
+  attachDocListeners(document);
+  // Lazily cover the popout case: any mousedown inside the view ensures
+  // its CURRENT owner document has the listeners.
+  root.addEventListener('mousedown', () => attachDocListeners(root.ownerDocument));
 
   function sizeCanvas(): void {
     const r = center.getBoundingClientRect();

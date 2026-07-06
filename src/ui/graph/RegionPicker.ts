@@ -87,10 +87,16 @@ export function createRegionPicker(opts: RegionPickerOptions): HTMLElement {
     dragging = (onRight && onBottom) ? 'resize' : 'move';
     dragStart = { mx: x, my: y, ...rect };
     e.preventDefault();
+    // ownerDocument: keeps drag alive inside the popout window.
+    const doc = canvas.ownerDocument;
+    const cleanup = (): void => {
+      doc.removeEventListener('mousemove', onMove);
+      doc.removeEventListener('mouseup', endDrag);
+    };
+    const endDrag = (): void => { onUp(); cleanup(); };
+    doc.addEventListener('mousemove', onMove);
+    doc.addEventListener('mouseup', endDrag);
   });
-
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
 
   function onMove(e: MouseEvent): void {
     if (!dragging) return;

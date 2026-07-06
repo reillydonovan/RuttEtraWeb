@@ -66,6 +66,12 @@ Each profile is a coarse hint — individual sliders still override. Switching p
 - **Fit modes** — `Match window`, `Fit to window`, `Fixed`. `Fit` letterboxes if aspect ratios don't match; `Match window` resamples to fit; `Fixed` shows actual pixels (with scrollbars at small viewports).
 - **Render scale** — supersampling factor for anti-aliasing (`1.0` = native, `2.0` = render twice the linear resolution then downsample). Costs GPU time, dramatically smooths sharp scanline edges.
 
+### Two-screen setups
+
+The **⧉ button** in the panel title bar pops the entire control panel out into its own window. Drag it to your laptop screen, put the main window fullscreen on the projector — output on one display, controls on the other, zero latency (it's the same page, not a stream). Click **⧈** (or close the popup) to bring the controls home. Because both windows share one live page, every slider, patch, and Learn binding works identically in either — nothing is mirrored or synced, it *is* the same panel.
+
+Notes: global keyboard shortcuts (Ctrl+S and friends) fire in the main window; the popout is a desktop feature (touch layouts keep the bottom sheet); for *remote* second screens — another machine or a tablet — use Share → Broadcast and open the `?view=` link there instead.
+
 ### WebXR — VR and AR headsets
 
 The Rutt/Etra has always been a three-dimensional instrument rendered through a two-dimensional window. WebXR removes that flattening. Connect a headset and you can step inside the mesh — walk around the scanlines, look at the displacement from underneath, see the terrain you've been editing as actual terrain.

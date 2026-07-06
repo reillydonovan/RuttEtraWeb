@@ -631,6 +631,25 @@ async function bootSynth(): Promise<void> {
   // -------------------------- UI panel ---------------------------------
   const panel = new ControlPanel(panelHost, settings);
 
+  // Two-screen popout (v19): move the whole control panel into its own
+  // window so output can go fullscreen on a second display. Same JS
+  // context — no state sync needed. Desktop feature; the button simply
+  // does nothing if the popup is blocked.
+  {
+    const { createPanelPopout } = await import('./ui/PanelPopout');
+    const popoutBtn = document.createElement('button');
+    popoutBtn.title = 'Pop controls out into a separate window (two-screen setup)';
+    popoutBtn.textContent = '⧉';
+    const popout = createPanelPopout(panelHost, (open) => {
+      popoutBtn.textContent = open ? '⧈' : '⧉';
+      popoutBtn.title = open
+        ? 'Return controls to this window'
+        : 'Pop controls out into a separate window (two-screen setup)';
+    });
+    popoutBtn.addEventListener('click', () => popout.toggle());
+    panel.addTitleAction(popoutBtn);
+  }
+
   // Tiny ad-hoc toast for project events. Auto-dismisses after 4s.
   // Lives in the DOM only when a message is up — no permanent fixture.
   function projectToast(msg: string): void {

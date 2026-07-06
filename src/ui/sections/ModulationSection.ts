@@ -343,6 +343,9 @@ function buildJoystick(matrix: ModMatrix): HTMLElement {
   };
   zSlider.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    // ownerDocument: keeps the drag alive when the panel is popped out
+    // into its own window (PanelPopout).
+    const doc = zSlider.ownerDocument;
     const activeId = e.pointerId;
     updateZFromPointer(e.clientY);
     const onMove2 = (ev: PointerEvent): void => {
@@ -352,13 +355,13 @@ function buildJoystick(matrix: ModMatrix): HTMLElement {
     };
     const onUp = (ev: PointerEvent): void => {
       if (ev.pointerId !== activeId) return;
-      document.removeEventListener('pointermove',   onMove2);
-      document.removeEventListener('pointerup',     onUp);
-      document.removeEventListener('pointercancel', onUp);
+      doc.removeEventListener('pointermove',   onMove2);
+      doc.removeEventListener('pointerup',     onUp);
+      doc.removeEventListener('pointercancel', onUp);
     };
-    document.addEventListener('pointermove',   onMove2, { passive: false });
-    document.addEventListener('pointerup',     onUp);
-    document.addEventListener('pointercancel', onUp);
+    doc.addEventListener('pointermove',   onMove2, { passive: false });
+    doc.addEventListener('pointerup',     onUp);
+    doc.addEventListener('pointercancel', onUp);
   });
   zSlider.addEventListener('keydown', (e) => {
     let next = jz;
