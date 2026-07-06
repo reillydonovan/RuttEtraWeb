@@ -12,6 +12,7 @@ import { SettingsStore } from '../state/Settings';
 import { MidiClock } from '../midi/MidiClock';
 import { MidiMapping } from '../midi/MidiMapping';
 import { MidiManager } from '../midi/MidiManager';
+import { MidiClockOut } from '../midi/MidiClockOut';
 import { FFTAnalyzer } from '../audio/FFTAnalyzer';
 import { BeatDetector } from '../audio/BeatDetector';
 import { OscClient } from '../osc/OscClient';
@@ -24,6 +25,7 @@ export interface IoSubsystems {
   midiClock:   MidiClock;
   midiMapping: MidiMapping;
   midiManager: MidiManager;
+  midiClockOut: MidiClockOut;
   fft:         FFTAnalyzer;
   beat:        BeatDetector;
   osc:         OscClient;
@@ -36,6 +38,17 @@ export async function bootIoSubsystems(settings: SettingsStore, live: LiveValues
   const midiClock = new MidiClock();
   const midiMapping = new MidiMapping(settings);
   const midiManager = new MidiManager(settings, midiClock, midiMapping);
+
+  // v22: MIDI clock transmitter driven by the shared internalBpm.
+  // Forced-off on every load by migrateSettings; the toggle in
+  // I/O -> MIDI arms it per session.
+  const midiClockOut = new MidiClockOut(
+    () => midiManager.getOutput(),
+    () => settings.get('internalBpm'),
+  );
+  settings.subscribe('midiClockOutEnabled', (on) => {
+    if (on) midiClockOut.start(); else midiClockOut.stop();
+  });
 
   const fft = new FFTAnalyzer();
   const beat = new BeatDetector(fft);
@@ -85,5 +98,5 @@ export async function bootIoSubsystems(settings: SettingsStore, live: LiveValues
     return { note: poly.lastNote, velocity: poly.lastVelocity };
   });
 
-  return { midiClock, midiMapping, midiManager, fft, beat, osc, cv, cvOut, gamepad };
+  return { midiClock, midiMapping, midiManager, midiClockOut, fft, beat, osc, cv, cvOut, gamepad };
 }

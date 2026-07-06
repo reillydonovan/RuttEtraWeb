@@ -874,6 +874,12 @@ export interface Settings {
   // ---------- MIDI (v2) ----------
   midiInputId: string;
   midiOutputId: string;
+  /**
+   * v22: transmit 24-PPQ MIDI clock (0xF8) from `internalBpm` on the
+   * selected output. Forced OFF on every load — outward-facing signals
+   * never auto-arm from a saved file (same posture as CV output).
+   */
+  midiClockOutEnabled: boolean;
   midiBindings: MidiBinding[];
 
   // ---------- OSC (v2) ----------
@@ -1278,6 +1284,7 @@ export const DEFAULTS: Settings = {
 
   midiInputId: '',
   midiOutputId: '',
+  midiClockOutEnabled: false,
   midiBindings: [],
 
   oscBridgeUrl: 'ws://localhost:8080',
@@ -1338,7 +1345,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 21;
+const CURRENT_VERSION = 22;
 
 interface Versioned { _v?: number }
 
@@ -1786,6 +1793,16 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     }
     s._v = 21;
   }
+
+  // v21 -> v22: MIDI clock out. Backfill the toggle; the structural
+  // force-off below applies on every load regardless of version.
+  if ((s._v ?? 1) < 22) {
+    if (s.midiClockOutEnabled === undefined) s.midiClockOutEnabled = false;
+    s._v = 22;
+  }
+  // MIDI clock out: forced OFF on every load — outward-facing signal,
+  // same posture as CV output. The user re-arms it per session.
+  s.midiClockOutEnabled = false;
 
   // Video audio safety: force disabled on every load. A saved "enabled"
   // state must not auto-play audio on the next page load. The user must

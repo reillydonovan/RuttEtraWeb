@@ -159,7 +159,8 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
 
   // ----- MIDI -----
   midiInputId:    { description: 'Selected MIDI input device.', panel: 'MIDI' },
-  midiOutputId:   { description: 'Selected MIDI output device (for slot CC echo).', panel: 'MIDI' },
+  midiOutputId:   { description: 'Selected MIDI output device (for slot CC echo and Clock Out).', panel: 'MIDI' },
+  midiClockOutEnabled: { description: 'Transmit 24-PPQ MIDI clock (plus Start/Stop) at the shared Tempo BPM on the selected output, so external gear chases the synth. Forced OFF on every page load — re-arm per session.', panel: 'MIDI' },
   midiBindings:   { description: 'CC/note bindings that map MIDI messages to settings.', panel: 'MIDI' },
 
   // ----- OSC -----

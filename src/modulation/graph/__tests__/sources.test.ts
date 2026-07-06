@@ -168,3 +168,28 @@ describe('lfo range switch (v21)', () => {
     expect(slow.out).toBeCloseTo(ref.out, 6);
   });
 });
+
+// ---------------------------------------------------------------
+// v22: sync node — frame-locked emulated V-sync pulses
+// ---------------------------------------------------------------
+describe('sync node (v22)', () => {
+  it('fires pulse on every frame at division 1', () => {
+    let pulses = 0;
+    runNode('sync', 10, {
+      params: { division: '1' },
+      onTick: (_f, out) => { pulses += out.pulse; },
+    });
+    expect(pulses).toBe(10);
+  });
+
+  it('fires every 4th frame at division 4, with a 0..1 phase ramp', () => {
+    const seenPhases: number[] = [];
+    let pulses = 0;
+    runNode('sync', 8, {
+      params: { division: '4' },
+      onTick: (_f, out) => { pulses += out.pulse; seenPhases.push(out.phase); },
+    });
+    expect(pulses).toBe(2);
+    expect(seenPhases.slice(0, 4)).toEqual([0, 0.25, 0.5, 0.75]);
+  });
+});

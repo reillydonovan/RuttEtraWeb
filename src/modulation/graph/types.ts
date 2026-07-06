@@ -17,6 +17,8 @@ export type Signal = number;
 export type NodeType =
   // Sources
   | 'lfo' | 'ramp' | 'noise' | 'constant' | 'clock'
+  // v22: simulated video-sync clock (frame-locked pulses + scan phase)
+  | 'sync'
   // v10: pattern internal signal source (Lissajous X/Y, Sine Bands
   // wave, Oscilloscope mean/trigger/peak, etc.)
   | 'pattern-output'

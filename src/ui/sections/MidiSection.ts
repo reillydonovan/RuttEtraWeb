@@ -14,7 +14,7 @@
 import { MidiBinding, SettingsStore } from '../../state/Settings';
 import { MidiManager } from '../../midi/MidiManager';
 import { describeBindingSource } from '../../midi/MidiMapping';
-import { group, row, button } from '../widgets';
+import { group, row, button, toggle } from '../widgets';
 import { createLearnTable } from '../widgets/LearnBinding';
 import { TARGET_OPTIONS } from '../targets';
 
@@ -84,6 +84,11 @@ export function createMidiSection(settings: SettingsStore, midi: MidiManager): H
   setInterval(() => {
     dot.classList.toggle('on', midi.clock.beatPulse > 0.3);
   }, 30);
+  // v22: clock OUT — send 24-PPQ 0xF8 from the shared Tempo (internalBpm)
+  // on the selected output. Re-armed each session (forced off on load).
+  clockGroup.body.appendChild(
+    row('Clock Out', toggle(settings, 'midiClockOutEnabled', 'send 24-PPQ clock at Tempo BPM')),
+  );
   root.appendChild(clockGroup.root);
 
   // Bindings

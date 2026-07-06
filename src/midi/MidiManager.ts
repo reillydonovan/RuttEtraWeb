@@ -91,6 +91,12 @@ export class MidiManager {
     return () => this.listeners.delete(fn);
   }
 
+  /** The currently attached output device (null when none selected /
+   *  connected). Used by MidiClockOut for timestamped clock sends. */
+  getOutput(): WMIDIOutput | null {
+    return this.currentOutput;
+  }
+
   /** Send a Control Change message on the chosen output. */
   sendCC(channel: number, cc: number, value01: number, opts: { value14?: boolean } = {}): void {
     const out = this.currentOutput;

@@ -12,6 +12,8 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/modulation/**/*.test.ts',
+      // v22: MIDI clock out — pure lookahead-scheduling math.
+      'src/midi/**/*.test.ts',
       // v9: pure helpers in CVInput / GamepadInput are testable without a DOM.
       'src/audio/**/*.test.ts',
       // v12: stereoscopic metadata injection — pure-function MP4 box

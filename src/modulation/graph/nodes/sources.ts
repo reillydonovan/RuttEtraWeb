@@ -269,5 +269,37 @@ register<{}>({
   },
 });
 
+// ---------- Sync (v22) ----------
+//
+// Simulated video-sync clock, framed honestly as EMULATION: a WebGL
+// renderer has no real H/V sync to tap, so this node is locked to the
+// render frame ("V") instead. `pulse` fires a 1-frame trigger every
+// N frames; `phase` is the 0..1 scan position within the division
+// period. True per-line H-sync (scanRate × frame rate, tens of kHz)
+// cannot exist at the per-frame control rate — that's the audio-rate
+// modulation design track (AUDIT item 1).
+register<{ count: number }>({
+  type: 'sync',
+  category: 'Sources',
+  label: 'Sync (V)',
+  description: 'Frame-locked sync pulses — the emulated vertical-sync clock. Pulse fires every N frames; phase ramps 0..1 across the period. Feed pulse into Sample & Hold or the Sequencer to lock them to the raster.',
+  inputs: [],
+  outputs: [
+    { name: 'pulse', kind: 'trigger' },
+    { name: 'phase', kind: 'control' },
+  ],
+  params: {
+    division: { kind: 'enum', options: ['1', '2', '4', '8', '16'], default: '1' },
+  },
+  init: () => ({ count: 0 }),
+  tick(_ctx, state, _ins, params, outputs) {
+    const n = Math.max(1, Number.parseInt(String(params.division), 10) || 1);
+    const inPeriod = state.count % n;
+    outputs.pulse = inPeriod === 0 ? 1 : 0;
+    outputs.phase = inPeriod / n;
+    state.count = (state.count + 1) % 1_000_000;
+  },
+});
+
 // Legacy `beatsForDivision` was removed in v8; nodes use `divisionToBeats`
 // from `src/modulation/tempo.ts` (single source of truth).
