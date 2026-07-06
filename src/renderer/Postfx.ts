@@ -18,6 +18,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 import { SettingsStore } from '../state/Settings';
 import { LiveValuesStore } from '../modulation/LiveValues';
 
@@ -89,17 +90,135 @@ const COPY_FRAG = /* glsl */`
   void main() { gl_FragColor = texture2D(tDiffuse, vUv); }
 `;
 
+/**
+ * Video-feedback pass with a private ping-pong accumulator.
+ *
+ * The previous implementation was a plain ShaderPass whose accumulator
+ * was snapshotted AFTER `composer.render()` from the pass's `tDiffuse`
+ * uniform. That was broken in two compounding ways: EffectComposer
+ * ping-pongs two buffers, so by post-render time the buffer that held
+ * the feedback input had been overwritten by the CRT pass; and copying
+ * the pass *input* (not its output) meant the trail never accumulated —
+ * `tPrev` was only ever last frame's scene, a one-frame echo instead of
+ * a compounding burn-in. Net effect: the "Burn-In Feedback" toggle was
+ * visually near-inert (AUDIT.md item 21).
+ *
+ * This pass owns the accumulation instead, at the moment it runs:
+ *
+ *   1. accumNext = max(scene, accumPrev * decay)   → private RT (ping-pong)
+ *   2. accumNext copied to the composer's write buffer
+ *
+ * The on-screen image and the accumulator are the same texture by
+ * construction, so trails compound at exactly `decay` per frame:
+ * decay 0.9 ≈ 0.1 s half-life, 0.99 ≈ 1.1 s, 0.999 ≈ 11.5 s.
+ */
+class FeedbackAccumulatorPass extends Pass {
+  private readonly feedbackMaterial: THREE.ShaderMaterial;
+  private readonly copyMaterial: THREE.ShaderMaterial;
+  private readonly quad: FullScreenQuad;
+  private accumA: THREE.WebGLRenderTarget;
+  private accumB: THREE.WebGLRenderTarget;
+  /** When set, both accumulator targets are cleared before the next
+   *  frame — used on enable so a minutes-old ghost never reappears. */
+  private clearRequested = true;
+
+  constructor(width: number, height: number, decay: number) {
+    super();
+    this.needsSwap = true;
+    const params: THREE.RenderTargetOptions = {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType,
+      depthBuffer: false,
+    };
+    this.accumA = new THREE.WebGLRenderTarget(width, height, params);
+    this.accumB = new THREE.WebGLRenderTarget(width, height, params);
+    this.feedbackMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: null },
+        tPrev:    { value: this.accumA.texture },
+        uDecay:   { value: decay },
+      },
+      vertexShader: VERT,
+      fragmentShader: FEEDBACK_FRAG,
+    });
+    this.copyMaterial = new THREE.ShaderMaterial({
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: VERT,
+      fragmentShader: COPY_FRAG,
+    });
+    this.quad = new FullScreenQuad(this.feedbackMaterial);
+  }
+
+  setDecay(v: number): void {
+    this.feedbackMaterial.uniforms.uDecay.value = v;
+  }
+
+  /** Clear the trail history (applied lazily on the next render). */
+  requestClear(): void {
+    this.clearRequested = true;
+  }
+
+  setSize(width: number, height: number): void {
+    this.accumA.setSize(width, height);
+    this.accumB.setSize(width, height);
+    // Resizing invalidates contents anyway; restart the trail cleanly.
+    this.clearRequested = true;
+  }
+
+  render(
+    renderer: THREE.WebGLRenderer,
+    writeBuffer: THREE.WebGLRenderTarget,
+    readBuffer: THREE.WebGLRenderTarget,
+  ): void {
+    if (this.clearRequested) {
+      this.clearRequested = false;
+      const oldColor = new THREE.Color();
+      renderer.getClearColor(oldColor);
+      const oldAlpha = renderer.getClearAlpha();
+      renderer.setClearColor(0x000000, 1);
+      renderer.setRenderTarget(this.accumA);
+      renderer.clear(true, false, false);
+      renderer.setRenderTarget(this.accumB);
+      renderer.clear(true, false, false);
+      renderer.setClearColor(oldColor, oldAlpha);
+    }
+
+    // 1. Accumulate into the spare target: max(scene, prev * decay).
+    this.feedbackMaterial.uniforms.tDiffuse.value = readBuffer.texture;
+    this.feedbackMaterial.uniforms.tPrev.value = this.accumA.texture;
+    this.quad.material = this.feedbackMaterial;
+    renderer.setRenderTarget(this.accumB);
+    this.quad.render(renderer);
+
+    // 2. Copy the fresh accumulator to the composer chain.
+    this.copyMaterial.uniforms.tDiffuse.value = this.accumB.texture;
+    this.quad.material = this.copyMaterial;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.quad.render(renderer);
+
+    // 3. Ping-pong.
+    const tmp = this.accumA;
+    this.accumA = this.accumB;
+    this.accumB = tmp;
+  }
+
+  dispose(): void {
+    this.accumA.dispose();
+    this.accumB.dispose();
+    this.feedbackMaterial.dispose();
+    this.copyMaterial.dispose();
+    this.quad.dispose();
+  }
+}
+
 export class PostFX {
   readonly composer: EffectComposer;
   private renderPass: RenderPass;
   private bloom: UnrealBloomPass;
   private crt: ShaderPass;
-  private feedbackPass: ShaderPass;
-  private copyMaterial: THREE.ShaderMaterial;
-  private feedbackRT: THREE.WebGLRenderTarget;
-  private fsQuad: THREE.Mesh;
-  private fsScene: THREE.Scene;
-  private fsCamera: THREE.OrthographicCamera;
+  private feedbackPass: FeedbackAccumulatorPass;
   private bloomRTDivisor = 1;
 
   constructor(
@@ -142,28 +261,13 @@ export class PostFX {
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
 
-    // feedbackRT must match the PHYSICAL pixel dimensions of the composer's
-    // internal render targets (width × pixelRatio). Using logical pixels
-    // would produce a low-res buffer that gets upscaled each frame, turning
-    // the feedback into a blurry smear when DPR > 1.
+    // The accumulator targets must match the PHYSICAL pixel dimensions of
+    // the composer's internal render targets (width × pixelRatio). Using
+    // logical pixels would produce a low-res buffer that gets upscaled each
+    // frame, turning the feedback into a blurry smear when DPR > 1.
     const physW = Math.floor(width  * renderer.getPixelRatio());
     const physH = Math.floor(height * renderer.getPixelRatio());
-    this.feedbackRT = new THREE.WebGLRenderTarget(physW, physH, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      format: THREE.RGBAFormat,
-      type: THREE.HalfFloatType,
-    });
-
-    this.feedbackPass = new ShaderPass({
-      uniforms: {
-        tDiffuse: { value: null },
-        tPrev:    { value: this.feedbackRT.texture },
-        uDecay:   { value: settings.get('feedbackDecay') },
-      },
-      vertexShader: VERT,
-      fragmentShader: FEEDBACK_FRAG,
-    });
+    this.feedbackPass = new FeedbackAccumulatorPass(physW, physH, settings.get('feedbackDecay'));
     this.feedbackPass.enabled = settings.get('feedbackEnabled');
     this.composer.addPass(this.feedbackPass);
 
@@ -195,18 +299,6 @@ export class PostFX {
 
     this.composer.addPass(new OutputPass());
 
-    // Persistent fullscreen-quad rig used to copy the feedback pass's output
-    // back into the feedbackRT once per frame.
-    this.copyMaterial = new THREE.ShaderMaterial({
-      uniforms: { tDiffuse: { value: null } },
-      vertexShader: VERT,
-      fragmentShader: COPY_FRAG,
-    });
-    this.fsScene = new THREE.Scene();
-    this.fsCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    this.fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial);
-    this.fsScene.add(this.fsQuad);
-
     this.bindSettings();
   }
 
@@ -216,12 +308,12 @@ export class PostFX {
     // Bloom resolution is divided by `bloomRTDivisor` set via setBloomRTDivisor.
     this.bloom.resolution.set(width / this.bloomRTDivisor, height / this.bloomRTDivisor);
     (this.crt.uniforms.uResolution.value as THREE.Vector2).set(width, height);
-    // feedbackRT must stay at physical pixel dimensions — using logical
-    // dimensions would make it smaller than the composer's ping-pong
-    // buffers on HiDPI displays.
+    // The feedback accumulator must stay at physical pixel dimensions —
+    // using logical dimensions would make it smaller than the composer's
+    // ping-pong buffers on HiDPI displays.
     const physW = Math.floor(width  * this.renderer.getPixelRatio());
     const physH = Math.floor(height * this.renderer.getPixelRatio());
-    this.feedbackRT.setSize(physW, physH);
+    this.feedbackPass.setSize(physW, physH);
   }
 
   /** Set bloom render-target divisor (1=full, 2=half, 4=quarter). */
@@ -236,23 +328,11 @@ export class PostFX {
   }
 
   render(dt: number): void {
+    // Feedback accumulation happens inside FeedbackAccumulatorPass at its
+    // point in the chain — no post-render snapshot needed (the old
+    // snapshot approach read a buffer that later passes had already
+    // overwritten; see the pass's docblock).
     this.composer.render(dt);
-
-    // After the frame is composited, snapshot the feedback pass's *input*
-    // (i.e. the current scene render) into our persistent feedback RT for
-    // use next frame. EffectComposer's read/write buffers ping-pong each
-    // pass; the feedback pass's tDiffuse uniform holds whatever was the
-    // read buffer at that point — we copy that texture into feedbackRT.
-    if (this.feedbackPass.enabled) {
-      const tex = this.feedbackPass.uniforms.tDiffuse.value as THREE.Texture | null;
-      if (tex) {
-        this.copyMaterial.uniforms.tDiffuse.value = tex;
-        const oldRT = this.renderer.getRenderTarget();
-        this.renderer.setRenderTarget(this.feedbackRT);
-        this.renderer.render(this.fsScene, this.fsCamera);
-        this.renderer.setRenderTarget(oldRT);
-      }
-    }
   }
 
   private bindSettings(): void {
@@ -277,7 +357,11 @@ export class PostFX {
     s.subscribe('vignetteEnabled', (v) => { this.crt.uniforms.uVignetteOn.value = v ? 1 : 0; });
     s.subscribe('vignetteAmount',  (v) => { this.crt.uniforms.uVignetteAmount.value = v; });
 
-    s.subscribe('feedbackEnabled', (v) => { this.feedbackPass.enabled = v; });
-    live.subscribe('feedbackDecay',   (v) => { this.feedbackPass.uniforms.uDecay.value = v; });
+    s.subscribe('feedbackEnabled', (v) => {
+      this.feedbackPass.enabled = v;
+      // Fresh trail on every enable — never resurrect a stale ghost.
+      if (v) this.feedbackPass.requestClear();
+    });
+    live.subscribe('feedbackDecay',   (v) => { this.feedbackPass.setDecay(v); });
   }
 }

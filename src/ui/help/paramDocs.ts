@@ -107,8 +107,8 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   chromaAmount:     { description: 'Strength of the chromatic offset.', panel: 'Color/PostFX' },
   vignetteEnabled:  { description: 'Soft corner darkening.', panel: 'Color/PostFX' },
   vignetteAmount:   { description: 'Vignette strength.', panel: 'Color/PostFX' },
-  feedbackEnabled:  { description: 'Long-exposure feedback trails (CRT burn-in).', panel: 'Color/PostFX' },
-  feedbackDecay:    { description: 'How fast trails fade (1 = forever, 0 = none).', range: '0..1', panel: 'Color/PostFX' },
+  feedbackEnabled:  { description: 'Long-exposure feedback trails (CRT burn-in). Each frame is max-blended with the decaying previous output, so trails appear wherever bright content moves or fades. The trail history resets on every enable.', panel: 'Color/PostFX' },
+  feedbackDecay:    { description: 'Per-frame trail retention. 0.9 ≈ 0.1 s half-life (tight motion smear), 0.99 ≈ 1 s (comet tails), 0.999 ≈ 11 s (true burn-in).', range: '0.5..0.999', panel: 'Color/PostFX' },
 
   // ----- Geometry / render -----
   renderMode:       { description: 'Wireframe (lines) vs filled triangles vs points.', panel: 'Geometry' },

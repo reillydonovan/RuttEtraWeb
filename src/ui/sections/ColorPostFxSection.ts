@@ -56,7 +56,7 @@ export function createColorPostFxSection(settings: SettingsStore): HTMLElement {
   const fb = group('Burn-In Feedback');
   fb.body.append(
     row('Feedback', toggle(settings, 'feedbackEnabled', 'long-exposure trails')),
-    row('Decay',    slider(settings, 'feedbackDecay', 0.5, 0.999, 0.001), 'higher = longer'),
+    row('Decay',    slider(settings, 'feedbackDecay', 0.5, 0.999, 0.001), '0.9≈0.1s · 0.99≈1s · 0.999≈11s'),
   );
   root.appendChild(fb.root);
 
