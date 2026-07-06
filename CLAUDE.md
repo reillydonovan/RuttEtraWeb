@@ -80,6 +80,19 @@ Settings (base values, flat keys) ──→ LiveValuesStore ←── ModMatrix.
 
 `AUDIT.md` at the repo root is the Phase-0 audit (2026-07-05) of the feature/cleanup backlog: 29 items classified against the code with file:line evidence, a phased build order, and flags for anything touching the settings migration schema or the base/live split. Consult it before starting backlog work; update item statuses as phases land.
 
+### State of the autonomous run (2026-07-05, branch `run/phases-1-4`)
+
+All four phases of the AUDIT build order executed; every item landed as its own tested commit (suite 410 green, build clean at `64e039a`). Settings schema went **v16 → v25** (one migration per change; migration tests must assert `_v >= N`, never `=== N`). Timeline schema went v1 → v2. **The branch is NOT merged — merging to `main` triggers the FTP production deploy**, so review first.
+
+**Shipped and done**: IPD fix (real bug: three's AnaglyphEffect eye separation was unsettable — vendored); burn-in fix (real bug: the feedback accumulator never compounded); README reconcile; vCenter/aspect docs; graph node/binding mute + My Patches library (v17); Classic slot slew via shared `slewToward` (v18); custom slider ranges with ±5×-span envelope (v19); two-screen popout (DOM adoption into `window.open`, drag handlers ownerDocument-proofed); panel param search (`/`) + tab cycling (`[`/`]`); multiplicative modulation for Classic (v20); LFO Lo/Mid/Hi range switch + continuous rotation knob (v21); MIDI clock out + emulated `Sync (V)` node (v22); ADSR envelope + resonant filter nodes; shape-masked feedback + analog character FX (v24); graph drag-to-wire / pan-zoom / per-port `nodeId#port` refs (v25).
+
+**Awaiting owner decisions (prioritized review list)**:
+1. **Dual raster** (`5bb53c8`, v23) — implemented behind `dualRasterEnabled`, default OFF. Flip Enable in the Dual Raster panel section and judge. Design + v1 shared-scope list: `docs/design/dual-raster.md`.
+2. **Keyframing v2** (`b184aeb`) — data layer + minimal LANES editor shipped; the full lane UI (drawable curves, record-knob-moves) waits on `docs/design/keyframing-v2.md` — 4 open questions, record-semantics being the big one.
+3. **Anti-menu-diving structural work** — search + hotkeys shipped; pinned performance strip (recommended) vs learn-from-the-knob vs command palette: `docs/design/anti-menu-diving.md`.
+4. **Audio-rate modulation** — design doc only (`docs/design/audio-rate-modulation.md`); recommends shader scan-time oscillators; 3 open questions (bank size, intensity target, UI home).
+5. Small follow-ups flagged in AUDIT.md: graph patch library not yet embedded in `.synth.json` Projects; dual-raster follow-ups (per-raster scan rates/sources/color); manual visual QA of the GPU-side changes (feedback shapes, analog FX, dual raster, rotation) — none have automated coverage since the suite deliberately excludes WebGL.
+
 ### Known drift
 
 The README was reconciled to the v12+ state on 2026-07-05 (recent-changes section, structure tree, tech list). If README and source disagree, trust the source and fix the README in the same change.

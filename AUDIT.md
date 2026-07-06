@@ -17,7 +17,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 
 ## Modulation / LFO
 
-### 1. LFO frequency to 20,000 Hz (audio-rate) — ❌ absent, ⚠️ architecture conflict `[Faithful]`
+### 1. LFO frequency to 20,000 Hz (audio-rate) — 📄 **DESIGN DOC** (`77de8c5`, `docs/design/audio-rate-modulation.md`) — scan-time shader oscillators recommended; 3 open questions await owner. Interim: v21 Hi range switch (×10, documented as stroboscopic).
+
+### 1-original. Audit detail — ❌ absent, ⚠️ architecture conflict `[Faithful]`
 - Classic slot LFO caps at **20 Hz** (`src/ui/sections/ModulationSection.ts:506`, min 0.001); Graph `lfo` node caps at **30 Hz** (`src/modulation/graph/nodes/sources.ts:29`).
 - ⚠️ **Why it conflicts**: all modulation is computed once per render frame (`matrix.tick(dt)` at `src/main.ts:988`, `graphEngine?.tick(dt)` at `main.ts:1002`), so the effective Nyquist is ~30 Hz at 60 fps. Raising the slider cap alone would just alias. True audio-rate modulation needs a different substrate: an AudioWorklet-rate oscillator whose output is consumed per-frame (like CV input already does), or oscillation evaluated inside the DCU shader (like the pattern shaders do). This is a design decision, not a slider tweak.
 
@@ -28,21 +30,29 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - Classic slots have **no** output smoothing; the output-stage `'step'` curve is a hard 3-level quantizer (more stepped, not less — `src/modulation/outputStage.ts:98-102`). Source-specific smoothing exists only for audio (attack/release) and joystick (1-pole LP) (`ModMatrix.ts:575-615`).
 - **Missing**: a per-slot slew/glide control in Classic. Touches `ModSlot` schema → migration.
 
-### 3. Sync system (internal + sync out / external in; H/V sync lock) — 🟡 partial `[Faithful]`
+### 3. Sync system — ✅ **DONE** (`08d359d`, v22): MIDI clock OUT (24-PPQ, lookahead-scheduled, forced-off on load) + `Sync (V)` graph node (emulated frame-locked V-sync pulses + phase). Per-line H-sync is impossible at control rate → folded into the item-1 design track.
+
+### 3-original. Audit detail — 🟡 partial `[Faithful]`
 - ✅ Internal: `Settings.internalBpm` (canonical, shared by LFOs / Timeline / Graph clock).
 - ✅ External sync IN: full 24-PPQ MIDI clock receiver (`src/midi/MidiClock.ts`), honored by Classic slots, Graph clock node, Timeline.
 - ✅ Sync OUT to hardware: CV output `'clock'` type — BPM-divided square wave with division/pulse-width/amplitude (`src/audio/CVOutput.ts:511-519`, `Settings.ts:392-437`).
 - ❌ MIDI clock OUT: `MidiManager` sends CC only; no `0xF8`/start/stop transmission anywhere.
 - ❌ Lock to horizontal/vertical video sync: no such concept exists. ⚠️ Note: there is no real H/V sync in a WebGL renderer — this would be a *simulated* sync source (e.g. a clock derived from `scanRate` × frame rate), which is a legitimate faithful-emulation feature but needs framing as such.
 
-### 4. Low / Medium / High range switch on oscillators — ❌ absent `[Faithful]`
+### 4. Low / Medium / High range switch — ✅ **DONE** (`5123afe`, v21: ×0.01/×1/×10 on Classic slots + graph lfo node)
+
+### 4-original. Audit detail — ❌ absent `[Faithful]`
 - No coarse range/octave multiplier switch on any LFO or oscillator. Only `range` hits are the graph Remap processor and CV voltage ranges. Cheap to add (a ×0.01 / ×1 / ×100-style multiplier on slot + lfo-node rate); pairs naturally with items 1 and 7.
 
-### 5. Multipliers ×4 — 🟡 partial `[Faithful]`
+### 5. Multipliers — ✅ **DONE** (`be015fd`, v20: Classic slot Apply mode activates the dormant LiveValues factor path; graph multiplicative bindings pre-existed; Beginner rows gained the mode dropdown)
+
+### 5-original. Audit detail — 🟡 partial `[Faithful]`
 - Graph mode already has ~5 multiplicative facilities: `multiplier` (ring-mod A×B), `scale`, `attenuator`, `mixer` (4-in), `crossfade` (`processors.ts:13-158`).
 - **Dormant infrastructure**: `LiveValuesStore` supports multiplicative factors — `live = (base + Σoffsets) · Πfactors` (`src/modulation/LiveValues.ts:52,149-157`) — **but neither engine writes factors today**; ModMatrix passes empty factors (`ModMatrix.ts:319-320`). Param modulation is currently additive-only. Activating add/multiply mode per slot/binding is the designed-but-unused path. ⚠️ Touches the base/live split (by design — this is what the factor path is *for*).
 
-### 6. Modular signal stacking (osc → filter → EG chains; sound↔image) — ✅ largely implemented, 🟡 catalog gaps `[Rutt+ core]`
+### 6. Modular signal stacking — ✅ **DONE** (catalog gaps closed `de6fbb0`, v22: Envelope (ADSR) + Filter (LP/HP/BP) nodes; graph audio-out sink remains a non-goal — sonification covers image→audio)
+
+### 6-original. Audit detail — ✅ largely implemented, 🟡 catalog gaps `[Rutt+ core]`
 - GraphEngine does arbitrary topo-sorted output→input chaining across ~48 node types: 6 sources, 17 processors, 4 logic, 6 video, 11 inputs, 4 audio (`src/modulation/graph/`). Audio→image (audio-envelope/band/pitch/onset) and image→signal (video-luma/motion/edge/color, pattern-output) both work.
 - **Gaps**: ❌ no true ADSR **envelope generator** node (closest: one-shot `ramp` with trigger; `audio-envelope` is a follower); ❌ no **filter** node (no lowpass/biquad/resonance — `slew` is the only smoother); ❌ no audio-output sink from the graph (sonification is a separate one-way subsystem; the graph's only outward sink is `cv-output`).
 
@@ -51,7 +61,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 
 ## Second raster / dual trace
 
-### 8. Second independently-modulated raster — ❌ absent `[Faithful — hardware reference]`
+### 8–11. Dual raster suite — ✅ **IMPLEMENTED, review-gated** (`5bb53c8`, v23, feature flag default OFF — flip Enable in the Dual Raster section to judge). Wipe + alternate-line modes, 17 `B:` params + modulatable `Dual: Trace Position`. Design + v1 shared-scope list in `docs/design/dual-raster.md`.
+
+### 8-original. Audit detail — ❌ absent `[Faithful — hardware reference]`
 - The scan mesh is a strict singleton: `private mesh: THREE.LineSegments | null` (`src/renderer/RuttEtra.ts:35`), one video→compositor→DCU pipeline, one material. No second raster anywhere.
 - ⚠️ **Biggest architectural item in the backlog.** A raster B needs: a duplicated (or parameterized) DCU param namespace, every B param registered as a ModTarget, live-value reads per raster, migration for all new keys, and UI. Interacts with XR/anaglyph/stereo paths (which render "the scene" — two meshes would come along for free there, which is good).
 
@@ -66,7 +78,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 
 ## Controls / fidelity
 
-### 12. 90° rotation — knob + switch, sin/cos — 🟡 partial `[Faithful]`
+### 12. 90° rotation knob + switch — ✅ **DONE** (`5123afe`, v21: continuous `rotation` param composed with rotate90, modulatable)
+
+### 12-original. Audit detail — 🟡 partial `[Faithful]`
 - ✅ `rotate90` binary toggle, end-to-end (UI `DcuSection.ts:51`, shader `ruttEtra.vert.glsl:113-115`, docs `paramDocs.ts:90`).
 - ❌ Continuous in-plane rotation knob: `hSpin`/`vSpin` are 3D-axis spins (with sin/cos, `ruttEtra.vert.glsl:121-125`), not total image rotation. Missing piece: a `rotation` angle param (0–360°, modulatable) composed with the `rotate90` switch.
 
@@ -74,7 +88,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - `vCenter` exists (`Settings.ts:162,667`, UI `DcuSection.ts:44`) **and** is a routing target (`src/ui/targets.ts:27`) → already drivable by CV in via Classic slot or Graph. `vPos` likewise.
 - 🟡 Docs gap: `vCenter`/`hCenter` have **no `PARAM_DOCS` entry** — violates docs-land-with-feature; fix in housekeeping.
 
-### 14. Zoom to zero — ❌ absent `[Faithful]`
+### 14. Zoom to zero — ✅ **RESOLVED, no code** (`5123afe`): per the owner decision this is the DCU deflection path, and hSize/vSize already pass through zero. Documented as the collapse-the-scan gesture in the About synthesis page.
+
+### 14-original. Audit detail — ❌ absent `[Faithful]`
 - Camera: FOV slider floor **10°** (`CameraSection.ts:41`), dolly floor `minDistance = 0.05` (`CameraRig.ts:101-102`). No mesh-scale param. Nothing reaches zero.
 - Open design question for the build phase: "zoom to zero" as *image size* may be servable via DCU `hSize`/`vSize` floors instead of camera — verify their minimums and decide which control should collapse to zero.
 
@@ -89,7 +105,9 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 - ✅ Typing: every slider has an inline `<input type="number">` (`src/ui/widgets.ts:88-99,236-239`), a tap/long-press numeric modal (`widgets.ts:314-353`), and keyboard step/fine-adjust (arrows, PgUp/Dn, Home/End).
 - ❌ Custom ranges: slider min/max are hardcoded call-site arguments (`widgets.ts:79-85`); no UI overrides a param's range anywhere. Per-binding min/max (MIDI/OSC) scales binding output, not the param's own range. ⚠️ If custom ranges are persisted per-param, that's a new Settings structure → migration; also must interact carefully with modulation clamping (base clamps vs live clamps).
 
-### 17. Buchla/banana/Eurorack patching surface — 🟡 partial, closer than expected `[Rutt+]`
+### 17. Patching surface — ✅ **DONE** (`64e039a`, v25: drag-to-wire rubber-band cables, cursor-anchored wheel zoom + canvas pan, per-output-port connections via `nodeId#port` refs; also fixed a latent v17 bug where inspector edits stripped mute flags)
+
+### 17-original. Audit detail — 🟡 partial, closer than expected `[Rutt+]`
 - `AdvancedView.ts` + `CableLayer.ts` already deliver: port jacks with kind-colored dots, bezier cables color-coded by signal kind with glow and animated dash-flow, draggable nodes, palette, inspector, probe scope.
 - Missing modular-desk feel: ❌ drag-from-jack wiring (currently click-click, no rubber-band cable), ❌ canvas pan/zoom (`AdvancedView.ts:8-11` notes it), ❌ per-output-port connection fidelity (`CableLayer` assumes `outputs[0]`; `node.inputs[port]` stores node id only, not source port — fixing this is a **patch schema change** → migration).
 
@@ -98,10 +116,14 @@ Execution status is tracked per item below (✅ with commit hash as items land).
 ### 18. Classic video feedback — ✅ implemented `[Faithful]`
 - Feedback pass before bloom: `max(current, previous*decay)` into a persistent RT (`src/renderer/Postfx.ts:74-84,238-256`). `feedbackEnabled` + `feedbackDecay` (0.5–0.999, modulatable — `targets.ts:35`). UI group "Burn-In Feedback" (`ColorPostFxSection.ts:56-61`).
 
-### 19. Feedback within a movable shape — ❌ absent `[Rutt+]`
+### 19. Feedback within a movable shape — ✅ **DONE** (`663711f`, v24: circle/box mask with modulatable center/radius/softness)
+
+### 19-original. Audit detail — ❌ absent `[Rutt+]`
 - No mask/shape/position facility in the feedback pass. Would add a mask term (shape kind, center x/y, radius, softness) to `FEEDBACK_FRAG` — all four naturally modulatable params (movable circle = LFO on center).
 
-### 20. Analog-degradation effects (Izotope Vinyl reference) — ❌ absent `[Rutt+]`
+### 20 + 22. Analog character (grain / dropout / hum) — ✅ **DONE** (`663711f`, v24: Analog Character group in Color/PostFX, all amounts modulatable, default off)
+
+### 20-original. Audit detail — ❌ absent `[Rutt+]`
 - Post-FX inventory is bloom, scanline overlay, chromatic aberration (clean RGB split), vignette, feedback. No grain, scratches, hum bars, dropout, wear, or chroma bleed.
 
 ### 21. "Burn in didn't do shit" — ✅ **FIXED** (`809da83`) — it was a real accumulation bug
@@ -127,7 +149,9 @@ The feedback accumulator snapshotted the pass *input* from a buffer later passes
 - `src/sequencer/` is a **preset-snapshot keyframe timeline**: keyframes hold whole-Settings snapshots at bar positions, interpolated (numbers lerp, colors channel-lerp, enums step at t≥0.5) with 6 easing presets, loop, undo/redo, excluded-params list, `internal|midi` sync reading `Settings.internalBpm` (single-source BPM, no silent fallback — `Sequencer.ts:365-368`).
 - Separately, a graph **`sequencer` node** — a true 8-step CV sequencer (`graph/types.ts:41`) used by the "Beat-Synced Step Sequencer" starter patch.
 
-### 25. Keyframing needs work — 🟡 confirmed; gap list
+### 25. Keyframing v2 — ✅ **DATA LAYER DONE, UI review-gated** (`b184aeb`, timeline v2: lanes-as-LiveValues-offsets per the owner decision, pure eval + minimal LANES editor with resolved-value preview; full lane UI + 4 open questions in `docs/design/keyframing-v2.md`)
+
+### 25-original. Audit detail — 🟡 confirmed; gap list
 Current UI (`src/ui/timeline/`) is functional: add (dbl-click/Ctrl-click/K/drag-preset-card), drag-move with beat snap (Alt=free), delete/duplicate/lock/replace-with-current/preview, per-keyframe inspector (name/bar/easing/color), zoom 20–240 px/bar, scroll, click-to-seek, timeline save/rename/delete/export/import.
 Gaps, in rough severity order:
 1. **No per-parameter automation lanes** — automation is whole-snapshot only; you cannot animate one knob independently. The structural gap.
