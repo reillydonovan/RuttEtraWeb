@@ -268,3 +268,32 @@
    tab (desktop) or the top-strip "?" button (compact). The selectors below
    keep any straggling element hidden in case migration leaves one behind. */
 #help-fab { display: none !important; }
+
+/* ---- Keyframing v2 preview: lanes strip ---- */
+#timeline-dock[data-dock="hidden"] .rw-tl-lanes { display: none; }
+.rw-tl-lanes {
+  border-top: 1px solid var(--re-line);
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+.rw-tl-lanes-head {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--re-text-dim);
+}
+.rw-tl-lanes-empty { color: var(--re-text-dim); font-size: 11px; }
+.rw-tl-lane {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rw-tl-lane-name { min-width: 110px; color: var(--re-accent); }
+.rw-tl-lane-resolved { color: var(--re-text-dim); min-width: 70px; }
+.rw-tl-lane-count { color: var(--re-text-dim); font-size: 11px; }
+.rw-tl-lane .rw-num { width: 70px; }
+.rw-tl-lane-add select { max-width: 220px; }

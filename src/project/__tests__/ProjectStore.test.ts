@@ -119,7 +119,7 @@ describe('ProjectStore — newProject', () => {
     const setupRef = setup();
     setupRef.settings.set('threshold', 0.99);
     setupRef.presetsBucket = [{ id: 'p', name: 'P', values: {} }];
-    setupRef.timelinesBucket = [{ _v: 1, id: 't', name: 't', beatsPerBar: 4, lengthBars: 16, loop: true, syncMode: 'internal', excludedParams: [], keyframes: [] }];
+    setupRef.timelinesBucket = [{ _v: 2, id: 't', name: 't', beatsPerBar: 4, lengthBars: 16, loop: true, syncMode: 'internal', excludedParams: [], keyframes: [], lanes: [] }];
 
     setupRef.store.newProject();
 

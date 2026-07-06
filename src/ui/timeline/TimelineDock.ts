@@ -11,6 +11,7 @@ import { TimelineTransport } from './TimelineTransport';
 import { TimelineRuler } from './TimelineRuler';
 import { TimelineTrack } from './TimelineTrack';
 import { TimelineInspector } from './TimelineInspector';
+import { LanesPanel } from './LanesPanel';
 import { upsertTimeline } from '../../sequencer/store';
 
 export class TimelineDock {
@@ -22,6 +23,7 @@ export class TimelineDock {
   private ruler: TimelineRuler;
   private track: TimelineTrack;
   private inspector: TimelineInspector;
+  private lanes: LanesPanel;
   private body!: HTMLElement;
   private scroller!: HTMLElement;
   private canvas!: HTMLElement;
@@ -40,6 +42,7 @@ export class TimelineDock {
     this.ruler     = new TimelineRuler(seq);
     this.track     = new TimelineTrack(seq);
     this.inspector = new TimelineInspector(seq);
+    this.lanes     = new LanesPanel(settings, seq);
 
     this.build();
     this.bindEvents();
@@ -82,6 +85,9 @@ export class TimelineDock {
     this.body.appendChild(this.scroller);
     this.body.appendChild(this.inspector.el);
     this.host.appendChild(this.body);
+
+    // Keyframing v2 preview: minimal lane editor strip under the body.
+    this.host.appendChild(this.lanes.el);
 
     // Hover-focus tracking for keyboard shortcuts.
     this.host.addEventListener('mouseenter', () => { this.hovered = true; });

@@ -149,11 +149,31 @@ function normalizeTimeline(raw: Partial<Timeline> & Record<string, unknown>): Ti
   const { bpm: _drop, ...rest } = raw as { bpm?: unknown } & Record<string, unknown>;
   void _drop;
 
+  // Timeline v1 -> v2 (Keyframing v2, AUDIT item 25): backfill
+  // `lanes: []` and sanitize any present lanes — malformed entries are
+  // dropped individually rather than failing the whole load.
+  const lanes: Timeline['lanes'] = Array.isArray(rest.lanes)
+    ? (rest.lanes as unknown[])
+        .filter((l): l is Timeline['lanes'][number] =>
+          !!l && typeof l === 'object' &&
+          typeof (l as { paramKey?: unknown }).paramKey === 'string' &&
+          Array.isArray((l as { points?: unknown }).points))
+        .map((l) => ({
+          id: typeof l.id === 'string' ? l.id : `ln_norm_${Math.abs(JSON.stringify(l).length)}`,
+          paramKey: l.paramKey,
+          enabled: l.enabled !== false,
+          points: l.points
+            .filter((p) => typeof p?.bar === 'number' && typeof p?.value === 'number')
+            .sort((a, b) => a.bar - b.bar),
+        }))
+    : [];
+
   const base = makeEmptyTimeline(typeof raw.name === 'string' ? raw.name : 'Imported');
   const t: Timeline = {
     ...base,
     ...rest,
-    _v: 1,
+    _v: 2,
+    lanes,
     beatsPerBar: clampNum(rest.beatsPerBar, 1, 16, 4),
     lengthBars:  clampNum(rest.lengthBars,  1, 9999, 16),
     loop: rest.loop !== false,

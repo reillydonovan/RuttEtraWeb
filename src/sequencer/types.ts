@@ -26,8 +26,36 @@ export interface Keyframe {
   color?: string;
 }
 
+/**
+ * v2 (Keyframing v2, AUDIT item 25): a point on an automation lane.
+ * `value` is a RELATIVE OFFSET, not an absolute — lanes write through
+ * `LiveValuesStore` as a third offset-writer alongside the two
+ * modulation engines, summing with base exactly like CV into an input
+ * sums with the knob (owner decision, AUDIT.md). The UI is responsible
+ * for previewing the resolved absolute value.
+ */
+export interface AutomationPoint {
+  /** Bar position; floats allowed. */
+  bar: number;
+  /** Relative offset added to the param's base value. */
+  value: number;
+  /** Easing INTO this point from the previous one. Default linear. */
+  easing?: EasingType;
+}
+
+/** v2: one per-parameter automation lane. */
+export interface AutomationLane {
+  id: string;
+  /** Settings key this lane offsets (a ModTarget). */
+  paramKey: string;
+  /** Muted lanes contribute nothing (target snaps to base instantly). */
+  enabled: boolean;
+  /** Sorted ascending by `bar`. Values clamp-hold outside the range. */
+  points: AutomationPoint[];
+}
+
 export interface Timeline {
-  _v: 1;
+  _v: 2;
   id: string;
   name: string;
   beatsPerBar: number;
@@ -38,6 +66,8 @@ export interface Timeline {
   excludedParams: string[];
   /** Sorted ascending by `bar`. */
   keyframes: Keyframe[];
+  /** v2: per-parameter automation lanes (relative offsets via LiveValues). */
+  lanes: AutomationLane[];
 }
 
 // NOTE: `Timeline.bpm` was removed in v8 — BPM is owned by the global
@@ -76,7 +106,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
 
 export function makeEmptyTimeline(name = 'Untitled', overrides: Partial<Timeline> = {}): Timeline {
   return {
-    _v: 1,
+    _v: 2,
     id: newTimelineId(),
     name,
     beatsPerBar: 4,
@@ -85,8 +115,13 @@ export function makeEmptyTimeline(name = 'Untitled', overrides: Partial<Timeline
     syncMode: 'internal',
     excludedParams: [...DEFAULT_EXCLUDED_PARAMS],
     keyframes: [],
+    lanes: [],
     ...overrides,
   };
+}
+
+export function newLaneId(): string {
+  return `ln_${Date.now().toString(36)}_${(_idCounter++).toString(36)}`;
 }
 
 let _idCounter = 0;

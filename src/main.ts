@@ -365,6 +365,10 @@ async function bootSynth(): Promise<void> {
   const seqStore     = await import('./sequencer/store');
   const sequencer = new seqModule.Sequencer(settings);
   sequencer.attachMidiClock(io.midiClock);
+  // Keyframing v2: lanes contribute relative offsets through the shared
+  // LiveValuesStore ('timeline' namespace) — third writer beside the
+  // Classic and Graph engines.
+  sequencer.setLiveValues(liveValues);
   sequencer.onKeyframeReached = () => haptic('tap');
 
   // Restore last-active timeline (if any).

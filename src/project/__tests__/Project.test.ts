@@ -15,7 +15,7 @@ function freshSettings(): SettingsStore {
 }
 
 const EMPTY_TIMELINE: Timeline = {
-  _v: 1,
+  _v: 2,
   id: 'tl-test',
   name: 'Test Timeline',
   beatsPerBar: 4,
@@ -24,6 +24,7 @@ const EMPTY_TIMELINE: Timeline = {
   syncMode: 'internal',
   excludedParams: [],
   keyframes: [],
+  lanes: [],
 };
 
 describe('Project — snapshot', () => {

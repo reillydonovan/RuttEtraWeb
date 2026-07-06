@@ -13,7 +13,14 @@
 import type { SettingsStore } from '../state/Settings';
 import { MidiClock } from '../midi/MidiClock';
 import { applyEasing } from './easings';
+import { laneOffsets } from './lanes';
 import { lerpSnapshot, pickSnapshot } from './interp';
+
+/** Duck-typed slice of LiveValuesStore the sequencer needs (keeps the
+ *  module dependency-light and trivially stubbable in tests). */
+interface LiveValuesLike {
+  setContributions(namespace: string, offsets?: Map<string, number>): void;
+}
 import {
   Keyframe,
   Timeline,
@@ -75,6 +82,31 @@ export class Sequencer {
     this.midiClock = c;
   }
 
+  /**
+   * v2 (Keyframing v2): attach the shared LiveValuesStore so automation
+   * lanes can contribute relative offsets under the 'timeline'
+   * namespace — the third offset-writer alongside Classic and Graph.
+   * Optional: without it, lanes are inert (data still round-trips).
+   */
+  private liveValues: LiveValuesLike | null = null;
+  setLiveValues(lv: LiveValuesLike | null): void {
+    this.liveValues = lv;
+    this.applyLanes();
+  }
+
+  /**
+   * Re-evaluate every enabled lane at the current playhead and push the
+   * offsets. Public so the lane-editor UI can refresh after edits; also
+   * called from every playhead move (tick / seek / load / stop). The
+   * same-frame clear inside setContributions means muted or deleted
+   * lanes snap their targets back to base instantly.
+   */
+  applyLanes(): void {
+    if (!this.liveValues) return;
+    const lanes = this.timeline?.lanes ?? [];
+    this.liveValues.setContributions('timeline', laneOffsets(lanes, this.playheadBar));
+  }
+
   load(t: Timeline | null): void {
     this.timeline = t;
     this.playheadBar = 0;
@@ -84,6 +116,9 @@ export class Sequencer {
     this.history = [];
     this.future = [];
     this.selectedKeyframeId = null;
+    // v2: re-evaluate lanes for the new (or cleared) timeline; clearing
+    // drops the 'timeline' namespace contributions the same frame.
+    this.applyLanes();
     if (t) {
       this.excluded = new Set(t.excludedParams);
       sortKeyframes(t.keyframes);
@@ -165,6 +200,18 @@ export class Sequencer {
     this.history.push(deepClone(this.timeline));
     if (this.history.length > HISTORY_CAP) this.history.shift();
     this.future = [];
+  }
+
+  /**
+   * v2: mutate the timeline's lanes with undo support, then re-apply
+   * offsets and notify listeners. The lane editor's single write path.
+   */
+  editLanes(fn: (t: Timeline) => void): void {
+    if (!this.timeline) return;
+    this.snapshotForUndo();
+    fn(this.timeline);
+    this.applyLanes();
+    this.fireTimelineChange();
   }
 
   addKeyframe(bar: number, name?: string): Keyframe {
@@ -400,6 +447,9 @@ export class Sequencer {
   private applyAtPlayhead(): void {
     const t = this.timeline;
     if (!t) return;
+    // v2: lanes evaluate at every playhead position, independent of
+    // whether any preset keyframes exist.
+    this.applyLanes();
     const kfs = t.keyframes;
     if (kfs.length === 0) return;
 
