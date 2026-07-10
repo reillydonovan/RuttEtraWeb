@@ -11,7 +11,8 @@ import { TimelineTransport } from './TimelineTransport';
 import { TimelineRuler } from './TimelineRuler';
 import { TimelineTrack } from './TimelineTrack';
 import { TimelineInspector } from './TimelineInspector';
-import { LanesPanel } from './LanesPanel';
+import { LaneEditor } from './LaneEditor';
+import { LanePointSel } from './LaneRow';
 
 export class TimelineDock {
   private host: HTMLElement;
@@ -22,13 +23,26 @@ export class TimelineDock {
   private ruler: TimelineRuler;
   private track: TimelineTrack;
   private inspector: TimelineInspector;
-  private lanes: LanesPanel;
+  private laneEditor: LaneEditor;
   private body!: HTMLElement;
   private scroller!: HTMLElement;
   private canvas!: HTMLElement;
   private mini!: HTMLElement;
   private pixelsPerBar = 60;
   private hovered = false;
+
+  /**
+   * Which lane point the inspector edits. Mutually exclusive with the
+   * sequencer's scene-keyframe selection: picking one clears the other.
+   */
+  private laneSelection: LanePointSel | null = null;
+
+  private setLaneSelection(sel: LanePointSel | null): void {
+    this.laneSelection = sel;
+    if (sel && this.seq.selectedKeyframeId) this.seq.selectKeyframe(null);
+    this.laneEditor.applySelection();
+    this.inspector.render();
+  }
 
   constructor(host: HTMLElement, settings: SettingsStore, seq: Sequencer) {
     this.host = host;
@@ -40,13 +54,25 @@ export class TimelineDock {
     });
     this.ruler     = new TimelineRuler(seq);
     this.track     = new TimelineTrack(seq);
-    this.inspector = new TimelineInspector(seq);
-    this.lanes     = new LanesPanel(settings, seq);
+    this.inspector = new TimelineInspector(seq, {
+      settings,
+      laneSelection: () => this.laneSelection,
+      setLaneSelection: (sel) => this.setLaneSelection(sel),
+    });
+    this.laneEditor = new LaneEditor(settings, seq, {
+      selection: () => this.laneSelection,
+      selectPoint: (sel) => this.setLaneSelection(sel),
+    });
 
     this.build();
     this.bindEvents();
     this.applyDockState(settings.get('timelineDock'), settings.get('timelineHeight'));
     this.refreshAll();
+  }
+
+  /** Scroll a lane into view and flash it (used by the panel ◆ menu). */
+  revealLane(laneId: string): void {
+    this.laneEditor.revealLane(laneId);
   }
 
   // -----------------------------------------------------------------
@@ -79,14 +105,14 @@ export class TimelineDock {
     this.canvas.className = 'rw-tl-canvas';
     this.canvas.appendChild(this.ruler.el);
     this.canvas.appendChild(this.track.el);
+    // Lane editor sits under the track INSIDE the shared canvas, so lane
+    // rows inherit the ruler's bar scale and horizontal scroll for free.
+    this.canvas.appendChild(this.laneEditor.el);
     this.scroller.appendChild(this.canvas);
 
     this.body.appendChild(this.scroller);
     this.body.appendChild(this.inspector.el);
     this.host.appendChild(this.body);
-
-    // Keyframing v2 preview: minimal lane editor strip under the body.
-    this.host.appendChild(this.lanes.el);
 
     // Hover-focus tracking for keyboard shortcuts.
     this.host.addEventListener('mouseenter', () => { this.hovered = true; });
@@ -98,6 +124,7 @@ export class TimelineDock {
     this.seq.onPlayStateChange = () => this.transport.refresh();
     this.seq.onPlayheadChange = (bar) => {
       this.track.updatePlayhead(bar);
+      this.laneEditor.updatePlayhead(bar);
       this.transport.updateReadout(bar);
     };
     this.seq.onTimelineChange = () => {
@@ -106,6 +133,8 @@ export class TimelineDock {
       // without the dock mounted also save.
     };
     this.seq.onSelectionChange = (id) => {
+      // Scene and lane selection are mutually exclusive.
+      if (id && this.laneSelection) this.setLaneSelection(null);
       this.track.applySelection(id);
       this.inspector.render();
     };
@@ -193,6 +222,7 @@ export class TimelineDock {
     this.transport.setZoom(z);
     this.ruler.setPixelsPerBar(z);
     this.track.setPixelsPerBar(z);
+    this.laneEditor.setPixelsPerBar(z);
   }
 
   resize(): void {
@@ -200,11 +230,23 @@ export class TimelineDock {
     // pixelsPerBar * lengthBars; placeholder for future).
     this.ruler.render();
     this.track.render();
+    this.laneEditor.render();
+  }
+
+  /** Drop the lane selection if its lane/point no longer exists. */
+  private validateLaneSelection(): void {
+    const sel = this.laneSelection;
+    if (!sel) return;
+    const lane = this.seq.timeline?.lanes.find((l) => l.id === sel.laneId);
+    const point = lane?.points.find((p) => Math.abs(p.bar - sel.bar) <= 1e-9);
+    if (!lane || !point) this.laneSelection = null;
   }
 
   refreshAll(): void {
+    this.validateLaneSelection();
     this.ruler.setPixelsPerBar(this.pixelsPerBar);
     this.track.setPixelsPerBar(this.pixelsPerBar);
+    this.laneEditor.setPixelsPerBar(this.pixelsPerBar);
     this.transport.refresh();
     this.inspector.render();
   }

@@ -90,24 +90,30 @@
   min-height: 0;
 }
 .rw-tl-scroller {
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* Vertical scroll covers track + lane rows; the ruler stays pinned via
+   * position: sticky below. */
+  overflow: auto;
   position: relative;
 }
 .rw-tl-canvas {
   position: relative;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 /* Ruler */
 .rw-tl-ruler {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  flex: 0 0 22px;
   height: 22px;
   border-bottom: 1px solid var(--re-line);
   cursor: pointer;
   background:
     linear-gradient(to bottom, rgba(95,255,133,0.04), rgba(0,0,0,0)),
-    rgba(0,0,0,0.4);
+    rgba(8,14,8,0.96);
 }
 .rw-tl-bar {
   position: absolute;
@@ -126,7 +132,8 @@
 /* Track surface */
 .rw-tl-track {
   position: relative;
-  height: calc(100% - 22px);
+  flex: 1 1 auto;
+  min-height: 48px;
   background:
     repeating-linear-gradient(
       to right,
@@ -269,31 +276,153 @@
    keep any straggling element hidden in case migration leaves one behind. */
 #help-fab { display: none !important; }
 
-/* ---- Keyframing v2 preview: lanes strip ---- */
-#timeline-dock[data-dock="hidden"] .rw-tl-lanes { display: none; }
-.rw-tl-lanes {
+/* ============================================================
+   Keyframing v2: automation-lane editor (inside the scroll canvas,
+   under the scene track — shares the ruler scale + scroll for free)
+   ============================================================ */
+
+.rw-tl-lanes-region {
+  position: relative;
+  flex: 0 0 auto;
   border-top: 1px solid var(--re-line);
-  padding: 4px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-height: 120px;
-  overflow-y: auto;
-  font-size: 12px;
 }
-.rw-tl-lanes-head {
-  font-size: 10px;
-  letter-spacing: 0.1em;
+
+/* Second playhead line spanning the lane rows (no arrow cap). */
+.rw-tl-playhead--lanes::before { display: none; }
+
+.rw-tl-lane-row {
+  position: relative;
+  border-bottom: 1px solid rgba(95,255,133,0.10);
+  background: rgba(0,0,0,0.25);
+}
+.rw-tl-lane-row.muted .rw-tl-lane-canvas,
+.rw-tl-lane-row.muted .rw-tl-lane-pts { opacity: 0.35; }
+.rw-tl-lane-row.rw-tl-lane-flash {
+  animation: rw-tl-lane-flash-kf 1.2s ease-out 1;
+}
+@keyframes rw-tl-lane-flash-kf {
+  0%   { background: rgba(95,255,133,0.25); }
+  100% { background: rgba(0,0,0,0.25); }
+}
+
+.rw-tl-lane-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.rw-tl-lane-pts {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* Point diamonds — smaller than scene markers, same phosphor language. */
+.rw-tl-lane-pt {
+  position: absolute;
+  width: 10px; height: 10px;
+  transform: rotate(45deg);
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  box-shadow: 0 0 4px rgba(95,255,133,0.5);
+  cursor: grab;
+}
+.rw-tl-lane-pt:hover { background: var(--re-accent); }
+.rw-tl-lane-pt:active { cursor: grabbing; }
+.rw-tl-lane-pt.selected {
+  background: var(--re-accent);
+  outline: 2px solid var(--re-accent-2);
+  outline-offset: 1px;
+  z-index: 3;
+}
+
+/* Sticky-left header chip — stays visible while the row scrolls. */
+.rw-tl-lane-chip {
+  position: sticky;
+  left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 3px 0 0 4px;
+  padding: 1px 6px;
+  background: rgba(8,14,8,0.92);
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  font-size: 11px;
+  z-index: 4;
+  max-width: 260px;
+}
+.rw-tl-lane-chip .rw-btn {
+  font-size: 11px;
+  padding: 0 4px;
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--re-text-dim);
+  cursor: pointer;
+  font-family: var(--re-mono);
 }
-.rw-tl-lanes-empty { color: var(--re-text-dim); font-size: 11px; }
-.rw-tl-lane {
-  display: flex;
+.rw-tl-lane-chip .rw-btn:hover { color: var(--re-accent); border-color: var(--re-line); }
+.rw-tl-lane-name {
+  color: var(--re-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.rw-tl-lane-count { color: var(--re-text-dim); font-size: 10px; }
+
+/* Add-lane row — sticky-left, natural width. */
+.rw-tl-lane-add {
+  position: sticky;
+  left: 4px;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin: 4px;
+  width: max-content;
 }
-.rw-tl-lane-name { min-width: 110px; color: var(--re-accent); }
-.rw-tl-lane-resolved { color: var(--re-text-dim); min-width: 70px; }
-.rw-tl-lane-count { color: var(--re-text-dim); font-size: 11px; }
-.rw-tl-lane .rw-num { width: 70px; }
-.rw-tl-lane-add select { max-width: 220px; }
+.rw-tl-lane-add .rw-select,
+.rw-tl-lane-add .rw-btn {
+  font-size: 11px;
+  padding: 2px 5px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+}
+.rw-tl-lane-add .rw-btn { cursor: pointer; }
+.rw-tl-lane-add .rw-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
+.rw-tl-lane-add .rw-select { max-width: 220px; }
+
+/* Drag tooltip: bar · offset → resolved absolute. */
+.rw-tl-lane-tip {
+  position: fixed;
+  z-index: 101;
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Inspector lane-point mode */
+.rw-tl-insp-param {
+  color: var(--re-accent);
+  font-size: 12px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rw-tl-insp-resolved {
+  color: var(--re-text-dim);
+  font-size: 10px;
+  margin: 2px 0 6px;
+}
+.rw-tl-insp-divider {
+  height: 1px;
+  background: var(--re-line);
+  margin: 10px 0 8px;
+}

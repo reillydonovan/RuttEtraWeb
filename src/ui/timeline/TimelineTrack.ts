@@ -6,23 +6,16 @@
 
 import { Sequencer } from '../../sequencer/Sequencer';
 import { Keyframe } from '../../sequencer/types';
+import { showContextMenu, dismissContextMenu } from './contextMenu';
 import type { Preset } from '../presets';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
-
-interface ContextMenuItem {
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  separator?: boolean;
-}
 
 export class TimelineTrack {
   el: HTMLElement;
   private seq: Sequencer;
   private pixelsPerBar = 60;
   private kfElems = new Map<string, HTMLElement>();
-  private ctxMenu: HTMLElement | null = null;
 
   constructor(seq: Sequencer) {
     this.seq = seq;
@@ -40,7 +33,6 @@ export class TimelineTrack {
     this.el.addEventListener('dragover', this.onDragOver);
     this.el.addEventListener('dragleave', this.onDragLeave);
     this.el.addEventListener('drop', this.onDrop);
-    document.addEventListener('click', this.onDocClick);
   }
 
   setPixelsPerBar(p: number): void {
@@ -193,7 +185,7 @@ export class TimelineTrack {
     const rect = this.el.getBoundingClientRect();
     const x = ev.clientX - rect.left + this.el.scrollLeft;
     const bar = Math.max(0, Math.min(t.lengthBars, x / this.pixelsPerBar));
-    this.showContext(ev.clientX, ev.clientY, [
+    showContextMenu(ev.clientX, ev.clientY, [
       { label: `Add keyframe at bar ${bar.toFixed(2)}`, onClick: () => {
         this.seq.addKeyframe(bar);
       } },
@@ -205,7 +197,7 @@ export class TimelineTrack {
     ev.preventDefault();
     ev.stopPropagation();
     this.seq.selectKeyframe(kf.id);
-    this.showContext(ev.clientX, ev.clientY, [
+    showContextMenu(ev.clientX, ev.clientY, [
       { label: 'Preview', onClick: () => this.seq.preview(kf.id) },
       { label: 'Replace snapshot with current', onClick: () => this.seq.replaceSnapshot(kf.id) },
       { label: 'Duplicate (+1 bar)', onClick: () => this.seq.duplicateKeyframe(kf.id) },
@@ -220,43 +212,6 @@ export class TimelineTrack {
       { separator: true, label: '' },
       { label: 'Delete', onClick: () => this.seq.removeKeyframe(kf.id) },
     ]);
-  };
-
-  private showContext(x: number, y: number, items: ContextMenuItem[]): void {
-    this.dismissContext();
-    const ul = document.createElement('ul');
-    ul.className = 'rw-tl-ctx';
-    ul.style.left = `${x}px`;
-    ul.style.top  = `${y}px`;
-    for (const item of items) {
-      const li = document.createElement('li');
-      if (item.separator) {
-        li.className = 'sep';
-      } else {
-        li.textContent = item.label;
-        if (item.disabled) li.classList.add('disabled');
-        else li.addEventListener('click', () => {
-          item.onClick?.();
-          this.dismissContext();
-        });
-      }
-      ul.appendChild(li);
-    }
-    document.body.appendChild(ul);
-    this.ctxMenu = ul;
-  }
-
-  private dismissContext(): void {
-    if (this.ctxMenu) {
-      this.ctxMenu.remove();
-      this.ctxMenu = null;
-    }
-  }
-
-  private onDocClick = (ev: MouseEvent): void => {
-    if (this.ctxMenu && !this.ctxMenu.contains(ev.target as Node)) {
-      this.dismissContext();
-    }
   };
 
   // ====== drag-from-presets drop ======
@@ -297,7 +252,6 @@ export class TimelineTrack {
   };
 
   destroy(): void {
-    document.removeEventListener('click', this.onDocClick);
-    this.dismissContext();
+    dismissContextMenu();
   }
 }
