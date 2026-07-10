@@ -464,6 +464,13 @@ async function bootSynth(): Promise<void> {
   // The overlay is a one-time welcome screen, not a persistent "no source"
   // indicator. Once dismissed (by connecting any source or clicking skip) it
   // never re-shows — the HUD line already reports the active source state.
+  // Its version line shares the panel title bar's build stamp source, so
+  // "is the deployed page fresh?" is answerable from the landing screen.
+  const bootVersion = document.getElementById('boot-version');
+  if (bootVersion) {
+    bootVersion.textContent =
+      `v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit} · ${__BUILD_INFO__.builtAt}`;
+  }
   let overlayDismissed = false;
   function dismissOverlay(): void {
     overlayDismissed = true;

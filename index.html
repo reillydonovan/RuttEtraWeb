@@ -35,7 +35,10 @@
       <canvas id="stage"></canvas>
       <div id="overlay">
         <div id="boot-message">
-          <div class="boot-line">RUTT/ETRA WEB SYNTHESIZER v0.1</div>
+          <!-- The version span is populated at boot from __BUILD_INFO__
+               (package.json version + git commit + build date) so the
+               overlay can never show a stale hardcoded number. -->
+          <div class="boot-line">RUTT/ETRA WEB SYNTHESIZER <span id="boot-version"></span></div>
           <div class="boot-line dim">select a source to begin</div>
           <div id="boot-sources">
             <button class="boot-src" id="boot-webcam">WEBCAM</button>

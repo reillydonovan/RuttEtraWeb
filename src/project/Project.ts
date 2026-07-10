@@ -28,20 +28,17 @@ import {
   PROJECT_FORMAT_VERSION, PROJECT_TYPE_TAG,
 } from './types';
 
-/** App version reported in saved project metadata. Pulled from
- *  Vite's `import.meta.env` when available; falls back to a
- *  human-readable token otherwise (tests, SSR, etc.). */
+/** App version reported in saved project metadata. Reads the same
+ *  `__BUILD_INFO__` define that stamps the panel title bar and boot
+ *  overlay (one version, one source); falls back to a human-readable
+ *  token where the define doesn't exist (node test environment). */
 export const APP_VERSION = readAppVersion();
 
 function readAppVersion(): string {
-  // Vite exposes APP_VERSION as a build-time define when configured;
-  // we also fall back to package.json import in dev. Either way we
-  // gate on `typeof import.meta` to keep this file usable in the
-  // node test environment.
   try {
-    const env = (import.meta as unknown as { env?: Record<string, string> }).env;
-    return env?.VITE_APP_VERSION ?? '0.10.x';
-  } catch { return '0.10.x'; }
+    if (typeof __BUILD_INFO__ !== 'undefined') return __BUILD_INFO__.version;
+  } catch { /* fall through */ }
+  return 'dev';
 }
 
 // --------------------------------------------------------------------
