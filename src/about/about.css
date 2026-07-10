@@ -156,6 +156,54 @@ body.about-body::before {
   outline: none;
   border-color: var(--re-line-hi);
   box-shadow: var(--re-glow);
+  width: 260px;
+  transition: width 0.15s ease-out;
+}
+
+/* Search results dropdown — anchored under the input, right edge of
+ * the nav. Scrolls internally past ~8 results. */
+#about-search-results {
+  position: absolute;
+  top: var(--about-nav-h);
+  right: 8px;
+  width: min(440px, calc(100vw - 16px));
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  background: rgba(6, 10, 6, 0.97);
+  border: 1px solid var(--re-line-hi);
+  border-top: none;
+  border-radius: 0 0 2px 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.about-result {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--re-line);
+  cursor: pointer;
+}
+.about-result:last-child { border-bottom: none; }
+.about-result:hover, .about-result-active {
+  background: rgba(95, 255, 133, 0.08);
+}
+.about-result-trail {
+  color: var(--re-accent);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+.about-result-snippet {
+  color: var(--re-text-dim);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.about-result-snippet mark {
+  background: rgba(95, 255, 133, 0.25);
+  color: var(--re-accent);
+  padding: 0 1px;
+}
+.about-result-empty {
+  padding: 10px 12px;
+  color: var(--re-text-dim);
+  font-size: 14px;
 }
 
 /* =====================================================================
@@ -177,7 +225,12 @@ body.about-body::before {
   scroll-margin-top: calc(var(--about-nav-h) + 16px);
 }
 
-.about-hidden { display: none; }
+/* Flash highlight on the heading a search jump lands on. */
+@keyframes about-flash-kf {
+  0%   { background: rgba(95, 255, 133, 0.35); text-shadow: var(--re-glow); }
+  100% { background: transparent; }
+}
+.about-flash { animation: about-flash-kf 1.6s ease-out 1; }
 
 /* Headings */
 #about-doc h1 {
@@ -399,7 +452,7 @@ body.about-body::before {
     background: white !important;
     color: #111 !important;
   }
-  #about-nav, #about-toc-toggle, #about-search, .about-noscript {
+  #about-nav, #about-toc-toggle, #about-search, #about-search-results, .about-noscript {
     display: none !important;
   }
   #about-doc {
@@ -458,7 +511,4 @@ body.about-body::before {
     counter-increment: about-h3;
     content: counter(about-h2) "." counter(about-h3) " ";
   }
-
-  /* Reveal hidden (search-filtered) sections in print. */
-  .about-hidden { display: block !important; }
 }

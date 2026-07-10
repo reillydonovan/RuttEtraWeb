@@ -20,8 +20,8 @@
  *      in-app Help, so the manual can never drift from the code.
  *   3. Wire the top-nav TOC links (smooth scroll + offset for the
  *      fixed nav).
- *   4. Wire the search input (substring match across section text,
- *      hides non-matching sections).
+ *   4. Wire the search input (heading-level index + results dropdown;
+ *      Enter / click jumps to the matched heading).
  *   5. Wire the hamburger toggle for mobile TOC.
  */
 
@@ -120,49 +120,190 @@ if (window.location.hash) {
 }
 
 // =====================================================================
-// Search — filter sections by visible text
+// Search — heading-level index + results dropdown
+//
+// The previous implementation filtered whole <section>s and scrolled
+// to the first match. With only nine huge sections, almost any query
+// matched section 1 (Intro), so every search appeared to "jump to the
+// top and do nothing". This version indexes each heading (h1–h4) plus
+// the prose under it, shows a ranked dropdown of matches with
+// highlighted snippets, and jumps to the exact heading on selection.
 // =====================================================================
 
+interface SearchEntry {
+  heading: HTMLElement;      // scroll target
+  title: string;             // heading text
+  trail: string;             // "Section › Heading" breadcrumb
+  body: string;              // prose under the heading (until next heading)
+  haystack: string;          // lowercased title + body, for matching
+}
+
 const search = document.getElementById('about-search') as HTMLInputElement | null;
-if (search) {
-  // Build a flat search index lazily on first input. Each entry is a
-  // section element + its lowercased innerText. We rebuild only if
-  // the doc changes, which it doesn't post-mount.
-  let index: Array<{ el: HTMLElement; text: string }> | null = null;
-  const buildIndex = (): void => {
-    index = [];
+const nav = document.getElementById('about-nav');
+if (search && nav) {
+  const MAX_RESULTS = 12;
+  const SNIPPET_RADIUS = 60; // chars of context either side of the match
+
+  // Results dropdown lives in the nav so it anchors under the input.
+  const resultsEl = document.createElement('div');
+  resultsEl.id = 'about-search-results';
+  resultsEl.setAttribute('role', 'listbox');
+  resultsEl.hidden = true;
+  nav.appendChild(resultsEl);
+
+  // Build the index lazily on first keystroke — the doc is static
+  // after mount, so one build is enough.
+  let index: SearchEntry[] | null = null;
+  const buildIndex = (): SearchEntry[] => {
+    const entries: SearchEntry[] = [];
     for (const sec of doc.querySelectorAll<HTMLElement>('section.about-section')) {
-      index.push({ el: sec, text: sec.innerText.toLowerCase() });
+      const headings = sec.querySelectorAll<HTMLElement>('h1, h2, h3, h4');
+      const sectionTitle = headings[0]?.textContent?.trim() ?? sec.id;
+      for (const h of headings) {
+        // Collect the prose between this heading and the next one.
+        let body = '';
+        for (let el = h.nextElementSibling; el; el = el.nextElementSibling) {
+          if (/^H[1-4]$/.test(el.tagName)) break;
+          body += ' ' + (el.textContent ?? '');
+        }
+        const title = h.textContent?.trim() ?? '';
+        entries.push({
+          heading: h,
+          title,
+          trail: h === headings[0] ? title : `${sectionTitle} › ${title}`,
+          body: body.replace(/\s+/g, ' ').trim(),
+          haystack: (title + ' ' + body).replace(/\s+/g, ' ').toLowerCase(),
+        });
+      }
     }
+    return entries;
   };
+
+  let matches: SearchEntry[] = [];
+  let active = -1; // keyboard-highlighted result index
+
+  const closeResults = (): void => {
+    resultsEl.hidden = true;
+    resultsEl.replaceChildren();
+    matches = [];
+    active = -1;
+  };
+
+  const jumpTo = (entry: SearchEntry): void => {
+    closeResults();
+    const top = entry.heading.getBoundingClientRect().top + window.scrollY - NAV_OFFSET - 8;
+    window.scrollTo({ top, behavior: 'smooth' });
+    // Brief phosphor flash so the eye lands on the right heading.
+    entry.heading.classList.remove('about-flash');
+    // Force a reflow so re-adding the class restarts the animation.
+    void entry.heading.offsetWidth;
+    entry.heading.classList.add('about-flash');
+  };
+
+  // Snippet with the matched term wrapped in <mark>, built via
+  // textContent (never innerHTML on doc text) so content can't inject
+  // markup into the dropdown.
+  const buildSnippet = (entry: SearchEntry, needle: string): HTMLElement => {
+    const snip = document.createElement('div');
+    snip.className = 'about-result-snippet';
+    const at = entry.body.toLowerCase().indexOf(needle);
+    if (at < 0) {
+      snip.textContent = entry.body.slice(0, SNIPPET_RADIUS * 2);
+      return snip;
+    }
+    const start = Math.max(0, at - SNIPPET_RADIUS);
+    const end = Math.min(entry.body.length, at + needle.length + SNIPPET_RADIUS);
+    if (start > 0) snip.appendChild(document.createTextNode('…' + entry.body.slice(start, at)));
+    else snip.appendChild(document.createTextNode(entry.body.slice(0, at)));
+    const mark = document.createElement('mark');
+    mark.textContent = entry.body.slice(at, at + needle.length);
+    snip.appendChild(mark);
+    snip.appendChild(document.createTextNode(entry.body.slice(at + needle.length, end) + (end < entry.body.length ? '…' : '')));
+    return snip;
+  };
+
+  const setActive = (i: number): void => {
+    active = i;
+    resultsEl.querySelectorAll('.about-result').forEach((el, idx) => {
+      el.classList.toggle('about-result-active', idx === i);
+      if (idx === i) el.scrollIntoView({ block: 'nearest' });
+    });
+  };
+
   const apply = (q: string): void => {
-    if (!index) buildIndex();
+    if (!index) index = buildIndex();
     const needle = q.trim().toLowerCase();
-    if (!needle) {
-      for (const { el } of index!) el.classList.remove('about-hidden');
+    if (needle.length < 2) { closeResults(); return; }
+
+    // Every whitespace-separated term must appear; title hits rank
+    // above body-only hits, document order breaks ties.
+    const terms = needle.split(/\s+/);
+    const titleHits: SearchEntry[] = [];
+    const bodyHits: SearchEntry[] = [];
+    for (const entry of index) {
+      if (!terms.every((t) => entry.haystack.includes(t))) continue;
+      if (terms.some((t) => entry.title.toLowerCase().includes(t))) titleHits.push(entry);
+      else bodyHits.push(entry);
+    }
+    matches = [...titleHits, ...bodyHits].slice(0, MAX_RESULTS);
+    active = -1;
+    resultsEl.replaceChildren();
+
+    if (!matches.length) {
+      const empty = document.createElement('div');
+      empty.className = 'about-result-empty';
+      empty.textContent = 'no matches';
+      resultsEl.appendChild(empty);
+      resultsEl.hidden = false;
       return;
     }
-    let firstMatch: HTMLElement | null = null;
-    for (const { el, text } of index!) {
-      const hit = text.includes(needle);
-      el.classList.toggle('about-hidden', !hit);
-      if (hit && !firstMatch) firstMatch = el;
-    }
-    if (firstMatch) {
-      const top = firstMatch.getBoundingClientRect().top + window.scrollY - NAV_OFFSET - 8;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
+
+    matches.forEach((entry, i) => {
+      const item = document.createElement('div');
+      item.className = 'about-result';
+      item.setAttribute('role', 'option');
+      const trail = document.createElement('div');
+      trail.className = 'about-result-trail';
+      trail.textContent = entry.trail;
+      item.appendChild(trail);
+      item.appendChild(buildSnippet(entry, terms[0]));
+      // mousedown (not click) so the jump wins over the input's blur.
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        jumpTo(entry);
+      });
+      item.addEventListener('mousemove', () => setActive(i));
+      resultsEl.appendChild(item);
+    });
+    resultsEl.hidden = false;
   };
+
   let raf = 0;
   search.addEventListener('input', () => {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(() => apply(search.value));
   });
-  // Esc clears the filter.
+  search.addEventListener('focus', () => {
+    if (search.value.trim().length >= 2) apply(search.value);
+  });
+  search.addEventListener('blur', () => {
+    // Delay so a result mousedown lands before the list disappears.
+    setTimeout(closeResults, 120);
+  });
   search.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       search.value = '';
-      apply('');
+      closeResults();
+      search.blur();
+    } else if (e.key === 'ArrowDown' && matches.length) {
+      e.preventDefault();
+      setActive(Math.min(active + 1, matches.length - 1));
+    } else if (e.key === 'ArrowUp' && matches.length) {
+      e.preventDefault();
+      setActive(Math.max(active - 1, 0));
+    } else if (e.key === 'Enter' && matches.length) {
+      e.preventDefault();
+      jumpTo(matches[Math.max(active, 0)]);
     }
   });
 }
