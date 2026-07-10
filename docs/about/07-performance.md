@@ -171,3 +171,14 @@ The bar-based interpolating preset sequencer. Conceptually: a piece is a list of
 - **Easing per keyframe pair** — defines the curve from this keyframe to the next.
 - **Snapshot vs preset reference** — snapshots are inline (heavy timelines = larger JSON), preset refs are by-name links (smaller, but break if the preset is renamed).
 - **Loop** — toggle. The playhead wraps to bar 0 at the end. Combine with MIDI sync for a clip-launching workflow.
+
+#### Automation lanes (v2 preview)
+
+Preset keyframes set the overall structure; **lanes** animate one knob. The **LANES** strip at the bottom of the Timeline dock holds per-parameter automation lanes that evaluate alongside the keyframe track:
+
+- **+ Lane** — pick any modulation target from the dropdown and add a lane for it.
+- Each lane holds points (bar → value). **Set @ playhead** writes the lane's current value at the playhead bar; **⌫ pt** removes the point there. Between points the value interpolates; before the first and after the last point it holds.
+- Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs and CV instead of fighting them. The `→ value` readout previews the resolved absolute value at the playhead.
+- The per-lane checkbox mutes the lane; muting or deleting a lane snaps its target back to the base value the same frame. Lane edits participate in the sequencer's undo history.
+
+This is the data layer plus a minimal editor — drawable curves and record-knob-moves are a planned second stage. Timelines containing lanes save as timeline format v2; older v1 files load unchanged.

@@ -164,6 +164,40 @@ When the toggle is off, nothing about the classic single-raster path changes —
 - **Contrast** — multiplicative on luminance before depth mapping.
 - **Gamma** — exponent on luminance. `1.0` = linear. `<1` boosts shadows; `>1` boosts highlights.
 
+### Color & Post-FX
+
+The **Color / Post FX** section shapes the rendered scanlines after synthesis — the "monitor" half of the instrument, where the DCU's geometry picks up its phosphor.
+
+- **Color mode** — Grayscale, Phosphor Green (P1), Phosphor Amber, Custom Tint, or Sampled Video (each scanline keeps the color of the pixels it sampled).
+- **Background** — the clear color behind the mesh.
+- **Bloom** — intensity / radius / threshold. Off by default so raw scanlines stay crisp; raise Intensity for the classic phosphor glow.
+- **Scanline overlay** — a CRT shadow-line texture over the final image, with intensity and density controls.
+- **Chromatic aberration** — radial RGB split, strongest toward the frame edges.
+- **Vignette** — edge darkening.
+
+#### Burn-In Feedback
+
+An accumulation buffer that keeps the brightest value each frame and decays it over time — the long-exposure phosphor-trail look of an aging CRT. **Decay** sets the trail length as a half-life: `0.9` ≈ 0.1 s, `0.99` ≈ 1 s, `0.999` ≈ 11 s. Trails genuinely compound — hold a bright shape still and it burns in; move it and it drags a fading ghost.
+
+**Shape masking** confines the burn-in to a region of the frame:
+
+- **Shape** — *Full frame*, *Circle*, or *Box*.
+- **Shape X / Shape Y** — the region's center. Both are modulation targets — patch two LFOs at slightly different rates and the feedback zone orbits the frame.
+- **Radius** — region size.
+- **Softness** — edge feather. `0` is a hard matte edge; higher values melt the region boundary into the clean image.
+
+Outside the shape the image stays clean, so you can burn a halo into the middle of the frame while the edges keep tracking the live video.
+
+#### Analog Character
+
+A wear layer in the CRT pass — the imperfections of a real analog signal chain. Off by default and costs nothing until enabled:
+
+- **Noise** — per-pixel video grain.
+- **Dropout** — sparse one-frame horizontal tears, like a worn tape.
+- **Hum Bar** — a slow-rolling horizontal brightness band, the classic ground-loop artifact.
+
+All three amounts are modulation targets: drive Dropout from an audio band and the tape damage lands on the kick.
+
 ### Camera
 
 Switch modes from the **Camera panel → Mode dropdown** (top of the panel).

@@ -23,6 +23,10 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Project | `Ctrl+O` | Open Project (file picker) |
 | Project | `Ctrl+S` | Save Project (writes back to current file, or prompts if untitled) |
 | Project | `Ctrl+Shift+S` | Save Project As (name + location prompt) |
+| Modulation row | `R` / `Shift+R` | Reset the focused slot's params / hard reset (also wipes Source + Target) |
+| Graph editor | `Esc` | Cancel a pending cable connection |
+| Graph editor | `← ↑ → ↓` | Nudge the focused node (`Shift` = larger step) |
+| Graph editor | `Delete` / `Backspace` | Delete the focused node |
 | Global | `/` | Focus the panel param search |
 | Global | `[` / `]` | Cycle panel tabs (Synth / I/O / Help) |
 | Global | `Alt+Shift+D` | Toggle the layout debug overlay |
@@ -51,36 +55,45 @@ The about page itself accepts no URL parameters; it is a pure static document.
 
 #### Preset JSON (excerpt)
 
+A preset export is a flat Settings snapshot stamped with the schema version (`_v`, currently 25). Older files are migrated on import; a file with a newer `_v` than the code loads with a console warning and is normalized on save.
+
 ```json
 {
-  "version": 9,
-  "name": "Phosphor Green",
-  "settings": {
-    "sourceKind": "webcam",
-    "zPush": 1.5,
-    "intensity": 0.8,
-    "internalBpm": 120,
-    "modMode": "classic",
-    "patches": [
-      { "id": "p1", "source": "lfo", "target": "zPush",
-        "amount": 0.5, "params": { "rate": 0.5, "shape": "sine" } }
-    ]
-  }
+  "_v": 25,
+  "sourceKind": "webcam",
+  "zPush": 1.5,
+  "intensity": 0.8,
+  "internalBpm": 120,
+  "modMode": "classic",
+  "modSlots": [
+    { "source": "sine", "target": "zPush", "amount": 0.5,
+      "freq": 0.5, "mode": "additive", "slewRiseMs": 0 }
+  ]
 }
 ```
 
 #### Timeline JSON (excerpt)
 
+Timeline format v2 (`_v: 2`) adds automation `lanes` alongside the preset `keyframes`; v1 files load unchanged and gain an empty `lanes` array.
+
 ```json
 {
-  "version": 1,
-  "bpm": 120,
+  "_v": 2,
+  "id": "tl-abc",
+  "name": "Tuesday set",
+  "beatsPerBar": 4,
+  "lengthBars": 16,
   "loop": true,
-  "tracks": [
-    { "bar": 0,  "kind": "snapshot", "settings": { ... } },
-    { "bar": 8,  "kind": "presetRef", "name": "Phosphor Green",
-      "easeIn": "smoothstep" },
-    { "bar": 16, "kind": "snapshot", "settings": { ... } }
+  "syncMode": "internal",
+  "excludedParams": [ "sourceKind", "defaultView" ],
+  "keyframes": [
+    { "id": "k1", "bar": 0,  "presetSnapshot": { ... }, "easing": "linear" },
+    { "id": "k2", "bar": 8,  "presetSnapshot": { ... }, "easing": "easeInOut",
+      "presetName": "Phosphor Green" }
+  ],
+  "lanes": [
+    { "id": "l1", "paramKey": "zPush", "enabled": true,
+      "points": [ { "bar": 0, "value": 0 }, { "bar": 8, "value": 1.5 } ] }
   ]
 }
 ```
@@ -121,6 +134,10 @@ The format is **self-contained** — no external references, no relative paths, 
 #### OSC bridge protocol
 
 WebSocket messages are JSON: `{ "addr": "/cv/0", "args": [0.42] }`. Outgoing CV values are floats in `[-1, 1]`; the bridge multiplies by your hardware's voltage scale before sending OSC. Inbound messages from the bridge follow the same shape.
+
+### Build stamp
+
+The panel title bar shows a dim build stamp next to the RUTT/ETRA title — `v<version> · <commit>` — with the build date in its tooltip, and the landing screen's boot overlay shows the full form (`v<version> · <commit> · <date>`) under the synth name. The same line is logged to the browser console on boot as `[ruttetra] v<version> <hash> (<date>)`. All three read one build-time source, so they can never disagree. When reporting a bug — or checking that a deploy actually went live — this stamp identifies exactly which commit the page was built from.
 
 ### Browser support matrix
 

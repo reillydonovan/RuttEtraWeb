@@ -25,7 +25,42 @@ npm run build
 
 ---
 
-## Recent changes (v11 → current)
+## Recent changes (settings v16 → v25, July 2026)
+
+One audited backlog run (see `AUDIT.md` and `CLAUDE.md`) landed seventeen features and fixes, each as its own tested commit. The Settings schema went v16 → v25 (one migration per change) and the Timeline schema went v1 → v2.
+
+**Panel & workflow**
+
+- **Param search + tab hotkeys** — press `/` anywhere to filter every control across all panel tabs (matching sections expand, matching rows highlight); `[` / `]` cycle Synth / I/O / Help.
+- **Two-screen popout** — the `⧉` title-bar button moves the entire control panel into its own window. Same live page, same JS context — nothing is mirrored or synced. Output fullscreen on the projector, controls on the laptop.
+- **Custom slider ranges** — right-click (long-press on touch) any slider to widen or narrow its range, clamped to a ±5×-span safety envelope so a typo can't dial a GPU-hanging scan rate. Overrides persist and travel inside Projects.
+- **Build stamp** — the panel title bar shows `v<version> · <commit>` with the build date in the tooltip, so a deployed page maps to a commit at a glance.
+
+**Modulation**
+
+- **Graph mute + My Patches** — per-node and per-binding enable checkboxes (muted nodes dim on the canvas and contribute nothing); the graph Library sidebar gained a **My Patches** area for saving/loading named user patches.
+- **Classic slot slew (glide)** — per-slot rise/fall glide (0–5000 ms) in the Output group, same exponential math as the Graph Slew node.
+- **Multiplicative modulation** — Classic slots (and Graph beginner rows) pick **Additive (+)** or **Multiply (×)**; live value = `(base + Σoffsets) × Πfactors` — the classic patched-multiplier for tremolo/VCA-style depth control.
+- **LFO range switch** — Low (×0.01) / Mid (×1) / High (×10) coarse range on Classic and Graph LFO rates, like the range switch on the original hardware oscillators.
+- **ADSR + resonant filter nodes** — a gate-triggered **Envelope (ADSR)** and a control-rate state-variable **Filter (LP/HP/BP)** with genuine resonant overshoot, both in the graph palette.
+- **Graph editor polish** — drag-to-wire with a rubber-band cable, cursor-anchored pan/zoom (0.4×–2.5×), and per-port `nodeId#port` connections so multi-output nodes can be wired from any output.
+
+**Synthesis & FX**
+
+- **Dual raster** *(feature flag, default OFF)* — a second, independently modulated raster B fed by the same video: **Wipe** mode splits the frame on a modulatable Trace slider; **Alternate lines** interleaves row-by-row. Raster B's position/size/depth/rotation/luminance are all `B:` modulation targets.
+- **Shape-masked feedback** — confine burn-in trails to a movable circle or box region; center, radius, and softness are all modulatable (orbit the feedback zone with two LFOs).
+- **Analog character** — a wear layer in the CRT pass: video grain, one-frame dropout tears, and a rolling hum bar. Off by default, all amounts modulatable.
+- **Rotation knob** — continuous ±180° in-plane rotation composed after the 0°/90° switch, pivoting on H/V Center. Modulatable.
+- **Burn-in fixed** — the feedback accumulator now genuinely compounds (it was a one-frame echo); Decay reads as a half-life (0.9 ≈ 0.1 s · 0.99 ≈ 1 s · 0.999 ≈ 11 s).
+- **Anaglyph Eye Sep fixed** — the slider was a no-op because three.js's AnaglyphEffect eye separation was unsettable; a vendored effect makes it real.
+
+**I/O & timeline**
+
+- **MIDI clock out** — transmit 24-PPQ clock plus Start/Stop at the shared Tempo BPM so external gear chases the synth. Forced OFF on every page load, same posture as CV output. Ships with an emulated **Sync (V)** frame-locked pulse node for the graph.
+- **Keyframing v2** — timeline **automation lanes**: per-parameter point lists whose values are relative offsets summed through the live-value system (they compose with LFOs and CV instead of fighting them), plus a minimal LANES editor in the Timeline dock. Timeline schema v2; v1 files load unchanged.
+- **About-page search rebuilt** — the manual's search now indexes every heading with a results dropdown, highlighted snippets, and jump-to-heading (previously it filtered whole sections and always scrolled to the top).
+
+## Earlier: v11 → v12
 
 - **WebXR (v11)** — Enter VR/AR via `src/renderer/XRManager.ts`: mesh framing presets (tabletop / roomscale / architectural), a separate XR performance-profile axis, auto-end on tab hide. Post-processing is skipped in-headset for v1.
 - **Stereoscopic recording (v12)** — side-by-side stereo via a second offscreen renderer (`src/record/StereoCompositor.ts`), IPD control, and YouTube SV3D metadata injection into MP4s on stop (`src/record/StereoMetadata.ts`).
@@ -187,10 +222,11 @@ Edge cases covered: device disconnected mid-session (channels zero out, no crash
 
 ## Features
 
-The control panel is split into two tabs:
+The control panel is split into three tabs (cycle with `[` / `]`, filter any control with `/`):
 
-- **Synth** — the original scan-processor: source, DCU, camera, color, post-FX, modulation, geometry, presets, record, share.
-- **I/O** — MIDI, Audio (FFT), OSC. New in v2.
+- **Synth** — the original scan-processor: project, source, DCU, dual raster, camera, color, post-FX, modulation, geometry, presets, record, share.
+- **I/O** — MIDI, Audio (FFT), OSC, CV in/out, Sonification.
+- **Help** — quick-reference dock; the long-form manual lives at `about.html`.
 
 ### Video sources
 - **Webcam** — pick any attached camera from a device dropdown. Click *Refresh* after granting camera permission to see correct device labels.
@@ -207,7 +243,7 @@ Every knob from the original [Rutt Electrophysics hardware brochure](https://vas
 | **Position & Size** | H Position, V Position, H Size (bipolar — negative inverts), V Size (bipolar), Aspect |
 | **Depth** | Z Push, Z Bias, Z Invert |
 | **Beam** | Intensity, Focus (0 = sharp → 1 = soft 5-tap blur) |
-| **Rotation** | H Center, V Center, H Spin, V Spin, H/V Spin Rate (auto-rotation), H Reverse, V Reverse, Display 0°/90° |
+| **Rotation** | H Center, V Center, H Spin, V Spin, H/V Spin Rate (auto-rotation), H Reverse, V Reverse, Display 0°/90°, Rotation (continuous ±180° knob) |
 | **Scan** | Scan Rate (rows), Cols (samples per row), Skip/Underscan (drop fraction of lines) |
 | **Linearity** | H Linearity, V Linearity (pin-cushion / barrel bow) |
 | **Luminance** | Threshold, Contrast, Gamma |
@@ -308,7 +344,7 @@ Seven built-in presets load with a single click. Each captures all DCU, color/FX
 | Burn-In | Long-exposure feedback trails |
 | Diving | Camera tucked inside the raster in fly mode |
 
-**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files. The format is versioned (`_v: 2`) and v1 presets are auto-migrated on load — old files keep working, missing v2 fields are filled with sensible defaults.
+**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files. The format is versioned (`_v`, currently 25) and older presets are auto-migrated on load — old files keep working, missing fields are filled with sensible defaults.
 
 ### Recording
 
@@ -371,7 +407,9 @@ In the synth's **I/O &rarr; OSC** panel, set the bridge URL to `ws://localhost:8
 ```
 src/
 ├── main.ts                     entry — routes synth vs ?view=<id> (viewer mode)
-├── state/Settings.ts           typed params store, subscribe/notify, localStorage, v2 migration
+├── state/
+│   ├── Settings.ts             typed params store, subscribe/notify, localStorage, versioned migrations (currently v25)
+│   └── paramRanges.ts          custom per-parameter slider ranges (±5×-span safety envelope)
 ├── input/sources.ts            webcam / screen / file source manager
 ├── renderer/
 │   ├── RuttEtra.ts             scene, LineSegments grid, ShaderMaterial, spectrum DataTexture
@@ -397,15 +435,17 @@ src/
 │   ├── outputStage.ts          shared curve/invert/range/offset shaping (used by both engines)
 │   └── graph/
 │       ├── GraphEngine.ts      signal-graph engine: compile, topology sort, per-frame tick
-│       ├── types.ts            GraphPatch, GraphNode, TargetBinding, NodeDef interfaces
+│       ├── types.ts            GraphPatch, GraphNode, TargetBinding, NodeDef interfaces + nodeId#port refs
 │       ├── registry.ts         node type registry + getDef() lookup
 │       ├── bootstrap.ts        auto-registers all node definitions at import time
 │       ├── nodes/              ~48 node implementations (sources, processors, logic, video, audio, inputs, outputs)
 │       ├── VideoTap.ts         per-frame video texture luminance sampler (Video CV nodes)
-│       └── library.ts          starter patch templates
+│       ├── library.ts          starter patch templates
+│       └── userLibrary.ts      "My Patches" — named user graph patches in localStorage
 ├── sequencer/                  preset-keyframe timeline engine
 │   ├── Sequencer.ts            transport, playhead, bracketed keyframe lerp, undo/redo
-│   ├── types.ts                Timeline / Keyframe schema (versioned), excluded params
+│   ├── types.ts                Timeline / Keyframe / AutomationLane schema (v2), excluded params
+│   ├── lanes.ts                automation-lane evaluation (relative offsets via LiveValues)
 │   ├── store.ts                timeline persistence + legacy-BPM migration toast
 │   ├── interp.ts               number/color lerp, enum step-at-midpoint
 │   └── easings.ts              linear/easeIn/easeOut/easeInOut/step/hold
@@ -423,7 +463,8 @@ src/
 ├── midi/
 │   ├── MidiManager.ts          requestMIDIAccess, device pickers, sendCC (7- and 14-bit)
 │   ├── MidiMapping.ts          binding registry, learn(), curves, last-value cache
-│   └── MidiClock.ts            24-PPQ clock receiver, bpm + phase + beatPulse + divisionToHz
+│   ├── MidiClock.ts            24-PPQ clock receiver, bpm + phase + beatPulse + divisionToHz
+│   └── MidiClockOut.ts         24-PPQ clock transmitter (lookahead-scheduled, forced OFF each load)
 ├── audio/
 │   ├── FFTAnalyzer.ts          AnalyserNode wrapper, banding (linear/log/mel), per-band smoothing
 │   ├── BeatDetector.ts         spectral flux on bass bands, adaptive threshold
@@ -451,7 +492,9 @@ src/
 │   └── about.css               page styles — fixed nav, scanline overlay, tables, print stylesheet
 └── ui/
     ├── ControlPanel.ts         collapsible dock-able panel shell with Synth / I/O tabs
-    ├── widgets.ts              reusable form controls (slider, toggle, dropdown…)
+    ├── PanelPopout.ts          two-screen popout — adopts the live panel DOM into its own window
+    ├── PanelSearch.ts          `/` param search across all tabs
+    ├── widgets.ts              reusable form controls (slider, toggle, dropdown…) + custom-range modal
     ├── widgets/
     │   └── LearnBinding.ts     shared learn-table primitive used by MIDI + OSC
     ├── shared/
@@ -474,10 +517,11 @@ src/
     │   └── graph.css           graph-specific styles
     ├── layout/                 responsive panel system (TabBar, BottomSheet, TopStrip,
     │                           LayoutManager, ResponsivePanel, DebugOverlay)
-    ├── timeline/               timeline dock UI (Dock, Track, Ruler, Inspector, Transport)
+    ├── timeline/               timeline dock UI (Dock, Track, Ruler, Inspector, Transport, LanesPanel)
     └── sections/               one file per panel section
         ├── SourceSection.ts
         ├── DcuSection.ts
+        ├── DualRasterSection.ts           v23: second raster (B) — wipe/alternate + B: mod targets
         ├── ModulationContainerSection.ts  Classic/Graph/Both mode switch + Reset Mod button
         ├── ModulationSection.ts           Classic 4-slot UI (uses shared SlotRow.ts)
         ├── CameraSection.ts
