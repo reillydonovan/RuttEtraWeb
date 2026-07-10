@@ -16,6 +16,7 @@ import { layoutManager } from './layout/LayoutManager';
 import { presentSheetPicker } from './widgets/BottomSheetPicker';
 import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus';
 import { registerDesignedRange } from './paramRangeRegistry';
+import { attachKeyframeDiamond } from './keyframeAffordance';
 
 /**
  * Append a small dual-engine indicator to the row containing `control`.
@@ -294,6 +295,10 @@ export function slider(
   });
 
   attachModulationIndicator(wrap, key as string);
+  // Keyframing v2: inline ◆ — keyframe this param at the playhead.
+  // No-op for keys that aren't modulation targets; hidden until a
+  // timeline exists.
+  attachKeyframeDiamond(wrap, key as string, settings);
 
   // ----- Touch upgrades -----
   // Double-click / double-tap → reset to default. Keyboard equivalent:

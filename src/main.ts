@@ -52,6 +52,7 @@ import { DebugOverlay } from './ui/layout/DebugOverlay';
 import { PerformanceProfileManager } from './perf/PerformanceProfile';
 import { FrameBudgetWatcher } from './perf/FrameBudgetWatcher';
 import { attachHaptics, haptic } from './platform/HapticFeedback';
+import * as keyframeAffordance from './ui/keyframeAffordance';
 import './ui/layout/layout.css';
 
 const params = new URLSearchParams(window.location.search);
@@ -376,6 +377,8 @@ async function bootSynth(): Promise<void> {
   sequencer.addTimelineListener((t) => {
     if (t) seqStore.upsertTimeline(t);
   });
+  // Panel keyframe diamonds (◆) observe the sequencer from here on.
+  keyframeAffordance.registerSequencer(sequencer);
 
   // Restore last-active timeline (if any).
   {

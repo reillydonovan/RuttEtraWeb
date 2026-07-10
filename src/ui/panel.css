@@ -978,6 +978,76 @@ body.viewer-mode #stage { background: #000; }
 .rw-mod-dot.on { display: inline-block; }
 
 /* ============================================================
+   Keyframing v2: inline keyframe diamond (◆) on modulatable rows.
+   Hidden until a timeline exists. States: hollow dim ◇ (keyable),
+   accent outline ◇ (lane exists), filled glowing ◆ (point at the
+   playhead).
+   ============================================================ */
+
+.rw-kf-diamond {
+  /* Sits in the thin strip above the slider, left of the dual-engine
+     mod dot (right: 4px, top: -10px). */
+  position: absolute;
+  right: 16px;
+  top: -13px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--re-text-dim);
+  opacity: 0.45;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+  cursor: pointer;
+  font-family: var(--re-mono);
+}
+.rw-kf-diamond:hover {
+  opacity: 1;
+  color: var(--re-accent);
+}
+.rw-kf-diamond.rw-kf-lane {
+  opacity: 1;
+  color: var(--re-accent);
+}
+.rw-kf-diamond.rw-kf-point {
+  opacity: 1;
+  color: var(--re-accent);
+  text-shadow: 0 0 6px rgba(95,255,133,0.9);
+}
+
+/* Row marker: this param carries automation lanes. */
+.rw-row--animated > .rw-label {
+  border-left: 2px solid var(--re-accent);
+  padding-left: 4px;
+  margin-left: -6px;
+}
+
+/* Diamond context menu (created in the control's ownerDocument so it
+   works inside the two-screen popout). */
+.rw-kf-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  box-shadow: 0 0 8px rgba(95,255,133,0.4), 0 0 16px rgba(0,0,0,0.6);
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  min-width: 190px;
+  font-size: 12px;
+  color: var(--re-text);
+  font-family: var(--re-mono);
+}
+.rw-kf-menu li { padding: 6px 10px; cursor: pointer; }
+.rw-kf-menu li:hover { background: rgba(95,255,133,0.1); color: var(--re-accent); }
+.rw-kf-menu li.disabled { color: var(--re-text-dim); opacity: 0.5; cursor: not-allowed; }
+
+/* Compact layouts never mount the timeline dock — hide the diamonds. */
+body[data-layout="compact"] .rw-kf-diamond { display: none; }
+
+/* ============================================================
    Modulation engine mode switch (Classic / Graph / Both)
    ============================================================ */
 

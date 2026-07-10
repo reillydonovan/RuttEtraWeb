@@ -13,6 +13,7 @@ import { TimelineTrack } from './TimelineTrack';
 import { TimelineInspector } from './TimelineInspector';
 import { LaneEditor } from './LaneEditor';
 import { LanePointSel } from './LaneRow';
+import { setDockActions } from '../keyframeAffordance';
 
 export class TimelineDock {
   private host: HTMLElement;
@@ -68,6 +69,9 @@ export class TimelineDock {
     this.bindEvents();
     this.applyDockState(settings.get('timelineDock'), settings.get('timelineHeight'));
     this.refreshAll();
+
+    // Let the panel ◆ diamonds' "Open in timeline" reach this dock.
+    setDockActions({ revealLane: (id) => this.revealLane(id) });
   }
 
   /** Scroll a lane into view and flash it (used by the panel ◆ menu). */
