@@ -20,12 +20,23 @@ export interface LaneSelectionAccess {
   settings: SettingsStore;
   laneSelection(): LanePointSel | null;
   setLaneSelection(sel: LanePointSel | null): void;
+  /** Live-preview a not-yet-committed offset in the lane row's curve. */
+  previewToTimeline(laneId: string, bar: number, value: number): void;
+}
+
+/** Live references to the LANE POINT form fields, for drag-follow updates. */
+interface LanePointRefs {
+  laneId: string;
+  barInput: HTMLInputElement;
+  offsetInput: HTMLInputElement;
+  updateResolved: (offset: number) => void;
 }
 
 export class TimelineInspector {
   el: HTMLElement;
   private seq: Sequencer;
   private laneAccess: LaneSelectionAccess | null;
+  private laneRefs: LanePointRefs | null = null;
 
   constructor(seq: Sequencer, laneAccess: LaneSelectionAccess | null = null) {
     this.seq = seq;
@@ -35,8 +46,20 @@ export class TimelineInspector {
     this.render();
   }
 
+  /**
+   * Mirror an in-progress point drag into the form fields without
+   * touching the (not-yet-committed) timeline data.
+   */
+  previewLanePoint(laneId: string, bar: number, value: number): void {
+    if (!this.laneRefs || this.laneRefs.laneId !== laneId) return;
+    this.laneRefs.barInput.value = String(Math.round(bar * 100) / 100);
+    this.laneRefs.offsetInput.value = String(Math.round(value * 1000) / 1000);
+    this.laneRefs.updateResolved(value);
+  }
+
   render(): void {
     const t = this.seq.timeline;
+    this.laneRefs = null;
     this.el.innerHTML = '';
 
     // Lane-point mode wins when a lane selection exists and still
@@ -110,7 +133,7 @@ export class TimelineInspector {
 
     // Buttons row
     const actions = document.createElement('div');
-    actions.style.display = 'flex'; actions.style.gap = '4px'; actions.style.marginTop = '6px';
+    actions.className = 'rw-tl-insp-actions';
     actions.appendChild(this.button('PREVIEW', () => this.seq.preview(kf.id)));
     actions.appendChild(this.button('REPLACE', () => this.seq.replaceSnapshot(kf.id), 'Capture current settings'));
     actions.appendChild(this.button('DUP',     () => this.seq.duplicateKeyframe(kf.id)));
@@ -137,12 +160,13 @@ export class TimelineInspector {
     this.el.appendChild(label);
 
     // Bar — moving the point re-selects it at its new position.
-    this.el.appendChild(this.row('Bar', this.numInput(point.bar, 0, lengthBars, 0.01, (v) => {
+    const barInput = this.numInput(point.bar, 0, lengthBars, 0.01, (v) => {
       this.seq.editLanes(() => {
         lane.points = upsertPoint(removePointAt(lane.points, point.bar), { ...point, bar: v });
       });
       access.setLaneSelection({ laneId: lane.id, bar: v });
-    })));
+    });
+    this.el.appendChild(this.row('Bar', barInput));
 
     // Offset (the stored relative value) with a live resolved-absolute
     // preview — the owner-decided display affordance for the relative model.
@@ -162,10 +186,17 @@ export class TimelineInspector {
     });
     offsetInput.addEventListener('input', () => {
       const v = parseFloat(offsetInput.value);
-      if (Number.isFinite(v)) updateResolved(v);
+      if (!Number.isFinite(v)) return;
+      updateResolved(v);
+      // Live-preview the curve in the lane row before committing.
+      access.previewToTimeline(lane.id, point.bar, v);
     });
     this.el.appendChild(this.row('Offset', offsetInput));
     this.el.appendChild(resolved);
+
+    // Registered AFTER both fields exist so a drag in the lane row can
+    // mirror into them live.
+    this.laneRefs = { laneId: lane.id, barInput, offsetInput, updateResolved };
 
     // Easing into this point.
     {
@@ -184,7 +215,7 @@ export class TimelineInspector {
     }
 
     const ptActions = document.createElement('div');
-    ptActions.style.display = 'flex'; ptActions.style.gap = '4px'; ptActions.style.marginTop = '6px';
+    ptActions.className = 'rw-tl-insp-actions';
     ptActions.appendChild(this.button('DEL POINT', () => {
       access.setLaneSelection(null);
       this.seq.editLanes(() => {
@@ -208,7 +239,7 @@ export class TimelineInspector {
       this.el.appendChild(this.row('Lane on', cb));
     }
     const laneActions = document.createElement('div');
-    laneActions.style.display = 'flex'; laneActions.style.gap = '4px'; laneActions.style.marginTop = '6px';
+    laneActions.className = 'rw-tl-insp-actions';
     laneActions.appendChild(this.button('DELETE LANE', () => {
       access.setLaneSelection(null);
       this.seq.editLanes((tl) => {

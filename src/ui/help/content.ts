@@ -89,6 +89,7 @@ const MD_SHORTCUTS = `
 | \`←\` / \`→\` | Nudge playhead one beat |
 | \`Shift+←\` / \`Shift+→\` | Nudge one bar |
 | \`Home\` | Seek to bar 0 |
+| \`,\` / \`.\` | Jump to previous / next keyframe |
 | \`K\` | Add scene at the playhead (snapshots current settings) |
 | \`Delete\` | Remove the selected scene |
 | \`Ctrl+Z\` / \`Ctrl+Shift+Z\` | Undo / redo (scenes AND lane edits) |

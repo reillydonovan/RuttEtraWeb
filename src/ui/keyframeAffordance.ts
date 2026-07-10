@@ -176,6 +176,15 @@ function openMenu(btn: HTMLButtonElement, key: string, settings: SettingsStore, 
   );
 
   doc.body.appendChild(ul);
+  // Clamp inside the (possibly popout) window's viewport.
+  const win = doc.defaultView ?? window;
+  const r = ul.getBoundingClientRect();
+  if (x + r.width > win.innerWidth - 4) {
+    ul.style.left = `${Math.max(4, win.innerWidth - r.width - 4)}px`;
+  }
+  if (y + r.height > win.innerHeight - 4) {
+    ul.style.top = `${Math.max(4, win.innerHeight - r.height - 4)}px`;
+  }
   const dismiss = (ev: MouseEvent): void => {
     if (!ul.contains(ev.target as Node)) {
       ul.remove();

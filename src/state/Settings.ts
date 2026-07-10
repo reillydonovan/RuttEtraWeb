@@ -880,6 +880,8 @@ export interface Settings {
   /** Last *visible* dock position. Restored when toggling out of 'hidden'. */
   timelineLastDock: 'top' | 'bottom';
   timelineHeight: number;
+  /** v26: width of the dock's right-hand inspector column (drag its left edge; clamped 180–420). */
+  timelineInspectorWidth: number;
   activeTimelineId: string | null;
 
   // ---------- Mobile / responsive layout (v4) ----------
@@ -1330,6 +1332,7 @@ export const DEFAULTS: Settings = {
   timelineDock: 'hidden',
   timelineLastDock: 'bottom',
   timelineHeight: 220,
+  timelineInspectorWidth: 220,
   activeTimelineId: null,
 
   performanceProfile: {
@@ -1413,7 +1416,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 25;
+const CURRENT_VERSION = 26;
 
 interface Versioned { _v?: number }
 
@@ -1916,6 +1919,13 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   // `#` ref as a dangling node id and treat the input as unpatched).
   if ((s._v ?? 1) < 25) {
     s._v = 25;
+  }
+
+  // v25 -> v26: resizable timeline inspector column. Pure UI-state
+  // backfill; the dock clamps to 180–420 on apply. Idempotent.
+  if ((s._v ?? 1) < 26) {
+    s.timelineInspectorWidth = (s.timelineInspectorWidth as number | undefined) ?? 220;
+    s._v = 26;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

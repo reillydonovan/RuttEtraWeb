@@ -104,3 +104,16 @@ describe('migrateSettings v23 -> v24 (shaped feedback + analog character)', () =
     expect(kept.analogHum).toBe(0.5);
   });
 });
+
+describe('migrateSettings v25 -> v26 (resizable timeline inspector)', () => {
+  it('backfills the default width', () => {
+    const out = migrateSettings({ _v: 25 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(26);
+    expect(out.timelineInspectorWidth).toBe(220);
+  });
+
+  it('preserves an explicit width', () => {
+    const kept = migrateSettings({ _v: 25, timelineInspectorWidth: 320 });
+    expect(kept.timelineInspectorWidth).toBe(320);
+  });
+});

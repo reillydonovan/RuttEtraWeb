@@ -41,6 +41,8 @@ export interface LaneRowHost {
   selectPoint(sel: LanePointSel | null): void;
   isExpanded(laneId: string): boolean;
   setExpanded(laneId: string, expanded: boolean): void;
+  /** Live-update the inspector's fields while a point drags. */
+  previewToInspector(laneId: string, bar: number, value: number): void;
 }
 
 export class LaneRow {
@@ -102,6 +104,19 @@ export class LaneRow {
     this.axis = laneAxis(this.effectiveSpan(), this.lane.points);
     this.renderPoints(this.lane.points);
     this.drawCurve(this.lane.points);
+  }
+
+  /**
+   * Live-preview an edited value for the point at `bar` (typed in the
+   * inspector, not yet committed): move its diamond and redraw the curve
+   * from a working copy. The commit re-renders everything consistently.
+   */
+  previewValue(bar: number, value: number): void {
+    const preview = upsertPoint(this.lane.points, { bar, value });
+    for (const el of Array.from(this.ptsLayer.children) as HTMLElement[]) {
+      if (parseFloat(el.dataset.bar ?? '') === bar) this.positionPoint(el, bar, value);
+    }
+    this.drawCurve(preview);
   }
 
   applySelection(): void {
@@ -241,6 +256,8 @@ export class LaneRow {
       );
       this.drawCurve(preview);
       this.showDragTip(mv.clientX, mv.clientY, r.bar, r.value);
+      // Keep the inspector's Bar/Offset fields aligned with the drag.
+      this.host.previewToInspector(this.lane.id, r.bar, r.value);
     };
     const onUp = (mv: PointerEvent) => {
       target.releasePointerCapture?.(mv.pointerId);

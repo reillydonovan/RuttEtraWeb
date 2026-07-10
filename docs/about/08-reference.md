@@ -17,6 +17,7 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Timeline | `Space` | Play / pause |
 | Timeline | `←` / `→` | Step playhead by one bar |
 | Timeline | `K` | Add scene keyframe at playhead |
+| Timeline | `,` / `.` | Jump to previous / next keyframe (selected lane's points, or all scenes + points) |
 | Timeline | `Delete` | Delete selected scene keyframe |
 | Timeline | `Ctrl+Z` | Undo last timeline edit |
 | Project | `Ctrl+N` | New Project (prompts on unsaved changes) |

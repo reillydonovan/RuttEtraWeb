@@ -191,7 +191,8 @@ Two ways to create automation, one place to shape it:
 - **Add points** by double-clicking (or `Ctrl+click`) anywhere in the row. New points *pin* the curve's current value at that bar — adding a handle never changes the sound/image.
 - **Drag points in two dimensions**: horizontal moves the bar (beat-snapped; hold `Alt` for free positioning), vertical changes the offset. A tooltip shows `bar · offset → resolved value` while you drag. One drag = one undo step.
 - **Right-click a point** to set its easing (linear / easeIn / easeOut / easeInOut / step / hold — the curve into that point) or delete it.
-- **The inspector** (right column) shows the selected point's bar, offset, easing, and the **resolved value** (base + offset), plus lane mute/delete.
+- **The inspector** (right column) shows the selected point's bar, offset, easing, and the **resolved value** (base + offset), plus lane mute/delete. It tracks edits live in both directions — drag a point and the fields follow; type an offset and the curve previews before you commit. Drag the column's left edge to resize it (180–420 px, remembered across sessions).
+- **Navigate keyframes** with the `|◀` / `▶|` transport buttons or the `,` / `.` keys: the playhead jumps to the previous/next point of the selected lane (or, with nothing selected, the previous/next event across scenes and all lanes).
 - **Mute** (the checkbox on the lane's chip) silences a lane; its target snaps back to the base value the same frame. Muted lanes render dim.
 
 Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs, CV, and the knob itself instead of fighting them. Move the panel knob and the whole automation curve shifts with it. Multiple lanes on one parameter sum, matching the summing-amplifier convention everywhere else in the synth.

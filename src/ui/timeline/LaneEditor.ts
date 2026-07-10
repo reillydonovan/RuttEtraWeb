@@ -27,6 +27,8 @@ export class LaneEditor {
     private selectionHost: {
       selection(): LanePointSel | null;
       selectPoint(sel: LanePointSel | null): void;
+      /** Live-update the inspector's fields while a point drags. */
+      previewToInspector(laneId: string, bar: number, value: number): void;
     },
   ) {
     this.el = document.createElement('div');
@@ -51,7 +53,14 @@ export class LaneEditor {
         this.expanded.set(laneId, ex);
         this.render();
       },
+      previewToInspector: (laneId, bar, value) =>
+        this.selectionHost.previewToInspector(laneId, bar, value),
     };
+  }
+
+  /** Live-preview a point's value in its lane row (inspector typing). */
+  previewPoint(laneId: string, bar: number, value: number): void {
+    this.rows.get(laneId)?.previewValue(bar, value);
   }
 
   setPixelsPerBar(p: number): void {

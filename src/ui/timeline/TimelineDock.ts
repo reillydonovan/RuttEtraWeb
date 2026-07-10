@@ -52,6 +52,7 @@ export class TimelineDock {
 
     this.transport = new TimelineTransport(settings, seq, {
       onZoomChange: (z) => this.setZoom(z),
+      onJumpKeyframe: (dir) => this.jumpToKeyframe(dir),
     });
     this.ruler     = new TimelineRuler(seq);
     this.track     = new TimelineTrack(seq);
@@ -59,10 +60,16 @@ export class TimelineDock {
       settings,
       laneSelection: () => this.laneSelection,
       setLaneSelection: (sel) => this.setLaneSelection(sel),
+      // Typing in the inspector's Offset field live-previews the curve
+      // in the lane row before the change commits.
+      previewToTimeline: (laneId, bar, value) => this.laneEditor.previewPoint(laneId, bar, value),
     });
     this.laneEditor = new LaneEditor(settings, seq, {
       selection: () => this.laneSelection,
       selectPoint: (sel) => this.setLaneSelection(sel),
+      // Dragging a point live-updates the inspector's Bar/Offset fields
+      // before the drag commits.
+      previewToInspector: (laneId, bar, value) => this.inspector.previewLanePoint(laneId, bar, value),
     });
 
     this.build();
@@ -77,6 +84,34 @@ export class TimelineDock {
   /** Scroll a lane into view and flash it (used by the panel ◆ menu). */
   revealLane(laneId: string): void {
     this.laneEditor.revealLane(laneId);
+  }
+
+  /**
+   * Jump the playhead to the previous/next keyframe. When a lane point
+   * is selected, navigate that lane's points (and select the landed
+   * point); otherwise navigate the union of scene bars and every lane's
+   * point bars.
+   */
+  jumpToKeyframe(dir: -1 | 1): void {
+    const t = this.seq.timeline;
+    if (!t) return;
+    const laneId = this.laneSelection?.laneId ?? null;
+    const lane = laneId ? t.lanes.find((l) => l.id === laneId) : null;
+    const bars = lane
+      ? lane.points.map((p) => p.bar)
+      : [
+          ...t.keyframes.map((k) => k.bar),
+          ...t.lanes.flatMap((l) => l.points.map((p) => p.bar)),
+        ];
+    bars.sort((a, b) => a - b);
+    const eps = 1e-6;
+    const head = this.seq.playheadBar;
+    const target = dir > 0
+      ? bars.find((b) => b > head + eps)
+      : [...bars].reverse().find((b) => b < head - eps);
+    if (target === undefined) return;
+    this.seq.seek(target);
+    if (lane) this.setLaneSelection({ laneId: lane.id, bar: target });
   }
 
   // -----------------------------------------------------------------
@@ -116,6 +151,7 @@ export class TimelineDock {
 
     this.body.appendChild(this.scroller);
     this.body.appendChild(this.inspector.el);
+    this.body.appendChild(this.buildInspectorResizeHandle());
     this.host.appendChild(this.body);
 
     // Hover-focus tracking for keyboard shortcuts.
@@ -155,6 +191,9 @@ export class TimelineDock {
     this.settings.subscribe('timelineHeight', (h) => {
       this.applyDockState(this.settings.get('timelineDock'), h);
     });
+    // Fires immediately with the persisted value, then on every change
+    // (drag handle, project load, migration backfill).
+    this.settings.subscribe('timelineInspectorWidth', (w) => this.applyInspectorWidth(w));
 
     // Keyboard shortcuts (only when dock is hovered or focused).
     document.addEventListener('keydown', this.onKeyDown);
@@ -183,6 +222,12 @@ export class TimelineDock {
     } else if (ev.code === 'Home' && this.hovered) {
       ev.preventDefault();
       this.seq.seek(0);
+    } else if (ev.code === 'Comma' && this.hovered) {
+      ev.preventDefault();
+      this.jumpToKeyframe(-1);
+    } else if (ev.code === 'Period' && this.hovered) {
+      ev.preventDefault();
+      this.jumpToKeyframe(1);
     } else if ((ev.code === 'KeyK') && this.hovered) {
       ev.preventDefault();
       const name = window.prompt('Scene name?', `scene @ ${this.seq.playheadBar.toFixed(2)}`);
@@ -199,6 +244,52 @@ export class TimelineDock {
       if (ev.shiftKey) this.seq.redo(); else this.seq.undo();
     }
   };
+
+  // -----------------------------------------------------------------
+  // Inspector column resize (drag its left edge; clamped 180–420)
+  // -----------------------------------------------------------------
+
+  private static readonly INSP_MIN = 180;
+  private static readonly INSP_MAX = 420;
+
+  private applyInspectorWidth(w: number): void {
+    const clamped = Math.max(TimelineDock.INSP_MIN, Math.min(TimelineDock.INSP_MAX, w));
+    // A custom property (not an inline grid-template) so the compact
+    // media query's `grid-template-columns: 1fr` still wins.
+    this.body.style.setProperty('--tl-insp-w', `${clamped}px`);
+  }
+
+  private buildInspectorResizeHandle(): HTMLElement {
+    const handle = document.createElement('div');
+    handle.className = 'rw-tl-insp-resize';
+    handle.title = 'Drag to resize the inspector';
+    handle.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      handle.setPointerCapture?.(ev.pointerId);
+      handle.classList.add('active');
+      const startX = ev.clientX;
+      const startW = Math.max(TimelineDock.INSP_MIN, Math.min(
+        TimelineDock.INSP_MAX, this.settings.get('timelineInspectorWidth')));
+      let lastW = startW;
+      const onMove = (mv: PointerEvent): void => {
+        // Dragging left widens the right-hand column.
+        lastW = Math.max(TimelineDock.INSP_MIN, Math.min(
+          TimelineDock.INSP_MAX, startW + (startX - mv.clientX)));
+        this.applyInspectorWidth(lastW);
+      };
+      const onUp = (mv: PointerEvent): void => {
+        handle.releasePointerCapture?.(mv.pointerId);
+        handle.classList.remove('active');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        // Persist once per gesture, not per pixel.
+        this.settings.set('timelineInspectorWidth', Math.round(lastW));
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+    return handle;
+  }
 
   private applyDockState(dock: 'top' | 'bottom' | 'hidden', height: number): void {
     this.host.dataset.dock = dock;

@@ -82,13 +82,28 @@
 }
 .rw-tl-header .rw-tl-spacer { flex: 1; }
 
-/* Body: ruler + track scroller, with optional inspector pinned right */
+/* Body: ruler + track scroller, with optional inspector pinned right.
+   The inspector column width is a custom property driven by the drag
+   handle (`.rw-tl-insp-resize`), persisted as Settings.timelineInspectorWidth. */
 .rw-tl-body {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 1fr var(--tl-insp-w, 220px);
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* Grab zone straddling the inspector's left border. */
+.rw-tl-insp-resize {
+  position: absolute;
+  top: 0; bottom: 0;
+  right: calc(var(--tl-insp-w, 220px) - 3px);
+  width: 7px;
+  cursor: ew-resize;
+  z-index: 9;
+}
+.rw-tl-insp-resize:hover,
+.rw-tl-insp-resize.active { background: rgba(95,255,133,0.25); }
 .rw-tl-scroller {
   /* Vertical scroll covers track + lane rows; the ruler stays pinned via
    * position: sticky below. */
@@ -252,20 +267,67 @@
 /* Inspector pane */
 .rw-tl-inspector {
   border-left: 1px solid var(--re-line);
-  padding: 6px 8px;
+  padding: 10px 12px;
   background: rgba(0,0,0,0.3);
   overflow-y: auto;
+  overflow-x: hidden;
   font-size: 12px;
+  min-width: 0;
 }
 .rw-tl-inspector h4 {
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0;
   font-size: 12px;
   color: var(--re-accent);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.rw-tl-inspector .rw-row { display: grid; grid-template-columns: 80px 1fr; gap: 4px; align-items: center; margin-bottom: 4px; }
+.rw-tl-inspector .rw-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 7px;
+}
 .rw-tl-inspector .rw-row label { font-size: 11px; color: var(--re-text-dim); }
+/* Inputs fill their grid cell and never overflow the column. */
+.rw-tl-inspector .rw-num,
+.rw-tl-inspector .rw-select,
+.rw-tl-inspector .rw-text {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 12px;
+  padding: 3px 5px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+}
+.rw-tl-inspector input[type="color"] {
+  width: 100%;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--re-line);
+  background: rgba(0,0,0,0.4);
+}
+.rw-tl-inspector input[type="checkbox"] { justify-self: start; }
+.rw-tl-inspector .rw-tl-insp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.rw-tl-inspector .rw-btn {
+  font-size: 11px;
+  padding: 3px 7px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  cursor: pointer;
+}
+.rw-tl-inspector .rw-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
+.rw-tl-inspector .rw-btn.warn { color: var(--re-warn); border-color: var(--re-warn); }
 .rw-tl-inspector .rw-empty {
   color: var(--re-text-dim);
   font-size: 11px;
@@ -286,8 +348,9 @@
 /* Mobile */
 @media (max-width: 700px) {
   #timeline-dock { height: 160px !important; }
-  .rw-tl-body { grid-template-columns: 1fr; }
+  .rw-tl-body { grid-template-columns: 1fr !important; }
   .rw-tl-inspector { display: none; }
+  .rw-tl-insp-resize { display: none; }
 }
 
 /* Floating Help button retired — Help is reachable from the panel's Help

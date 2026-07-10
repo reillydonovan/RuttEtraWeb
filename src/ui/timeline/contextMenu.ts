@@ -45,6 +45,13 @@ export function showContextMenu(x: number, y: number, items: ContextMenuItem[]):
     ul.appendChild(li);
   }
   document.body.appendChild(ul);
+  // Clamp inside the viewport — a menu opened near the right/bottom edge
+  // (e.g. on the inspector column) must stay fully usable.
+  const r = ul.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (x + r.width > vw - 4) ul.style.left = `${Math.max(4, vw - r.width - 4)}px`;
+  if (y + r.height > vh - 4) ul.style.top = `${Math.max(4, vh - r.height - 4)}px`;
   openMenu = ul;
 }
 

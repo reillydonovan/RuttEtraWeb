@@ -15,6 +15,8 @@ export interface TransportEvents {
   onZoomChange?: (pixelsPerBar: number) => void;
   onTimelineSelected?: (id: string | null) => void;
   onDockToggle?: () => void;
+  /** Jump the playhead to the previous / next keyframe (scene or lane point). */
+  onJumpKeyframe?: (dir: -1 | 1) => void;
 }
 
 export class TimelineTransport {
@@ -84,6 +86,12 @@ export class TimelineTransport {
     this.el.appendChild(this.playBtn);
     this.stopBtn = this.btn('STOP', () => this.seq.stop()) as HTMLButtonElement;
     this.el.appendChild(this.stopBtn);
+    // Keyframe navigation: jump to the previous / next scene or lane
+    // point (the selected lane's points when a lane point is selected).
+    this.el.appendChild(this.btn('|◀', () => this.events.onJumpKeyframe?.(-1),
+      'Jump to previous keyframe (,)'));
+    this.el.appendChild(this.btn('▶|', () => this.events.onJumpKeyframe?.(1),
+      'Jump to next keyframe (.)'));
     this.loopBtn = this.btn('LOOP', () => {
       const t = this.seq.timeline;
       if (!t) return;
