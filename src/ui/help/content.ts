@@ -54,7 +54,7 @@ const MD_QUICKSTART = `
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
 3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ).
 4. Open the **MIDI** or **Audio** tab to add reactive control.
-5. Open the timeline strip at the bottom, hit **+ NEW**, drop preset chips onto the track to create keyframes, then **PLAY**.
+5. Open the timeline strip at the bottom, hit **+ NEW**, drop preset chips onto the track to create scenes, then **PLAY**.
 
 ## No camera? Use the Pattern Generator
 
@@ -89,10 +89,10 @@ const MD_SHORTCUTS = `
 | \`←\` / \`→\` | Nudge playhead one beat |
 | \`Shift+←\` / \`Shift+→\` | Nudge one bar |
 | \`Home\` | Seek to bar 0 |
-| \`K\` | Add keyframe at the playhead (snapshots current settings) |
-| \`Delete\` | Remove the selected keyframe |
-| \`Ctrl+Z\` / \`Ctrl+Shift+Z\` | Undo / redo |
-| \`Alt+drag\` | Drag a keyframe without beat-snapping |
+| \`K\` | Add scene at the playhead (snapshots current settings) |
+| \`Delete\` | Remove the selected scene |
+| \`Ctrl+Z\` / \`Ctrl+Shift+Z\` | Undo / redo (scenes AND lane edits) |
+| \`Alt+drag\` | Drag a scene or lane point without beat-snapping |
 `;
 
 const MD_MOD = `
@@ -533,15 +533,35 @@ Slewed Pitch Follow, Reactive Crossfade, Edge-Driven Focus.
 const MD_TIMELINE = `
 # Timeline / Scene Sequencer
 
-A horizontal dock at the bottom of the screen. Each timeline holds **keyframes**
-— snapshots of every parameter — and interpolates between them over time.
+A horizontal dock at the bottom of the screen. Two layers compose:
 
-## Workflow
+- **SCENES** (top track) — full-settings snapshots interpolated over time.
+  A scene sets *everything*.
+- **Lanes** (rows below) — per-parameter automation that rides on top.
+  A lane animates *one knob*, as a relative offset summed with its base
+  value (like CV into an input).
+
+## Scene workflow
 1. Click **+ NEW** in the transport.
-2. Drag a preset chip from the Presets panel onto the track to drop a keyframe.
-3. Drag the diamond markers to move keyframes. Hold \`Alt\` to disable beat-snap.
-4. Click a diamond to edit its **easing**, lock state, or rename it in the inspector.
+2. Drag a preset chip from the Presets panel onto the track to drop a scene.
+3. Drag the block markers to move scenes. Hold \`Alt\` to disable beat-snap.
+4. Click a marker to edit its **easing**, lock state, or name in the inspector.
 5. Hit **PLAY**.
+
+## Lane workflow
+- Click the **◇ diamond** next to any modulatable slider in the panel to
+  keyframe it at the playhead — first click creates the lane, later
+  clicks add or remove points. Filled ◆ = point at the playhead.
+- Or add lanes in the dock with **+ Lane**, then **double-click** a lane
+  row to add points. Drag points in 2D: horizontal = bar (beat-snapped,
+  \`Alt\` = free), vertical = offset.
+- Right-click a point for per-point **easing** or delete; right-click the
+  ◇ diamond in the panel for *Open in timeline* / *Remove automation*.
+- The inspector shows the selected point's bar, offset, and the
+  **resolved value** (base + offset). Lane values are offsets — moving
+  the panel knob shifts the whole curve.
+- The checkbox on a lane's chip mutes it; the target snaps back to its
+  base value instantly.
 
 ## BPM and bars
 Set BPM, beats-per-bar, and total length in the transport. Switch **SYNC** to
@@ -552,21 +572,22 @@ The **Record** panel has a **Record Timeline** button: it seeks to bar 0,
 disables looping for one pass, plays the timeline, and downloads a video named
 after the timeline when it reaches the end.
 
-## Adding keyframes
+## Adding scenes
 
-Three ways to add a keyframe at a position on the track:
+Three ways to add a scene at a position on the track:
 
 - **Double-click** empty track space (recommended — works on all platforms)
 - **Ctrl+click** (Cmd+click on Mac) empty track space
-- **Right-click** empty track space → "Add keyframe at bar …" (may be intercepted by system features on Windows with tablet / pen / touchpad drivers)
+- **Right-click** empty track space → "Add scene at bar …" (may be intercepted by system features on Windows with tablet / pen / touchpad drivers)
 
-## Keyframe context menu
-Right-click any diamond for: preview, **replace snapshot with current**,
+## Scene context menu
+Right-click any scene marker for: preview, **replace snapshot with current**,
 duplicate, lock, change easing, or delete.
 
 ## Excluded parameters
 Camera position, source kind, recording settings, and panel UI flags never
-animate. Edit \`excludedParams\` on a timeline if you want a different list.
+animate via scenes. Edit \`excludedParams\` on a timeline if you want a
+different list. Lanes are exempt — they're explicit per-param opt-ins.
 `;
 
 const MD_ANAGLYPH = `

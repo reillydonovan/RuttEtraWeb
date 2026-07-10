@@ -132,7 +132,7 @@ Post-processing (bloom, CRT, feedback) is paused while anaglyph is active — th
 
 ### Timeline recording
 
-The Timeline sequencer (Record panel → Timeline tab) lets you compose a piece by adding **keyframes** at specific bars. Shortening a timeline preserves keyframes past the new end — they're flagged in the editor and don't play, but they reappear if you lengthen the timeline again, so trimming is never destructive. (See Design Principles — [*Saved work is preserved, even when it changes*](#saved-work-preserved).)
+The Timeline sequencer lets you compose a piece by adding **scene keyframes** at specific bars. Shortening a timeline preserves keyframes past the new end — they're flagged in the editor and don't play, but they reappear if you lengthen the timeline again, so trimming is never destructive. (See Design Principles — [*Saved work is preserved, even when it changes*](#saved-work-preserved).)
 
 Each keyframe is either:
 
@@ -165,20 +165,37 @@ MIDI clock sync is supported on the timeline. Set Sync = MIDI and the playhead a
 
 ### Timeline sequencer (full walkthrough)
 
-The bar-based interpolating preset sequencer. Conceptually: a piece is a list of (bar, snapshot) pairs, the playhead advances bar-by-bar, and at any moment the live Settings is the interpolation of the two surrounding keyframes.
+The timeline has two composable layers, visually stacked in the dock:
 
-- **Add keyframe** — at playhead, or by clicking on the bar grid.
-- **Easing per keyframe pair** — defines the curve from this keyframe to the next.
+- **SCENES** (the top track, block markers) — full-settings snapshots interpolated over musical time. A scene sets *everything*: the overall structure of the piece.
+- **Automation lanes** (the rows below) — per-parameter curves that ride on top. A lane animates *one knob*.
+
+Conceptually: the scene track is a list of (bar, snapshot) pairs — the playhead advances bar-by-bar and the live Settings is the interpolation of the two surrounding scenes; each enabled lane then adds its evaluated offset to its one parameter.
+
+**Scenes:**
+
+- **Add scene** — double-click the track, `Ctrl+click`, right-click → *Add scene*, press `K` at the playhead, or drag a preset chip from the Presets panel onto the track.
+- **Easing per scene** — defines the curve into that scene from the previous one.
 - **Snapshot vs preset reference** — snapshots are inline (heavy timelines = larger JSON), preset refs are by-name links (smaller, but break if the preset is renamed).
 - **Loop** — toggle. The playhead wraps to bar 0 at the end. Combine with MIDI sync for a clip-launching workflow.
 
-#### Automation lanes (v2 preview)
+#### Automation lanes
 
-Preset keyframes set the overall structure; **lanes** animate one knob. The **LANES** strip at the bottom of the Timeline dock holds per-parameter automation lanes that evaluate alongside the keyframe track:
+Two ways to create automation, one place to shape it:
 
-- **+ Lane** — pick any modulation target from the dropdown and add a lane for it.
-- Each lane holds points (bar → value). **Set @ playhead** writes the lane's current value at the playhead bar; **⌫ pt** removes the point there. Between points the value interpolates; before the first and after the last point it holds.
-- Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs and CV instead of fighting them. The `→ value` readout previews the resolved absolute value at the playhead.
-- The per-lane checkbox mutes the lane; muting or deleting a lane snaps its target back to the base value the same frame. Lane edits participate in the sequencer's undo history.
+**From the panel (the fast way).** Every modulatable slider carries a small **keyframe diamond** in its top-right corner, next to the modulation dot. It's hidden until a timeline exists, then: hollow and dim = keyable; outlined = this param has a lane; filled and glowing = there's a point exactly at the playhead. Click it to key the param at the playhead — the first click creates the lane, later clicks add or remove points (a toggle). Right-click the diamond for *Open in timeline* (reveals the lane in the dock), *Remove point at playhead*, or *Remove automation*. Rows with automation get a phosphor tick on their label, so a glance down the panel shows what's animated.
 
-This is the data layer plus a minimal editor — drawable curves and record-knob-moves are a planned second stage. Timelines containing lanes save as timeline format v2; older v1 files load unchanged.
+**In the dock (the shaping surface).** Each lane renders as a row under the SCENES track, sharing the same bar ruler and scroll:
+
+- **+ Lane** adds a lane for any modulation target; the lane's curve draws across the full timeline with a dashed zero line at center.
+- **Add points** by double-clicking (or `Ctrl+click`) anywhere in the row. New points *pin* the curve's current value at that bar — adding a handle never changes the sound/image.
+- **Drag points in two dimensions**: horizontal moves the bar (beat-snapped; hold `Alt` for free positioning), vertical changes the offset. A tooltip shows `bar · offset → resolved value` while you drag. One drag = one undo step.
+- **Right-click a point** to set its easing (linear / easeIn / easeOut / easeInOut / step / hold — the curve into that point) or delete it.
+- **The inspector** (right column) shows the selected point's bar, offset, easing, and the **resolved value** (base + offset), plus lane mute/delete.
+- **Mute** (the checkbox on the lane's chip) silences a lane; its target snaps back to the base value the same frame. Muted lanes render dim.
+
+Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs, CV, and the knob itself instead of fighting them. Move the panel knob and the whole automation curve shifts with it. Multiple lanes on one parameter sum, matching the summing-amplifier convention everywhere else in the synth.
+
+The lane's vertical scale comes from the parameter's slider range (including any custom range you've set via right-click), so a full-scale sweep always fits the row.
+
+Record-knob-moves (play + write your gestures into a lane) is a planned follow-up. Timelines containing lanes save as timeline format v2; older v1 files load unchanged.

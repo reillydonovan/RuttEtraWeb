@@ -16,8 +16,8 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Camera | `Esc` | Exit Fly mode → return to Orbit |
 | Timeline | `Space` | Play / pause |
 | Timeline | `←` / `→` | Step playhead by one bar |
-| Timeline | `K` | Add keyframe at playhead |
-| Timeline | `Delete` | Delete selected keyframe |
+| Timeline | `K` | Add scene keyframe at playhead |
+| Timeline | `Delete` | Delete selected scene keyframe |
 | Timeline | `Ctrl+Z` | Undo last timeline edit |
 | Project | `Ctrl+N` | New Project (prompts on unsaved changes) |
 | Project | `Ctrl+O` | Open Project (file picker) |
@@ -74,7 +74,7 @@ A preset export is a flat Settings snapshot stamped with the schema version (`_v
 
 #### Timeline JSON (excerpt)
 
-Timeline format v2 (`_v: 2`) adds automation `lanes` alongside the preset `keyframes`; v1 files load unchanged and gain an empty `lanes` array.
+Timeline format v2 (`_v: 2`) adds automation `lanes` alongside the preset `keyframes`; v1 files load unchanged and gain an empty `lanes` array. Terminology note: the UI calls snapshot keyframes **scenes** (they set every parameter; lanes animate one), but the JSON field remains `keyframes` — renaming a wire-format field would be a breaking change for zero benefit.
 
 ```json
 {

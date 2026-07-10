@@ -185,7 +185,7 @@ export class TimelineDock {
       this.seq.seek(0);
     } else if ((ev.code === 'KeyK') && this.hovered) {
       ev.preventDefault();
-      const name = window.prompt('Keyframe name?', `kf @ ${this.seq.playheadBar.toFixed(2)}`);
+      const name = window.prompt('Scene name?', `scene @ ${this.seq.playheadBar.toFixed(2)}`);
       this.seq.addKeyframe(this.seq.playheadBar, name ?? undefined);
     } else if (ev.code === 'Delete' && this.hovered) {
       const id = this.seq.selectedKeyframeId;

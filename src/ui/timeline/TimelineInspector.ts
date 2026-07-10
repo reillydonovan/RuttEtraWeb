@@ -55,13 +55,13 @@ export class TimelineInspector {
     const kf = t && id ? t.keyframes.find(k => k.id === id) : null;
 
     const h = document.createElement('h4');
-    h.textContent = 'KEYFRAME';
+    h.textContent = 'SCENE';
     this.el.appendChild(h);
 
     if (!kf) {
       const e = document.createElement('div');
       e.className = 'rw-empty';
-      e.textContent = 'select a keyframe';
+      e.textContent = 'select a scene or lane point';
       this.el.appendChild(e);
       return;
     }

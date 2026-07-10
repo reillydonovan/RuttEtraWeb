@@ -46,6 +46,12 @@ export class TimelineTrack {
     this.kfElems.clear();
     if (!t) return;
     this.el.style.width = `${t.lengthBars * this.pixelsPerBar}px`;
+    // Sticky gutter label: this row holds SCENES (full-settings
+    // snapshots); the per-param lanes live in the rows below.
+    const gutter = document.createElement('div');
+    gutter.className = 'rw-tl-track-label';
+    gutter.textContent = 'SCENES';
+    this.el.appendChild(gutter);
     // playhead
     const head = document.createElement('div');
     head.className = 'rw-tl-playhead';
@@ -186,7 +192,7 @@ export class TimelineTrack {
     const x = ev.clientX - rect.left + this.el.scrollLeft;
     const bar = Math.max(0, Math.min(t.lengthBars, x / this.pixelsPerBar));
     showContextMenu(ev.clientX, ev.clientY, [
-      { label: `Add keyframe at bar ${bar.toFixed(2)}`, onClick: () => {
+      { label: `Add scene at bar ${bar.toFixed(2)}`, onClick: () => {
         this.seq.addKeyframe(bar);
       } },
       { label: 'Seek here', onClick: () => this.seq.seek(bar) },
