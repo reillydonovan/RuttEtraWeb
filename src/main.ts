@@ -370,6 +370,12 @@ async function bootSynth(): Promise<void> {
   // Classic and Graph engines.
   sequencer.setLiveValues(liveValues);
   sequencer.onKeyframeReached = () => haptic('tap');
+  // Persist structural timeline edits here, not in the dock: the dock is
+  // lazy (and never mounts on compact), but lane edits from the panel
+  // diamonds must survive a reload regardless.
+  sequencer.addTimelineListener((t) => {
+    if (t) seqStore.upsertTimeline(t);
+  });
 
   // Restore last-active timeline (if any).
   {

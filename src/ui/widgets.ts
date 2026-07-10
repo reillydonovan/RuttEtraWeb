@@ -15,6 +15,7 @@ import { clampRangeOverride, isDefaultRange } from '../state/paramRanges';
 import { layoutManager } from './layout/LayoutManager';
 import { presentSheetPicker } from './widgets/BottomSheetPicker';
 import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus';
+import { registerDesignedRange } from './paramRangeRegistry';
 
 /**
  * Append a small dual-engine indicator to the row containing `control`.
@@ -84,6 +85,7 @@ export function slider(
   max: number,
   step = 0.01,
 ): HTMLElement {
+  registerDesignedRange(key as string, min, max);
   const wrap = document.createElement('div');
   wrap.className = 'rw-slider';
   const range = document.createElement('input');

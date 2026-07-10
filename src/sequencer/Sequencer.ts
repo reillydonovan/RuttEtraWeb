@@ -58,6 +58,22 @@ export class Sequencer {
   onTimelineChange?:  (t: Timeline) => void;
   onSelectionChange?: (id: string | null) => void;
 
+  // Additive multi-listener API alongside the single-assignment callbacks
+  // above (which TimelineDock owns). Unlike `onTimelineChange`, timeline
+  // listeners also fire on `load(null)` so consumers can react to the
+  // timeline being cleared.
+  private timelineListeners = new Set<(t: Timeline | null) => void>();
+  private playheadListeners = new Set<(bar: number) => void>();
+
+  addTimelineListener(fn: (t: Timeline | null) => void): () => void {
+    this.timelineListeners.add(fn);
+    return () => this.timelineListeners.delete(fn);
+  }
+  addPlayheadListener(fn: (bar: number) => void): () => void {
+    this.playheadListeners.add(fn);
+    return () => this.playheadListeners.delete(fn);
+  }
+
   selectedKeyframeId: string | null = null;
 
   // ---------- private ----------
@@ -127,8 +143,11 @@ export class Sequencer {
       if (t.keyframes.length > 0) {
         this.applySnapshotImmediate(t.keyframes[0]);
       }
-      this.fireTimelineChange();
     }
+    // Fires the legacy callback only for a real timeline, but always fans
+    // out to addTimelineListener subscribers — a null here means "timeline
+    // cleared", which the lane editor and panel diamonds must observe.
+    this.fireTimelineChange();
     this.fireSelection();
     this.firePlayState();
     this.firePlayhead();
@@ -581,9 +600,11 @@ export class Sequencer {
   }
   private firePlayhead(): void {
     this.onPlayheadChange?.(this.playheadBar);
+    for (const fn of this.playheadListeners) fn(this.playheadBar);
   }
   private fireTimelineChange(): void {
     if (this.timeline) this.onTimelineChange?.(this.timeline);
+    for (const fn of this.timelineListeners) fn(this.timeline);
   }
   private fireSelection(): void {
     this.onSelectionChange?.(this.selectedKeyframeId);

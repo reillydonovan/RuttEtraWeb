@@ -37,6 +37,9 @@ export default defineConfig({
       // v10: Project save/load — schema migration, snapshot, dirty
       // tracking, recovered-session packaging.
       'src/project/**/*.test.ts',
+      // Keyframing v2 full UI: pure lane-editor geometry (bar/value ↔
+      // pixel mapping, drag math) and the panel diamond's decision logic.
+      'src/ui/**/*.test.ts',
     ],
     globals: false,
     reporters: ['default'],

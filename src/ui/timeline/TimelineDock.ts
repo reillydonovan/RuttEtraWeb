@@ -12,7 +12,6 @@ import { TimelineRuler } from './TimelineRuler';
 import { TimelineTrack } from './TimelineTrack';
 import { TimelineInspector } from './TimelineInspector';
 import { LanesPanel } from './LanesPanel';
-import { upsertTimeline } from '../../sequencer/store';
 
 export class TimelineDock {
   private host: HTMLElement;
@@ -103,8 +102,8 @@ export class TimelineDock {
     };
     this.seq.onTimelineChange = () => {
       this.refreshAll();
-      // Persist immediately on structural changes.
-      if (this.seq.timeline) upsertTimeline(this.seq.timeline);
+      // Persistence lives in main.ts (addTimelineListener) so edits made
+      // without the dock mounted also save.
     };
     this.seq.onSelectionChange = (id) => {
       this.track.applySelection(id);
