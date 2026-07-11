@@ -25,6 +25,19 @@ npm run build
 
 ---
 
+## Recent changes (settings v26 → v28, July 2026 — timeline UX + panel polish)
+
+A follow-up round of owner-reported fixes and small features on top of the audit run below, each landed as its own commit. Settings schema v26 → v28.
+
+- **Auto-key semantics** — once a panel param has an automation lane, the knob is always keyed: on an existing point it rewrites that point, off one it auto-creates a new point at the playhead. Fixes a real bug where editing a slider away from a keyframe silently rewrote the global base, shifting every other keyframe's resolved value.
+- **Timeline visible by default** — `timelineDock` now defaults to `'bottom'` instead of `'hidden'`.
+- **Transport counter display format** — Bars/Beats / Timecode / Frames / Samples, a DAW-style `DISPLAY` dropdown next to the readout. Pure display conversions; the timeline's real clock is unchanged.
+- **About page sidebar TOC** — a persistent, independently-scrolling left sidebar replaces the old top nav: 9 sections plus every section's own sub-headings, generated at runtime from the live DOM, scrollspy-highlighted, deep-linkable.
+- **Hover tooltips** — hold over any panel param row or section header for ~half a second for a short description, sourced from the same `PARAM_DOCS` map that drives the in-app Help and the About Param Reference.
+- **Render-canvas popout** — a second two-screen popout (alongside the existing controls popout) that pops the live OUTPUT into its own draggable window via `captureStream()`, with its own auto-fading fullscreen toggle for seamless projector use.
+- **Panel layout fixes** — Pattern Generator sliders and four Sonification rows now correctly fill their row width at any panel size (a shared `.rw-inline-group` utility replaces several ad-hoc hand-rolled layouts); the SCENES track in the timeline dock is now a fixed height instead of stretching into giant markers when the dock is resized taller.
+- **`F` (fullscreen) and `H` (HUD toggle)** — both had been documented as global shortcuts for a long time without ever being implemented; both now work.
+
 ## Recent changes (settings v16 → v25, July 2026)
 
 One audited backlog run (see `AUDIT.md` and `CLAUDE.md`) landed seventeen features and fixes, each as its own tested commit. The Settings schema went v16 → v25 (one migration per change) and the Timeline schema went v1 → v2.

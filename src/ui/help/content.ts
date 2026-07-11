@@ -561,7 +561,9 @@ A horizontal dock at the bottom of the screen. Two layers compose:
   \`Alt\` = free), vertical = value.
 - Lane curves draw in **absolute values** on the param's slider range —
   the same numbers as the panel knob. The dashed line is the knob's
-  base value; moving the knob shifts the whole curve with it.
+  base value; a MIDI/OSC binding or a preset load can still shift the
+  base (and the whole curve with it) but the panel knob itself never
+  does once a lane exists — see auto-key below.
 - Right-click a point for per-point **easing** or delete; right-click the
   ◇ diamond in the panel for *Open in timeline* / *Remove automation*.
 - The inspector shows the selected point's bar and **value** (matching
@@ -569,9 +571,12 @@ A horizontal dock at the bottom of the screen. Two layers compose:
 - While a lane drives a parameter, its panel slider turns **amber** and
   shows the actual value at the playhead. Fast modulation on top
   (LFO / CV / audio) appears as a small amber ▸ readout above the slider.
-- **On a keyframe, the knob edits that keyframe only** (Blender/Resolve
-  convention) — the base and every other keyframe are untouched. Off a
-  keyframe, the same knob edits the base and shifts the whole curve.
+- **Auto-key**: once a param has a lane, the knob is always keyed
+  (Blender/Resolve, Ableton/Pro Tools "write" convention). On an
+  existing keyframe it rewrites that keyframe. Off one, it plants a
+  **new** keyframe at the playhead. Either way every other keyframe
+  and the base are untouched — the base only moves for a param with no
+  lane at all.
 - The checkbox on a lane's chip mutes it; the target snaps back to its
   base value instantly.
 

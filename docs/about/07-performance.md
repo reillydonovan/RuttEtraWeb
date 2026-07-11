@@ -68,9 +68,15 @@ Each profile is a coarse hint — individual sliders still override. Switching p
 
 ### Two-screen setups
 
-The **⧉ button** in the panel title bar pops the entire control panel out into its own window. Drag it to your laptop screen, put the main window fullscreen on the projector — output on one display, controls on the other, zero latency (it's the same page, not a stream). Click **⧈** (or close the popup) to bring the controls home. Because both windows share one live page, every slider, patch, and Learn binding works identically in either — nothing is mirrored or synced, it *is* the same panel.
+Two independent popouts cover both halves of a "controls here, output there" rig — pop one, the other, or both, depending on which side needs its own window.
 
-Notes: global keyboard shortcuts (Ctrl+S and friends) fire in the main window; the popout is a desktop feature (touch layouts keep the bottom sheet); for *remote* second screens — another machine or a tablet — use Share → Broadcast and open the `?view=` link there instead.
+**Controls popout.** The **⧉ button** in the panel title bar pops the entire control panel out into its own window. Drag it to your laptop screen, put the main window on the projector — output on one display, controls on the other, zero latency (it's the same page, not a stream). Click **⧈** (or close the popup) to bring the controls home. Because both windows share one live page, every slider, patch, and Learn binding works identically in either — nothing is mirrored or synced, it *is* the same panel.
+
+**Output popout.** The **⛶ button** next to it pops the *render canvas* into its own window instead — for a projector or second display that needs to run seamlessly fullscreen, independent of the browser chrome around your main window. This one genuinely is a stream under the hood (`canvas.captureStream()` feeding a `<video>` element in the popup), but same-process and same-origin — no network hop, no encoding lag, no perceptible delay versus the main canvas.
+
+Inside the output window, its own **fullscreen button** (top-right corner) requests fullscreen *on that window* — press it again (it relabels to "Exit Fullscreen") or hit `Esc` to leave. `F` toggles fullscreen from the keyboard too, scoped to that window. While fullscreen, the button fades out after a moment so nothing overlays the image; moving the mouse anywhere in the window brings it back, and it fades out again once you stop. The main window has its own independent `F` shortcut for putting *itself* fullscreen (browser native), unrelated to the popout.
+
+Notes: global keyboard shortcuts (Ctrl+S and friends) fire in the main window; both popouts are desktop features (touch layouts keep the bottom sheet, and don't offer the output popout); a blocked-popup browser setting means the button quietly does nothing — check the address bar for a blocked-popup indicator; for *remote* second screens — another machine or a tablet — use Share → Broadcast and open the `?view=` link there instead.
 
 ### WebXR — VR and AR headsets
 
@@ -165,11 +171,11 @@ MIDI clock sync is supported on the timeline. Set Sync = MIDI and the playhead a
 
 ### Timeline sequencer (full walkthrough)
 
-The dock itself is resizable: drag its free edge (the top edge when docked at the bottom) to change its height (140–600 px, remembered across sessions). The side control panel resizes the same way — drag its inner edge (280–600 px).
+The dock is docked at the bottom and **visible by default** on a fresh session — no need to hunt for a hidden panel before your first scene. **HIDE** in the transport collapses it to a thin strip; click that strip (or the mini handle) to bring it back. It's resizable too: drag its free edge (the top edge when docked at the bottom) to change its height (140–600 px, remembered across sessions). The side control panel resizes the same way — drag its inner edge (280–600 px).
 
 The timeline has two composable layers, visually stacked in the dock:
 
-- **SCENES** (the top track, block markers) — full-settings snapshots interpolated over musical time. A scene sets *everything*: the overall structure of the piece.
+- **SCENES** (the top track, block markers) — full-settings snapshots interpolated over musical time. A scene sets *everything*: the overall structure of the piece. This track has a fixed height — resizing the dock never inflates the scene markers, it reveals more of the lanes below instead, the same fixed-track-height convention Ableton/Logic/Pro Tools use.
 - **Automation lanes** (the rows below) — per-parameter curves that ride on top. A lane animates *one knob*.
 
 Conceptually: the scene track is a list of (bar, snapshot) pairs — the playhead advances bar-by-bar and the live Settings is the interpolation of the two surrounding scenes; each enabled lane then adds its evaluated offset to its one parameter.
@@ -201,14 +207,14 @@ Two ways to create automation, one place to shape it:
 - **Navigate keyframes** with the `|◀` / `▶|` transport buttons or the `,` / `.` keys: the playhead jumps to the previous/next point of the selected lane (or, with nothing selected, the previous/next event across scenes and all lanes).
 - **Mute** (the checkbox on the lane's chip) silences a lane; its target snaps back to the base value the same frame. Muted lanes render dim.
 
-Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs, CV, and the knob itself instead of fighting them. Move the panel knob and the whole automation curve shifts with it. Multiple lanes on one parameter sum, matching the summing-amplifier convention everywhere else in the synth.
+Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs, CV, and the knob itself instead of fighting them. The panel knob itself never edits that base once a lane exists (see auto-key, below) — but change it through any other path (a MIDI/OSC binding, a preset or project load) and the whole curve shifts with it, since every keyframe is anchored relative to that base. Multiple lanes on one parameter sum, matching the summing-amplifier convention everywhere else in the synth.
 
 The panel never makes you do that math, though: while a lane drives a parameter, its slider shows the **actual value at the playhead** (base + lane offset), with the readout and thumb tinted amber to say "the timeline owns this knob right now". Fast modulation that can't be folded into a knob (LFOs, CV, audio) still appears as a small amber **▸ live readout** above the slider.
 
-Dragging the knob follows the same rule every traditional keyframe editor (Blender, Resolve) uses: **if the playhead sits exactly on a keyframe, the edit rewrites that keyframe only** — the base and every other keyframe on the curve are untouched. Move the playhead off a keyframe (anywhere the curve is interpolating) and the same knob now edits the **base**, sliding the whole curve with it. A full mouse drag collapses into one undo step regardless of how many pixels it crosses.
+Dragging the knob follows auto-key rules, the same convention every traditional keyframe editor and DAW uses (Blender/Resolve, Ableton/Pro Tools "write" automation): **once a parameter has a lane at all, every knob edit is keyed.** Parked exactly on an existing keyframe, the edit rewrites that keyframe only. Parked anywhere else on the curve, the edit **auto-creates a new keyframe at the playhead** — every other keyframe on the lane, and the base itself, are left exactly as they were. The base is only ever touched for a parameter that has *no* lane yet — an ordinary, unautomated knob. A full mouse drag collapses into one undo step regardless of how many pixels it crosses.
 
 The lane's vertical scale comes from the parameter's slider range (including any custom range you've set via right-click), so a full-scale sweep always fits the row.
 
-Put together, the panel alone is a complete keyframing workflow without ever opening the dock: click the diamond to key a param, `◀`/`▶` to hop to its previous/next keyframe, drag the knob to adjust the one you landed on — each hop-and-adjust edits exactly one keyframe. `Ctrl+Z` / `Ctrl+Y` (or `Ctrl+Shift+Z`) undo and redo from anywhere in the app, not just while hovering the dock, so you're never far from a mistake.
+Put together, the panel alone is a complete keyframing workflow without ever opening the dock: click the diamond to key a param, `◀`/`▶` to hop to its previous/next keyframe, drag the knob to adjust the one you landed on. You don't even need the nav arrows — auto-key means moving the playhead to ANY new bar and adjusting the knob plants a fresh keyframe right there, so free scrubbing-and-tweaking works exactly like landing on an existing point. `Ctrl+Z` / `Ctrl+Y` (or `Ctrl+Shift+Z`) undo and redo from anywhere in the app, not just while hovering the dock, so you're never far from a mistake.
 
 Record-knob-moves (play + write your gestures into a lane) is a planned follow-up. Timelines containing lanes save as timeline format v2; older v1 files load unchanged.

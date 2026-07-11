@@ -21,6 +21,9 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Timeline | `Delete` | Delete selected scene keyframe |
 | Global | `Ctrl+Z` | Undo last timeline edit (scenes and lane edits — works anywhere, not just over the dock) |
 | Global | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
+| Global | `F` | Toggle fullscreen on the main window |
+| Output popup | `F` | Toggle fullscreen on the output popup window (independent of the main window's `F`) |
+| Output popup | `Esc` | Exit fullscreen (native browser behavior) |
 | Project | `Ctrl+N` | New Project (prompts on unsaved changes) |
 | Project | `Ctrl+O` | Open Project (file picker) |
 | Project | `Ctrl+S` | Save Project (writes back to current file, or prompts if untitled) |

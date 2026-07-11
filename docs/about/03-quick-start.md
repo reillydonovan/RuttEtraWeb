@@ -12,3 +12,5 @@ The shortest path to your first scanline mesh. Each step is one short action.
 That's the whole synth. Everything below is the rest of what it can do.
 
 **Slider tricks** — every numeric control accepts typed input in the box beside the slider; double-click (or double-tap) resets to default; arrow keys nudge by one step. **Right-click a slider** (or tap its readout on touch) for the precise-entry panel, which also lets you set a **custom range** — widen a slider up to 5× its stock span past either bound for extra headroom, or narrow it into a fine-tuning vernier. Custom ranges persist with your project; the number box glows while one is active.
+
+**Hover tooltips** — hold the mouse still over any parameter row or section header for about half a second and a short description pops up above it, explaining what that control does. Move the mouse away and it disappears immediately. This is the same text that drives the in-app Help's Controls tab and this manual's Param Reference — one description, everywhere it's needed. Mouse only (there's no hover state to speak of on touch); nothing to turn on or off.
