@@ -13,7 +13,7 @@ import {
   PatternGradientShape, PatternScopeSourceKind, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
-import { row, group, toggle, button, readout, slider, dropdown } from '../widgets';
+import { row, group, toggle, button, readout, slider, dropdown, markParamKey } from '../widgets';
 
 /**
  * URL of the operator-supplied sample video. Falls back to the conventional
@@ -45,6 +45,7 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
 
   const resSel = document.createElement('select');
   resSel.className = 'rw-select';
+  markParamKey(resSel, 'requestedWidth');
   for (const r of WEBCAM_RESOLUTIONS) {
     const o = document.createElement('option');
     o.value = `${r.w}x${r.h}`;
@@ -68,6 +69,7 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   const fpsInp = document.createElement('input');
   fpsInp.type = 'number'; fpsInp.min = '1'; fpsInp.max = '120'; fpsInp.step = '1';
   fpsInp.className = 'rw-text'; fpsInp.style.width = '64px';
+  markParamKey(fpsInp, 'requestedFps');
   fpsInp.value = String(settings.get('requestedFps'));
   fpsInp.addEventListener('change', () => {
     const v = Math.max(1, Math.min(120, Math.round(+fpsInp.value) || 30));

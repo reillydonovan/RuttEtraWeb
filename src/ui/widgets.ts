@@ -47,7 +47,7 @@ function attachModulationIndicator(control: HTMLElement, paramKey: string): void
  * exact key each already threads through to `attachModulationIndicator`
  * / `attachKeyframeDiamond`.
  */
-function markParamKey(control: HTMLElement, paramKey: string): void {
+export function markParamKey(control: HTMLElement, paramKey: string): void {
   control.dataset.paramKey = paramKey;
 }
 

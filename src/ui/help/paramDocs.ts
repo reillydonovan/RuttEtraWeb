@@ -25,6 +25,8 @@ export interface ParamDoc {
 export const PARAM_DOCS: Record<string, ParamDoc> = {
   // ----- Source -----
   sourceKind:    { description: 'Active video source: webcam, screen share, file, or stream URL.', panel: 'Source' },
+  requestedWidth:  { description: 'Requested webcam capture resolution. "Auto (native)" lets the browser pick the camera\'s own resolution. Applies on the next "Use Webcam" — changing it doesn\'t affect an already-running capture.', panel: 'Source' },
+  requestedFps:    { description: 'Requested webcam capture frame rate. The camera/browser may substitute its nearest supported rate. Applies on the next "Use Webcam".', range: '1..120', panel: 'Source' },
   mirrorH:       { description: 'Mirror the input left/right.', panel: 'Source' },
   mirrorV:       { description: 'Mirror the input top/bottom (default ON to match Rutt/Etra orientation).', panel: 'Source' },
   streamUrl:        { description: 'Last URL used with "Use Stream". Accepts HLS (.m3u8), MPEG-DASH (.mpd), or any direct video URL the browser can play. Not auto-connected on load — click "Use Stream" to reconnect.', panel: 'Source' },
