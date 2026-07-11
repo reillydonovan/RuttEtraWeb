@@ -164,7 +164,15 @@ html, body, #app {
 #about-link {
   position: absolute;
   top: 8px;
-  right: 380px; /* clear of the 360px panel; collapses on mobile */
+  /* Tracks the panel's LIVE width via the same --rw-panel-inset-right
+     custom property the timeline dock uses (published by
+     ControlPanel.publishInset(), updated during a resize drag, not
+     just on release) — a hardcoded offset here would only clear the
+     panel at its default width and get covered by the panel's own
+     title bar the moment someone drags it wider. Falls back to the
+     360px default when the panel hasn't published yet (or is docked
+     left, in which case the inset is 0 and this just hugs the edge). */
+  right: calc(var(--rw-panel-inset-right, 360px) + 20px);
   z-index: 11;
   font-family: 'VT323', monospace;
   font-size: 14px;

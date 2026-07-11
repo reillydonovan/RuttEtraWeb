@@ -56,10 +56,10 @@ describe('formatReadout', () => {
     expect(formatReadout('bars', 4.5, 16, bpm, beatsPerBar, fps, sr)).toBe('bar 4.50 / 16');
   });
 
-  it('timecode/frames/samples all derive from the same bar->seconds conversion', () => {
+  it('timecode/frames/samples all derive from the same bar->seconds conversion, and anchor to the bar position', () => {
     // bar 1 @ 120bpm/4/4 = 2s.
-    expect(formatReadout('timecode', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('00:00:02:00');
-    expect(formatReadout('frames', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('frame 60');
-    expect(formatReadout('samples', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('smp 96000');
+    expect(formatReadout('timecode', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('00:00:02:00  ·  bar 1.00');
+    expect(formatReadout('frames', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('frame 60  ·  bar 1.00');
+    expect(formatReadout('samples', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('smp 96000  ·  bar 1.00');
   });
 });

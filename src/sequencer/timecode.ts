@@ -56,9 +56,20 @@ export function totalSamples(seconds: number, sampleRate: number): number {
   return Math.max(0, Math.round(seconds * sampleRate));
 }
 
-/** Render the transport counter for the given format. `bar` is the
- *  playhead position; `bpm`/`beatsPerBar` drive the bars<->seconds
- *  conversion for the non-bars formats. */
+/**
+ * Render the transport counter for the given format. `bar` is the
+ * playhead position; `bpm`/`beatsPerBar` drive the bars<->seconds
+ * conversion for the non-bars formats.
+ *
+ * Non-Bars/Beats formats append the bar position as a trailing anchor
+ * (`frame 58 · bar 0.97`) — a raw frame/sample count or an HH:MM:SS:FF
+ * clock carries no visual cue for where that lands on the bar ruler,
+ * so without it the reading feels disconnected from the timeline
+ * you're actually looking at (e.g. "frame 58" reads as some large,
+ * arbitrary number when the playhead is barely past bar 0). The anchor
+ * is the same number Bars/Beats mode shows on its own, so switching
+ * formats never loses that reference point.
+ */
 export function formatReadout(
   format: ReadoutFormat,
   bar: number,
@@ -70,7 +81,8 @@ export function formatReadout(
 ): string {
   if (format === 'bars') return `bar ${bar.toFixed(2)} / ${lengthBars}`;
   const seconds = barToSeconds(bar, bpm, beatsPerBar);
-  if (format === 'timecode') return formatTimecode(seconds, fps);
-  if (format === 'frames') return `frame ${totalFrames(seconds, fps)}`;
-  return `smp ${totalSamples(seconds, sampleRate)}`;
+  const anchor = `bar ${bar.toFixed(2)}`;
+  if (format === 'timecode') return `${formatTimecode(seconds, fps)}  ·  ${anchor}`;
+  if (format === 'frames') return `frame ${totalFrames(seconds, fps)}  ·  ${anchor}`;
+  return `smp ${totalSamples(seconds, sampleRate)}  ·  ${anchor}`;
 }

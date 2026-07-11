@@ -219,11 +219,21 @@ export class TimelineTransport {
     spacer.className = 'rw-tl-spacer';
     this.el.appendChild(spacer);
 
-    // Counter display format — Bars/Beats is the real clock (BPM ×
-    // beats-per-bar); Timecode/Frames/Samples are pure reformattings of
-    // the same playhead position (see sequencer/timecode.ts). The FPS /
-    // sample-rate pickers are notational references for those formats,
-    // shown only when relevant.
+    // Counter cluster: format picker + rate picker + the readout itself,
+    // grouped in ONE container so they wrap together as a single unit
+    // instead of independently — with this many transport controls, a
+    // plain flex-wrap left the rate picker and the readout stranding on
+    // separate lines with nothing visually tying them together (you'd
+    // see "30fps" alone on one line and "frame 58" alone on another,
+    // with no indication they described the same reading). Bars/Beats
+    // is the real clock (BPM × beats-per-bar); Timecode/Frames/Samples
+    // are pure reformattings of the same playhead position (see
+    // sequencer/timecode.ts). The FPS / sample-rate pickers are
+    // notational references for those formats, shown only when relevant.
+    const counterCluster = document.createElement('div');
+    counterCluster.className = 'rw-tl-counter-cluster';
+    this.el.appendChild(counterCluster);
+
     {
       const lbl = document.createElement('label');
       lbl.textContent = 'DISPLAY';
@@ -242,7 +252,7 @@ export class TimelineTransport {
         this.settings.set('timelineReadoutFormat', this.formatSel.value as ReadoutFormat);
       });
       lbl.appendChild(this.formatSel);
-      this.el.appendChild(lbl);
+      counterCluster.appendChild(lbl);
     }
     this.fpsSel = document.createElement('select');
     this.fpsSel.className = 'rw-select';
@@ -255,7 +265,7 @@ export class TimelineTransport {
     this.fpsSel.addEventListener('change', () => {
       this.settings.set('timelineReadoutFps', parseFloat(this.fpsSel.value));
     });
-    this.el.appendChild(this.fpsSel);
+    counterCluster.appendChild(this.fpsSel);
 
     this.srSel = document.createElement('select');
     this.srSel.className = 'rw-select';
@@ -268,13 +278,17 @@ export class TimelineTransport {
     this.srSel.addEventListener('change', () => {
       this.settings.set('timelineReadoutSampleRate', parseInt(this.srSel.value, 10));
     });
-    this.el.appendChild(this.srSel);
+    counterCluster.appendChild(this.srSel);
 
-    // Bar readout
+    // Bar readout. Non-Bars/Beats formats append the bar position as a
+    // trailing anchor (e.g. "frame 58 · bar 0.97") so the reading is
+    // never disconnected from where the playhead actually sits on the
+    // ruler below — the exact confusion a frame/timecode count in
+    // isolation invites ("I'm on frame 58 but really just at bar 1").
     this.readout = document.createElement('span');
     this.readout.className = 'rw-readout';
     this.readout.textContent = 'bar 0.00 / 16';
-    this.el.appendChild(this.readout);
+    counterCluster.appendChild(this.readout);
   }
 
   /** Show the FPS picker for Timecode/Frames, the sample-rate picker

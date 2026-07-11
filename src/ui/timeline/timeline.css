@@ -80,13 +80,29 @@
 .rw-tl-header .rw-btn.primary { color: var(--re-accent); border-color: var(--re-accent); }
 .rw-tl-header .rw-btn.warn    { color: var(--re-warn);   border-color: var(--re-warn); }
 .rw-tl-header .rw-readout {
-  margin-left: auto;
   font-size: 13px;
   color: var(--re-accent);
   text-shadow: var(--re-glow);
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 .rw-tl-header .rw-tl-spacer { flex: 1; }
+
+/* DISPLAY format + rate picker + the readout itself, grouped as ONE
+   unit so flex-wrap moves them together instead of stranding the rate
+   picker and the readout on separate, visually disconnected lines
+   (see TimelineTransport.ts for the story). `margin-left: auto` lives
+   HERE, on the whole cluster, not on the readout alone, so the group
+   still hugs the right edge when there's room but wraps as a block
+   when there isn't. */
+.rw-tl-counter-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 
 /* Body: ruler + track scroller, with optional inspector pinned right.
    The inspector column width is a custom property driven by the drag
