@@ -130,3 +130,22 @@ describe('migrateSettings v26 -> v27 (resizable control panel)', () => {
     expect(kept.panelWidth).toBe(480);
   });
 });
+
+describe('migrateSettings v27 -> v28 (timeline readout format)', () => {
+  it('backfills bars/beats defaults', () => {
+    const out = migrateSettings({ _v: 27 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(28);
+    expect(out.timelineReadoutFormat).toBe('bars');
+    expect(out.timelineReadoutFps).toBe(30);
+    expect(out.timelineReadoutSampleRate).toBe(48000);
+  });
+
+  it('preserves explicit values', () => {
+    const kept = migrateSettings({
+      _v: 27, timelineReadoutFormat: 'timecode', timelineReadoutFps: 24, timelineReadoutSampleRate: 44100,
+    });
+    expect(kept.timelineReadoutFormat).toBe('timecode');
+    expect(kept.timelineReadoutFps).toBe(24);
+    expect(kept.timelineReadoutSampleRate).toBe(44100);
+  });
+});

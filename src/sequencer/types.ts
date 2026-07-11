@@ -102,6 +102,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
   // Help / timeline meta
   'helpSeen', 'helpAutoOpen', 'helpActiveTab',
   'timelineDock', 'timelineHeight', 'activeTimelineId',
+  'timelineReadoutFormat', 'timelineReadoutFps', 'timelineReadoutSampleRate',
 ];
 
 export function makeEmptyTimeline(name = 'Untitled', overrides: Partial<Timeline> = {}): Timeline {

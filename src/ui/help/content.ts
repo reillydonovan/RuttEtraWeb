@@ -586,6 +586,13 @@ A horizontal dock at the bottom of the screen. Two layers compose:
 Set BPM, beats-per-bar, and total length in the transport. Switch **SYNC** to
 **MIDI** to follow incoming MIDI clock instead of the internal BPM.
 
+## Counter display format
+The **DISPLAY** dropdown next to the transport's counter switches how the
+playhead position is shown: **Bars/Beats** (the real clock), **Timecode**
+(\`HH:MM:SS:FF\`), **Frames**, or **Samples**. Only Bars/Beats is the actual
+clock — the rest are display-only conversions (a picker for fps or kHz
+appears alongside them) and never affect playback, editing, or snapping.
+
 ## Recording a timeline
 The **Record** panel has a **Record Timeline** button: it seeks to bar 0,
 disables looping for one pass, plays the timeline, and downloads a video named

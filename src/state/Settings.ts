@@ -885,6 +885,20 @@ export interface Settings {
   /** v26: width of the dock's right-hand inspector column (drag its left edge; clamped 180–420). */
   timelineInspectorWidth: number;
   activeTimelineId: string | null;
+  /** v28: transport counter DISPLAY format. Bars/Beats is the timeline's
+   *  only real clock (this.internalBpm × Timeline.beatsPerBar) — the
+   *  other three are pure reformattings of the current playhead
+   *  position for editors who think in video/audio terms. Nothing
+   *  about playback or authoring changes when this changes. */
+  timelineReadoutFormat: 'bars' | 'timecode' | 'frames' | 'samples';
+  /** v28: frame rate used to render Timecode / Frames display. A
+   *  notational reference only (like the ruler's bar/beat grid) — not
+   *  tied to the recorder's capture rate (`recordFps`), which governs
+   *  actual MediaRecorder output and has a different, continuous range. */
+  timelineReadoutFps: number;
+  /** v28: sample rate used to render Samples display. Notational only —
+   *  not the AudioContext's actual hardware rate. */
+  timelineReadoutSampleRate: number;
 
   // ---------- Mobile / responsive layout (v4) ----------
   /** Per-mode performance profile. Persisted across sessions. */
@@ -1337,6 +1351,9 @@ export const DEFAULTS: Settings = {
   timelineHeight: 220,
   timelineInspectorWidth: 220,
   activeTimelineId: null,
+  timelineReadoutFormat: 'bars',
+  timelineReadoutFps: 30,
+  timelineReadoutSampleRate: 48000,
 
   performanceProfile: {
     compact:   'battery',
@@ -1419,7 +1436,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 27;
+const CURRENT_VERSION = 28;
 
 interface Versioned { _v?: number }
 
@@ -1936,6 +1953,16 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 27) {
     s.panelWidth = (s.panelWidth as number | undefined) ?? 360;
     s._v = 27;
+  }
+
+  // v27 -> v28: timeline transport counter display format (Bars/Beats,
+  // Timecode, Frames, Samples). Pure UI-state backfill; a display
+  // conversion, not a new clock. Idempotent.
+  if ((s._v ?? 1) < 28) {
+    s.timelineReadoutFormat = (s.timelineReadoutFormat as Settings['timelineReadoutFormat'] | undefined) ?? 'bars';
+    s.timelineReadoutFps = (s.timelineReadoutFps as number | undefined) ?? 30;
+    s.timelineReadoutSampleRate = (s.timelineReadoutSampleRate as number | undefined) ?? 48000;
+    s._v = 28;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

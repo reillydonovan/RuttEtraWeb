@@ -176,6 +176,8 @@ Conceptually: the scene track is a list of (bar, snapshot) pairs — the playhea
 
 A note on terminology: this manual (and the panel UI) calls both of these **keyframes**, matching Blender/Resolve/After Effects usage — a *scene* keyframes the whole picture, a *lane point* keyframes one parameter. Internally they're different data structures (a scene is a full settings snapshot; a lane point is one offset value), but from the keyboard and the panel they behave the same way: you park the playhead, you set a value, you've made a keyframe.
 
+The transport's counter (bottom-right of the header, next to the **DISPLAY** dropdown) can show the playhead position four ways: **Bars/Beats** (`bar 4.75 / 16`, the default), **Timecode** (`HH:MM:SS:FF`), **Frames** (a raw running frame count), or **Samples** (a raw running audio-sample count). Only Bars/Beats is real — it's the timeline's actual clock (BPM × beats-per-bar, the same shared `internalBpm` every LFO and clock node reads). The other three are pure reformattings of that same position for editors who think in video or audio terms; picking one never changes playback, editing, snapping, or the underlying clock — it's exactly the same distinction Pro Tools' or Ableton's main counter format menu makes. Timecode and Frames add a small **fps** picker (23.976–60, standard editorial rates); Samples adds a **kHz** picker (44.1–96). Both are notational references only, independent of Record's actual capture FPS or the audio hardware's real sample rate.
+
 **Scenes:**
 
 - **Add scene** — double-click the track, `Ctrl+click`, right-click → *Add scene*, press `K` at the playhead, or drag a preset chip from the Presets panel onto the track.

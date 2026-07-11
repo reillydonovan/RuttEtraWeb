@@ -41,7 +41,7 @@ Vitest runs in the `node` environment with an explicit `include` allowlist in `v
 
 5. **Coexistence over replacement.** Classic ModMatrix and GraphEngine both exist (`Settings.modMode: classic | graph | both`). Pattern Generator is a compositing layer, not a fourth `sourceKind`. Presets / Timelines / Projects are three separate save formats with different scopes.
 
-6. **Migrations are explicit.** Any saved-format change bumps the version (`_v` for Settings/presets — currently 16 in `src/state/Settings.ts`; `formatVersion` for projects) and adds an idempotent step to `migrateSettings()` / `migrateProject()`. Files with a newer version than the code log `console.warn` and normalize on save — never silently truncate.
+6. **Migrations are explicit.** Any saved-format change bumps the version (`_v` for Settings/presets — currently 28 in `src/state/Settings.ts`; `formatVersion` for projects) and adds an idempotent step to `migrateSettings()` / `migrateProject()`. Files with a newer version than the code log `console.warn` and normalize on save — never silently truncate.
 
 7. **Documentation lands with the feature.** New modulatable Settings key → entry in `PARAM_DOCS`. New graph node → complete `NodeDef` in the registry (auto-appears in the About Node Catalog). User-facing behavior change → update `src/ui/help/content.ts` and the relevant `docs/about/*.md`. Docs are part of the feature, not a follow-up.
 

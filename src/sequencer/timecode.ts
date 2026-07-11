@@ -1,0 +1,76 @@
+/**
+ * Timeline transport counter — display-format conversions.
+ *
+ * Bars/Beats is the timeline's only real clock (`Settings.internalBpm`
+ * × `Timeline.beatsPerBar`, the single shared source used everywhere —
+ * Classic LFOs, Graph clock nodes, the timeline itself). Timecode,
+ * Frames, and Samples are pure REFORMATTINGS of the current playhead
+ * position for editors who think in video/audio terms instead of
+ * musical time — nothing here changes playback, authoring, or the
+ * underlying clock. Same status as the ruler's bar grid: a display,
+ * not a second source of truth.
+ *
+ * Pure, DOM-free, node-testable — same pattern as easings.ts / interp.ts.
+ */
+
+export type ReadoutFormat = 'bars' | 'timecode' | 'frames' | 'samples';
+
+/** Standard editorial frame rates offered for Timecode/Frames display. */
+export const READOUT_FPS_OPTIONS = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60] as const;
+
+/** Standard audio sample rates offered for Samples display. */
+export const READOUT_SAMPLE_RATE_OPTIONS = [44100, 48000, 88200, 96000] as const;
+
+/** Bar position -> elapsed seconds, given the shared BPM clock. */
+export function barToSeconds(bar: number, bpm: number, beatsPerBar: number): number {
+  if (bpm <= 0) return 0;
+  return (bar * beatsPerBar * 60) / bpm;
+}
+
+/**
+ * `HH:MM:SS:FF`, non-drop-frame. `fps` may be a broadcast rate like
+ * 29.97 — the FF digit range uses its rounded nominal frame count
+ * (e.g. 30) since this is a creative tool, not an SMPTE drop-frame
+ * mastering path; `fps` itself (not the nominal) still drives the
+ * total-frame-count timing so the counter stays accurate.
+ */
+export function formatTimecode(seconds: number, fps: number): string {
+  const nominal = Math.max(1, Math.round(fps));
+  const frames = totalFrames(seconds, fps);
+  const ff = frames % nominal;
+  const totalSecs = Math.floor(frames / nominal);
+  const ss = totalSecs % 60;
+  const mm = Math.floor(totalSecs / 60) % 60;
+  const hh = Math.floor(totalSecs / 3600);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${pad(hh)}:${pad(mm)}:${pad(ss)}:${pad(ff)}`;
+}
+
+/** Total elapsed frames at `fps` (rounded, clamped to >= 0). */
+export function totalFrames(seconds: number, fps: number): number {
+  return Math.max(0, Math.round(seconds * fps));
+}
+
+/** Total elapsed samples at `sampleRate` (rounded, clamped to >= 0). */
+export function totalSamples(seconds: number, sampleRate: number): number {
+  return Math.max(0, Math.round(seconds * sampleRate));
+}
+
+/** Render the transport counter for the given format. `bar` is the
+ *  playhead position; `bpm`/`beatsPerBar` drive the bars<->seconds
+ *  conversion for the non-bars formats. */
+export function formatReadout(
+  format: ReadoutFormat,
+  bar: number,
+  lengthBars: number,
+  bpm: number,
+  beatsPerBar: number,
+  fps: number,
+  sampleRate: number,
+): string {
+  if (format === 'bars') return `bar ${bar.toFixed(2)} / ${lengthBars}`;
+  const seconds = barToSeconds(bar, bpm, beatsPerBar);
+  if (format === 'timecode') return formatTimecode(seconds, fps);
+  if (format === 'frames') return `frame ${totalFrames(seconds, fps)}`;
+  return `smp ${totalSamples(seconds, sampleRate)}`;
+}

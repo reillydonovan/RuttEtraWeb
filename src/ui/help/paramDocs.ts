@@ -280,4 +280,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   timelineHeight:   { description: 'Pixel height of the timeline dock. Drag the dock’s free edge (top edge when docked bottom) to resize; clamped 140–600.', panel: 'UI' },
   timelineInspectorWidth: { description: 'Pixel width of the timeline dock’s inspector column. Drag the column’s left edge to resize; clamped 180–420.', panel: 'UI' },
   panelWidth:       { description: 'Pixel width of the side control panel. Drag the panel’s inner edge to resize; clamped 280–600.', panel: 'UI' },
+  timelineReadoutFormat: { description: 'Transport counter display: Bars/Beats (the real clock), Timecode (HH:MM:SS:FF), Frames, or Samples. Purely a display conversion — playback and authoring stay bar/BPM-based regardless.', panel: 'UI' },
+  timelineReadoutFps: { description: 'Frame rate used to render the Timecode/Frames counter display. Notational only — independent of Record’s capture FPS.', panel: 'UI' },
+  timelineReadoutSampleRate: { description: 'Sample rate used to render the Samples counter display. Notational only — independent of the audio hardware’s actual rate.', panel: 'UI' },
 };

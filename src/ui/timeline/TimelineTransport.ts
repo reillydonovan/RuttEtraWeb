@@ -10,6 +10,9 @@ import {
   exportTimeline, importTimelineJson,
 } from '../../sequencer/store';
 import { makeEmptyTimeline } from '../../sequencer/types';
+import {
+  ReadoutFormat, READOUT_FPS_OPTIONS, READOUT_SAMPLE_RATE_OPTIONS, formatReadout,
+} from '../../sequencer/timecode';
 
 export interface TransportEvents {
   onZoomChange?: (pixelsPerBar: number) => void;
@@ -33,6 +36,9 @@ export class TimelineTransport {
   private lenInput!: HTMLInputElement;
   private bpbInput!: HTMLInputElement;
   private syncSel!: HTMLSelectElement;
+  private formatSel!: HTMLSelectElement;
+  private fpsSel!: HTMLSelectElement;
+  private srSel!: HTMLSelectElement;
   private readout!: HTMLSpanElement;
   private zoom = 60;
 
@@ -51,6 +57,24 @@ export class TimelineTransport {
     settings.subscribe('internalBpm', (v) => {
       const s = String(v);
       if (this.bpmInput && this.bpmInput.value !== s) this.bpmInput.value = s;
+      this.updateReadout(this.seq.playheadBar);
+    });
+    // Readout display-format prefs — also settable from outside this
+    // component in principle (project load), so mirror + re-render.
+    settings.subscribe('timelineReadoutFormat', (v) => {
+      if (this.formatSel && this.formatSel.value !== v) this.formatSel.value = v;
+      this.updateReadoutVisibility();
+      this.updateReadout(this.seq.playheadBar);
+    });
+    settings.subscribe('timelineReadoutFps', (v) => {
+      const s = String(v);
+      if (this.fpsSel && this.fpsSel.value !== s) this.fpsSel.value = s;
+      this.updateReadout(this.seq.playheadBar);
+    });
+    settings.subscribe('timelineReadoutSampleRate', (v) => {
+      const s = String(v);
+      if (this.srSel && this.srSel.value !== s) this.srSel.value = s;
+      this.updateReadout(this.seq.playheadBar);
     });
   }
 
@@ -195,11 +219,70 @@ export class TimelineTransport {
     spacer.className = 'rw-tl-spacer';
     this.el.appendChild(spacer);
 
+    // Counter display format — Bars/Beats is the real clock (BPM ×
+    // beats-per-bar); Timecode/Frames/Samples are pure reformattings of
+    // the same playhead position (see sequencer/timecode.ts). The FPS /
+    // sample-rate pickers are notational references for those formats,
+    // shown only when relevant.
+    {
+      const lbl = document.createElement('label');
+      lbl.textContent = 'DISPLAY';
+      lbl.title = 'Transport counter display format';
+      this.formatSel = document.createElement('select');
+      this.formatSel.className = 'rw-select';
+      const opts: [ReadoutFormat, string][] = [
+        ['bars', 'BARS/BEATS'], ['timecode', 'TIMECODE'], ['frames', 'FRAMES'], ['samples', 'SAMPLES'],
+      ];
+      for (const [v, l] of opts) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = l;
+        this.formatSel.appendChild(o);
+      }
+      this.formatSel.addEventListener('change', () => {
+        this.settings.set('timelineReadoutFormat', this.formatSel.value as ReadoutFormat);
+      });
+      lbl.appendChild(this.formatSel);
+      this.el.appendChild(lbl);
+    }
+    this.fpsSel = document.createElement('select');
+    this.fpsSel.className = 'rw-select';
+    this.fpsSel.title = 'Frame rate for Timecode / Frames display (notational — independent of Record’s capture FPS)';
+    for (const fps of READOUT_FPS_OPTIONS) {
+      const o = document.createElement('option');
+      o.value = String(fps); o.textContent = `${fps}fps`;
+      this.fpsSel.appendChild(o);
+    }
+    this.fpsSel.addEventListener('change', () => {
+      this.settings.set('timelineReadoutFps', parseFloat(this.fpsSel.value));
+    });
+    this.el.appendChild(this.fpsSel);
+
+    this.srSel = document.createElement('select');
+    this.srSel.className = 'rw-select';
+    this.srSel.title = 'Sample rate for Samples display (notational — independent of the audio hardware’s actual rate)';
+    for (const sr of READOUT_SAMPLE_RATE_OPTIONS) {
+      const o = document.createElement('option');
+      o.value = String(sr); o.textContent = `${sr / 1000}kHz`;
+      this.srSel.appendChild(o);
+    }
+    this.srSel.addEventListener('change', () => {
+      this.settings.set('timelineReadoutSampleRate', parseInt(this.srSel.value, 10));
+    });
+    this.el.appendChild(this.srSel);
+
     // Bar readout
     this.readout = document.createElement('span');
     this.readout.className = 'rw-readout';
     this.readout.textContent = 'bar 0.00 / 16';
     this.el.appendChild(this.readout);
+  }
+
+  /** Show the FPS picker for Timecode/Frames, the sample-rate picker
+   *  for Samples, and hide both for the default Bars/Beats format. */
+  private updateReadoutVisibility(): void {
+    const fmt = this.settings.get('timelineReadoutFormat');
+    this.fpsSel.hidden = !(fmt === 'timecode' || fmt === 'frames');
+    this.srSel.hidden = fmt !== 'samples';
   }
 
   private btn(label: string, onClick: () => void, title?: string, kind?: 'primary' | 'warn'): HTMLElement {
@@ -258,13 +341,24 @@ export class TimelineTransport {
       this.bpbInput.value = '4';
       this.syncSel.value = 'internal';
     }
+    this.formatSel.value = this.settings.get('timelineReadoutFormat');
+    this.fpsSel.value = String(this.settings.get('timelineReadoutFps'));
+    this.srSel.value = String(this.settings.get('timelineReadoutSampleRate'));
+    this.updateReadoutVisibility();
     this.updateReadout(this.seq.playheadBar);
   }
 
   updateReadout(bar: number): void {
     const t = this.seq.timeline;
-    const len = t ? t.lengthBars : 0;
-    this.readout.textContent = `bar ${bar.toFixed(2)} / ${len}`;
+    this.readout.textContent = formatReadout(
+      this.settings.get('timelineReadoutFormat'),
+      bar,
+      t ? t.lengthBars : 0,
+      this.settings.get('internalBpm'),
+      t?.beatsPerBar ?? 4,
+      this.settings.get('timelineReadoutFps'),
+      this.settings.get('timelineReadoutSampleRate'),
+    );
   }
 
   // -----------------------------------------------------------------
