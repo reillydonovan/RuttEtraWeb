@@ -120,6 +120,13 @@ level, not the call site:
   About sidebar) gets a thin green-on-transparent scrollbar instead of
   the OS's chunky arrowed track. `.rw-panel-body` previously had its own
   local copy of this rule; it's now redundant but harmless.
+- `input[type="file"]::file-selector-button` /
+  `::-webkit-file-upload-button` — a file input's own `className` (even
+  `.rw-text`) only styles the input's box; the "Choose File" picker
+  button lives in a separate pseudo-element the parent class can't
+  reach, so every file input (Source's Video File, Audio's Audio file,
+  Presets' Import/Restore) rendered the OS's native grey button until
+  this was added.
 
 **When you hand-build a raw `<input type="range">` or a new scrolling
 container, you get the themed look for free — but still add the
