@@ -16,13 +16,17 @@
  *
  * The popup owns a self-contained fullscreen toggle: a corner button
  * that requests/exits the Fullscreen API on the POPUP window (not the
- * main window), relabels itself on state change, auto-fades out while
- * fullscreen and reveals on hover (classic video-player affordance —
- * discoverable because hovering ANYWHERE in the window reveals it, not
- * just the (invisible) button itself), and responds to `F` as a
- * keyboard shortcut scoped to the popup (`Esc` already exits fullscreen
- * natively; the button/label stay in sync via `fullscreenchange`
- * regardless of how fullscreen was entered/exited).
+ * main window), relabels itself on state change, and responds to `F`
+ * as a keyboard shortcut scoped to the popup (`Esc` already exits
+ * fullscreen natively; the button/label stay in sync via
+ * `fullscreenchange` regardless of how fullscreen was entered/exited).
+ *
+ * While fullscreen, the button auto-fades after a few seconds of no
+ * mouse movement and fades back in the instant movement is detected —
+ * an idle timer driven by `pointermove`, not CSS `:hover` (a motionless
+ * cursor sitting inside the window would keep `:hover` true forever,
+ * which defeats the point of an idle fade for a performer who parks the
+ * mouse and looks away from the controls).
  */
 
 export interface RenderPopoutController {
@@ -83,11 +87,12 @@ export function createRenderPopout(
         border-color: #7eff9c;
         box-shadow: 0 0 8px rgba(95,255,133,0.5);
       }
-      /* Auto-hide while fullscreen; hovering ANYWHERE in the window
-         reveals it again (hovering only the button itself would be
-         undiscoverable while it's invisible). */
-      body.rw-fs-active #rw-fs-btn { opacity: 0; }
-      body.rw-fs-active:hover #rw-fs-btn { opacity: 1; }
+      /* Idle-fade while fullscreen: hidden by default, revealed by the
+         'rw-fs-visible' class that JS toggles on mouse movement (see
+         the pointermove listener below) — NOT by :hover, since a
+         stationary cursor would keep :hover true indefinitely. */
+      body.rw-fs-active #rw-fs-btn { opacity: 0; pointer-events: none; }
+      body.rw-fs-active.rw-fs-visible #rw-fs-btn { opacity: 1; pointer-events: auto; }
     `;
     doc.head.appendChild(style);
 
@@ -103,10 +108,29 @@ export function createRenderPopout(
     const fsBtn = doc.createElement('button');
     fsBtn.id = 'rw-fs-btn';
     fsBtn.type = 'button';
+
+    // Idle-fade: visible on movement, hidden again after IDLE_MS of no
+    // movement — only while fullscreen (outside fullscreen the button
+    // just stays at its default full opacity).
+    const IDLE_MS = 2500;
+    let idleTimer: number | null = null;
+    const clearIdleTimer = (): void => {
+      if (idleTimer !== null) { w.clearTimeout(idleTimer); idleTimer = null; }
+    };
+    const showBtn = (): void => {
+      doc.body.classList.add('rw-fs-visible');
+      clearIdleTimer();
+      if (doc.fullscreenElement) {
+        idleTimer = w.setTimeout(() => doc.body.classList.remove('rw-fs-visible'), IDLE_MS);
+      }
+    };
+
     const syncFsLabel = (): void => {
       const isFs = !!doc.fullscreenElement;
       fsBtn.textContent = isFs ? '⤢ Exit Fullscreen' : '⛶ Fullscreen';
       doc.body.classList.toggle('rw-fs-active', isFs);
+      if (isFs) showBtn();
+      else { clearIdleTimer(); doc.body.classList.remove('rw-fs-visible'); }
     };
     const toggleFs = (): void => {
       if (doc.fullscreenElement) void doc.exitFullscreen();
@@ -114,6 +138,7 @@ export function createRenderPopout(
     };
     fsBtn.addEventListener('click', toggleFs);
     doc.addEventListener('fullscreenchange', syncFsLabel);
+    doc.addEventListener('pointermove', showBtn);
     syncFsLabel();
     doc.body.appendChild(fsBtn);
 
