@@ -22,44 +22,58 @@
     />
   </head>
   <body class="about-body">
-    <!-- ======================================================
-         Top nav. Sticks to the top edge across all viewports.
-         The TOC links jump within the doc; the hamburger only
-         appears on narrow widths via CSS media queries.
-         ======================================================= -->
-    <header id="about-nav">
-      <a class="about-nav-home" href="./index.html" title="Back to the synth">← RUTT/ETRA</a>
-      <button id="about-toc-toggle" type="button" aria-label="Toggle table of contents">≡</button>
-      <nav id="about-toc">
-        <a href="#intro">Intro</a>
-        <a href="#design-principles">Principles</a>
-        <a href="#quick-start">Quick Start</a>
-        <a href="#synthesis">Synthesis</a>
-        <a href="#modulation">Modulation</a>
-        <a href="#io">I/O</a>
-        <a href="#performance">Performance</a>
-        <a href="#reference">Reference</a>
-        <a href="#about">About</a>
-      </nav>
-      <input
-        id="about-search"
-        type="search"
-        placeholder="search..."
-        aria-label="Filter sections"
-        autocomplete="off"
-      />
-    </header>
-    <!-- The single long scrollable article. JS injects each
-         markdown section into this container in fixed order. -->
-    <main id="about-doc">
-      <noscript>
-        <div class="about-noscript">
-          The manual is a single static document but its sections are
-          assembled at page load. Enable JavaScript to read it, or use the
-          source markdown files in <code>docs/about/</code>.
+    <!-- Mobile-only: pinned corner button that opens the sidebar as an
+         off-canvas drawer. Hidden on desktop, where the sidebar is
+         always visible. -->
+    <button id="about-toc-toggle" type="button" aria-label="Toggle table of contents" aria-expanded="false">☰ Contents</button>
+    <!-- Mobile-only dim backdrop behind the open drawer; click to close. -->
+    <div id="about-toc-backdrop"></div>
+
+    <div id="about-shell">
+      <!-- ======================================================
+           Left sidebar: home link, search, and the table of
+           contents. Persistent on desktop (position: sticky, its
+           own scroll); an off-canvas drawer on mobile.
+           ======================================================= -->
+      <aside id="about-sidebar">
+        <div id="about-sidebar-head">
+          <a class="about-nav-home" href="./index.html" title="Back to the synth">← RUTT/ETRA</a>
+          <input
+            id="about-search"
+            type="search"
+            placeholder="search..."
+            aria-label="Filter sections"
+            autocomplete="off"
+          />
         </div>
-      </noscript>
-    </main>
+        <!-- Top-level links are hand-authored (one per markdown file);
+             JS nests each section's own h3/h4 sub-headings under the
+             matching link right after mount, so the TOC stays in sync
+             with the manual's content without manual upkeep. -->
+        <nav id="about-toc">
+          <a href="#intro">Intro</a>
+          <a href="#design-principles">Principles</a>
+          <a href="#quick-start">Quick Start</a>
+          <a href="#synthesis">Synthesis</a>
+          <a href="#modulation">Modulation</a>
+          <a href="#io">I/O</a>
+          <a href="#performance">Performance</a>
+          <a href="#reference">Reference</a>
+          <a href="#about">About</a>
+        </nav>
+      </aside>
+      <!-- The single long scrollable article. JS injects each
+           markdown section into this container in fixed order. -->
+      <main id="about-doc">
+        <noscript>
+          <div class="about-noscript">
+            The manual is a single static document but its sections are
+            assembled at page load. Enable JavaScript to read it, or use the
+            source markdown files in <code>docs/about/</code>.
+          </div>
+        </noscript>
+      </main>
+    </div>
     <script type="module" src="/src/about/main.ts"></script>
   </body>
 </html>

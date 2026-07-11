@@ -7,22 +7,25 @@
  * pure data (no side effects beyond Map population) or a string of
  * pre-rendered HTML emitted by the build-time markdown plugin.
  *
- * Bundle goal: <50KB total (HTML + CSS + JS) gzipped. The page loads
- * in under a second on 4G; the synth state at index.html is left
- * completely untouched by visiting this page (different page,
- * different localStorage scope is unchanged because we never read or
- * write it from here).
+ * Bundle: ~54KB total (HTML + CSS + JS) gzipped as of the sidebar TOC
+ * (was ~26KB before it) — still well under a second on 4G. The page
+ * loads independently of the synth state at index.html; visiting it
+ * leaves that untouched (different page, different scope, but the
+ * same `localStorage` content since it's the same origin).
  *
  * What this file does, in order:
  *   1. Inject each markdown-rendered section into the document.
  *   2. Append two AUTO-GENERATED sections (Param Reference, Node
  *      Catalog) built from the same source-of-truth maps used by the
  *      in-app Help, so the manual can never drift from the code.
- *   3. Wire the top-nav TOC links (smooth scroll + offset for the
- *      fixed nav).
+ *   3. Build the sidebar TOC's nested sub-headings (h3/h4 within each
+ *      section) from the live DOM, wire every link's smooth-scroll
+ *      click handler, and run a scrollspy that highlights wherever
+ *      you're currently reading — top-level AND nested.
  *   4. Wire the search input (heading-level index + results dropdown;
  *      Enter / click jumps to the matched heading).
- *   5. Wire the hamburger toggle for mobile TOC.
+ *   5. Wire the hamburger toggle that opens the sidebar as an
+ *      off-canvas drawer on narrow viewports.
  */
 
 import './about.css';
@@ -88,20 +91,74 @@ if (referenceSection) {
 }
 
 // =====================================================================
-// TOC + smooth scroll w/ fixed-nav offset
+// Sidebar TOC: nested h3/h4 sub-headings, smooth-scroll links,
+// scrollspy highlighting.
+//
+// The 9 top-level links are hand-authored in about.html (one per
+// markdown file, matching the section id the `aboutMarkdown` build
+// plugin derives from the filename). Everything below THAT is built
+// here, once, from the live DOM after the sections mount — so a new
+// `###`/`####` heading in any docs/about/*.md file just shows up on
+// the next load with no TOC upkeep required.
 // =====================================================================
 
-const NAV_OFFSET = 56; // matches #about-nav height; keep in sync with about.css
+const NAV_OFFSET = 8; // small breathing room; see --about-scroll-offset in about.css
 
 function scrollToHash(hash: string): void {
   if (!hash || hash === '#') return;
   const target = document.querySelector(hash) as HTMLElement | null;
   if (!target) return;
-  const top = target.getBoundingClientRect().top + window.scrollY - NAV_OFFSET - 8;
+  const top = target.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
   window.scrollTo({ top, behavior: 'smooth' });
 }
 
-document.querySelectorAll<HTMLAnchorElement>('#about-toc a').forEach((a) => {
+const tocNav = document.getElementById('about-toc') as HTMLElement;
+const topLinks = Array.from(tocNav.querySelectorAll<HTMLAnchorElement>(':scope > a'));
+
+// Nest each section's own h3/h4 sub-headings under its top-level link.
+// Deliberately EXCLUDES the auto-generated Param Reference / Node
+// Catalog sub-content (`.about-subhead` category headers, and the
+// per-node-type `<h4>`s inside `.about-node` cards) — indexing those
+// individually would bury the real manual's headings under ~60 param
+// and node names. That content is still fully searchable; it just
+// isn't a TOC entry.
+const usedIds = new Set<string>(); // avoids clobbering existing ids (e.g. section ids)
+function slugify(s: string): string {
+  const base = s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
+  let id = base;
+  let n = 1;
+  while (usedIds.has(id) || document.getElementById(id)) id = `${base}-${++n}`;
+  usedIds.add(id);
+  return id;
+}
+
+/** Sub-link -> the top-level link it's nested under (for scrollspy). */
+const subLinkOwner = new Map<HTMLAnchorElement, HTMLAnchorElement>();
+
+for (const topLink of topLinks) {
+  const href = topLink.getAttribute('href') ?? '';
+  const section = href ? doc.querySelector(href) : null;
+  if (!section) continue;
+  const heads = section.querySelectorAll<HTMLElement>('h3:not(.about-subhead), h4:not(.about-subhead)');
+  const subNav = document.createElement('div');
+  subNav.className = 'about-toc-sub';
+  let any = false;
+  for (const h of Array.from(heads)) {
+    if (h.closest('.about-node')) continue; // per-node-type h4 (Node Catalog)
+    if (!h.id) h.id = slugify(h.textContent ?? '');
+    const a = document.createElement('a');
+    a.href = `#${h.id}`;
+    a.textContent = h.textContent ?? '';
+    a.className = h.tagName === 'H4' ? 'about-toc-l2' : 'about-toc-l1';
+    subNav.appendChild(a);
+    subLinkOwner.set(a, topLink);
+    any = true;
+  }
+  if (any) topLink.insertAdjacentElement('afterend', subNav);
+}
+
+// Click handling for every link in the sidebar — top-level and nested.
+tocNav.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => {
   a.addEventListener('click', (e) => {
     const href = a.getAttribute('href') ?? '';
     if (!href.startsWith('#')) return;
@@ -113,11 +170,56 @@ document.querySelectorAll<HTMLAnchorElement>('#about-toc a').forEach((a) => {
 });
 
 // Honor a deep link in the URL hash on first paint (e.g. shared
-// `about.html#modulation` URLs land on the Modulation section).
+// `about.html#modulation` or `about.html#automation-lanes` URLs land
+// on the right heading, section or sub-heading alike).
 if (window.location.hash) {
   // Defer a tick so the section heights have settled.
   requestAnimationFrame(() => scrollToHash(window.location.hash));
 }
+
+// Scrollspy: highlight whichever heading is currently being read, in
+// both its own sidebar link and (if it's a sub-heading) the owning
+// top-level link, so you always know where you are in a long page.
+interface SpyTarget { el: HTMLElement; link: HTMLAnchorElement; owner: HTMLAnchorElement }
+const spyTargets: SpyTarget[] = [];
+for (const topLink of topLinks) {
+  const href = topLink.getAttribute('href') ?? '';
+  const section = href ? (doc.querySelector(href) as HTMLElement | null) : null;
+  if (section) spyTargets.push({ el: section, link: topLink, owner: topLink });
+}
+tocNav.querySelectorAll<HTMLAnchorElement>('.about-toc-l1, .about-toc-l2').forEach((a) => {
+  const href = a.getAttribute('href') ?? '';
+  const el = href ? document.getElementById(href.slice(1)) : null;
+  const owner = subLinkOwner.get(a);
+  if (el && owner) spyTargets.push({ el, link: a, owner });
+});
+// Document order matters for the "last one above the threshold wins"
+// scan in updateSpy() below.
+spyTargets.sort((a, b) => {
+  const pos = a.el.compareDocumentPosition(b.el);
+  if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+  if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+  return 0;
+});
+
+function updateSpy(): void {
+  const threshold = window.scrollY + 96; // a bit below the viewport top
+  let current: SpyTarget | null = null;
+  for (const t of spyTargets) {
+    if (t.el.getBoundingClientRect().top + window.scrollY <= threshold) current = t;
+    else break;
+  }
+  for (const t of spyTargets) {
+    t.link.classList.toggle('about-toc-active', t === current);
+    t.link.classList.toggle('about-toc-section-active', current != null && t.owner === current.owner);
+  }
+}
+let spyRaf = 0;
+window.addEventListener('scroll', () => {
+  cancelAnimationFrame(spyRaf);
+  spyRaf = requestAnimationFrame(updateSpy);
+}, { passive: true });
+updateSpy();
 
 // =====================================================================
 // Search — heading-level index + results dropdown
@@ -139,17 +241,17 @@ interface SearchEntry {
 }
 
 const search = document.getElementById('about-search') as HTMLInputElement | null;
-const nav = document.getElementById('about-nav');
-if (search && nav) {
+const sidebarHead = document.getElementById('about-sidebar-head');
+if (search && sidebarHead) {
   const MAX_RESULTS = 12;
   const SNIPPET_RADIUS = 60; // chars of context either side of the match
 
-  // Results dropdown lives in the nav so it anchors under the input.
+  // Results dropdown lives in the sidebar head so it anchors under the input.
   const resultsEl = document.createElement('div');
   resultsEl.id = 'about-search-results';
   resultsEl.setAttribute('role', 'listbox');
   resultsEl.hidden = true;
-  nav.appendChild(resultsEl);
+  sidebarHead.appendChild(resultsEl);
 
   // Build the index lazily on first keystroke — the doc is static
   // after mount, so one build is enough.
@@ -309,27 +411,25 @@ if (search && nav) {
 }
 
 // =====================================================================
-// Mobile TOC hamburger
+// Mobile sidebar drawer (hamburger toggle + dim backdrop)
 // =====================================================================
 
 const tocToggle = document.getElementById('about-toc-toggle');
-const tocEl = document.getElementById('about-toc');
+const sidebarEl = document.getElementById('about-sidebar');
+const backdropEl = document.getElementById('about-toc-backdrop');
 function closeMobileToc(): void {
-  if (tocEl) tocEl.classList.remove('about-toc-open');
-  if (tocToggle) tocToggle.setAttribute('aria-expanded', 'false');
+  sidebarEl?.classList.remove('about-toc-open');
+  backdropEl?.classList.remove('about-toc-open');
+  tocToggle?.setAttribute('aria-expanded', 'false');
 }
-if (tocToggle && tocEl) {
+if (tocToggle && sidebarEl) {
   tocToggle.setAttribute('aria-expanded', 'false');
   tocToggle.addEventListener('click', () => {
-    const open = tocEl.classList.toggle('about-toc-open');
+    const open = sidebarEl.classList.toggle('about-toc-open');
+    backdropEl?.classList.toggle('about-toc-open', open);
     tocToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
-  // Click outside to close (mobile only — on desktop the TOC is
-  // always open inline, so this is a no-op there).
-  document.addEventListener('click', (e) => {
-    if (!tocEl.classList.contains('about-toc-open')) return;
-    const target = e.target as HTMLElement;
-    if (target === tocToggle || tocEl.contains(target)) return;
-    closeMobileToc();
-  });
+  // Tapping the dim backdrop closes the drawer (mobile only — on
+  // desktop the sidebar is always visible inline, so this is inert).
+  backdropEl?.addEventListener('click', closeMobileToc);
 }

@@ -8,15 +8,22 @@
  * in sync; if panel.css palette changes, this file updates too.
  *
  * Layout:
- *   - Fixed top nav (~56px) with home link + TOC + search input.
- *   - Single-column scrollable doc, max-width 720px for readability.
+ *   - Persistent left sidebar (~268px, position: sticky) with home
+ *     link + search + a two-level nested table of contents (the 9
+ *     manual sections, each with its own h3/h4 sub-headings nested
+ *     under it — built at runtime in main.ts from the actual DOM so
+ *     it can't drift from the content).
+ *   - Remaining space holds the single scrollable doc column,
+ *     max-width ~720px, centered within that space.
+ *   - On narrow viewports the sidebar becomes an off-canvas drawer
+ *     (a pinned "☰ Contents" button opens it full-screen).
  *   - Subtle scanline overlay (3% opacity) — same aesthetic, lower
  *     intensity than the synth's main canvas treatment.
  *
  * Print:
  *   - Drops the scanline overlay, switches to dark-on-white.
- *   - Suppresses the nav, expands every section, numbers headings,
- *     and forces page breaks between major sections.
+ *   - Suppresses the sidebar, expands every section, numbers
+ *     headings, and forces page breaks between major sections.
  */
 
 :root {
@@ -31,8 +38,13 @@
   --re-accent-2:  #ffb347;
   --re-glow:      0 0 8px rgba(95, 255, 133, 0.55);
   --re-mono:      'VT323', 'Share Tech Mono', ui-monospace, Menlo, monospace;
-  --about-nav-h:  56px;
-  --about-max-w:  720px;
+  /* Scroll-jump offset — a little breathing room above whatever
+     heading a TOC/search click lands on. No fixed top bar to clear
+     anymore (the sidebar runs down the LEFT edge instead), so this is
+     small and constant across viewport sizes. */
+  --about-scroll-offset: 20px;
+  --about-max-w:    720px;
+  --about-sidebar-w: 268px;
 }
 
 * { box-sizing: border-box; }
@@ -68,85 +80,68 @@ body.about-body::before {
 }
 
 /* =====================================================================
- * Top nav
+ * Shell layout — sticky left sidebar + content column
  * ===================================================================== */
 
-#about-nav {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: var(--about-nav-h);
-  z-index: 50;
+#about-shell {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+#about-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  flex: 0 0 var(--about-sidebar-w);
+  width: var(--about-sidebar-w);
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: rgba(6, 10, 6, 0.92);
+  border-right: 1px solid var(--re-line);
+  z-index: 20;
+  scrollbar-width: thin;
+  scrollbar-color: var(--re-line-hi) transparent;
+}
+#about-sidebar::-webkit-scrollbar { width: 8px; }
+#about-sidebar::-webkit-scrollbar-thumb { background: var(--re-line-hi); }
+
+#about-sidebar-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  background: rgba(6, 10, 6, 0.96);
   border-bottom: 1px solid var(--re-line);
-  backdrop-filter: blur(4px);
 }
 
 .about-nav-home {
   font-family: var(--re-mono);
   color: var(--re-accent);
   text-decoration: none;
-  letter-spacing: 0.15em;
-  font-size: 18px;
-  padding: 4px 8px;
+  letter-spacing: 0.12em;
+  font-size: 17px;
+  padding: 4px 0;
   border: 1px solid transparent;
   border-radius: 2px;
 }
 .about-nav-home:hover, .about-nav-home:focus-visible {
-  border-color: var(--re-line-hi);
   text-shadow: var(--re-glow);
   outline: none;
 }
 
-#about-toc {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
-  margin-left: auto;
-  margin-right: 8px;
-}
-#about-toc a {
-  color: var(--re-text-dim);
-  text-decoration: none;
-  font-size: 14px;
-  letter-spacing: 0.1em;
-  padding: 4px 10px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-#about-toc a:hover, #about-toc a:focus-visible {
-  color: var(--re-accent);
-  border-color: var(--re-line);
-  outline: none;
-}
-
-#about-toc-toggle {
-  display: none;
-  background: transparent;
-  border: 1px solid var(--re-line);
-  color: var(--re-accent);
-  font-family: var(--re-mono);
-  font-size: 22px;
-  line-height: 1;
-  padding: 4px 10px;
-  cursor: pointer;
-  border-radius: 2px;
-  margin-left: auto;
-}
-
 #about-search {
-  flex: 0 0 auto;
-  width: 160px;
+  width: 100%;
   background: var(--re-bg-2);
   color: var(--re-text);
   border: 1px solid var(--re-line);
   border-radius: 2px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   font-family: var(--re-mono);
   font-size: 14px;
   letter-spacing: 0.05em;
@@ -156,24 +151,23 @@ body.about-body::before {
   outline: none;
   border-color: var(--re-line-hi);
   box-shadow: var(--re-glow);
-  width: 260px;
-  transition: width 0.15s ease-out;
 }
 
-/* Search results dropdown — anchored under the input, right edge of
- * the nav. Scrolls internally past ~8 results. */
+/* Search results dropdown — anchored under the search input. Scrolls
+ * internally past ~8 results. */
 #about-search-results {
   position: absolute;
-  top: var(--about-nav-h);
-  right: 8px;
-  width: min(440px, calc(100vw - 16px));
+  top: 100%;
+  left: 14px;
+  right: 14px;
   max-height: min(60vh, 480px);
   overflow-y: auto;
-  background: rgba(6, 10, 6, 0.97);
+  background: rgba(6, 10, 6, 0.98);
   border: 1px solid var(--re-line-hi);
   border-top: none;
   border-radius: 0 0 2px 2px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 30;
 }
 .about-result {
   padding: 8px 12px;
@@ -207,22 +201,110 @@ body.about-body::before {
 }
 
 /* =====================================================================
+ * Table of contents — nested, two-level, scrollspy-highlighted
+ * ===================================================================== */
+
+#about-toc {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 20px;
+}
+#about-toc a {
+  display: block;
+  color: var(--re-text-dim);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  white-space: normal;
+  border-left: 2px solid transparent;
+}
+#about-toc a:hover, #about-toc a:focus-visible {
+  color: var(--re-accent);
+  background: rgba(95, 255, 133, 0.05);
+  outline: none;
+}
+
+/* Top-level links (one per manual section/markdown file). */
+#about-toc > a {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 8px 14px;
+}
+/* Nested h3/h4 sub-headings, built at runtime under each top-level
+ * link — see main.ts. Two indent depths. */
+.about-toc-sub {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+.about-toc-l1, .about-toc-l2 {
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 5px 14px 5px 26px;
+}
+.about-toc-l2 { padding-left: 40px; }
+
+/* Scrollspy: the exact heading you're reading gets the strong
+ * highlight; every link that shares its owning top-level section gets
+ * the lighter "you're somewhere in here" tint (including the
+ * top-level link itself, so it stays legible as you scroll through
+ * a long section's sub-headings). */
+#about-toc a.about-toc-section-active { color: var(--re-accent); }
+#about-toc a.about-toc-active {
+  color: var(--re-accent);
+  background: rgba(95, 255, 133, 0.1);
+  border-left-color: var(--re-accent);
+  text-shadow: 0 0 6px rgba(95, 255, 133, 0.4);
+}
+
+/* =====================================================================
+ * Mobile TOC toggle + backdrop (hidden entirely on desktop; see the
+ * mobile media query below for their active styling)
+ * ===================================================================== */
+
+#about-toc-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 61;
+  background: rgba(6, 10, 6, 0.92);
+  border: 1px solid var(--re-line-hi);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+#about-toc-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* =====================================================================
  * Document container
  * ===================================================================== */
 
 #about-doc {
   position: relative;
   z-index: 1;
-  max-width: var(--about-max-w);
+  flex: 0 1 var(--about-max-w);
+  min-width: 0;
   margin: 0 auto;
-  padding: calc(var(--about-nav-h) + 24px) 24px 96px;
+  padding: 32px 24px 96px;
 }
 
 .about-section {
   margin-bottom: 48px;
-  /* Scroll anchor offset so jump links land below the fixed nav rather
-   * than hiding the heading underneath it. */
-  scroll-margin-top: calc(var(--about-nav-h) + 16px);
+  /* Scroll anchor offset so jump links land with a little clearance
+   * above the heading. */
+  scroll-margin-top: var(--about-scroll-offset);
 }
 
 /* Flash highlight on the heading a search jump lands on. */
@@ -248,18 +330,22 @@ body.about-body::before {
   margin: 40px 0 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--re-line);
-  scroll-margin-top: calc(var(--about-nav-h) + 16px);
+  scroll-margin-top: var(--about-scroll-offset);
 }
 #about-doc h3 {
   font-size: 22px;
   color: var(--re-accent);
   letter-spacing: 0.04em;
   margin: 32px 0 8px;
+  /* h3/h4 are real sidebar TOC targets now (see main.ts), not just
+   * visual headings — they need the same jump clearance as sections. */
+  scroll-margin-top: var(--about-scroll-offset);
 }
 #about-doc h4 {
   font-size: 18px;
   color: var(--re-text);
   margin: 20px 0 6px;
+  scroll-margin-top: var(--about-scroll-offset);
 }
 
 #about-doc p { margin: 8px 0 12px; }
@@ -402,38 +488,32 @@ body.about-body::before {
  * Mobile (compact viewport)
  * ===================================================================== */
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   html, body { font-size: 16px; }
-  #about-nav {
-    padding: 0 12px;
-    gap: 8px;
+
+  /* The sidebar becomes a full-height off-canvas drawer instead of a
+   * persistent column — opened via the pinned corner button. */
+  #about-shell { display: block; }
+  #about-sidebar {
+    position: fixed;
+    inset: 0;
+    width: 88vw;
+    max-width: 340px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5);
   }
-  #about-toc {
-    position: absolute;
-    top: var(--about-nav-h);
-    left: 0; right: 0;
-    flex-direction: column;
-    gap: 0;
-    background: rgba(6, 10, 6, 0.97);
-    border-bottom: 1px solid var(--re-line);
-    padding: 8px 12px;
+  #about-sidebar.about-toc-open { transform: translateX(0); }
+  #about-toc-toggle { display: inline-flex; }
+  #about-toc-backdrop.about-toc-open { display: block; }
+
+  #about-doc {
+    flex: 1 1 auto;
+    max-width: none;
     margin: 0;
-    display: none;
+    padding: 56px 16px 64px;
   }
-  #about-toc.about-toc-open { display: flex; }
-  #about-toc a {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--re-line);
-  }
-  #about-toc a:last-child { border-bottom: none; }
-  #about-toc-toggle {
-    display: inline-block;
-  }
-  #about-search {
-    width: 110px;
-    font-size: 13px;
-  }
-  #about-doc { padding: calc(var(--about-nav-h) + 16px) 16px 64px; }
   #about-doc h1 { font-size: 28px; }
   #about-doc h2 { font-size: 22px; }
   #about-doc h3 { font-size: 18px; }
@@ -452,11 +532,13 @@ body.about-body::before {
     background: white !important;
     color: #111 !important;
   }
-  #about-nav, #about-toc-toggle, #about-search, #about-search-results, .about-noscript {
+  #about-sidebar, #about-toc-toggle, #about-toc-backdrop, #about-search-results, .about-noscript {
     display: none !important;
   }
+  #about-shell { display: block; }
   #about-doc {
     max-width: none;
+    flex: none;
     padding: 0 0 24px;
     margin: 0;
   }
