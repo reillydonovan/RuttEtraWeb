@@ -1,5 +1,7 @@
 /**
- * Bar/beat ruler. Click anywhere to seek the playhead. Updates DOM lazily —
+ * Bar/beat ruler. Click-drag anywhere to scrub the playhead — the orange
+ * playhead line (rendered in the SCENES track and lane rows below) tracks
+ * the pointer live during the drag, not just on release. Updates DOM lazily —
  * only re-rendered on timeline structural change or zoom change.
  *
  * Tick label text follows the transport's DISPLAY format
@@ -28,7 +30,7 @@ export class TimelineRuler {
     this.settings = settings;
     this.el = document.createElement('div');
     this.el.className = 'rw-tl-ruler';
-    this.el.addEventListener('click', this.onClick);
+    this.el.addEventListener('pointerdown', this.onPointerDown);
     // Any of these changing re-labels every tick immediately.
     for (const key of ['timelineReadoutFormat', 'timelineReadoutFps', 'timelineReadoutSampleRate', 'internalBpm'] as const) {
       settings.subscribe(key, () => this.render());
@@ -68,12 +70,37 @@ export class TimelineRuler {
     }
   }
 
-  private onClick = (ev: MouseEvent): void => {
+  /** Resolve a client X to a bar, clamped to the timeline length. */
+  private barFromClientX(clientX: number): number {
+    const rect = this.el.getBoundingClientRect();
+    const x = clientX - rect.left + this.el.scrollLeft;
+    const len = this.seq.timeline?.lengthBars ?? 0;
+    return Math.max(0, Math.min(len, x / this.pixelsPerBar));
+  }
+
+  private onPointerDown = (ev: PointerEvent): void => {
+    if (ev.button !== 0) return;
     const t = this.seq.timeline;
     if (!t) return;
-    const rect = this.el.getBoundingClientRect();
-    const x = ev.clientX - rect.left + this.el.scrollLeft;
-    const bar = x / this.pixelsPerBar;
-    this.seq.seek(bar);
+    // Prevent text selection over the bar-number ticks — without this a
+    // click-drag can turn into a text-selection gesture, which suppresses
+    // the browser's own `click` event on release and makes the scrub
+    // silently do nothing.
+    ev.preventDefault();
+    this.el.setPointerCapture?.(ev.pointerId);
+    this.seq.seek(this.barFromClientX(ev.clientX));
+
+    const onMove = (mv: PointerEvent): void => {
+      this.seq.seek(this.barFromClientX(mv.clientX));
+    };
+    const onUp = (mv: PointerEvent): void => {
+      this.el.releasePointerCapture?.(mv.pointerId);
+      this.el.removeEventListener('pointermove', onMove);
+      this.el.removeEventListener('pointerup', onUp);
+      this.el.removeEventListener('pointercancel', onUp);
+    };
+    this.el.addEventListener('pointermove', onMove);
+    this.el.addEventListener('pointerup', onUp);
+    this.el.addEventListener('pointercancel', onUp);
   };
 }
