@@ -25,6 +25,21 @@ Run these in order; stop and report on the first failure:
 - **Base/live split**: no modulation/automation code path may call
   `settings.set(key, liveValue)` — engines write ONLY through
   `LiveValuesStore.setContributions()`.
+- **New modulation/keyframe target**: adding a key to `ModTarget`
+  (`src/state/Settings.ts`) + `TARGETS` (`src/ui/targets.ts`) makes the
+  panel show a keyframe diamond and offer the param in MIDI/OSC/Graph
+  target pickers — but that's just a lookup-table entry. It does
+  **nothing** unless the param's actual consumer reads the LIVE value
+  (`live.subscribe(key, ...)` / `live.getLive(key)`), not
+  `settings.get`/`settings.subscribe`. A real bug found 2026-07-11:
+  `audioGain`/`audioFloor`/`beatSensitivity` had been in `TARGETS` for a
+  while but `IoSubsystems.ts` only ever read their base value once at
+  boot — keyframing/modulating them silently did nothing. Grep the
+  param's read site before adding it to `TARGETS`; if it's a
+  `settings.get` one-shot or a `settings.subscribe`, convert it. Also
+  deliberately EXCLUDE any target whose consumer does something
+  expensive on every write (mesh rebuild, GPU resolution resize) —
+  continuous modulation would hammer that operation every frame.
 - **Audio/CV/MIDI-out safety**: outward-facing outputs (sonification, CV
   out channels, MIDI clock out) are structurally forced OFF on every
   load in `migrateSettings()` — never weaken this.
@@ -36,6 +51,23 @@ Run these in order; stop and report on the first failure:
   the relevant `docs/about/*.md`.
 - **No service worker**: never reintroduce one; `public/sw.js` is a
   kill-switch for old installs.
+- **Hover help is `attachTooltip` (`src/ui/tooltip.ts`), not native
+  `title`**: a delayed (550ms), CRT-styled popover, popout-safe, and
+  accepts a lazy `() => string` for state-dependent text (e.g. a
+  PLAY/PAUSE button's label). Convert any new `el.title = '...'` to
+  `attachTooltip(el, '...')` — a native title on one control next to
+  styled tooltips on its siblings reads as broken, not just
+  inconsistent. Applies to the timeline dock as much as the panel: it
+  had zero styled tooltips until 2026-07-11 despite the panel getting a
+  full hover-tooltip pass earlier the same session.
+- **Global CSS safety nets over per-callsite fixes**: `panel.css` has
+  three deliberately unscoped rules — `input[type="range"]`,
+  `*::-webkit-scrollbar`, `input[type="file"]::file-selector-button` —
+  added after the SAME styling bug (native OS control instead of the
+  CRT theme) recurred at multiple unrelated call sites because a
+  hand-built `<input>` didn't carry the right class. If you fix a
+  styling bug for the second time on the same element type, the third
+  fix belongs in a global rule, not another call site.
 
 ## Deploy warning
 
