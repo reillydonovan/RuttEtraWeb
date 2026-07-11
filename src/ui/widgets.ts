@@ -69,7 +69,13 @@ export function row(label: string, control: HTMLElement, hint?: string): HTMLEle
   // Teach-the-panel hover tooltip, sourced from PARAM_DOCS — the same
   // map that drives the in-app Help Controls tab and the About page's
   // Param Reference, so descriptions never drift between surfaces.
-  const paramKey = control.dataset.paramKey;
+  // `control` itself carries the marker for the common case (a widget
+  // passed straight to `row()`), but a section may wrap the widget in
+  // another container first — e.g. `.rw-inline-group` pairing a slider
+  // with a "+ patch an LFO" button (Pattern Generator params) — in
+  // which case the marker is on a DESCENDANT, not `control` itself.
+  const paramKey = control.dataset.paramKey
+    ?? (control.querySelector('[data-param-key]') as HTMLElement | null)?.dataset.paramKey;
   const doc = paramKey ? PARAM_DOCS[paramKey] : undefined;
   if (doc) {
     attachTooltip(r, doc.range ? `${doc.description} (${doc.range})` : doc.description);

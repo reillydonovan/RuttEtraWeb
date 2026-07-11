@@ -283,4 +283,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   timelineReadoutFormat: { description: 'Transport counter display: Bars/Beats (the real clock), Timecode (HH:MM:SS:FF), Frames, or Samples. Purely a display conversion — playback and authoring stay bar/BPM-based regardless.', panel: 'UI' },
   timelineReadoutFps: { description: 'Frame rate used to render the Timecode/Frames counter display. Notational only — independent of Record’s capture FPS.', panel: 'UI' },
   timelineReadoutSampleRate: { description: 'Sample rate used to render the Samples counter display. Notational only — independent of the audio hardware’s actual rate.', panel: 'UI' },
+  renderScale:      { description: 'Supersampling factor for anti-aliasing. 1.0 = native resolution; higher values render at a larger size then downsample, smoothing sharp scanline edges at a GPU-time cost.', range: '0.5..1.5', panel: 'UI' },
+  hapticsEnabled:   { description: 'Vibrate on keyframe-reached / preset-load events. Touch devices default on; no-op on desktop (no vibration hardware).', panel: 'UI' },
+  wakeLockOnRecord: { description: 'Request a screen wake-lock while recording or broadcasting, so the display doesn’t sleep mid-capture.', panel: 'UI' },
 };
