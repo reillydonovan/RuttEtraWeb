@@ -13,6 +13,7 @@ import { newLaneId } from '../../sequencer/types';
 import { SettingsStore } from '../../state/Settings';
 import { TARGETS } from '../targets';
 import { LaneRow, LaneRowHost, LanePointSel } from './LaneRow';
+import { attachTooltip } from '../tooltip';
 
 export class LaneEditor {
   readonly el: HTMLElement;
@@ -121,7 +122,8 @@ export class LaneEditor {
     addBtn.type = 'button';
     addBtn.className = 'rw-btn';
     addBtn.textContent = '+ Lane';
-    addBtn.title = 'Add an automation lane for the chosen parameter';
+    attachTooltip(addBtn, 'Add an automation lane for the chosen parameter — every param with a slider is available here');
+    attachTooltip(sel, 'Parameter to automate — any slider-backed param in the panel');
     addBtn.addEventListener('click', () => {
       this.seq.editLanes((tl) => {
         tl.lanes.push({ id: newLaneId(), paramKey: sel.value, enabled: true, points: [] });

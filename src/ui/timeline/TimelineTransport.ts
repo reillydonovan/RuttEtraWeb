@@ -13,6 +13,7 @@ import { makeEmptyTimeline } from '../../sequencer/types';
 import {
   ReadoutFormat, READOUT_FPS_OPTIONS, READOUT_SAMPLE_RATE_OPTIONS, formatReadout,
 } from '../../sequencer/timecode';
+import { attachTooltip } from '../tooltip';
 
 export interface TransportEvents {
   onZoomChange?: (pixelsPerBar: number) => void;
@@ -93,7 +94,7 @@ export class TimelineTransport {
     // Timeline picker
     this.timelinePicker = document.createElement('select');
     this.timelinePicker.className = 'rw-select';
-    this.timelinePicker.title = 'Active timeline';
+    attachTooltip(this.timelinePicker, 'Active timeline — the score currently loaded into the dock');
     this.timelinePicker.addEventListener('change', () => this.onPickTimeline());
     this.el.appendChild(this.timelinePicker);
 
@@ -107,8 +108,10 @@ export class TimelineTransport {
     // Transport buttons
     this.playBtn = this.btn('PLAY', () => this.onPlayPause()) as HTMLButtonElement;
     this.playBtn.classList.add('primary');
+    attachTooltip(this.playBtn, () => this.seq.isPlaying ? 'Pause (Space)' : 'Play (Space)');
     this.el.appendChild(this.playBtn);
     this.stopBtn = this.btn('STOP', () => this.seq.stop()) as HTMLButtonElement;
+    attachTooltip(this.stopBtn, 'Stop and return the playhead to bar 0');
     this.el.appendChild(this.stopBtn);
     // Keyframe navigation: jump to the previous / next scene or lane
     // point (the selected lane's points when a lane point is selected).
@@ -121,6 +124,10 @@ export class TimelineTransport {
       if (!t) return;
       this.seq.setLoop(!t.loop);
     }) as HTMLButtonElement;
+    attachTooltip(this.loopBtn, () =>
+      this.seq.timeline?.loop
+        ? 'Looping — the playhead wraps to bar 0 at the end. Click to play once and stop.'
+        : 'Plays once and stops at the end. Click to loop back to bar 0.');
     this.el.appendChild(this.loopBtn);
 
     // BPM
@@ -137,6 +144,7 @@ export class TimelineTransport {
         if (!Number.isNaN(v)) this.seq.setBpm(v);
       });
       lbl.appendChild(this.bpmInput);
+      attachTooltip(lbl, 'Tempo — the single shared clock every LFO, Graph clock node, and this timeline reads (Settings.internalBpm)');
       this.el.appendChild(lbl);
     }
 
@@ -154,6 +162,7 @@ export class TimelineTransport {
         if (!Number.isNaN(v)) this.seq.setLengthBars(v);
       });
       lbl.appendChild(this.lenInput);
+      attachTooltip(lbl, 'Timeline length in bars — where the loop point and the end of the ruler sit');
       this.el.appendChild(lbl);
     }
 
@@ -171,6 +180,7 @@ export class TimelineTransport {
         if (!Number.isNaN(v)) this.seq.setBeatsPerBar(v);
       });
       lbl.appendChild(this.bpbInput);
+      attachTooltip(lbl, 'Beats per bar — sets the ruler\'s minor gridlines and beat-snap spacing');
       this.el.appendChild(lbl);
     }
 
@@ -185,6 +195,7 @@ export class TimelineTransport {
       this.syncSel.append(oi, om);
       this.syncSel.addEventListener('change', () => this.seq.setSyncMode(this.syncSel.value as 'internal' | 'midi'));
       lbl.appendChild(this.syncSel);
+      attachTooltip(lbl, 'Clock source: Internal runs off the BPM above; MIDI locks the transport to an incoming MIDI clock');
       this.el.appendChild(lbl);
     }
 
@@ -192,8 +203,8 @@ export class TimelineTransport {
     {
       const lbl = document.createElement('label');
       lbl.textContent = 'ZOOM';
-      const minus = this.btn('−', () => this.changeZoom(0.66));
-      const plus  = this.btn('+', () => this.changeZoom(1.5));
+      const minus = this.btn('−', () => this.changeZoom(0.66), 'Zoom out (fewer pixels per bar)');
+      const plus  = this.btn('+', () => this.changeZoom(1.5), 'Zoom in (more pixels per bar)');
       lbl.append(minus, plus);
       this.el.appendChild(lbl);
     }
@@ -207,9 +218,9 @@ export class TimelineTransport {
       const label = document.createElement('span');
       label.textContent = 'DOCK';
       label.style.marginRight = '4px';
-      const top = this.btn('TOP',    () => this.settings.set('timelineDock', 'top'));
-      const bot = this.btn('BOT',    () => this.settings.set('timelineDock', 'bottom'));
-      const hide = this.btn('HIDE', () => this.settings.set('timelineDock', 'hidden'));
+      const top = this.btn('TOP',    () => this.settings.set('timelineDock', 'top'), 'Dock the timeline to the top of the window');
+      const bot = this.btn('BOT',    () => this.settings.set('timelineDock', 'bottom'), 'Dock the timeline to the bottom of the window');
+      const hide = this.btn('HIDE', () => this.settings.set('timelineDock', 'hidden'), 'Hide the timeline dock (its lanes and keyframes are unaffected)');
       container.append(label, top, bot, hide);
       this.el.appendChild(container);
     }
@@ -237,7 +248,7 @@ export class TimelineTransport {
     {
       const lbl = document.createElement('label');
       lbl.textContent = 'DISPLAY';
-      lbl.title = 'Transport counter display format';
+      attachTooltip(lbl, 'Transport counter display format — Bars/Beats is the timeline\'s real clock; Timecode/Frames/Samples are pure reformattings of the same position for editors who think in video/audio terms');
       this.formatSel = document.createElement('select');
       this.formatSel.className = 'rw-select';
       const opts: [ReadoutFormat, string][] = [
@@ -256,7 +267,7 @@ export class TimelineTransport {
     }
     this.fpsSel = document.createElement('select');
     this.fpsSel.className = 'rw-select';
-    this.fpsSel.title = 'Frame rate for Timecode / Frames display (notational — independent of Record’s capture FPS)';
+    attachTooltip(this.fpsSel, 'Frame rate for Timecode / Frames display (notational — independent of Record’s capture FPS)');
     for (const fps of READOUT_FPS_OPTIONS) {
       const o = document.createElement('option');
       o.value = String(fps); o.textContent = `${fps}fps`;
@@ -269,7 +280,7 @@ export class TimelineTransport {
 
     this.srSel = document.createElement('select');
     this.srSel.className = 'rw-select';
-    this.srSel.title = 'Sample rate for Samples display (notational — independent of the audio hardware’s actual rate)';
+    attachTooltip(this.srSel, 'Sample rate for Samples display (notational — independent of the audio hardware’s actual rate)');
     for (const sr of READOUT_SAMPLE_RATE_OPTIONS) {
       const o = document.createElement('option');
       o.value = String(sr); o.textContent = `${sr / 1000}kHz`;
@@ -288,6 +299,7 @@ export class TimelineTransport {
     this.readout = document.createElement('span');
     this.readout.className = 'rw-readout';
     this.readout.textContent = 'bar 0.00 / 16';
+    attachTooltip(this.readout, 'Playhead position in the selected DISPLAY format. Non-Bars/Beats readings append the bar position (e.g. "frame 60 · bar 1.00") so it always ties back to where the playhead sits on the ruler.');
     counterCluster.appendChild(this.readout);
   }
 
@@ -305,7 +317,7 @@ export class TimelineTransport {
     if (kind) b.classList.add(kind);
     b.type = 'button';
     b.textContent = label;
-    if (title) b.title = title;
+    if (title) attachTooltip(b, title);
     b.addEventListener('click', onClick);
     return b;
   }

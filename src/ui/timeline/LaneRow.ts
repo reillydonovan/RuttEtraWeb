@@ -24,6 +24,7 @@ import { SettingsStore } from '../../state/Settings';
 import { TARGETS } from '../targets';
 import { getDesignedRange } from '../paramRangeRegistry';
 import { showContextMenu } from './contextMenu';
+import { attachTooltip } from '../tooltip';
 import {
   LaneAxis, laneAxisAbs, barToX, valueToY, snapBarToBeat, sampleLane, dragResult,
 } from './laneGeometry';
@@ -161,7 +162,7 @@ export class LaneRow {
     const en = document.createElement('input');
     en.type = 'checkbox';
     en.checked = this.lane.enabled;
-    en.title = 'Enable lane (muted lanes contribute nothing)';
+    attachTooltip(en, 'Enable lane (muted lanes contribute nothing)');
     en.addEventListener('change', () => {
       this.seq.editLanes(() => { this.lane.enabled = en.checked; });
     });
@@ -170,18 +171,18 @@ export class LaneRow {
     const label = document.createElement('span');
     label.className = 'rw-tl-lane-name';
     label.textContent = TARGETS.find((x) => x.v === this.lane.paramKey)?.l ?? this.lane.paramKey;
-    label.title = this.lane.paramKey;
+    attachTooltip(label, this.lane.paramKey);
 
     const count = document.createElement('span');
     count.className = 'rw-tl-lane-count';
     count.textContent = `${this.lane.points.length}`;
-    count.title = `${this.lane.points.length} point${this.lane.points.length === 1 ? '' : 's'}`;
+    attachTooltip(count, () => `${this.lane.points.length} point${this.lane.points.length === 1 ? '' : 's'}`);
 
     const expand = document.createElement('button');
     expand.type = 'button';
     expand.className = 'rw-btn rw-tl-lane-expand';
     expand.textContent = this.host.isExpanded(this.lane.id) ? '▾' : '▸';
-    expand.title = 'Expand / collapse lane';
+    attachTooltip(expand, () => this.host.isExpanded(this.lane.id) ? 'Collapse lane (hide the curve)' : 'Expand lane (show the curve)');
     expand.addEventListener('click', (ev) => {
       ev.stopPropagation();
       this.host.setExpanded(this.lane.id, !this.host.isExpanded(this.lane.id));
@@ -191,7 +192,7 @@ export class LaneRow {
     del.type = 'button';
     del.className = 'rw-btn';
     del.textContent = '×';
-    del.title = 'Delete lane';
+    attachTooltip(del, 'Delete lane (and all its points — undoable)');
     del.addEventListener('click', (ev) => {
       ev.stopPropagation();
       this.deleteLane();
@@ -226,7 +227,7 @@ export class LaneRow {
       d.className = 'rw-tl-lane-pt';
       d.dataset.bar = String(p.bar);
       this.positionPoint(d, p.bar, p.value);
-      d.title = `bar ${p.bar.toFixed(2)} · ${(base + p.value).toFixed(3)} (${p.easing ?? 'linear'})`;
+      attachTooltip(d, () => `bar ${p.bar.toFixed(2)} · ${(base + p.value).toFixed(3)} (${p.easing ?? 'linear'}) — drag to move, right-click for more`);
       d.addEventListener('pointerdown', (ev) => this.onPointDown(ev, p));
       d.addEventListener('contextmenu', (ev) => this.onPointContext(ev, p));
       this.ptsLayer.appendChild(d);

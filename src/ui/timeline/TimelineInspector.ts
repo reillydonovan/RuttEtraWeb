@@ -15,6 +15,7 @@ import { upsertPoint, removePointAt } from '../../sequencer/lanes';
 import { SettingsStore } from '../../state/Settings';
 import { TARGETS } from '../targets';
 import { LanePointSel } from './LaneRow';
+import { attachTooltip } from '../tooltip';
 
 const EASINGS: EasingType[] = ['linear', 'easeIn', 'easeOut', 'easeInOut', 'step', 'hold'];
 
@@ -164,7 +165,7 @@ export class TimelineInspector {
     const label = document.createElement('div');
     label.className = 'rw-tl-insp-param';
     label.textContent = TARGETS.find((x) => x.v === lane.paramKey)?.l ?? lane.paramKey;
-    label.title = lane.paramKey;
+    attachTooltip(label, lane.paramKey);
     this.el.appendChild(label);
 
     // Bar — moving the point re-selects it at its new position.
@@ -307,7 +308,7 @@ export class TimelineInspector {
   private button(label: string, onClick: () => void, title?: string, kind?: 'warn'): HTMLElement {
     const b = document.createElement('button');
     b.className = 'rw-btn'; b.type = 'button'; b.textContent = label;
-    if (title) b.title = title;
+    if (title) attachTooltip(b, title);
     if (kind) b.classList.add(kind);
     b.addEventListener('click', onClick);
     return b;

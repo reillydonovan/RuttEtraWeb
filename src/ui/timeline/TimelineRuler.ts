@@ -18,6 +18,7 @@
 import { Sequencer } from '../../sequencer/Sequencer';
 import { SettingsStore } from '../../state/Settings';
 import { formatRulerTick } from '../../sequencer/timecode';
+import { attachTooltip } from '../tooltip';
 
 export class TimelineRuler {
   el: HTMLElement;
@@ -31,6 +32,7 @@ export class TimelineRuler {
     this.el = document.createElement('div');
     this.el.className = 'rw-tl-ruler';
     this.el.addEventListener('pointerdown', this.onPointerDown);
+    attachTooltip(this.el, 'Click or drag to move the playhead. Tick labels follow the DISPLAY format picked in the transport.');
     // Any of these changing re-labels every tick immediately.
     for (const key of ['timelineReadoutFormat', 'timelineReadoutFps', 'timelineReadoutSampleRate', 'internalBpm'] as const) {
       settings.subscribe(key, () => this.render());

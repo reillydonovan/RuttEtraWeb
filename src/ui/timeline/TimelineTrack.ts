@@ -8,6 +8,7 @@ import { Sequencer } from '../../sequencer/Sequencer';
 import { Keyframe } from '../../sequencer/types';
 import { showContextMenu, dismissContextMenu } from './contextMenu';
 import type { Preset } from '../presets';
+import { attachTooltip } from '../tooltip';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
 
@@ -33,6 +34,7 @@ export class TimelineTrack {
     this.el.addEventListener('dragover', this.onDragOver);
     this.el.addEventListener('dragleave', this.onDragLeave);
     this.el.addEventListener('drop', this.onDrop);
+    attachTooltip(this.el, 'SCENES — double-click (or Ctrl/Cmd+click) to add a scene at the playhead; drag a preset chip here from the Presets panel; right-click a scene for easing/lock/delete.');
   }
 
   setPixelsPerBar(p: number): void {
@@ -87,7 +89,11 @@ export class TimelineTrack {
       d.style.background = kf.color;
       d.style.borderColor = kf.color;
     }
-    if (kf.presetName) d.title = kf.presetName;
+    attachTooltip(d, () => {
+      const name = kf.presetName ? `"${kf.presetName}" ` : '';
+      const lock = kf.locked ? ' · locked' : '';
+      return `${name}bar ${kf.bar.toFixed(2)} · ${kf.easing}${lock} — drag to move, double-click to preview, right-click for more`;
+    });
 
     const lbl = document.createElement('div');
     lbl.className = 'rw-tl-kf-label';

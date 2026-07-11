@@ -14,6 +14,7 @@ import { TimelineInspector } from './TimelineInspector';
 import { LaneEditor } from './LaneEditor';
 import { LanePointSel } from './LaneRow';
 import { setDockActions } from '../keyframeAffordance';
+import { attachTooltip } from '../tooltip';
 
 export class TimelineDock {
   private host: HTMLElement;
@@ -278,7 +279,7 @@ export class TimelineDock {
   private buildInspectorResizeHandle(): HTMLElement {
     const handle = document.createElement('div');
     handle.className = 'rw-tl-insp-resize';
-    handle.title = 'Drag to resize the inspector';
+    attachTooltip(handle, 'Drag to resize the inspector');
     handle.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       handle.setPointerCapture?.(ev.pointerId);
@@ -317,7 +318,7 @@ export class TimelineDock {
   private buildHeightResizeHandle(): HTMLElement {
     const handle = document.createElement('div');
     handle.className = 'rw-tl-height-resize';
-    handle.title = 'Drag to resize the timeline';
+    attachTooltip(handle, 'Drag to resize the timeline dock');
     handle.addEventListener('pointerdown', (ev) => {
       if (this.settings.get('timelineDock') === 'hidden') return;
       ev.preventDefault();
