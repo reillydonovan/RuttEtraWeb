@@ -99,6 +99,34 @@ sections do wrap widgets in ad-hoc flex containers (Pattern Generator's
 per-param patch button, Sonification's paired dropdowns) and will
 probably keep doing so.
 
+## Global safety nets: `input[type="range"]` and scrollbars
+
+Two rules in `panel.css` are deliberately **unscoped** (no `.rw-*` class
+required) rather than layered on top of `.rw-slider`, because the
+scoped-only version already broke twice: Video Audio's Volume slider and
+CV Output's "Scaling trim" slider were both hand-built with a bare
+`<input type="range">` and no `.rw-slider` class, so they rendered as
+the OS's native control instead of the CRT theme. Same failure shape
+across two unrelated sections is a sign the fix belongs at the element
+level, not the call site:
+
+- `input[type="range"] { appearance: none; ... }` — every range input in
+  the document gets the phosphor track/thumb treatment whether or not
+  its author remembered `.rw-slider`. The scoped `.rw-slider input[...]`
+  rule still exists and still wins on specificity where it applies; the
+  unscoped rule is the floor under it.
+- `*::-webkit-scrollbar` / `scrollbar-color` — likewise unscoped, so
+  every scroll container (panel body, timeline inspector, graph editor,
+  About sidebar) gets a thin green-on-transparent scrollbar instead of
+  the OS's chunky arrowed track. `.rw-panel-body` previously had its own
+  local copy of this rule; it's now redundant but harmless.
+
+**When you hand-build a raw `<input type="range">` or a new scrolling
+container, you get the themed look for free — but still add the
+`.rw-slider` class (and run it through `row()`/`.rw-inline-group`) for
+the width/spacing contract above.** The global rule only guarantees
+paint, not layout.
+
 ## Section headers and the accordion
 
 `ControlPanel.addSection({ title, body, tab, initiallyOpen? })` renders

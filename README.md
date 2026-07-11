@@ -37,6 +37,9 @@ A follow-up round of owner-reported fixes and small features on top of the audit
 - **Render-canvas popout** — a second two-screen popout (alongside the existing controls popout) that pops the live OUTPUT into its own draggable window via `captureStream()`, with its own auto-fading fullscreen toggle for seamless projector use.
 - **Panel layout fixes** — Pattern Generator sliders and four Sonification rows now correctly fill their row width at any panel size (a shared `.rw-inline-group` utility replaces several ad-hoc hand-rolled layouts); the SCENES track in the timeline dock is now a fixed height instead of stretching into giant markers when the dock is resized taller.
 - **`F` (fullscreen) and `H` (HUD toggle)** — both had been documented as global shortcuts for a long time without ever being implemented; both now work.
+- **Ruler ticks follow the display format** — the timeline ruler's tick labels now render in whatever format the transport's `DISPLAY` dropdown is set to (Bars/Beats, Timecode, Frames, Samples) instead of always showing the raw bar number, so the ruler and the counter never disagree about what point in time a tick represents.
+- **Render canvas respects panel/timeline bounds** — the canvas now sizes and offsets itself to the live rectangle left over after the control panel and timeline dock, instead of stretching full-bleed underneath them; it re-measures on every panel/timeline resize, dock change, or collapse.
+- **Slider + scrollbar design-system audit** — the Video Audio Volume slider and the CV Output "Scaling trim" slider were rendering as unstyled native browser widgets; both now use the shared slider/row widgets. A global `input[type="range"]` baseline and a themed thin scrollbar (green-on-transparent, matching the CRT phosphor palette) were added so any future ad-hoc slider or scroll container inherits the right look by default instead of falling back to OS chrome.
 
 ## Recent changes (settings v16 → v25, July 2026)
 
