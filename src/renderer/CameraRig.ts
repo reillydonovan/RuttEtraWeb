@@ -269,7 +269,7 @@ export class CameraRig {
   tick(dtSec: number): void {
     if (this.mode === 'orbit') {
       if (this.settings.get('autoOrbit')) {
-        const speed = this.settings.get('autoOrbitSpeed');
+        const speed = this.live.getLive('autoOrbitSpeed');
         this.autoOrbitAngle += speed * dtSec;
         const radius = this.camera.position.distanceTo(this.trackball.target);
         const tgt = this.trackball.target;
@@ -387,19 +387,19 @@ export class CameraRig {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     });
-    s.subscribe('cameraNear', (n) => {
+    this.live.subscribe('cameraNear', (n) => {
       this.camera.near = n;
       this.camera.updateProjectionMatrix();
     });
-    s.subscribe('cameraFar', (f) => {
+    this.live.subscribe('cameraFar', (f) => {
       this.camera.far = f;
       this.camera.updateProjectionMatrix();
     });
   }
 
   private updateFly(dt: number): void {
-    const speed = this.settings.get('flySpeed');
-    const boost = this.settings.get('flyBoost');
+    const speed = this.live.getLive('flySpeed');
+    const boost = this.live.getLive('flyBoost');
     const k = this.keys;
 
     let f = 0, r = 0, u = 0;

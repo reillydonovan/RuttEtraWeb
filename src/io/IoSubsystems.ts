@@ -55,15 +55,26 @@ export async function bootIoSubsystems(settings: SettingsStore, live: LiveValues
   fft.setFftSize(settings.get('audioFftSize'));
   fft.setBandCount(settings.get('audioBandCount'));
   fft.setSpacing(settings.get('audioBandSpacing'));
-  fft.setBandShape({
-    attackMs:    settings.get('audioAttackMs'),
-    releaseMs:   settings.get('audioReleaseMs'),
-    gain:        settings.get('audioGain'),
-    floor:       settings.get('audioFloor'),
-    thresholdDb: settings.get('audioThresholdDb'),
-  });
+  // Band shape is modulatable (LFO/CV/timeline-keyframed) — read live so
+  // an engine contribution or a base-slider drag both take effect, not
+  // just the value present at boot (was `settings.get`, a one-shot read
+  // with no subscription at all: post-boot slider drags on these five
+  // params previously had NO effect on the running analyzer).
+  const applyBandShape = (): void => {
+    fft.setBandShape({
+      attackMs:    live.getLive('audioAttackMs'),
+      releaseMs:   live.getLive('audioReleaseMs'),
+      gain:        live.getLive('audioGain'),
+      floor:       live.getLive('audioFloor'),
+      thresholdDb: live.getLive('audioThresholdDb'),
+    });
+  };
+  applyBandShape();
+  for (const k of ['audioAttackMs', 'audioReleaseMs', 'audioGain', 'audioFloor', 'audioThresholdDb'] as const) {
+    live.subscribe(k, applyBandShape);
+  }
   beat.setEnabled(settings.get('beatEnabled'));
-  beat.setSensitivity(settings.get('beatSensitivity'));
+  live.subscribe('beatSensitivity', (v) => beat.setSensitivity(v));
 
   const osc = new OscClient(settings);
 

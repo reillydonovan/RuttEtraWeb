@@ -59,6 +59,7 @@
 
 import * as THREE from 'three';
 import { SettingsStore } from '../state/Settings';
+import { LiveValuesStore } from '../modulation/LiveValues';
 import { worldIpdFromCm } from '../renderer/stereoIpd';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -68,6 +69,7 @@ export interface StereoCompositorDeps {
   sourceCamera: THREE.PerspectiveCamera;
   meshGroup: THREE.Object3D;
   settings: SettingsStore;
+  live: LiveValuesStore;
 }
 
 export class StereoCompositor {
@@ -77,6 +79,7 @@ export class StereoCompositor {
   private sourceCamera: THREE.PerspectiveCamera;
   private meshGroup: THREE.Object3D;
   private settings: SettingsStore;
+  private live: LiveValuesStore;
   private leftCamera = new THREE.PerspectiveCamera();
   private rightCamera = new THREE.PerspectiveCamera();
   private eyeWidth = 0;
@@ -97,6 +100,7 @@ export class StereoCompositor {
     this.sourceCamera = deps.sourceCamera;
     this.meshGroup = deps.meshGroup;
     this.settings = deps.settings;
+    this.live = deps.live;
 
     // Offscreen canvas — not attached to the DOM. captureStream()
     // works on detached canvases just fine; the visible canvas is
@@ -210,7 +214,7 @@ export class StereoCompositor {
    * frame). Falls back to a plain cm-to-units if the bbox is degenerate.
    */
   private computeWorldIpd(): number {
-    const ipdCm = this.settings.get('stereoIpdCm');
+    const ipdCm = this.live.getLive('stereoIpdCm');
     const box = new THREE.Box3().setFromObject(this.meshGroup);
     const size = new THREE.Vector3();
     box.getSize(size);

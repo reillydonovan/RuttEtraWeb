@@ -230,7 +230,21 @@ export type ModTarget =
   | 'patternArms'       | 'patternOctaves'
   | 'patternPointDensity'
   | 'patternScopeSweep' | 'patternScopeTrigger'
-  | 'patternScopePersist' | 'patternScopeThickness';
+  | 'patternScopePersist' | 'patternScopeThickness'
+  // v29: closed the "any slider should be keyframable" coverage gap —
+  // sliders that were live-wired for panel display but never actually
+  // reachable from Classic/Graph/Timeline because they were missing from
+  // this union. Deliberately EXCLUDES cols/scanRate (trigger an expensive
+  // mesh rebuild — not safe to modulate continuously), hSpinRate/vSpinRate
+  // (drive a base-value integrator that already competes with keyframing
+  // hSpin/vSpin directly), and recordFps/recordBitrateMbps/renderScale
+  // (one-shot pipeline config applied at action-start, not a live signal).
+  | 'cameraNear' | 'cameraFar'
+  | 'autoOrbitSpeed' | 'flySpeed' | 'flyBoost'
+  | 'bloomThreshold' | 'scanlineDensity' | 'vignetteAmount'
+  | 'anaglyphIpdCm' | 'stereoIpdCm'
+  | 'videoAudioVolume'
+  | 'audioAttackMs' | 'audioReleaseMs' | 'audioThresholdDb';
 
 // --------------------------------------------------------------------
 // v10: Pattern Generator

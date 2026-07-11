@@ -415,17 +415,17 @@ export class PostFX {
     s.subscribe('bloomEnabled',   (v) => { this.bloom.enabled = v; });
     live.subscribe('bloomIntensity', (v) => { this.bloom.strength = v; });
     live.subscribe('bloomRadius',    (v) => { this.bloom.radius = v; });
-    s.subscribe('bloomThreshold', (v) => { this.bloom.threshold = v; });
+    live.subscribe('bloomThreshold', (v) => { this.bloom.threshold = v; });
 
     s.subscribe('scanlineEnabled',   (v) => { this.crt.uniforms.uScanlineOn.value = v ? 1 : 0; });
     live.subscribe('scanlineIntensity', (v) => { this.crt.uniforms.uScanlineIntensity.value = v; });
-    s.subscribe('scanlineDensity',   (v) => { this.crt.uniforms.uScanlineDensity.value = v; });
+    live.subscribe('scanlineDensity',   (v) => { this.crt.uniforms.uScanlineDensity.value = v; });
 
     s.subscribe('chromaEnabled', (v) => { this.crt.uniforms.uChromaOn.value = v ? 1 : 0; });
     live.subscribe('chromaAmount',  (v) => { this.crt.uniforms.uChromaAmount.value = v; });
 
     s.subscribe('vignetteEnabled', (v) => { this.crt.uniforms.uVignetteOn.value = v ? 1 : 0; });
-    s.subscribe('vignetteAmount',  (v) => { this.crt.uniforms.uVignetteAmount.value = v; });
+    live.subscribe('vignetteAmount',  (v) => { this.crt.uniforms.uVignetteAmount.value = v; });
 
     s.subscribe('feedbackEnabled', (v) => {
       this.feedbackPass.enabled = v;

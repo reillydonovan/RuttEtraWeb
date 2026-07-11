@@ -426,10 +426,11 @@ async function bootSynth(): Promise<void> {
     sourceCamera: cameraRig.camera,
     meshGroup: ruttEtra.group,
     settings,
+    live: liveValues,
   });
   // Recompute world-IPD whenever the slider moves so a preview or
   // running session re-frames in place. No-op when not active.
-  settings.subscribe('stereoIpdCm', () => stereoCompositor.refreshIpd());
+  liveValues.subscribe('stereoIpdCm', () => stereoCompositor.refreshIpd());
 
   // Anaglyph renderer (v16). Lazily instantiated on first enable so the
   // AnaglyphEffect module (including its GLSL shaders and render targets)
@@ -441,12 +442,12 @@ async function bootSynth(): Promise<void> {
     if (!anaglyphRenderer) {
       const { AnaglyphRenderer } = await import('./renderer/AnaglyphRenderer');
       anaglyphRenderer = await AnaglyphRenderer.create(renderer, ruttEtra.group, canvas.clientWidth, canvas.clientHeight);
-      anaglyphRenderer.setIpd(settings.get('anaglyphIpdCm'));
+      anaglyphRenderer.setIpd(liveValues.getLive('anaglyphIpdCm'));
     }
     return anaglyphRenderer;
   }
   // Propagate IPD changes immediately if the renderer is already alive.
-  settings.subscribe('anaglyphIpdCm', (cm) => anaglyphRenderer?.setIpd(cm));
+  liveValues.subscribe('anaglyphIpdCm', (cm) => anaglyphRenderer?.setIpd(cm));
   // Warm up on first enable so there's no one-frame hitch.
   settings.subscribe('anaglyphEnabled', (enabled) => {
     if (enabled) void getAnaglyphRenderer();
@@ -502,11 +503,11 @@ async function bootSynth(): Promise<void> {
   function applyVideoAudio() {
     source.setAudio(
       settings.get('videoAudioEnabled'),
-      settings.get('videoAudioVolume'),
+      liveValues.getLive('videoAudioVolume'),
     );
   }
   settings.subscribe('videoAudioEnabled', applyVideoAudio);
-  settings.subscribe('videoAudioVolume',  applyVideoAudio);
+  liveValues.subscribe('videoAudioVolume', applyVideoAudio);
   applyVideoAudio();
 
   // -------------------------- Project save/load -------------------------
