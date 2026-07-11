@@ -81,6 +81,8 @@ const MD_SHORTCUTS = `
 | \`Ctrl+O\` | Open Project — file picker for \`.synth.json\` |
 | \`Ctrl+S\` | Save Project — writes back to the open file (or prompts for a name) |
 | \`Ctrl+Shift+S\` | Save Project As — name + location prompt |
+| \`Ctrl+Z\` | Undo (scenes AND lane edits) — works anywhere, not just over the timeline dock |
+| \`Ctrl+Y\` / \`Ctrl+Shift+Z\` | Redo — same, works anywhere a timeline is loaded |
 
 ## When the timeline dock is hovered
 | Key | What |
@@ -92,7 +94,6 @@ const MD_SHORTCUTS = `
 | \`,\` / \`.\` | Jump to previous / next keyframe |
 | \`K\` | Add scene at the playhead (snapshots current settings) |
 | \`Delete\` | Remove the selected scene |
-| \`Ctrl+Z\` / \`Ctrl+Shift+Z\` | Undo / redo (scenes AND lane edits) |
 | \`Alt+drag\` | Drag a scene or lane point without beat-snapping |
 `;
 
@@ -552,17 +553,34 @@ A horizontal dock at the bottom of the screen. Two layers compose:
 ## Lane workflow
 - Click the **◇ diamond** next to any modulatable slider in the panel to
   keyframe it at the playhead — first click creates the lane, later
-  clicks add or remove points. Filled ◆ = point at the playhead.
+  clicks add or remove points. Filled ◆ = point at the playhead. Once a
+  param has points, **◀ ▶ arrows** appear beside the diamond to jump the
+  playhead to its previous/next keyframe without leaving the panel.
 - Or add lanes in the dock with **+ Lane**, then **double-click** a lane
   row to add points. Drag points in 2D: horizontal = bar (beat-snapped,
-  \`Alt\` = free), vertical = offset.
+  \`Alt\` = free), vertical = value.
+- Lane curves draw in **absolute values** on the param's slider range —
+  the same numbers as the panel knob. The dashed line is the knob's
+  base value; moving the knob shifts the whole curve with it.
 - Right-click a point for per-point **easing** or delete; right-click the
   ◇ diamond in the panel for *Open in timeline* / *Remove automation*.
-- The inspector shows the selected point's bar, offset, and the
-  **resolved value** (base + offset). Lane values are offsets — moving
-  the panel knob shifts the whole curve.
+- The inspector shows the selected point's bar and **value** (matching
+  the knob), with a base ± offset breakdown underneath.
+- While a lane drives a parameter, its panel slider turns **amber** and
+  shows the actual value at the playhead. Fast modulation on top
+  (LFO / CV / audio) appears as a small amber ▸ readout above the slider.
+- **On a keyframe, the knob edits that keyframe only** (Blender/Resolve
+  convention) — the base and every other keyframe are untouched. Off a
+  keyframe, the same knob edits the base and shifts the whole curve.
 - The checkbox on a lane's chip mutes it; the target snaps back to its
   base value instantly.
+
+## Resizing the dock and panel
+- Drag the dock's **free edge** (top edge when docked at the bottom) to
+  change its height (140–600 px). Drag the inspector column's left edge
+  to resize it (180–420 px).
+- Drag the side control panel's **inner edge** to change its width
+  (280–600 px). All three are remembered across sessions.
 
 ## BPM and bars
 Set BPM, beats-per-bar, and total length in the transport. Switch **SYNC** to

@@ -86,7 +86,10 @@ export class ControlPanel {
       const next = settings.get('panelDock') === 'right' ? 'left' : 'right';
       settings.set('panelDock', next);
     });
-    settings.subscribe('panelDock', (v) => this.root.setAttribute('data-dock', v));
+    settings.subscribe('panelDock', (v) => {
+      this.root.setAttribute('data-dock', v);
+      this.publishInset();
+    });
 
     const collapseBtn = document.createElement('button');
     collapseBtn.title = 'Collapse panel';
@@ -101,6 +104,7 @@ export class ControlPanel {
       this.collapsed = !!v;
       this.root.classList.toggle('collapsed', this.collapsed);
       collapseBtn.textContent = this.collapsed ? '+' : '–';
+      this.publishInset();
     });
 
     actions.append(dockBtn, collapseBtn);
@@ -139,6 +143,88 @@ export class ControlPanel {
     });
 
     this.root.append(title, tabs, body);
+
+    // Width resize: drag the panel's inner edge (left edge when docked
+    // right, right edge when docked left). Applied via a CSS custom
+    // property so the collapsed / popout width rules still win.
+    this.root.appendChild(this.buildWidthResizeHandle());
+    // Fires immediately with the persisted value, then on every change.
+    settings.subscribe('panelWidth', (w) => this.applyPanelWidth(w));
+  }
+
+  // -----------------------------------------------------------------
+  // Panel width resize (clamped 280–600, persisted as Settings.panelWidth)
+  // -----------------------------------------------------------------
+
+  private static readonly WIDTH_MIN = 280;
+  private static readonly WIDTH_MAX = 600;
+
+  private applyPanelWidth(w: number): void {
+    const clamped = Math.max(ControlPanel.WIDTH_MIN, Math.min(ControlPanel.WIDTH_MAX, w));
+    this.root.style.setProperty('--panel-w', `${clamped}px`);
+    this.publishInset(clamped);
+  }
+
+  /**
+   * Publish the panel's current viewport footprint as CSS insets on the
+   * document root, so viewport-pinned siblings (the timeline dock) can
+   * stop at the panel's inner edge instead of hiding underneath it.
+   * Publishes to the panel's OWN document: in the popout that's the
+   * popup (harmless), and main.ts zeroes the main window's insets on
+   * pop-out / recomputes them on pop-in via refreshInset().
+   */
+  private publishInset(width?: number): void {
+    const style = this.root.ownerDocument.documentElement.style;
+    const w = this.collapsed
+      ? 40
+      : Math.max(ControlPanel.WIDTH_MIN, Math.min(
+          ControlPanel.WIDTH_MAX, width ?? this.settings.get('panelWidth')));
+    const side = this.settings.get('panelDock');
+    style.setProperty('--rw-panel-inset-right', side === 'right' ? `${w}px` : '0px');
+    style.setProperty('--rw-panel-inset-left',  side === 'left'  ? `${w}px` : '0px');
+  }
+
+  /** Recompute the insets (main.ts calls this when the popout returns). */
+  refreshInset(): void {
+    this.publishInset();
+  }
+
+  private buildWidthResizeHandle(): HTMLElement {
+    const handle = document.createElement('div');
+    handle.className = 'rw-panel-resize';
+    handle.title = 'Drag to resize the panel';
+    handle.addEventListener('pointerdown', (ev) => {
+      if (this.collapsed) return;
+      ev.preventDefault();
+      handle.setPointerCapture?.(ev.pointerId);
+      handle.classList.add('active');
+      const startX = ev.clientX;
+      const startW = Math.max(ControlPanel.WIDTH_MIN, Math.min(
+        ControlPanel.WIDTH_MAX, this.settings.get('panelWidth')));
+      // Docked right: dragging LEFT widens. Docked left: dragging right.
+      const sign = this.settings.get('panelDock') === 'left' ? 1 : -1;
+      let lastW = startW;
+      // ownerDocument, not the module-scope document — the panel can live
+      // in the two-screen popout window.
+      const doc = handle.ownerDocument;
+      const win = doc.defaultView ?? window;
+      const onMove = (mv: PointerEvent): void => {
+        lastW = Math.max(ControlPanel.WIDTH_MIN, Math.min(
+          ControlPanel.WIDTH_MAX, startW + sign * (mv.clientX - startX)));
+        this.applyPanelWidth(lastW);
+      };
+      const onUp = (mv: PointerEvent): void => {
+        handle.releasePointerCapture?.(mv.pointerId);
+        handle.classList.remove('active');
+        win.removeEventListener('pointermove', onMove);
+        win.removeEventListener('pointerup', onUp);
+        // Persist once per gesture, not per pixel.
+        this.settings.set('panelWidth', Math.round(lastW));
+      };
+      win.addEventListener('pointermove', onMove);
+      win.addEventListener('pointerup', onUp);
+    });
+    return handle;
   }
 
   addSection(section: PanelSection): HTMLElement {

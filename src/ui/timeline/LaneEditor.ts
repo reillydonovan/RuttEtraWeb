@@ -58,7 +58,7 @@ export class LaneEditor {
     };
   }
 
-  /** Live-preview a point's value in its lane row (inspector typing). */
+  /** Live-preview a point's ABSOLUTE value in its lane row (inspector typing). */
   previewPoint(laneId: string, bar: number, value: number): void {
     this.rows.get(laneId)?.previewValue(bar, value);
   }
@@ -88,6 +88,9 @@ export class LaneEditor {
 
   render(): void {
     this.el.replaceChildren();
+    // Rows hold a settings subscription (base-value redraws) — release
+    // them before dropping the references.
+    for (const row of this.rows.values()) row.dispose();
     this.rows.clear();
     const t = this.seq.timeline;
     if (!t) return;

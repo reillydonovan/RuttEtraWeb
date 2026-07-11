@@ -88,9 +88,10 @@ All four phases of the AUDIT build order executed; every item landed as its own 
 
 **Awaiting owner decisions (prioritized review list)**:
 1. **Dual raster** (`5bb53c8`, v23) — implemented behind `dualRasterEnabled`, default OFF. Flip Enable in the Dual Raster panel section and judge. Design + v1 shared-scope list: `docs/design/dual-raster.md`.
-2. **Keyframing v2** (`b184aeb`) — data layer + minimal LANES editor shipped; the full lane UI (drawable curves, record-knob-moves) waits on `docs/design/keyframing-v2.md` — 4 open questions, record-semantics being the big one.
-3. **Anti-menu-diving structural work** — search + hotkeys shipped; pinned performance strip (recommended) vs learn-from-the-knob vs command palette: `docs/design/anti-menu-diving.md`.
-4. **Audio-rate modulation** — design doc only (`docs/design/audio-rate-modulation.md`); recommends shader scan-time oscillators; 3 open questions (bank size, intensity target, UI home).
+2. **Anti-menu-diving structural work** — search + hotkeys shipped; pinned performance strip (recommended) vs learn-from-the-knob vs command palette: `docs/design/anti-menu-diving.md`.
+3. **Audio-rate modulation** — design doc only (`docs/design/audio-rate-modulation.md`); recommends shader scan-time oscillators; 3 open questions (bank size, intensity target, UI home).
+
+**Keyframing v2 — full lane UI shipped (2026-07-11, v1.2.0)**: drawable per-parameter lane curves rendered in absolute values (not raw offsets — the curve reads in the same numbers as the panel knob, with a dashed line at the current base); 2D point drag with beat-snap; a resizable inspector column; Resolve/Blender-style traditional keyframe-editor semantics — editing the panel slider while parked exactly on a keyframe rewrites that keyframe only, off a keyframe it edits the base and shifts the whole curve (one undo step per drag either way); per-param ◀ ▶ keyframe-jump arrows on panel rows; resizable timeline dock and side panel. Still open per `docs/design/keyframing-v2.md`: **record-knob-moves** (play + write live gestures into a lane) — not implemented, no owner decision yet.
 5. Small follow-ups flagged in AUDIT.md: graph patch library not yet embedded in `.synth.json` Projects; dual-raster follow-ups (per-raster scan rates/sources/color); manual visual QA of the GPU-side changes (feedback shapes, analog FX, dual raster, rotation) — none have automated coverage since the suite deliberately excludes WebGL.
 
 ### Known drift

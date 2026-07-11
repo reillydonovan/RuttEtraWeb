@@ -277,6 +277,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   helpAutoOpen:     { description: 'Auto-open this manual on first run.', panel: 'UI' },
   timelineDock:     { description: 'Position of the timeline dock: top, bottom, or hidden.', panel: 'UI' },
   paramRangeOverrides: { description: 'Per-parameter custom slider ranges. Right-click any slider (or tap its readout) and edit the Custom Range fields — widen for extra headroom (up to 5× the stock span past each bound) or narrow for a vernier. The number box glows when a custom range is active. Reset Range restores stock bounds.', panel: 'UI' },
-  timelineHeight:   { description: 'Pixel height of the timeline dock.', panel: 'UI' },
+  timelineHeight:   { description: 'Pixel height of the timeline dock. Drag the dock’s free edge (top edge when docked bottom) to resize; clamped 140–600.', panel: 'UI' },
   timelineInspectorWidth: { description: 'Pixel width of the timeline dock’s inspector column. Drag the column’s left edge to resize; clamped 180–420.', panel: 'UI' },
+  panelWidth:       { description: 'Pixel width of the side control panel. Drag the panel’s inner edge to resize; clamped 280–600.', panel: 'UI' },
 };

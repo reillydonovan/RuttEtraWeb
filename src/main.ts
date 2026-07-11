@@ -53,6 +53,7 @@ import { PerformanceProfileManager } from './perf/PerformanceProfile';
 import { FrameBudgetWatcher } from './perf/FrameBudgetWatcher';
 import { attachHaptics, haptic } from './platform/HapticFeedback';
 import * as keyframeAffordance from './ui/keyframeAffordance';
+import { registerLiveValues } from './ui/liveValueBus';
 import './ui/layout/layout.css';
 
 const params = new URLSearchParams(window.location.search);
@@ -121,6 +122,10 @@ async function bootSynth(): Promise<void> {
   // contributions for modulated ones — see `src/modulation/LiveValues.ts`.
   const liveValues = new LiveValuesStore(settings);
   attachModDebugOverlayIfRequested(liveValues);
+  // Let panel sliders display live values next to the base they edit
+  // (lazy bus — slider() runs before this point during panel builds in
+  // popouts/rebuilds, after it during boot; both work).
+  registerLiveValues(liveValues);
 
   const ruttEtra = new RuttEtraScene(settings, video, liveValues);
   const cameraRig = new CameraRig(settings, canvas, liveValues);
@@ -666,6 +671,16 @@ async function bootSynth(): Promise<void> {
       popoutBtn.title = open
         ? 'Return controls to this window'
         : 'Pop controls out into a separate window (two-screen setup)';
+      // While the panel lives in the popup the main window has no panel
+      // footprint — let the timeline dock reclaim the full width. On
+      // pop-in the panel recomputes its insets.
+      if (open) {
+        const style = document.documentElement.style;
+        style.setProperty('--rw-panel-inset-right', '0px');
+        style.setProperty('--rw-panel-inset-left', '0px');
+      } else {
+        panel.refreshInset();
+      }
     });
     popoutBtn.addEventListener('click', () => popout.toggle());
     panel.addTitleAction(popoutBtn);

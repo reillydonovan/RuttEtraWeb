@@ -57,7 +57,7 @@ One audited backlog run (see `AUDIT.md` and `CLAUDE.md`) landed seventeen featur
 **I/O & timeline**
 
 - **MIDI clock out** — transmit 24-PPQ clock plus Start/Stop at the shared Tempo BPM so external gear chases the synth. Forced OFF on every page load, same posture as CV output. Ships with an emulated **Sync (V)** frame-locked pulse node for the graph.
-- **Keyframing v2** — timeline **automation lanes**: per-parameter point lists whose values are relative offsets summed through the live-value system (they compose with LFOs and CV instead of fighting them), plus a minimal LANES editor in the Timeline dock. Timeline schema v2; v1 files load unchanged.
+- **Keyframing v2 (full lane UI)** — timeline **automation lanes**: per-parameter point lists whose values are relative offsets summed through the live-value system (they compose with LFOs and CV instead of fighting them). Curves draw and edit in **absolute values** (the same numbers as the panel knob, with a dashed line at the current base) via 2D point drag, a resizable inspector, and per-param ◀ ▶ keyframe-jump arrows on panel rows. The panel slider follows traditional keyframe-editor semantics (Blender/Resolve): parked exactly on a keyframe, it edits that keyframe only; off one, it edits the base and shifts the whole curve — one undo step per drag either way. Timeline dock and side panel are both drag-resizable. Timeline schema v2; v1 files load unchanged. Record-knob-moves is a planned follow-up.
 - **About-page search rebuilt** — the manual's search now indexes every heading with a results dropdown, highlighted snippets, and jump-to-heading (previously it filtered whole sections and always scrolled to the top).
 
 ## Earlier: v11 → v12

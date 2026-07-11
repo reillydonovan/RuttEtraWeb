@@ -192,7 +192,10 @@ body.viewer-mode #about-link { display: none; }
 #panel-root {
   position: absolute;
   top: 0; bottom: 0;
-  width: 360px;
+  /* Custom property driven by the drag handle (`.rw-panel-resize`),
+     persisted as Settings.panelWidth. Collapsed/popout rules below
+     override the width outright. */
+  width: var(--panel-w, 360px);
   background: var(--re-panel);
   border-left: 1px solid var(--re-line);
   z-index: 10;
@@ -219,6 +222,50 @@ body.viewer-mode #about-link { display: none; }
   max-width: none;
 }
 .rw-popout-body #panel-root.rw-panel--popout.collapsed { width: 100%; }
+
+/* Width grab zone on the panel's inner edge — inside the panel because
+   #panel-root clips overflow. Clamped 280–600 in ControlPanel. The
+   always-visible edge line + center grip make it discoverable; hover
+   brightens the whole strip. */
+.rw-panel-resize {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 30;
+}
+#panel-root[data-dock="right"] .rw-panel-resize { left: 0; }
+#panel-root[data-dock="left"]  .rw-panel-resize { right: 0; left: auto; }
+/* Edge line (always visible). */
+.rw-panel-resize::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--re-line-hi);
+}
+#panel-root[data-dock="right"] .rw-panel-resize::before { left: 0; }
+#panel-root[data-dock="left"]  .rw-panel-resize::before { right: 0; }
+/* Center grip (⋮) so the edge reads as draggable. */
+.rw-panel-resize::after {
+  content: '⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--re-text-dim);
+  font-size: 14px;
+  font-family: var(--re-mono);
+  pointer-events: none;
+}
+#panel-root.collapsed .rw-panel-resize,
+.rw-popout-body .rw-panel-resize { display: none; }
+.rw-panel-resize:hover,
+.rw-panel-resize.active { background: rgba(95,255,133,0.25); }
+.rw-panel-resize:hover::before,
+.rw-panel-resize.active::before { background: var(--re-accent); box-shadow: var(--re-glow); }
+.rw-panel-resize:hover::after,
+.rw-panel-resize.active::after { color: var(--re-accent); }
 
 /* v19: panel-wide param search (AUDIT item 26) */
 .rw-panel-search { padding: 4px 8px; }
@@ -389,6 +436,23 @@ body.viewer-mode #about-link { display: none; }
   font-size: 14px;
 }
 .rw-num:focus { outline: none; border-color: var(--re-accent); }
+
+/* Timeline-driven param: the slider shows the actual value at the
+   playhead (base + lane offset) in amber — the timeline is in charge
+   of this knob right now. Edits still work; they trim the base. */
+.rw-slider--tl .rw-num,
+.rw-slider--tl .rw-slider-readout {
+  color: var(--re-accent-2);
+  border-color: rgba(255,179,71,0.45);
+}
+.rw-slider--tl input[type="range"]::-webkit-slider-thumb {
+  background: var(--re-accent-2);
+  box-shadow: 0 0 6px rgba(255,179,71,0.6);
+}
+.rw-slider--tl input[type="range"]::-moz-range-thumb {
+  background: var(--re-accent-2);
+  box-shadow: 0 0 6px rgba(255,179,71,0.6);
+}
 
 /* Toggle */
 .rw-toggle {
@@ -977,6 +1041,24 @@ body.viewer-mode #stage { background: #000; }
 .rw-toggle .rw-mod-dot { position: static; margin-left: 8px; }
 .rw-mod-dot.on { display: inline-block; }
 
+/* Live-value badge: shows the modulated value the renderer reads while
+   the slider keeps editing the base. Amber = "live", matching the
+   playhead / accent-2 language. Display only. */
+.rw-live-badge {
+  position: absolute;
+  left: 0;
+  top: -16px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--re-accent-2);
+  font-family: var(--re-mono);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(255,179,71,0.45);
+  white-space: nowrap;
+}
+body[data-layout="compact"] .rw-live-badge { display: none; }
+
 /* ============================================================
    Keyframing v2: inline keyframe diamond (◆) on modulatable rows.
    Hidden until a timeline exists. States: hollow dim ◇ (keyable),
@@ -985,24 +1067,50 @@ body.viewer-mode #stage { background: #000; }
    ============================================================ */
 
 .rw-kf-diamond {
-  /* Sits in the thin strip above the slider, left of the dual-engine
-     mod dot (right: 4px, top: -10px). */
+  /* Center of the ◀ ◆ ▶ cluster in the strip above the slider, left of
+     the dual-engine mod dot (right: 4px, top: -10px). Rows that can
+     carry a diamond get `rw-row--keyable` padding so this strip never
+     overlaps the row above. */
   position: absolute;
-  right: 16px;
-  top: -13px;
-  width: 14px;
-  height: 14px;
+  right: 33px;
+  top: -19px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--re-text-dim);
-  opacity: 0.45;
-  font-size: 11px;
-  line-height: 14px;
+  opacity: 0.55;
+  font-size: 14px;
+  line-height: 18px;
   text-align: center;
   cursor: pointer;
   font-family: var(--re-mono);
 }
+
+/* ◀ ▶ jump-to-keyframe arrows flanking the diamond (Resolve-style
+   per-param keyframe navigation). Hidden until the param has points. */
+.rw-kf-nav {
+  position: absolute;
+  top: -19px;
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--re-text-dim);
+  opacity: 0.55;
+  font-size: 9px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  font-family: var(--re-mono);
+}
+.rw-kf-prev { right: 50px; }
+.rw-kf-next { right: 16px; }
+.rw-kf-nav:hover:not(:disabled) { opacity: 1; color: var(--re-accent); }
+.rw-kf-nav:disabled { opacity: 0.2; cursor: default; }
+body[data-layout="compact"] .rw-kf-nav { display: none; }
 .rw-kf-diamond:hover {
   opacity: 1;
   color: var(--re-accent);
@@ -1022,6 +1130,15 @@ body.viewer-mode #stage { background: #000; }
   border-left: 2px solid var(--re-accent);
   padding-left: 4px;
   margin-left: -6px;
+}
+
+/* Rows whose params can be keyframed (timeline loaded) or are being
+   modulated right now get extra top padding so the ◆ / live-value strip
+   above the slider has its own vertical space instead of colliding with
+   the row above. */
+.rw-row--keyable,
+.rw-row--live {
+  padding-top: 20px;
 }
 
 /* Diamond context menu (created in the control's ownerDocument so it
@@ -1255,8 +1372,8 @@ body[data-layout="compact"] .rw-mod-slot-iconbtn {
 }
 
 
- 
- 
+
+
 /* ============================================================
    v9 ? CV (voltage control) input UI
    ============================================================ */

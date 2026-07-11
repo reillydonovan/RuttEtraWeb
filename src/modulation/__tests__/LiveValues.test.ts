@@ -137,4 +137,15 @@ describe('LiveValuesStore', () => {
     expect(live.getFactor('zPush')).toBeCloseTo(1.5);
     expect(live.getLive('zPush')).toBeCloseTo((0.5 + 0.3) * 1.5);
   });
+
+  it('getNamespaceOffset isolates one namespace (slider playhead display)', () => {
+    live.setContributions('timeline', { zPush: 2.0 });
+    live.setContributions('classic',  { zPush: 0.3 });
+    expect(live.getNamespaceOffset('timeline', 'zPush')).toBeCloseTo(2.0);
+    expect(live.getNamespaceOffset('classic',  'zPush')).toBeCloseTo(0.3);
+    expect(live.getNamespaceOffset('graph',    'zPush')).toBe(0);
+    // Clearing the namespace zeroes its isolated offset immediately.
+    live.setContributions('timeline', {});
+    expect(live.getNamespaceOffset('timeline', 'zPush')).toBe(0);
+  });
 });

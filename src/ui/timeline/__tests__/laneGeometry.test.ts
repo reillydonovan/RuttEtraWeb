@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  laneAxis, barToX, xToBar, valueToY, yToValue,
+  laneAxisAbs, barToX, xToBar, valueToY, yToValue,
   snapBarToBeat, findPointAt, sampleLane, dragResult,
 } from '../laneGeometry';
 import { evalLane } from '../../../sequencer/lanes';
@@ -9,20 +9,27 @@ import { AutomationPoint } from '../../../sequencer/types';
 const pts = (...p: Array<[number, number]>): AutomationPoint[] =>
   p.map(([bar, value]) => ({ bar, value }));
 
-describe('laneAxis', () => {
-  it('uses half the designed span, symmetric around 0', () => {
-    expect(laneAxis(3, [])).toEqual({ min: -1.5, max: 1.5 });
+describe('laneAxisAbs', () => {
+  it('uses the param range directly (absolute presentation)', () => {
+    expect(laneAxisAbs({ min: -1.5, max: 1.5 }, 0, [])).toEqual({ min: -1.5, max: 1.5 });
+    // Base inside the range does not shift the axis.
+    expect(laneAxisAbs({ min: 0, max: 2 }, 1.2, [])).toEqual({ min: 0, max: 2 });
   });
 
-  it('expands to 1.1× the largest point magnitude', () => {
-    const axis = laneAxis(2, pts([0, -4]));
-    expect(axis.max).toBeCloseTo(4.4);
-    expect(axis.min).toBeCloseTo(-4.4);
+  it('expands to fit out-of-range resolved values (base + offset)', () => {
+    // base 0, point offset 4 → resolved 4 sits above max 1: expand with
+    // a 5%-of-span pad (0.1).
+    const axis = laneAxisAbs({ min: -1, max: 1 }, 0, pts([0, 4]));
+    expect(axis.max).toBeCloseTo(4.1);
+    expect(axis.min).toBeCloseTo(-1);
+    // A base shift pushes resolved values with it.
+    const shifted = laneAxisAbs({ min: -1, max: 1 }, 2, pts([0, 4]));
+    expect(shifted.max).toBeCloseTo(6.1);
   });
 
-  it('falls back to ±1 for unknown or degenerate spans', () => {
-    expect(laneAxis(null, [])).toEqual({ min: -1, max: 1 });
-    expect(laneAxis(0, [])).toEqual({ min: -1, max: 1 });
+  it('falls back to base ± 1 for unknown or degenerate ranges', () => {
+    expect(laneAxisAbs(null, 0, [])).toEqual({ min: -1, max: 1 });
+    expect(laneAxisAbs({ min: 2, max: 2 }, 5, [])).toEqual({ min: 4, max: 6 });
   });
 });
 

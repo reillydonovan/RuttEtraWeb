@@ -16,7 +16,8 @@ import { layoutManager } from './layout/LayoutManager';
 import { presentSheetPicker } from './widgets/BottomSheetPicker';
 import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus';
 import { registerDesignedRange } from './paramRangeRegistry';
-import { attachKeyframeDiamond } from './keyframeAffordance';
+import { attachKeyframeDiamond, setKeyedValueAtPlayhead } from './keyframeAffordance';
+import { whenLiveValues } from './liveValueBus';
 
 /**
  * Append a small dual-engine indicator to the row containing `control`.
@@ -107,6 +108,31 @@ export function slider(
   let effMin = min;
   let effMax = max;
 
+  // Timeline automation offset for this key (namespace 'timeline' in
+  // LiveValuesStore). When a lane drives the param, the slider DISPLAYS
+  // `base + tlOffset` — the actual value at the playhead. Editing then
+  // branches on traditional keyframe-editor rules (Blender/Resolve):
+  // if the playhead sits exactly ON a keyframe, the edit rewrites THAT
+  // keyframe's value only (setKeyedValueAtPlayhead); otherwise it edits
+  // the base, same as an unautomated param. Either way what you see and
+  // what you set is one number, and modulation still never writes
+  // Settings directly (base/live split intact underneath).
+  let tlOffset = 0;
+  const toDisplay = (base: number): number => base + tlOffset;
+  // Continuous drags (native range, scrub bar) collapse into ONE undo
+  // step: only the first edit of a gesture snapshots the timeline, the
+  // rest pass `snapshot: false`. Every other interaction (typing, stop
+  // chips, keyboard, modal, double-click reset) is its own step — see
+  // the explicit `fresh: true` call sites below. No-op (no undo stack
+  // involved) when there's no keyframe at the playhead to edit.
+  let dragFresh = true;
+  const setFromDisplay = (target: number, fresh = dragFresh): void => {
+    dragFresh = false;
+    if (setKeyedValueAtPlayhead(settings, key as string, target, { snapshot: fresh })) return;
+    settings.set(key, (target - tlOffset) as never);
+  };
+  const endDragGesture = (): void => { dragFresh = true; };
+
   // Compact-mode stop-chips + tappable readout. Always built and inserted
   // into the DOM; CSS hides them outside compact and hides the native
   // range / number input inside compact. This way a layout flip
@@ -123,7 +149,7 @@ export function slider(
       b.type = 'button';
       b.className = 'rw-slider-stop';
       b.textContent = formatNum(v, step);
-      b.addEventListener('click', () => settings.set(key, v as never));
+      b.addEventListener('click', () => setFromDisplay(v, true));
       return b;
     });
     stopBar.replaceChildren(...chips);
@@ -146,8 +172,8 @@ export function slider(
   });
 
   const openModal = (): void => {
-    openNumericModal(`Enter ${String(key)}`, settings.get(key) as number, effMin, effMax, step, (v) => {
-      settings.set(key, v as never);
+    openNumericModal(`Enter ${String(key)}`, toDisplay(settings.get(key) as number), effMin, effMax, step, (v) => {
+      setFromDisplay(v, true);
     }, rangeEditFor(), wrap.ownerDocument);
   };
 
@@ -187,7 +213,7 @@ export function slider(
   const updateFromPointer = (clientX: number): void => {
     const r = scrubBar.getBoundingClientRect();
     const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-    settings.set(key, snapToStep(effMin + t * (effMax - effMin)) as never);
+    setFromDisplay(snapToStep(effMin + t * (effMax - effMin)));
   };
   // Document-level pointermove/pointerup listeners are more robust on iOS
   // Safari than element-level setPointerCapture: inside the bottom-sheet's
@@ -202,13 +228,17 @@ export function slider(
     // main document.
     const doc = scrubBar.ownerDocument;
     const activeId = ev.pointerId;
+    // New gesture: the first move below gets the undo snapshot, every
+    // subsequent one in this drag collapses into it.
+    endDragGesture();
     updateFromPointer(ev.clientX);
 
-    // Double-tap on the scrub bar resets to default.
+    // Double-tap on the scrub bar resets to default — its own step,
+    // regardless of the drag gesture the preceding call just started.
     if (ev.pointerType === 'touch') {
       const now = performance.now();
       if (now - scrubLastTap < 320) {
-        settings.set(key, defaultValue as never);
+        setFromDisplay(defaultValue, true);
         scrubLastTap = 0;
       } else {
         scrubLastTap = now;
@@ -225,6 +255,7 @@ export function slider(
       doc.removeEventListener('pointermove',   onMove);
       doc.removeEventListener('pointerup',     onUp);
       doc.removeEventListener('pointercancel', onUp);
+      endDragGesture();
     };
     doc.addEventListener('pointermove',   onMove, { passive: false });
     doc.addEventListener('pointerup',     onUp);
@@ -232,7 +263,7 @@ export function slider(
   });
   // Keyboard accessibility — left/right arrows, PageUp/Down, Home/End.
   scrubBar.addEventListener('keydown', (ev) => {
-    let next = settings.get(key) as number;
+    let next = toDisplay(settings.get(key) as number);
     const big = step * 10;
     switch (ev.key) {
       case 'ArrowLeft':  case 'ArrowDown': next -= step; break;
@@ -245,12 +276,16 @@ export function slider(
       default: return;
     }
     ev.preventDefault();
-    settings.set(key, snapToStep(next) as never);
+    setFromDisplay(snapToStep(next), true);
   });
 
   wrap.append(scrubBar, stopBar, readoutBtn);
 
-  const apply = (v: number) => {
+  const apply = (base: number) => {
+    // What the slider SHOWS is the value at the playhead: base plus the
+    // timeline lane's offset (identical to base when no lane drives it).
+    const v = toDisplay(base);
+    wrap.classList.toggle('rw-slider--tl', tlOffset !== 0);
     range.value = String(v);
     num.value = formatNum(v, step);
     readoutBtn.textContent = formatNum(v, step);
@@ -288,10 +323,18 @@ export function slider(
 
   settings.subscribe(key, (v) => apply(v as number));
 
-  range.addEventListener('input', () => settings.set(key, +range.value as never));
+  // Gesture boundaries for the native range: a mouse/touch drag fires
+  // many 'input' events between these two, so only the first collapses
+  // into an undo step (see setFromDisplay/dragFresh above). A keyboard
+  // nudge (arrow keys) fires 'input' with no preceding pointerdown, so
+  // it naturally starts fresh and is its own step.
+  range.addEventListener('pointerdown', endDragGesture);
+  range.addEventListener('pointerup', endDragGesture);
+  range.addEventListener('pointercancel', endDragGesture);
+  range.addEventListener('input', () => setFromDisplay(+range.value));
   num.addEventListener('input', () => {
     const v = parseFloat(num.value);
-    if (!Number.isNaN(v)) settings.set(key, v as never);
+    if (!Number.isNaN(v)) setFromDisplay(v, true);
   });
 
   attachModulationIndicator(wrap, key as string);
@@ -300,15 +343,48 @@ export function slider(
   // timeline exists.
   attachKeyframeDiamond(wrap, key as string, settings);
 
+  // Timeline-driven display + live-modulation badge.
+  //
+  // The 'timeline' namespace offset folds INTO the slider's displayed
+  // value (one number: the value at the playhead — see toDisplay /
+  // setFromDisplay above). The amber ▸ badge only appears for the
+  // remaining modulation on top of that (Classic LFOs, Graph, CV…),
+  // which wobbles at audio/frame rate and can't be folded into an
+  // editable knob. Display only — never written back into Settings.
+  const liveBadge = document.createElement('span');
+  liveBadge.className = 'rw-live-badge';
+  liveBadge.title = 'Live value (with LFO/CV/graph modulation on top).';
+  liveBadge.hidden = true;
+  wrap.appendChild(liveBadge);
+  let lastBadgeText = '';
+  whenLiveValues((lv) => {
+    lv.subscribe(key as string, (liveV) => {
+      const prevTl = tlOffset;
+      tlOffset = lv.getNamespaceOffset('timeline', key as string);
+      const base = settings.get(key) as number;
+      if (tlOffset !== prevTl) apply(base);
+      // Badge: modulation beyond what the knob already displays.
+      const modded = Math.abs(liveV - toDisplay(base)) > 1e-6;
+      liveBadge.hidden = !modded;
+      wrap.closest('.rw-row')?.classList.toggle('rw-row--live', modded);
+      if (!modded) return;
+      const txt = `▸ ${formatNum(liveV, step)}`;
+      if (txt !== lastBadgeText) {
+        liveBadge.textContent = txt;
+        lastBadgeText = txt;
+      }
+    });
+  });
+
   // ----- Touch upgrades -----
   // Double-click / double-tap → reset to default. Keyboard equivalent:
   // Backspace/Delete on a focused range. Native horizontal drag continues
   // to fire `input` events untouched.
-  range.addEventListener('dblclick', () => settings.set(key, defaultValue as never));
+  range.addEventListener('dblclick', () => setFromDisplay(defaultValue, true));
   range.addEventListener('keydown', (ev) => {
     if (ev.key === 'Backspace' || ev.key === 'Delete') {
       ev.preventDefault();
-      settings.set(key, defaultValue as never);
+      setFromDisplay(defaultValue, true);
     }
   });
 
@@ -323,7 +399,7 @@ export function slider(
       const dx = ev.clientX - lastTapX;
       const dy = ev.clientY - lastTapY;
       if (now - lastTapAt < 320 && Math.hypot(dx, dy) < 20) {
-        settings.set(key, defaultValue as never);
+        setFromDisplay(defaultValue, true);
         lastTapAt = 0;
       } else {
         lastTapAt = now;

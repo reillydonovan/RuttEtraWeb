@@ -7,34 +7,50 @@
  *
  * Coordinate conventions:
  *   - x: bars → pixels via pixelsPerBar (same scale as ruler/track).
- *   - y: lane offsets → pixels within a row of `rowHeight` px, value 0
- *     always at the vertical center (offsets sum onto base; 0 = no
- *     offset). Positive offsets draw upward.
+ *   - y: ABSOLUTE param values → pixels within a row of `rowHeight` px.
+ *     The axis spans the param's slider range (traditional keyframe-
+ *     editor presentation: what you see is the value at that bar, and
+ *     it matches the panel knob's readout). Points are still STORED as
+ *     offsets from the base; LaneRow converts at the boundary.
  */
 
 import { AutomationPoint, EasingType } from '../../sequencer/types';
 import { evalLane } from '../../sequencer/lanes';
 
 export interface LaneAxis {
-  /** Bottom of the axis (most negative offset). */
+  /** Bottom of the axis (lowest absolute value shown). */
   min: number;
-  /** Top of the axis (most positive offset). Always === -min. */
+  /** Top of the axis (highest absolute value shown). */
   max: number;
 }
 
 /**
- * Symmetric value axis for a lane row. Half-range is the larger of half
- * the param's designed span (so a full-scale sweep fits) and 1.1× the
- * largest point magnitude (so hand-authored outliers never clip).
- * Falls back to ±1 when the span is unknown or degenerate.
+ * Absolute value axis for a lane row: the param's effective slider
+ * range (user override > designed bounds), expanded when a point's
+ * resolved value (base + offset) falls outside it so hand-authored
+ * outliers never clip. Falls back to base ± 1 when the range is
+ * unknown or degenerate.
  */
-export function laneAxis(designedSpan: number | null, points: AutomationPoint[]): LaneAxis {
-  let half = designedSpan != null && designedSpan > 0 ? designedSpan / 2 : 1;
-  for (const p of points) {
-    const need = Math.abs(p.value) * 1.1;
-    if (need > half) half = need;
+export function laneAxisAbs(
+  range: { min: number; max: number } | null,
+  base: number,
+  points: AutomationPoint[],
+): LaneAxis {
+  let lo: number, hi: number;
+  if (range && range.max > range.min) {
+    lo = range.min;
+    hi = range.max;
+  } else {
+    lo = base - 1;
+    hi = base + 1;
   }
-  return { min: -half, max: half };
+  const pad = (hi - lo) * 0.05;
+  for (const p of points) {
+    const v = base + p.value;
+    if (v - pad < lo) lo = v - pad;
+    if (v + pad > hi) hi = v + pad;
+  }
+  return { min: lo, max: hi };
 }
 
 export function barToX(bar: number, pixelsPerBar: number): number {

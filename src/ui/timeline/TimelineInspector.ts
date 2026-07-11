@@ -1,8 +1,10 @@
 /**
  * Inspector column (fixed 220px, right of the scroller). Two modes:
  *   - KEYFRAME: the selected scene keyframe (bar / easing / name / lock).
- *   - LANE POINT: the selected automation-lane point (bar / offset with a
- *     resolved-absolute preview / easing), plus the lane's mute/delete.
+ *   - LANE POINT: the selected automation-lane point (bar / ABSOLUTE
+ *     value with a base·offset breakdown / easing), plus the lane's
+ *     mute/delete. Values read and edit in the same numbers as the
+ *     panel knob; the stored offset is derived at commit time.
  * Scene and lane selection are mutually exclusive; TimelineDock owns the
  * lane selection and passes accessors in.
  */
@@ -20,7 +22,7 @@ export interface LaneSelectionAccess {
   settings: SettingsStore;
   laneSelection(): LanePointSel | null;
   setLaneSelection(sel: LanePointSel | null): void;
-  /** Live-preview a not-yet-committed offset in the lane row's curve. */
+  /** Live-preview a not-yet-committed ABSOLUTE value in the lane row's curve. */
   previewToTimeline(laneId: string, bar: number, value: number): void;
 }
 
@@ -28,8 +30,8 @@ export interface LaneSelectionAccess {
 interface LanePointRefs {
   laneId: string;
   barInput: HTMLInputElement;
-  offsetInput: HTMLInputElement;
-  updateResolved: (offset: number) => void;
+  valueInput: HTMLInputElement;
+  updateHint: (absValue: number) => void;
 }
 
 export class TimelineInspector {
@@ -37,6 +39,9 @@ export class TimelineInspector {
   private seq: Sequencer;
   private laneAccess: LaneSelectionAccess | null;
   private laneRefs: LanePointRefs | null = null;
+  /** Base-value subscription for the selected lane point's param, so the
+   *  Value field tracks panel-knob drags. Released on every re-render. */
+  private unsubBase: (() => void) | null = null;
 
   constructor(seq: Sequencer, laneAccess: LaneSelectionAccess | null = null) {
     this.seq = seq;
@@ -48,18 +53,21 @@ export class TimelineInspector {
 
   /**
    * Mirror an in-progress point drag into the form fields without
-   * touching the (not-yet-committed) timeline data.
+   * touching the (not-yet-committed) timeline data. `value` is the
+   * ABSOLUTE param value at the drag position.
    */
   previewLanePoint(laneId: string, bar: number, value: number): void {
     if (!this.laneRefs || this.laneRefs.laneId !== laneId) return;
     this.laneRefs.barInput.value = String(Math.round(bar * 100) / 100);
-    this.laneRefs.offsetInput.value = String(Math.round(value * 1000) / 1000);
-    this.laneRefs.updateResolved(value);
+    this.laneRefs.valueInput.value = String(Math.round(value * 1000) / 1000);
+    this.laneRefs.updateHint(value);
   }
 
   render(): void {
     const t = this.seq.timeline;
     this.laneRefs = null;
+    this.unsubBase?.();
+    this.unsubBase = null;
     this.el.innerHTML = '';
 
     // Lane-point mode wins when a lane selection exists and still
@@ -168,35 +176,53 @@ export class TimelineInspector {
     });
     this.el.appendChild(this.row('Bar', barInput));
 
-    // Offset (the stored relative value) with a live resolved-absolute
-    // preview — the owner-decided display affordance for the relative model.
-    const resolved = document.createElement('div');
-    resolved.className = 'rw-tl-insp-resolved';
-    const updateResolved = (off: number): void => {
-      const base = access.settings.get(lane.paramKey as never) as unknown;
-      resolved.textContent = typeof base === 'number'
-        ? `→ resolves to ${(base + off).toFixed(3)} (base ${base.toFixed(3)})`
-        : '';
+    // Value — the ABSOLUTE param value at this point, same numbers as
+    // the panel knob (traditional keyframe-editor presentation). The
+    // stored offset is derived from the base at commit time; the hint
+    // line below shows the breakdown.
+    const baseOf = (): number => {
+      const b = access.settings.get(lane.paramKey as never) as unknown;
+      return typeof b === 'number' ? b : 0;
     };
-    updateResolved(point.value);
-    const offsetInput = this.numInput(point.value, -1e9, 1e9, 0.01, (v) => {
+    const hint = document.createElement('div');
+    hint.className = 'rw-tl-insp-resolved';
+    const updateHint = (abs: number): void => {
+      const base = baseOf();
+      const off = abs - base;
+      hint.textContent =
+        `= base ${base.toFixed(3)} ${off >= 0 ? '+' : '−'} ${Math.abs(off).toFixed(3)}`;
+    };
+    updateHint(baseOf() + point.value);
+    const valueInput = this.numInput(baseOf() + point.value, -1e9, 1e9, 0.01, (v) => {
       this.seq.editLanes(() => {
-        lane.points = upsertPoint(lane.points, { ...point, value: v });
+        lane.points = upsertPoint(lane.points, { ...point, value: v - baseOf() });
       });
     });
-    offsetInput.addEventListener('input', () => {
-      const v = parseFloat(offsetInput.value);
+    valueInput.addEventListener('input', () => {
+      const v = parseFloat(valueInput.value);
       if (!Number.isFinite(v)) return;
-      updateResolved(v);
+      updateHint(v);
       // Live-preview the curve in the lane row before committing.
       access.previewToTimeline(lane.id, point.bar, v);
     });
-    this.el.appendChild(this.row('Offset', offsetInput));
-    this.el.appendChild(resolved);
+    this.el.appendChild(this.row('Value', valueInput));
+    this.el.appendChild(hint);
 
     // Registered AFTER both fields exist so a drag in the lane row can
     // mirror into them live.
-    this.laneRefs = { laneId: lane.id, barInput, offsetInput, updateResolved };
+    this.laneRefs = { laneId: lane.id, barInput, valueInput, updateHint };
+
+    // Track panel-knob drags: the point's offset is fixed, so a base
+    // change moves its absolute value — keep the field and hint in sync
+    // (unless the user is mid-edit in the field itself).
+    let firstFire = true;
+    this.unsubBase = access.settings.subscribe(lane.paramKey as never, () => {
+      if (firstFire) { firstFire = false; return; } // immediate fire; already fresh
+      if (valueInput.ownerDocument.activeElement === valueInput) return;
+      const abs = baseOf() + point.value;
+      valueInput.value = String(Math.round(abs * 1000) / 1000);
+      updateHint(abs);
+    });
 
     // Easing into this point.
     {

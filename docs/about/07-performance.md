@@ -165,12 +165,16 @@ MIDI clock sync is supported on the timeline. Set Sync = MIDI and the playhead a
 
 ### Timeline sequencer (full walkthrough)
 
+The dock itself is resizable: drag its free edge (the top edge when docked at the bottom) to change its height (140–600 px, remembered across sessions). The side control panel resizes the same way — drag its inner edge (280–600 px).
+
 The timeline has two composable layers, visually stacked in the dock:
 
 - **SCENES** (the top track, block markers) — full-settings snapshots interpolated over musical time. A scene sets *everything*: the overall structure of the piece.
 - **Automation lanes** (the rows below) — per-parameter curves that ride on top. A lane animates *one knob*.
 
 Conceptually: the scene track is a list of (bar, snapshot) pairs — the playhead advances bar-by-bar and the live Settings is the interpolation of the two surrounding scenes; each enabled lane then adds its evaluated offset to its one parameter.
+
+A note on terminology: this manual (and the panel UI) calls both of these **keyframes**, matching Blender/Resolve/After Effects usage — a *scene* keyframes the whole picture, a *lane point* keyframes one parameter. Internally they're different data structures (a scene is a full settings snapshot; a lane point is one offset value), but from the keyboard and the panel they behave the same way: you park the playhead, you set a value, you've made a keyframe.
 
 **Scenes:**
 
@@ -183,20 +187,26 @@ Conceptually: the scene track is a list of (bar, snapshot) pairs — the playhea
 
 Two ways to create automation, one place to shape it:
 
-**From the panel (the fast way).** Every modulatable slider carries a small **keyframe diamond** in its top-right corner, next to the modulation dot. It's hidden until a timeline exists, then: hollow and dim = keyable; outlined = this param has a lane; filled and glowing = there's a point exactly at the playhead. Click it to key the param at the playhead — the first click creates the lane, later clicks add or remove points (a toggle). Right-click the diamond for *Open in timeline* (reveals the lane in the dock), *Remove point at playhead*, or *Remove automation*. Rows with automation get a phosphor tick on their label, so a glance down the panel shows what's animated.
+**From the panel (the fast way).** Every modulatable slider carries a small **keyframe diamond** in its top-right corner, next to the modulation dot. It's hidden until a timeline exists, then: hollow and dim = keyable; outlined = this param has a lane; filled and glowing = there's a point exactly at the playhead. Click it to key the param at the playhead — the first click creates the lane, later clicks add or remove points (a toggle). Once a param has points, **◀ ▶ jump arrows** appear flanking the diamond (the Resolve-style keyframe navigator): they seek the playhead to that param's previous/next keyframe without leaving the panel. Right-click the diamond for *Open in timeline* (reveals the lane in the dock), *Remove point at playhead*, or *Remove automation*. Rows with automation get a phosphor tick on their label, so a glance down the panel shows what's animated.
 
 **In the dock (the shaping surface).** Each lane renders as a row under the SCENES track, sharing the same bar ruler and scroll:
 
-- **+ Lane** adds a lane for any modulation target; the lane's curve draws across the full timeline with a dashed zero line at center.
+- **+ Lane** adds a lane for any modulation target. The lane's curve draws in **absolute values** — the vertical axis is the param's slider range, so the curve reads in the same numbers as the panel knob. A dashed line marks the knob's current **base** value; the curve rides on it and visibly shifts when you move the knob.
 - **Add points** by double-clicking (or `Ctrl+click`) anywhere in the row. New points *pin* the curve's current value at that bar — adding a handle never changes the sound/image.
-- **Drag points in two dimensions**: horizontal moves the bar (beat-snapped; hold `Alt` for free positioning), vertical changes the offset. A tooltip shows `bar · offset → resolved value` while you drag. One drag = one undo step.
+- **Drag points in two dimensions**: horizontal moves the bar (beat-snapped; hold `Alt` for free positioning), vertical changes the value. A tooltip shows `bar · value` while you drag. One drag = one undo step.
 - **Right-click a point** to set its easing (linear / easeIn / easeOut / easeInOut / step / hold — the curve into that point) or delete it.
-- **The inspector** (right column) shows the selected point's bar, offset, easing, and the **resolved value** (base + offset), plus lane mute/delete. It tracks edits live in both directions — drag a point and the fields follow; type an offset and the curve previews before you commit. Drag the column's left edge to resize it (180–420 px, remembered across sessions).
+- **The inspector** (right column) shows the selected point's bar, its **value** (the actual param value — matching the panel knob), a `base ± offset` breakdown, and easing, plus lane mute/delete. It tracks edits live in both directions — drag a point and the fields follow; type a value and the curve previews before you commit. Drag the column's left edge to resize it (180–420 px, remembered across sessions).
 - **Navigate keyframes** with the `|◀` / `▶|` transport buttons or the `,` / `.` keys: the playhead jumps to the previous/next point of the selected lane (or, with nothing selected, the previous/next event across scenes and all lanes).
 - **Mute** (the checkbox on the lane's chip) silences a lane; its target snaps back to the base value the same frame. Muted lanes render dim.
 
 Lane values are **relative offsets**, not absolute values — they sum onto the parameter's base through the same live-value system modulation uses, so a lane composes with LFOs, CV, and the knob itself instead of fighting them. Move the panel knob and the whole automation curve shifts with it. Multiple lanes on one parameter sum, matching the summing-amplifier convention everywhere else in the synth.
 
+The panel never makes you do that math, though: while a lane drives a parameter, its slider shows the **actual value at the playhead** (base + lane offset), with the readout and thumb tinted amber to say "the timeline owns this knob right now". Fast modulation that can't be folded into a knob (LFOs, CV, audio) still appears as a small amber **▸ live readout** above the slider.
+
+Dragging the knob follows the same rule every traditional keyframe editor (Blender, Resolve) uses: **if the playhead sits exactly on a keyframe, the edit rewrites that keyframe only** — the base and every other keyframe on the curve are untouched. Move the playhead off a keyframe (anywhere the curve is interpolating) and the same knob now edits the **base**, sliding the whole curve with it. A full mouse drag collapses into one undo step regardless of how many pixels it crosses.
+
 The lane's vertical scale comes from the parameter's slider range (including any custom range you've set via right-click), so a full-scale sweep always fits the row.
+
+Put together, the panel alone is a complete keyframing workflow without ever opening the dock: click the diamond to key a param, `◀`/`▶` to hop to its previous/next keyframe, drag the knob to adjust the one you landed on — each hop-and-adjust edits exactly one keyframe. `Ctrl+Z` / `Ctrl+Y` (or `Ctrl+Shift+Z`) undo and redo from anywhere in the app, not just while hovering the dock, so you're never far from a mistake.
 
 Record-knob-moves (play + write your gestures into a lane) is a planned follow-up. Timelines containing lanes save as timeline format v2; older v1 files load unchanged.

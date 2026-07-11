@@ -21,10 +21,11 @@
 
 import type { Sequencer } from '../sequencer/Sequencer';
 import { AutomationLane, newLaneId } from '../sequencer/types';
-import { upsertPoint, removePointAt } from '../sequencer/lanes';
+import { upsertPoint, removePointAt, evalLane } from '../sequencer/lanes';
 import { SettingsStore } from '../state/Settings';
 import { TARGETS } from './targets';
 import { diamondState, planToggle } from './keyframeState';
+import { findPointAt } from './timeline/laneGeometry';
 
 const TARGET_KEYS = new Set<string>(TARGETS.map((t) => t.v as string));
 const PLAYHEAD_THROTTLE_MS = 100;
@@ -37,6 +38,10 @@ interface DockActions {
 interface DiamondEntry {
   key: string;
   btn: HTMLButtonElement;
+  /** Resolve-style prev/next keyframe jump arrows flanking the diamond.
+   *  Only visible while the param carries at least one lane. */
+  prevBtn: HTMLButtonElement;
+  nextBtn: HTMLButtonElement;
   /** True once the button has been seen in a document — pruning only
    *  applies to previously-mounted buttons, not ones still waiting for
    *  their panel section to be appended during boot. */
@@ -70,7 +75,7 @@ function updateAll(): void {
   }
   const hasTimeline = !!seq?.timeline;
   const head = seq?.playheadBar ?? 0;
-  for (const { key, btn } of diamonds) {
+  for (const { key, btn, prevBtn, nextBtn } of diamonds) {
     btn.hidden = !hasTimeline;
     const keyLanes = laneIndex.get(key) ?? [];
     const state = hasTimeline ? diamondState(keyLanes, head) : 'none';
@@ -82,9 +87,38 @@ function updateAll(): void {
       : state === 'lane'
         ? 'Automated — click to add a point at the playhead'
         : 'Click to keyframe this param at the playhead';
+    // Jump arrows only make sense once the param has keyframes to visit.
+    const bars = keyBars(key);
+    const eps = 1e-6;
+    prevBtn.hidden = nextBtn.hidden = !hasTimeline || bars.length === 0;
+    prevBtn.disabled = !bars.some((b) => b < head - eps);
+    nextBtn.disabled = !bars.some((b) => b > head + eps);
     // Row marker so the panel shows which params carry automation.
-    btn.closest('.rw-row')?.classList.toggle('rw-row--animated', keyLanes.length > 0);
+    const rowEl = btn.closest('.rw-row');
+    rowEl?.classList.toggle('rw-row--animated', keyLanes.length > 0);
+    // Keyable rows get extra top padding so the ◆ strip above the slider
+    // has real vertical room instead of overlapping the row above.
+    rowEl?.classList.toggle('rw-row--keyable', hasTimeline);
   }
+}
+
+/** Sorted bars of every point across the key's lanes. */
+function keyBars(key: string): number[] {
+  return (laneIndex.get(key) ?? [])
+    .flatMap((l) => l.points.map((p) => p.bar))
+    .sort((a, b) => a - b);
+}
+
+/** Seek the playhead to this param's previous/next keyframe. */
+function jumpParamKeyframe(key: string, dir: -1 | 1): void {
+  if (!seq?.timeline) return;
+  const bars = keyBars(key);
+  const eps = 1e-6;
+  const head = seq.playheadBar;
+  const target = dir > 0
+    ? bars.find((b) => b > head + eps)
+    : [...bars].reverse().find((b) => b < head - eps);
+  if (target !== undefined) seq.seek(target);
 }
 
 /** Wire the eagerly-created Sequencer. Called once from main.ts. */
@@ -110,6 +144,49 @@ export function registerSequencer(s: Sequencer): void {
 /** Called by TimelineDock when it mounts (never on compact layouts). */
 export function setDockActions(a: DockActions | null): void {
   dockActions = a;
+}
+
+/**
+ * Traditional keyframe-editor semantics (Blender/Resolve): if the
+ * playhead sits exactly on a point for this key, dragging the panel
+ * knob edits ONLY that point's value — never the global base, which
+ * would otherwise shift the whole curve out from under every other
+ * keyframe. Matches the diamond's multi-lane convention: operates on
+ * the FIRST lane (in registration order) that has a point at the head;
+ * full multi-lane control lives in the lane editor.
+ *
+ * Returns true if a keyframe absorbed the edit (caller should do
+ * nothing else); false if there's no point at the head, so the caller
+ * should fall back to `settings.set` (editing the base).
+ */
+export function setKeyedValueAtPlayhead(
+  settings: SettingsStore,
+  key: string,
+  absTarget: number,
+  opts?: { snapshot?: boolean },
+): boolean {
+  if (!seq?.timeline) return false;
+  const head = seq.playheadBar;
+  const keyLanes = laneIndex.get(key) ?? [];
+  for (const lane of keyLanes) {
+    const hit = findPointAt(lane.points, head);
+    if (!hit) continue;
+    // Other lanes on the same key still contribute at this bar (rare
+    // multi-lane case) — hold their contribution steady so the edited
+    // lane's point is the only thing that moves.
+    let otherOffset = 0;
+    for (const other of keyLanes) {
+      if (other !== lane) otherOffset += evalLane(other.points, head);
+    }
+    const base = settings.get(key as never) as unknown;
+    if (typeof base !== 'number') return false;
+    const newValue = absTarget - base - otherOffset;
+    seq.editLanes(() => {
+      lane.points = upsertPoint(lane.points, { ...hit, value: newValue });
+    }, opts);
+    return true;
+  }
+  return false;
 }
 
 function executeToggle(key: string): void {
@@ -238,8 +315,30 @@ export function attachKeyframeDiamond(
   btn.addEventListener('pointerleave', cancelPress);
   btn.addEventListener('pointercancel', cancelPress);
 
-  control.appendChild(btn);
-  diamonds.push({ key: paramKey, btn, everConnected: false });
+  // Resolve-style ◀ ▶ jump arrows flanking the diamond: seek the
+  // playhead to this param's previous/next keyframe without leaving
+  // the panel. Hidden until the param has at least one lane point.
+  const mkNav = (dir: -1 | 1): HTMLButtonElement => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `rw-kf-nav ${dir < 0 ? 'rw-kf-prev' : 'rw-kf-next'}`;
+    b.textContent = dir < 0 ? '◀' : '▶';
+    b.title = dir < 0
+      ? 'Jump to this param’s previous keyframe'
+      : 'Jump to this param’s next keyframe';
+    b.hidden = true;
+    b.setAttribute('aria-label', `${dir < 0 ? 'Previous' : 'Next'} ${paramKey} keyframe`);
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      jumpParamKeyframe(paramKey, dir);
+    });
+    return b;
+  };
+  const prevBtn = mkNav(-1);
+  const nextBtn = mkNav(1);
+
+  control.append(prevBtn, btn, nextBtn);
+  diamonds.push({ key: paramKey, btn, prevBtn, nextBtn, everConnected: false });
 
   // Reflect current state immediately (sequencer may already be live —
   // pattern-section rebuilds attach diamonds long after boot).

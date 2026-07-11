@@ -867,6 +867,8 @@ export interface Settings {
   // ---------- UI ----------
   panelDock: 'left' | 'right';
   panelCollapsed: boolean;
+  /** v27: width of the side control panel (drag its inner edge; clamped 280–600). */
+  panelWidth: number;
   panelTab: 'synth' | 'io' | 'help';
   hudVisible: boolean;
 
@@ -1322,6 +1324,7 @@ export const DEFAULTS: Settings = {
 
   panelDock: 'right',
   panelCollapsed: false,
+  panelWidth: 360,
   panelTab: 'synth',
   hudVisible: true,
 
@@ -1416,7 +1419,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 26;
+const CURRENT_VERSION = 27;
 
 interface Versioned { _v?: number }
 
@@ -1926,6 +1929,13 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 26) {
     s.timelineInspectorWidth = (s.timelineInspectorWidth as number | undefined) ?? 220;
     s._v = 26;
+  }
+
+  // v26 -> v27: resizable side control panel. Pure UI-state backfill;
+  // the panel clamps to 280–600 on apply. Idempotent.
+  if ((s._v ?? 1) < 27) {
+    s.panelWidth = (s.panelWidth as number | undefined) ?? 360;
+    s._v = 27;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

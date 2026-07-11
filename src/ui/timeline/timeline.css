@@ -4,7 +4,13 @@
 
 #timeline-dock {
   position: absolute;
-  left: 0; right: 0;
+  /* Stop at the side panel's inner edge instead of running underneath
+     it (the panel is z-index 10 and would hide the dock's inspector
+     column). ControlPanel publishes these insets on <html>; they are
+     0 when the panel is collapsed-to-strip width, popped out, or
+     docked on the other side. */
+  left: var(--rw-panel-inset-left, 0px);
+  right: var(--rw-panel-inset-right, 0px);
   z-index: 8;
   background: var(--re-panel);
   border: 1px solid var(--re-line);
@@ -104,6 +110,37 @@
 }
 .rw-tl-insp-resize:hover,
 .rw-tl-insp-resize.active { background: rgba(95,255,133,0.25); }
+
+/* Height grab zone straddling the dock's free edge — top edge when
+   docked bottom, bottom edge when docked top. Clamped 140–600 in
+   TimelineDock. */
+.rw-tl-height-resize {
+  position: absolute;
+  left: 0; right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 10;
+}
+#timeline-dock[data-dock="bottom"] .rw-tl-height-resize { top: -4px; }
+#timeline-dock[data-dock="top"]    .rw-tl-height-resize { bottom: -4px; top: auto; }
+#timeline-dock[data-dock="hidden"] .rw-tl-height-resize { display: none; }
+/* Center grip (⋯) so the edge reads as draggable. */
+.rw-tl-height-resize::after {
+  content: '⋯';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--re-text-dim);
+  font-size: 14px;
+  line-height: 8px;
+  font-family: var(--re-mono);
+  pointer-events: none;
+}
+.rw-tl-height-resize:hover,
+.rw-tl-height-resize.active { background: rgba(95,255,133,0.25); }
+.rw-tl-height-resize:hover::after,
+.rw-tl-height-resize.active::after { color: var(--re-accent); }
 .rw-tl-scroller {
   /* Vertical scroll covers track + lane rows; the ruler stays pinned via
    * position: sticky below. */
@@ -347,7 +384,8 @@
 
 /* Mobile */
 @media (max-width: 700px) {
-  #timeline-dock { height: 160px !important; }
+  /* The compact layout hides the side panel, so ignore its insets. */
+  #timeline-dock { height: 160px !important; left: 0 !important; right: 0 !important; }
   .rw-tl-body { grid-template-columns: 1fr !important; }
   .rw-tl-inspector { display: none; }
   .rw-tl-insp-resize { display: none; }

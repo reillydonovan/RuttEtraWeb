@@ -224,10 +224,16 @@ export class Sequencer {
   /**
    * v2: mutate the timeline's lanes with undo support, then re-apply
    * offsets and notify listeners. The lane editor's single write path.
+   *
+   * `snapshot: false` skips pushing an undo entry for this call — for
+   * continuous gestures (dragging the panel knob while parked on a
+   * keyframe) where the caller collapses many rapid edits into one
+   * undo step by passing `snapshot: false` for every call after the
+   * first in the gesture. Defaults to true (every other call site).
    */
-  editLanes(fn: (t: Timeline) => void): void {
+  editLanes(fn: (t: Timeline) => void, opts?: { snapshot?: boolean }): void {
     if (!this.timeline) return;
-    this.snapshotForUndo();
+    if (opts?.snapshot !== false) this.snapshotForUndo();
     fn(this.timeline);
     this.applyLanes();
     this.fireTimelineChange();

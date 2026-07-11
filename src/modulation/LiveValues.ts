@@ -145,6 +145,13 @@ export class LiveValuesStore {
     return s;
   }
 
+  /** Additive offset contributed by ONE namespace (0 if none). Lets the
+   *  panel slider show "base + timeline offset" as the value at the
+   *  playhead without folding in LFO/CV wobble from other namespaces. */
+  getNamespaceOffset(namespace: string, key: string): number {
+    return this.offsetsByNs.get(namespace)?.get(key) ?? 0;
+  }
+
   /** Total multiplicative factor across all namespaces. 1 if unmodulated. */
   getFactor(key: string): number {
     let f = 1;

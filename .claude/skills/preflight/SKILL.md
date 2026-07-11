@@ -47,9 +47,9 @@ page identifies itself via the build stamp (`v<version> · <commit> ·
 
 ## Notes
 
-- `src/ui/panel.css` is UTF-16/BOM-encoded — content greps see it as
-  binary (use `Select-String` in PowerShell); keep the encoding when
-  editing.
+- `src/ui/panel.css` is plain UTF-8 (fixed 2026-07-10 — it previously
+  contained stray NUL bytes that made content greps treat it as binary).
+  If greps ever report it as binary again, check for reintroduced NULs.
 - GPU-side changes (shaders, postfx, dual raster, XR) have NO automated
   coverage — the suite deliberately excludes WebGL. Flag them for
   manual visual QA in the commit message or summary.

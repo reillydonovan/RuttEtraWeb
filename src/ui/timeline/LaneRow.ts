@@ -8,10 +8,13 @@
  * pointerup (one undo step per gesture, same contract as the scene
  * track's keyframe drag).
  *
- * The value axis is symmetric around 0 (lane values are relative
- * offsets); its half-range comes from the param's effective slider span
- * (designed range from paramRangeRegistry, overridden by the user's v19
- * custom range if set) and expands to fit outlier points.
+ * The value axis shows ABSOLUTE param values (traditional keyframe-
+ * editor presentation — the curve reads in the same numbers as the
+ * panel knob). It spans the param's effective slider range (designed
+ * range from paramRangeRegistry, overridden by the user's v19 custom
+ * range if set) and expands to fit outlier points. A dashed line marks
+ * the current BASE value; points are stored as offsets from it, so
+ * moving the panel knob visibly shifts the whole curve.
  */
 
 import { Sequencer } from '../../sequencer/Sequencer';
@@ -22,7 +25,7 @@ import { TARGETS } from '../targets';
 import { getDesignedRange } from '../paramRangeRegistry';
 import { showContextMenu } from './contextMenu';
 import {
-  LaneAxis, laneAxis, barToX, valueToY, snapBarToBeat, sampleLane, dragResult,
+  LaneAxis, laneAxisAbs, barToX, valueToY, snapBarToBeat, sampleLane, dragResult,
 } from './laneGeometry';
 
 const EASINGS: EasingType[] = ['linear', 'easeIn', 'easeOut', 'easeInOut', 'step', 'hold'];
@@ -41,7 +44,8 @@ export interface LaneRowHost {
   selectPoint(sel: LanePointSel | null): void;
   isExpanded(laneId: string): boolean;
   setExpanded(laneId: string, expanded: boolean): void;
-  /** Live-update the inspector's fields while a point drags. */
+  /** Live-update the inspector's fields while a point drags.
+   *  `value` is the ABSOLUTE param value (base + offset). */
   previewToInspector(laneId: string, bar: number, value: number): void;
 }
 
@@ -51,6 +55,7 @@ export class LaneRow {
   private ptsLayer: HTMLElement;
   private axis: LaneAxis = { min: -1, max: 1 };
   private dragTip: HTMLElement | null = null;
+  private unsubBase: (() => void) | null = null;
 
   constructor(
     private settings: SettingsStore,
@@ -72,17 +77,31 @@ export class LaneRow {
     this.el.addEventListener('click', this.onRowClick);
     this.el.addEventListener('contextmenu', this.onRowContext);
 
-    this.render();
+    // The curve renders base + offsets, so a panel-knob drag must redraw
+    // it live. Fires immediately, which is also the constructor render.
+    this.unsubBase = this.settings.subscribe(
+      this.lane.paramKey as never, () => this.render());
   }
 
-  /** Effective slider span for the value axis: user override > designed. */
-  private effectiveSpan(): number | null {
+  /** Drop the settings subscription (LaneEditor calls this on rebuild). */
+  dispose(): void {
+    this.unsubBase?.();
+    this.unsubBase = null;
+  }
+
+  /** Current base value of the lane's param (0 for non-numeric keys). */
+  private baseValue(): number {
+    const b = this.settings.get(this.lane.paramKey as never) as unknown;
+    return typeof b === 'number' ? b : 0;
+  }
+
+  /** Effective slider range for the value axis: user override > designed. */
+  private effectiveRange(): { min: number; max: number } | null {
     const overrides = this.settings.get('paramRangeOverrides') as
       Record<string, { min: number; max: number }> | undefined;
     const ov = overrides?.[this.lane.paramKey];
-    if (ov) return ov.max - ov.min;
-    const designed = getDesignedRange(this.lane.paramKey);
-    return designed ? designed.max - designed.min : null;
+    if (ov) return ov;
+    return getDesignedRange(this.lane.paramKey);
   }
 
   private rowHeight(): number {
@@ -101,20 +120,21 @@ export class LaneRow {
     this.el.style.height = `${this.rowHeight()}px`;
     this.el.style.width = `${this.timelineWidth()}px`;
 
-    this.axis = laneAxis(this.effectiveSpan(), this.lane.points);
+    this.axis = laneAxisAbs(this.effectiveRange(), this.baseValue(), this.lane.points);
     this.renderPoints(this.lane.points);
     this.drawCurve(this.lane.points);
   }
 
   /**
-   * Live-preview an edited value for the point at `bar` (typed in the
-   * inspector, not yet committed): move its diamond and redraw the curve
-   * from a working copy. The commit re-renders everything consistently.
+   * Live-preview an edited ABSOLUTE value for the point at `bar` (typed
+   * in the inspector, not yet committed): move its diamond and redraw
+   * the curve from a working copy. The commit re-renders consistently.
    */
-  previewValue(bar: number, value: number): void {
-    const preview = upsertPoint(this.lane.points, { bar, value });
+  previewValue(bar: number, absValue: number): void {
+    const offset = absValue - this.baseValue();
+    const preview = upsertPoint(this.lane.points, { bar, value: offset });
     for (const el of Array.from(this.ptsLayer.children) as HTMLElement[]) {
-      if (parseFloat(el.dataset.bar ?? '') === bar) this.positionPoint(el, bar, value);
+      if (parseFloat(el.dataset.bar ?? '') === bar) this.positionPoint(el, bar, offset);
     }
     this.drawCurve(preview);
   }
@@ -200,12 +220,13 @@ export class LaneRow {
   private renderPoints(points: AutomationPoint[]): void {
     this.ptsLayer.replaceChildren();
     if (!this.host.isExpanded(this.lane.id)) return;
+    const base = this.baseValue();
     for (const p of points) {
       const d = document.createElement('div');
       d.className = 'rw-tl-lane-pt';
       d.dataset.bar = String(p.bar);
       this.positionPoint(d, p.bar, p.value);
-      d.title = `bar ${p.bar.toFixed(2)} · ${p.value >= 0 ? '+' : ''}${p.value.toFixed(3)} (${p.easing ?? 'linear'})`;
+      d.title = `bar ${p.bar.toFixed(2)} · ${(base + p.value).toFixed(3)} (${p.easing ?? 'linear'})`;
       d.addEventListener('pointerdown', (ev) => this.onPointDown(ev, p));
       d.addEventListener('contextmenu', (ev) => this.onPointContext(ev, p));
       this.ptsLayer.appendChild(d);
@@ -213,10 +234,11 @@ export class LaneRow {
     this.applySelection();
   }
 
+  /** `value` is the stored OFFSET; positioning happens in absolute space. */
   private positionPoint(el: HTMLElement, bar: number, value: number): void {
     const ppb = this.host.pixelsPerBar();
     el.style.left = `${barToX(bar, ppb) - PT_HIT / 2}px`;
-    el.style.top = `${valueToY(value, this.axis, this.rowHeight()) - PT_HIT / 2}px`;
+    el.style.top = `${valueToY(this.baseValue() + value, this.axis, this.rowHeight()) - PT_HIT / 2}px`;
   }
 
   private onPointDown = (ev: PointerEvent, p: AutomationPoint): void => {
@@ -232,12 +254,15 @@ export class LaneRow {
     const startX = ev.clientX;
     const startY = ev.clientY;
     const startBar = p.bar;
-    const startValue = p.value;
-    let last = { bar: startBar, value: startValue };
+    const base = this.baseValue();
+    // Drag math runs in ABSOLUTE value space (matches the axis); the
+    // stored point value stays an offset from the base.
+    const startAbs = base + p.value;
+    let last = { bar: startBar, value: p.value };
     let moved = false;
 
     const onMove = (mv: PointerEvent) => {
-      const r = dragResult(startBar, startValue, mv.clientX - startX, mv.clientY - startY, {
+      const r = dragResult(startBar, startAbs, mv.clientX - startX, mv.clientY - startY, {
         pixelsPerBar: this.host.pixelsPerBar(),
         rowHeight: this.rowHeight(),
         axis: this.axis,
@@ -245,18 +270,19 @@ export class LaneRow {
         lengthBars: t.lengthBars,
         free: mv.altKey,
       });
-      if (r.bar === last.bar && r.value === last.value) return;
-      last = r;
+      const offset = r.value - base;
+      if (r.bar === last.bar && offset === last.value) return;
+      last = { bar: r.bar, value: offset };
       moved = true;
-      this.positionPoint(target, r.bar, r.value);
+      this.positionPoint(target, r.bar, offset);
       // Preview curve against a working copy — no store writes mid-drag.
       const preview = upsertPoint(
         removePointAt(this.lane.points, startBar),
-        { bar: r.bar, value: r.value, easing: p.easing },
+        { bar: r.bar, value: offset, easing: p.easing },
       );
       this.drawCurve(preview);
       this.showDragTip(mv.clientX, mv.clientY, r.bar, r.value);
-      // Keep the inspector's Bar/Offset fields aligned with the drag.
+      // Keep the inspector's Bar/Value fields aligned with the drag.
       this.host.previewToInspector(this.lane.id, r.bar, r.value);
     };
     const onUp = (mv: PointerEvent) => {
@@ -383,14 +409,16 @@ export class LaneRow {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const zeroY = valueToY(0, this.axis, cssH);
+    const base = this.baseValue();
+    const baseY = valueToY(base, this.axis, cssH);
 
-    // Dashed zero line (offset 0 = "riding the base value").
+    // Dashed line at the BASE value — the panel knob's contribution;
+    // the curve rides on it and shifts when the knob moves.
     ctx.strokeStyle = 'rgba(95, 255, 133, 0.25)';
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(0, zeroY);
-    ctx.lineTo(cssW, zeroY);
+    ctx.moveTo(0, baseY);
+    ctx.lineTo(cssW, baseY);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -402,27 +430,27 @@ export class LaneRow {
       ctx.beginPath();
       samples.forEach(([bar, value], i) => {
         const x = barToX(bar, ppb);
-        const y = valueToY(value, this.axis, cssH);
+        const y = valueToY(base + value, this.axis, cssH);
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.strokeStyle = 'rgba(126, 255, 156, 0.9)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Soft fill between curve and zero line.
-      ctx.lineTo(barToX(t.lengthBars, ppb), zeroY);
-      ctx.lineTo(0, zeroY);
+      // Soft fill between curve and base line.
+      ctx.lineTo(barToX(t.lengthBars, ppb), baseY);
+      ctx.lineTo(0, baseY);
       ctx.closePath();
       ctx.fillStyle = 'rgba(95, 255, 133, 0.08)';
       ctx.fill();
     }
 
-    // Axis extents, faint, pinned to the visible left edge area.
+    // Axis extents (absolute values), faint, pinned to the left edge.
     if (this.host.isExpanded(this.lane.id)) {
       ctx.fillStyle = 'rgba(90, 154, 114, 0.7)';
       ctx.font = '9px monospace';
-      ctx.fillText(`+${fmtAxis(this.axis.max)}`, 2, 8);
-      ctx.fillText(`-${fmtAxis(this.axis.max)}`, 2, cssH - 2);
+      ctx.fillText(fmtAxis(this.axis.max), 2, 8);
+      ctx.fillText(fmtAxis(this.axis.min), 2, cssH - 2);
     }
   }
 
@@ -430,16 +458,14 @@ export class LaneRow {
   // Drag tooltip
   // ------------------------------------------------------------------
 
-  private showDragTip(clientX: number, clientY: number, bar: number, value: number): void {
+  /** `absValue` is the point's absolute param value at the drag position. */
+  private showDragTip(clientX: number, clientY: number, bar: number, absValue: number): void {
     if (!this.dragTip) {
       this.dragTip = document.createElement('div');
       this.dragTip.className = 'rw-tl-lane-tip';
       document.body.appendChild(this.dragTip);
     }
-    const base = this.settings.get(this.lane.paramKey as never) as unknown;
-    const resolved = typeof base === 'number' ? ` → ${(base + value).toFixed(3)}` : '';
-    this.dragTip.textContent =
-      `bar ${bar.toFixed(2)} · ${value >= 0 ? '+' : ''}${value.toFixed(3)}${resolved}`;
+    this.dragTip.textContent = `bar ${bar.toFixed(2)} · ${absValue.toFixed(3)}`;
     this.dragTip.style.left = `${clientX + 12}px`;
     this.dragTip.style.top = `${clientY - 24}px`;
   }
@@ -451,5 +477,6 @@ export class LaneRow {
 }
 
 function fmtAxis(v: number): string {
-  return v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2);
+  const a = Math.abs(v);
+  return a >= 10 ? v.toFixed(0) : a >= 1 ? v.toFixed(1) : v.toFixed(2);
 }

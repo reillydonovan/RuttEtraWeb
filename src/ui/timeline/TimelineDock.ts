@@ -154,6 +154,10 @@ export class TimelineDock {
     this.body.appendChild(this.buildInspectorResizeHandle());
     this.host.appendChild(this.body);
 
+    // Height drag handle on the dock's free edge (top edge when docked
+    // bottom, bottom edge when docked top — CSS picks the side).
+    this.host.appendChild(this.buildHeightResizeHandle());
+
     // Hover-focus tracking for keyboard shortcuts.
     this.host.addEventListener('mouseenter', () => { this.hovered = true; });
     this.host.addEventListener('mouseleave', () => { this.hovered = false; });
@@ -204,6 +208,22 @@ export class TimelineDock {
     const tgt = ev.target as HTMLElement | null;
     const tag = tgt?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Undo/redo is GLOBAL — not gated on dock hover like the rest of
+    // these shortcuts. The point of a history stack is reaching for it
+    // right after an edit made anywhere in the panel (including a
+    // keyframe value tweaked via a slider with the timeline dock fully
+    // hidden), without moving the mouse down to the timeline strip
+    // first. Ctrl/Cmd+Z undoes; Ctrl+Y or Ctrl/Cmd+Shift+Z redoes
+    // (Windows and Mac conventions both work).
+    if ((ev.ctrlKey || ev.metaKey) && (ev.code === 'KeyZ' || ev.code === 'KeyY')) {
+      if (!this.seq.timeline) return;
+      ev.preventDefault();
+      const isRedo = ev.code === 'KeyY' || ev.shiftKey;
+      if (isRedo) this.seq.redo(); else this.seq.undo();
+      return;
+    }
+
     if (!this.hovered && this.settings.get('timelineDock') === 'hidden') return;
 
     const t = this.seq.timeline;
@@ -238,10 +258,6 @@ export class TimelineDock {
         ev.preventDefault();
         this.seq.removeKeyframe(id);
       }
-    } else if ((ev.ctrlKey || ev.metaKey) && ev.code === 'KeyZ') {
-      if (!this.hovered) return;
-      ev.preventDefault();
-      if (ev.shiftKey) this.seq.redo(); else this.seq.undo();
     }
   };
 
@@ -291,6 +307,47 @@ export class TimelineDock {
     return handle;
   }
 
+  // -----------------------------------------------------------------
+  // Dock height resize (drag the free edge; clamped 140–600)
+  // -----------------------------------------------------------------
+
+  private static readonly HEIGHT_MIN = 140;
+  private static readonly HEIGHT_MAX = 600;
+
+  private buildHeightResizeHandle(): HTMLElement {
+    const handle = document.createElement('div');
+    handle.className = 'rw-tl-height-resize';
+    handle.title = 'Drag to resize the timeline';
+    handle.addEventListener('pointerdown', (ev) => {
+      if (this.settings.get('timelineDock') === 'hidden') return;
+      ev.preventDefault();
+      handle.setPointerCapture?.(ev.pointerId);
+      handle.classList.add('active');
+      const startY = ev.clientY;
+      const startH = Math.max(TimelineDock.HEIGHT_MIN, Math.min(
+        TimelineDock.HEIGHT_MAX, this.settings.get('timelineHeight')));
+      // Docked bottom: dragging UP grows the dock. Docked top: down.
+      const sign = this.settings.get('timelineDock') === 'top' ? 1 : -1;
+      let lastH = startH;
+      const onMove = (mv: PointerEvent): void => {
+        lastH = Math.max(TimelineDock.HEIGHT_MIN, Math.min(
+          TimelineDock.HEIGHT_MAX, startH + sign * (mv.clientY - startY)));
+        this.host.style.height = `${lastH}px`;
+      };
+      const onUp = (mv: PointerEvent): void => {
+        handle.releasePointerCapture?.(mv.pointerId);
+        handle.classList.remove('active');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        // Persist once per gesture, not per pixel.
+        this.settings.set('timelineHeight', Math.round(lastH));
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+    return handle;
+  }
+
   private applyDockState(dock: 'top' | 'bottom' | 'hidden', height: number): void {
     this.host.dataset.dock = dock;
     if (dock === 'hidden') {
@@ -300,7 +357,8 @@ export class TimelineDock {
       const last = this.settings.get('timelineLastDock');
       this.host.dataset.miniSide = last;
     } else {
-      this.host.style.height = `${Math.max(140, Math.min(600, height))}px`;
+      this.host.style.height = `${Math.max(TimelineDock.HEIGHT_MIN,
+        Math.min(TimelineDock.HEIGHT_MAX, height))}px`;
       this.mini.style.display = 'none';
       this.host.dataset.miniSide = dock;
     }

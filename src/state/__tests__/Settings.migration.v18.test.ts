@@ -117,3 +117,16 @@ describe('migrateSettings v25 -> v26 (resizable timeline inspector)', () => {
     expect(kept.timelineInspectorWidth).toBe(320);
   });
 });
+
+describe('migrateSettings v26 -> v27 (resizable control panel)', () => {
+  it('backfills the default width', () => {
+    const out = migrateSettings({ _v: 26 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(27);
+    expect(out.panelWidth).toBe(360);
+  });
+
+  it('preserves an explicit width', () => {
+    const kept = migrateSettings({ _v: 26, panelWidth: 480 });
+    expect(kept.panelWidth).toBe(480);
+  });
+});

@@ -19,7 +19,8 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Timeline | `K` | Add scene keyframe at playhead |
 | Timeline | `,` / `.` | Jump to previous / next keyframe (selected lane's points, or all scenes + points) |
 | Timeline | `Delete` | Delete selected scene keyframe |
-| Timeline | `Ctrl+Z` | Undo last timeline edit |
+| Global | `Ctrl+Z` | Undo last timeline edit (scenes and lane edits — works anywhere, not just over the dock) |
+| Global | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | Project | `Ctrl+N` | New Project (prompts on unsaved changes) |
 | Project | `Ctrl+O` | Open Project (file picker) |
 | Project | `Ctrl+S` | Save Project (writes back to current file, or prompts if untitled) |
