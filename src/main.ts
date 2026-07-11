@@ -1089,6 +1089,18 @@ async function bootSynth(): Promise<void> {
     // positions the canvas CSS for the chosen fit mode, offset to the
     // available rect's top-left corner.
     resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale, patternRenderer, rect.x, rect.y);
+    // The boot overlay ("select a source") is a sibling of the canvas, not
+    // a child — CSS alone (`inset: 0`) pins it to the full window, so
+    // without this it kept centering itself under the panel/timeline dock
+    // instead of the canvas's own bounded rect once the canvas started
+    // respecting those bounds. Explicit left/top/width/height (like
+    // ResolutionManager does for the canvas) wins over the stylesheet's
+    // `inset: 0` shorthand — the browser drops the now-overconstrained
+    // right/bottom in favor of the explicit width/height.
+    overlay.style.left = `${rect.x}px`;
+    overlay.style.top = `${rect.y}px`;
+    overlay.style.width = `${rect.width}px`;
+    overlay.style.height = `${rect.height}px`;
     timelineDock?.resize();
   }
   function scheduleResize(): void {

@@ -61,6 +61,11 @@ html, body, #app {
   z-index: 5;
   pointer-events: auto;
   transition: opacity 240ms ease-out;
+  /* left/top/width/height are set inline in main.ts's resize(), matching
+     the canvas's own bounded rect (panel/timeline dock insets) — the
+     `inset: 0` above is only the pre-resize fallback. overflow:auto is a
+     safety net if that rect ever gets small enough to clip the content. */
+  overflow: auto;
 }
 #overlay.hidden { opacity: 0; pointer-events: none; }
 
