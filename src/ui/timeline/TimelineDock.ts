@@ -54,7 +54,7 @@ export class TimelineDock {
       onZoomChange: (z) => this.setZoom(z),
       onJumpKeyframe: (dir) => this.jumpToKeyframe(dir),
     });
-    this.ruler     = new TimelineRuler(seq);
+    this.ruler     = new TimelineRuler(seq, settings);
     this.track     = new TimelineTrack(seq);
     this.inspector = new TimelineInspector(seq, {
       settings,
@@ -333,6 +333,8 @@ export class TimelineDock {
         lastH = Math.max(TimelineDock.HEIGHT_MIN, Math.min(
           TimelineDock.HEIGHT_MAX, startH + sign * (mv.clientY - startY)));
         this.host.style.height = `${lastH}px`;
+        // Let the render canvas track the dock's footprint live, mid-drag.
+        window.dispatchEvent(new Event('rw:layout-resize'));
       };
       const onUp = (mv: PointerEvent): void => {
         handle.releasePointerCapture?.(mv.pointerId);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  barToSeconds, formatTimecode, totalFrames, totalSamples, formatReadout,
+  barToSeconds, formatTimecode, totalFrames, totalSamples, formatReadout, formatRulerTick,
 } from '../timecode';
 
 describe('barToSeconds', () => {
@@ -61,5 +61,36 @@ describe('formatReadout', () => {
     expect(formatReadout('timecode', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('00:00:02:00  ·  bar 1.00');
     expect(formatReadout('frames', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('frame 60  ·  bar 1.00');
     expect(formatReadout('samples', 1, 16, bpm, beatsPerBar, fps, sr)).toBe('smp 96000  ·  bar 1.00');
+  });
+});
+
+describe('formatRulerTick', () => {
+  const bpm = 120, beatsPerBar = 4, fps = 30, sr = 48000;
+
+  it('bars format is the plain bar number', () => {
+    expect(formatRulerTick('bars', 0, bpm, beatsPerBar, fps, sr)).toBe('0');
+    expect(formatRulerTick('bars', 8, bpm, beatsPerBar, fps, sr)).toBe('8');
+  });
+
+  it('agrees with formatReadout\'s anchor: the same bar produces the same underlying reading', () => {
+    // Regression check for the reported bug — ruler showed "8" while
+    // the counter (in Timecode mode) showed 16s for the same bar,
+    // because the ruler never looked at the display format at all.
+    const bar = 8;
+    const readout = formatReadout('timecode', bar, 16, bpm, beatsPerBar, fps, sr);
+    const tick = formatRulerTick('timecode', bar, bpm, beatsPerBar, fps, sr);
+    expect(readout).toContain('00:00:16'); // 8 bars @ 120bpm/4/4 = 16s
+    expect(tick).toBe('0:16'); // short-form ruler label for the same 16s
+  });
+
+  it('frames/samples ruler ticks match the same bar->seconds conversion as the readout', () => {
+    expect(formatRulerTick('frames', 1, bpm, beatsPerBar, fps, sr)).toBe('60');
+    expect(formatRulerTick('samples', 1, bpm, beatsPerBar, fps, sr)).toBe('96000');
+  });
+
+  it('short-form timecode drops hours until past one', () => {
+    expect(formatRulerTick('timecode', 0, bpm, beatsPerBar, fps, sr)).toBe('0:00');
+    // 1800 bars @ 120bpm/4/4 = 3600s = exactly 1 hour.
+    expect(formatRulerTick('timecode', 1800, bpm, beatsPerBar, fps, sr)).toBe('1:00:00');
   });
 });

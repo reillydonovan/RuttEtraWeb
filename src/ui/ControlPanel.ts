@@ -184,6 +184,13 @@ export class ControlPanel {
     const side = this.settings.get('panelDock');
     style.setProperty('--rw-panel-inset-right', side === 'right' ? `${w}px` : '0px');
     style.setProperty('--rw-panel-inset-left',  side === 'left'  ? `${w}px` : '0px');
+    // Let the render canvas track the panel's footprint live, mid-drag
+    // — not just once the width commits to Settings on release. Bare
+    // `window` (not `this.root.ownerDocument.defaultView`): this
+    // controller always runs in the MAIN window's JS context even when
+    // its DOM is adopted into the popout, and main.ts's listener lives
+    // there too.
+    window.dispatchEvent(new Event('rw:layout-resize'));
   }
 
   /** Recompute the insets (main.ts calls this when the popout returns). */

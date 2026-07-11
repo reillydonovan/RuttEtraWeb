@@ -86,3 +86,38 @@ export function formatReadout(
   if (format === 'frames') return `frame ${totalFrames(seconds, fps)}  ·  ${anchor}`;
   return `smp ${totalSamples(seconds, sampleRate)}  ·  ${anchor}`;
 }
+
+/** `M:SS`, or `H:MM:SS` past an hour — a compact ruler-tick label. Full
+ *  HH:MM:SS:FF precision is what the transport counter is for; a ruler
+ *  tick every bar has no room for that much text. */
+function formatShortTime(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const ss = total % 60;
+  const mm = Math.floor(total / 60) % 60;
+  const hh = Math.floor(total / 3600);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${mm}:${pad(ss)}`;
+}
+
+/**
+ * Label for one bar-tick on the timeline ruler, in the SAME display
+ * format currently selected for the transport counter — so the ruler
+ * you're scrubbing along and the number you're reading always speak
+ * the same language. Tick POSITIONS stay in bar-space regardless of
+ * format (editing/snapping/zoom are all bar-based); only the label
+ * text changes. `bar` is always an integer here (one label per bar).
+ */
+export function formatRulerTick(
+  format: ReadoutFormat,
+  bar: number,
+  bpm: number,
+  beatsPerBar: number,
+  fps: number,
+  sampleRate: number,
+): string {
+  if (format === 'bars') return String(bar);
+  const seconds = barToSeconds(bar, bpm, beatsPerBar);
+  if (format === 'timecode') return formatShortTime(seconds);
+  if (format === 'frames') return String(totalFrames(seconds, fps));
+  return String(totalSamples(seconds, sampleRate));
+}

@@ -191,6 +191,9 @@
   color: var(--re-text-dim);
   padding: 2px 3px;
   letter-spacing: 0.05em;
+  /* Timecode/Frames/Samples labels run longer than plain bar numbers
+     (e.g. "096000" vs "8") — never let one wrap onto a second line. */
+  white-space: nowrap;
 }
 .rw-tl-bar.beat {
   border-left: 1px dashed rgba(95,255,133,0.10);

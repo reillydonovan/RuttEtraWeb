@@ -1036,24 +1036,75 @@ async function bootSynth(): Promise<void> {
   });
 
   // -------------------------- Resize handling ---------------------------
+  /**
+   * The rectangle actually available to the render canvas: the full
+   * viewport minus whatever the side panel and timeline dock currently
+   * occupy, so the render surface sits fully visible within its own
+   * bounded region instead of the panel/dock overlaying a full-bleed
+   * canvas that continues rendering behind them.
+   *
+   * Reads LIVE bounding rects rather than recomputing panel/dock state
+   * from Settings — that automatically handles every state (collapsed,
+   * hidden-mini-strip, popped-out panel, compact layout where the panel
+   * is `display:none` and the dock isn't even mounted) with no
+   * special-casing: a hidden/collapsed/popped-out element's rect is
+   * naturally zero or absent.
+   */
+  function availableCanvasRect(): { x: number; y: number; width: number; height: number } {
+    const vp = layout.viewport();
+    let left = 0, right = 0, top = 0, bottom = 0;
+
+    const panelEl = document.getElementById('panel-root');
+    if (panelEl) {
+      const w = panelEl.getBoundingClientRect().width;
+      if (settings.get('panelDock') === 'left') left = w; else right = w;
+    }
+    const dockEl = document.getElementById('timeline-dock');
+    if (dockEl) {
+      const h = dockEl.getBoundingClientRect().height;
+      const dock = settings.get('timelineDock');
+      const side = dock === 'hidden' ? settings.get('timelineLastDock') : dock;
+      if (side === 'top') top = h; else bottom = h;
+    }
+    return {
+      x: left,
+      y: top,
+      width: Math.max(1, vp.width - left - right),
+      height: Math.max(1, vp.height - top - bottom),
+    };
+  }
+
   let resizeTimer: number | null = null;
   function resize(): void {
-    const vp = layout.viewport();
-    const w = vp.width;
-    const h = vp.height;
+    const rect = availableCanvasRect();
+    const w = rect.width;
+    const h = rect.height;
     // Effective DPR = min(devicePixelRatio, profile.dprCap) * userScale,
     // clamped to the profile's renderScaleFloor lower bound.
     const userScale = Math.max(currentRenderScaleFloor, settings.get('renderScale'));
     const dpr = Math.min(window.devicePixelRatio, currentDprCap) * userScale;
     // ResolutionManager owns renderer/postfx/rig resize: it routes to the
     // correct render-target size (match-window vs. fixed preset) and
-    // positions the canvas CSS for the chosen fit mode.
-    resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale, patternRenderer);
+    // positions the canvas CSS for the chosen fit mode, offset to the
+    // available rect's top-left corner.
+    resolutionManager.apply(renderer, postfx, ruttEtra, cameraRig, w, h, dpr, userScale, patternRenderer, rect.x, rect.y);
     timelineDock?.resize();
   }
   function scheduleResize(): void {
     if (resizeTimer != null) return;
     resizeTimer = window.setTimeout(() => { resizeTimer = null; resize(); }, 120);
+  }
+  // The panel and timeline dock resize live (dragging their edges
+  // updates CSS immediately, before the underlying Settings value
+  // commits on release) — they dispatch this so the canvas tracks
+  // along at the same debounced cadence as a window resize, instead of
+  // only catching up once the drag ends.
+  window.addEventListener('rw:layout-resize', scheduleResize);
+  // Safety net for non-drag layout changes (collapse/expand buttons,
+  // dock-side toggle, TOP/BOT/HIDE) that don't go through a drag
+  // gesture at all, so there's no `rw:layout-resize` tick to catch them.
+  for (const key of ['panelWidth', 'panelCollapsed', 'panelDock', 'timelineHeight', 'timelineDock', 'timelineLastDock'] as const) {
+    settings.subscribe(key, () => scheduleResize());
   }
   window.addEventListener('resize', scheduleResize);
   if (window.visualViewport) {

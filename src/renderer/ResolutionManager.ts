@@ -61,11 +61,21 @@ export class ResolutionManager {
    * updates the renderer / composer / camera, and repositions the canvas
    * element for the chosen fit mode.
    *
+   * @param viewportW/H The space AVAILABLE to the canvas — the full window
+   *                    minus whatever the side panel and timeline dock
+   *                    currently occupy, not necessarily the raw window
+   *                    size (see `availableCanvasRect()` in main.ts).
    * @param dpr         Effective device-pixel-ratio for Match Window mode
    *                    (already incorporates the render-scale slider).
    * @param renderScale Raw user render-scale value (used for preset modes so
    *                    device DPR is not double-applied against the preset's
    *                    fixed pixel count).
+   * @param offsetX/Y   Top-left corner of that available space within the
+   *                    viewport (nonzero when the panel is docked left or
+   *                    the timeline dock is docked top) — the canvas is
+   *                    positioned there instead of always at (0, 0), so it
+   *                    fills its own bounded region rather than the panel
+   *                    and dock overlaying a full-bleed canvas.
    */
   apply(
     renderer:    THREE.WebGLRenderer,
@@ -77,6 +87,8 @@ export class ResolutionManager {
     dpr:         number,
     renderScale: number,
     patternRenderer: PatternRenderer | null = null,
+    offsetX = 0,
+    offsetY = 0,
   ): void {
     const id      = this.settings.get('renderResolutionId');
     const fitMode = this.settings.get('renderFitMode');
@@ -84,7 +96,7 @@ export class ResolutionManager {
     // ---- Match Window: delegate to existing resize logic ----
     if (id === 'match') {
       this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, viewportW, viewportH, dpr);
-      this._resetCanvasCSS();
+      this._resetCanvasCSS(viewportW, viewportH, offsetX, offsetY);
       rig.resize(viewportW, viewportH);
       return;
     }
@@ -100,7 +112,7 @@ export class ResolutionManager {
       if (!preset || preset.width === 0) {
         // Unknown preset ID — fall back to match-window
         this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, viewportW, viewportH, dpr);
-        this._resetCanvasCSS();
+        this._resetCanvasCSS(viewportW, viewportH, offsetX, offsetY);
         rig.resize(viewportW, viewportH);
         return;
       }
@@ -120,15 +132,15 @@ export class ResolutionManager {
         renderW = viewportW;
         renderH = Math.round(renderW / aspect);
       }
-      // Render at aspect-correct size, then let CSS fill the viewport.
+      // Render at aspect-correct size, then let CSS fill the available rect.
       this._commitRenderer(renderer, postfx, ruttEtra, patternRenderer, renderW, renderH, renderScale);
       const c = this.canvas;
       c.style.position = 'absolute';
-      c.style.inset    = '0';
+      c.style.inset    = '';
       c.style.width    = `${viewportW}px`;
       c.style.height   = `${viewportH}px`;
-      c.style.left     = '0';
-      c.style.top      = '0';
+      c.style.left     = `${offsetX}px`;
+      c.style.top      = `${offsetY}px`;
       rig.resize(renderW, renderH);
       return;
     }
@@ -143,8 +155,8 @@ export class ResolutionManager {
       : Math.min(scaleX, scaleY);  // letterbox
     const cssW    = targetW * scale;
     const cssH    = targetH * scale;
-    const offsetL = (viewportW - cssW) / 2;
-    const offsetT = (viewportH - cssH) / 2;
+    const offsetL = offsetX + (viewportW - cssW) / 2;
+    const offsetT = offsetY + (viewportH - cssH) / 2;
 
     const c = this.canvas;
     c.style.position = 'absolute';
@@ -177,13 +189,18 @@ export class ResolutionManager {
     patternRenderer?.setSize(w, h);
   }
 
-  private _resetCanvasCSS(): void {
+  /** Size + position the canvas to exactly the available rect (full
+   *  viewport minus whatever the panel/timeline dock occupy — see the
+   *  `offsetX/Y` doc on `apply()`). Explicit px, not `inset: 0` /
+   *  `100%`, because the canvas is a SUB-region of `#app` now, not
+   *  necessarily the whole thing. */
+  private _resetCanvasCSS(w: number, h: number, offsetX: number, offsetY: number): void {
     const c = this.canvas;
     c.style.position = 'absolute';
-    c.style.inset    = '0';
-    c.style.width    = '100%';
-    c.style.height   = '100%';
-    c.style.left     = '';
-    c.style.top      = '';
+    c.style.inset    = '';
+    c.style.width    = `${w}px`;
+    c.style.height   = `${h}px`;
+    c.style.left     = `${offsetX}px`;
+    c.style.top      = `${offsetY}px`;
   }
 }
