@@ -314,36 +314,10 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
 
   const audioEnabledToggle = toggle(settings, 'videoAudioEnabled');
 
-  const volSlider = document.createElement('input');
-  volSlider.type = 'range';
-  volSlider.min  = '0';
-  volSlider.max  = '1';
-  volSlider.step = '0.01';
-  volSlider.value = String(settings.get('videoAudioVolume'));
-  volSlider.className = 'param-slider';
-  volSlider.addEventListener('input', () => {
-    settings.set('videoAudioVolume', parseFloat(volSlider.value));
-  });
-  settings.subscribe('videoAudioVolume', (v) => {
-    volSlider.value = String(v);
-  });
-
-  const volReadout = document.createElement('span');
-  volReadout.className = 'param-readout';
-  function refreshVolReadout() {
-    volReadout.textContent = Math.round(settings.get('videoAudioVolume') * 100) + '%';
-  }
-  refreshVolReadout();
-  settings.subscribe('videoAudioVolume', refreshVolReadout);
-
-  const volRow = document.createElement('div');
-  volRow.className = 'param-row';
-  volRow.append(volSlider, volReadout);
-
   va.body.append(
     audioSafetyNote,
     row('Enable', audioEnabledToggle),
-    row('Volume', volRow),
+    row('Volume', slider(settings, 'videoAudioVolume', 0, 1, 0.01)),
   );
   root.appendChild(va.root);
 

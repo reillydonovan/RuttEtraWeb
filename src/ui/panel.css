@@ -20,6 +20,21 @@
 
 * { box-sizing: border-box; }
 
+/* Themed scrollbars app-wide — a bare native scrollbar (system-chrome
+   arrows/track) reads as a foreign widget against the CRT phosphor
+   theme, so every scroll container gets the thin green-on-transparent
+   treatment by default. Per-widget rules below may still narrow this
+   further; this is the floor, not the ceiling. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--re-line-hi) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--re-line-hi); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--re-accent); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
 html, body, #app {
   margin: 0; padding: 0;
   width: 100%; height: 100%;
@@ -420,6 +435,38 @@ body.viewer-mode #about-link { display: none; }
      that slider's track renders far short of the row's actual width. */
   width: 100%;
   min-width: 0;
+}
+/* Global CRT baseline for EVERY `<input type="range">` in the app, not
+   just ones inside `.rw-slider` — the design-system safety net. A
+   hand-rolled slider that forgets to wrap itself in `.rw-slider` (or
+   sets no class at all) still gets the phosphor look instead of
+   silently falling back to the browser's native blue slider, which is
+   how this drifted before: SourceSection's Video Audio "Volume" and
+   CVOutputSection's "Scaling trim" sliders both shipped fully
+   unstyled. `.rw-slider input[type="range"]` stays as an explicit,
+   equally-specific reinforcement for the common case; this rule is
+   what actually closes the gap for everything else. */
+input[type="range"] {
+  width: 100%;
+  appearance: none;
+  background: linear-gradient(to right, var(--re-line) 0%, var(--re-line-hi) 100%);
+  height: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px; height: 18px;
+  background: var(--re-accent);
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--re-glow);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 18px;
+  background: var(--re-accent);
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--re-glow);
 }
 .rw-slider input[type="range"] {
   width: 100%;

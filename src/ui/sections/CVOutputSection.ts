@@ -46,7 +46,7 @@ import {
 import { CVOutput, pitchVoltageForNote } from '../../audio/CVOutput';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { TARGETS } from '../targets';
-import { group } from '../widgets';
+import { group, row } from '../widgets';
 import { listPatternOutputs } from '../../renderer/patterns/PatternRegistry';
 
 interface CVOutputSectionDeps {
@@ -695,13 +695,9 @@ function openPitchCalibration(args: { settings: SettingsStore; cvOut: CVOutput; 
   panel.appendChild(playRow);
 
   // Scaling trim slider — multiplier on V/oct.
-  const trimRow = document.createElement('div');
-  trimRow.className = 'rw-row';
-  const trimLbl = document.createElement('label');
-  trimLbl.className = 'rw-label';
-  trimLbl.textContent = 'Scaling trim';
   const trimRange = document.createElement('input');
   trimRange.type = 'range';
+  trimRange.className = 'rw-slider';
   trimRange.min = '0.95'; trimRange.max = '1.05'; trimRange.step = '0.0001';
   trimRange.value = String(get().pitchCalibrationScale ?? 1);
   const trimNum = document.createElement('input');
@@ -716,8 +712,10 @@ function openPitchCalibration(args: { settings: SettingsStore; cvOut: CVOutput; 
   };
   trimRange.addEventListener('input', () => sync(Number.parseFloat(trimRange.value)));
   trimNum.addEventListener('change', () => sync(Number.parseFloat(trimNum.value)));
-  trimRow.append(trimLbl, trimRange, trimNum);
-  panel.appendChild(trimRow);
+  const trimGroup = document.createElement('div');
+  trimGroup.className = 'rw-inline-group';
+  trimGroup.append(trimRange, trimNum);
+  panel.appendChild(row('Scaling trim', trimGroup));
 
   // Save / Close.
   const btnRow = document.createElement('div');
