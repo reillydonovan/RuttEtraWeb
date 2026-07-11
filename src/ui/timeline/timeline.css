@@ -184,8 +184,12 @@
 /* Track surface */
 .rw-tl-track {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 48px;
+  /* Fixed row height — NOT flex-grow. A taller dock should reveal more
+     of the lane rows below, not stretch the scene markers into giant
+     bars (they're a bar/beat position marker, not a duration to show).
+     Same fixed-track-height convention as Ableton/Logic/Pro Tools. */
+  flex: 0 0 48px;
+  height: 48px;
   background:
     repeating-linear-gradient(
       to right,

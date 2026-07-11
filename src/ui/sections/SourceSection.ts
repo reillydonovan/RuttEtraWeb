@@ -503,9 +503,7 @@ function rebuildParams(host: HTMLElement, settings: SettingsStore, kind: Pattern
     const ctrl = buildParamControl(settings, key);
     if (!ctrl) continue;
     const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'stretch';
-    wrap.style.gap = '4px';
+    wrap.className = 'rw-inline-group';
     wrap.appendChild(ctrl.el);
     if (ctrl.canModulate) {
       wrap.appendChild(buildModPatchButton(settings, key as ModTarget));

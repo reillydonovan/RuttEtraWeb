@@ -403,6 +403,15 @@ body.viewer-mode #about-link { display: none; }
   grid-template-columns: 1fr 56px;
   gap: 6px;
   align-items: center;
+  /* Fill whatever container it's placed in. `.rw-row`'s grid already
+     stretches a grid-item child to its column by default, so this is a
+     no-op there — but a slider dropped into an ad-hoc flex row (e.g.
+     the Pattern Generator's per-param "+ patch" button wrapper in
+     SourceSection.ts) is a FLEX item instead, and flex's default
+     main-axis sizing is shrink-to-content, not stretch. Without this,
+     that slider's track renders far short of the row's actual width. */
+  width: 100%;
+  min-width: 0;
 }
 .rw-slider input[type="range"] {
   width: 100%;
@@ -509,6 +518,26 @@ body.viewer-mode #about-link { display: none; }
   cursor: pointer;
   padding: 0;
 }
+
+/* Generic "one row control, several inline pieces" wrapper — a slider
+   plus its "+ patch an LFO" button (Pattern Generator params), a
+   slider plus its dB/ms readout, two paired dropdowns with a
+   separator (pitch range), etc. Row-level CSS grid only auto-stretches
+   a SINGLE grid-item child; flexbox does not auto-stretch its
+   children at all, so anything with more than one piece needs this to
+   fill the row correctly instead of shrinking to content width. */
+.rw-inline-group {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+/* The primary control (first child) claims the row; `.rw-slider` and
+   `.rw-select` already fill it via their own `width: 100%`. */
+.rw-inline-group > *:first-child { flex: 1 1 auto; min-width: 0; }
+/* A SECOND (or later) dropdown in the same group — e.g. the high end
+   of a paired range picker — should stay its natural compact width
+   instead of also claiming 100%, or the two would fight over space. */
+.rw-inline-group > select:not(:first-child) { flex: 0 0 auto; width: auto; }
 
 /* Text input */
 .rw-text {
@@ -1139,6 +1168,25 @@ body[data-layout="compact"] .rw-kf-nav { display: none; }
 .rw-row--keyable,
 .rw-row--live {
   padding-top: 20px;
+}
+
+/* Delayed hover tooltip (src/ui/tooltip.ts) — appears above a param
+   row or section header after a pause, teaching what it does.
+   Popout-safe: created in the hovered element's own document. */
+.rw-hover-tip {
+  position: fixed;
+  z-index: 110;
+  max-width: 280px;
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  box-shadow: 0 0 8px rgba(95,255,133,0.35), 0 0 16px rgba(0,0,0,0.6);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  letter-spacing: 0.01em;
+  pointer-events: none;
 }
 
 /* Diamond context menu (created in the control's ownerDocument so it

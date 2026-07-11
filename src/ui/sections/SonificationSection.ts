@@ -35,7 +35,7 @@ import {
   Sonification, midiToName,
 } from '../../audio/Sonification';
 import { MESH_STAT_IDS, MESH_STAT_DOCS } from '../../audio/MeshAnalyzer';
-import { group, button } from '../widgets';
+import { group, button, row } from '../widgets';
 
 interface SonificationSectionDeps {
   settings: SettingsStore;
@@ -155,17 +155,12 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
   grp.body.appendChild(masterRow);
 
   // Master volume row.
-  const volRow = document.createElement('div');
-  volRow.className = 'rw-row';
-  const volLbl = document.createElement('label');
-  volLbl.className = 'rw-label';
-  volLbl.textContent = 'Master Volume';
   const volRange = document.createElement('input');
   volRange.type = 'range';
   volRange.min = '-60';
   volRange.max = '0';
   volRange.step = '1';
-  volRange.className = 'rw-slider rw-control';
+  volRange.className = 'rw-slider';
   const volReadout = document.createElement('span');
   volReadout.className = 'rw-readout';
   volReadout.style.minWidth = '5em';
@@ -174,8 +169,10 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
     updateConfig({ masterVolumeDb: db });
     volReadout.textContent = `${db} dB`;
   });
-  volRow.append(volLbl, volRange, volReadout);
-  grp.body.appendChild(volRow);
+  const volGroup = document.createElement('div');
+  volGroup.className = 'rw-inline-group';
+  volGroup.append(volRange, volReadout);
+  grp.body.appendChild(row('Master Volume', volGroup));
 
   // Test Tone + Mute Briefly buttons.
   const btnRow = document.createElement('div');
@@ -197,19 +194,14 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
   const waveSel = makeEnumSelect(WAVEFORM_OPTIONS,
     () => settings.get('sonification').waveform,
     (v) => updateConfig({ waveform: v }));
-  voiceGrp.body.appendChild(makeRow('Waveform', waveSel));
+  voiceGrp.body.appendChild(row('Waveform', waveSel));
 
   const filterSel = makeEnumSelect(FILTER_OPTIONS,
     () => settings.get('sonification').filterType,
     (v) => updateConfig({ filterType: v }));
-  voiceGrp.body.appendChild(makeRow('Filter Type', filterSel));
+  voiceGrp.body.appendChild(row('Filter Type', filterSel));
 
   // Pitch range as two paired dropdowns.
-  const rangeRow = document.createElement('div');
-  rangeRow.className = 'rw-row';
-  const rangeLbl = document.createElement('label');
-  rangeLbl.className = 'rw-label';
-  rangeLbl.textContent = 'Pitch Range';
   const lowSel = makePitchSelect(
     () => settings.get('sonification').pitchRangeMidi[0],
     (m) => {
@@ -227,8 +219,10 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
       const low = Math.min(m - 1, cur[0]);
       updateConfig({ pitchRangeMidi: [low, m] });
     });
-  rangeRow.append(rangeLbl, lowSel, sep, highSel);
-  voiceGrp.body.appendChild(rangeRow);
+  const rangeGroup = document.createElement('div');
+  rangeGroup.className = 'rw-inline-group';
+  rangeGroup.append(lowSel, sep, highSel);
+  voiceGrp.body.appendChild(row('Pitch Range', rangeGroup));
 
   // Quantize toggle.
   const quantWrap = document.createElement('label');
@@ -261,13 +255,6 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
   const sourceSels = new Map<SonificationParam, HTMLSelectElement>();
   const curveSels = new Map<SonificationParam, HTMLSelectElement>();
   for (const def of PARAM_ROWS) {
-    const row = document.createElement('div');
-    row.className = 'rw-row';
-    const lbl = document.createElement('label');
-    lbl.className = 'rw-label';
-    lbl.textContent = def.label;
-    lbl.title = def.hint;
-
     const srcSel = document.createElement('select');
     srcSel.className = 'rw-select rw-control';
     {
@@ -308,22 +295,21 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
     });
     curveSels.set(def.p, curveSel);
 
-    row.append(lbl, srcSel, curveSel);
-    mapGrp.body.appendChild(row);
+    const mapGroup = document.createElement('div');
+    mapGroup.className = 'rw-inline-group';
+    mapGroup.append(srcSel, curveSel);
+    const mapRow = row(def.label, mapGroup);
+    mapRow.querySelector('.rw-label')!.setAttribute('title', def.hint);
+    mapGrp.body.appendChild(mapRow);
   }
 
   // Smoothing slider — global 1-pole time constant (ms).
-  const smoothRow = document.createElement('div');
-  smoothRow.className = 'rw-row';
-  const smoothLbl = document.createElement('label');
-  smoothLbl.className = 'rw-label';
-  smoothLbl.textContent = 'Smoothing';
   const smoothRange = document.createElement('input');
   smoothRange.type = 'range';
   smoothRange.min = '0';
   smoothRange.max = '500';
   smoothRange.step = '1';
-  smoothRange.className = 'rw-slider rw-control';
+  smoothRange.className = 'rw-slider';
   const smoothReadout = document.createElement('span');
   smoothReadout.className = 'rw-readout';
   smoothReadout.style.minWidth = '5em';
@@ -332,8 +318,10 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
     updateConfig({ smoothingMs: ms });
     smoothReadout.textContent = `${ms} ms`;
   });
-  smoothRow.append(smoothLbl, smoothRange, smoothReadout);
-  mapGrp.body.appendChild(smoothRow);
+  const smoothGroup = document.createElement('div');
+  smoothGroup.className = 'rw-inline-group';
+  smoothGroup.append(smoothRange, smoothReadout);
+  mapGrp.body.appendChild(row('Smoothing', smoothGroup));
 
   // Reset-to-defaults helper.
   const resetRow = document.createElement('div');
@@ -396,17 +384,6 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
 // --------------------------------------------------------------------
 // Local helpers
 // --------------------------------------------------------------------
-
-function makeRow(label: string, control: HTMLElement): HTMLElement {
-  const r = document.createElement('div');
-  r.className = 'rw-row';
-  const l = document.createElement('label');
-  l.className = 'rw-label';
-  l.textContent = label;
-  control.classList.add('rw-control');
-  r.append(l, control);
-  return r;
-}
 
 function makeEnumSelect<T extends string>(
   options: { v: T; l: string }[],
