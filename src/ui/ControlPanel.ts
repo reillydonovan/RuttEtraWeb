@@ -12,6 +12,8 @@
 
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
+import { attachTooltip } from './tooltip';
+import { SECTION_HINTS } from './help/sectionHints';
 
 export type TabId = 'synth' | 'io' | 'help';
 
@@ -241,6 +243,8 @@ export class ControlPanel {
     chev.className = 'rw-chev';
     chev.textContent = '▾';
     head.append(titleSpan, chev);
+    const hint = SECTION_HINTS[section.title];
+    if (hint) attachTooltip(head, hint);
 
     const body = document.createElement('div');
     body.className = 'rw-section-body';

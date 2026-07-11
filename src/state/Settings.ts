@@ -1346,7 +1346,7 @@ export const DEFAULTS: Settings = {
   helpAutoOpen: true,
   helpActiveTab: 'quickstart',
 
-  timelineDock: 'hidden',
+  timelineDock: 'bottom',
   timelineLastDock: 'bottom',
   timelineHeight: 220,
   timelineInspectorWidth: 220,

@@ -147,17 +147,24 @@ export function setDockActions(a: DockActions | null): void {
 }
 
 /**
- * Traditional keyframe-editor semantics (Blender/Resolve): if the
- * playhead sits exactly on a point for this key, dragging the panel
- * knob edits ONLY that point's value — never the global base, which
- * would otherwise shift the whole curve out from under every other
- * keyframe. Matches the diamond's multi-lane convention: operates on
- * the FIRST lane (in registration order) that has a point at the head;
- * full multi-lane control lives in the lane editor.
+ * Traditional keyframe-editor / auto-key semantics (Blender/Resolve,
+ * Ableton/Pro Tools "write" automation): once a param has AT LEAST ONE
+ * lane, every panel-knob edit is keyed — never a global base edit,
+ * which would shift the whole curve out from under every other
+ * keyframe (the reported bug: editing the knob at an un-keyed bar was
+ * silently rewriting `Settings` instead of the timeline).
  *
- * Returns true if a keyframe absorbed the edit (caller should do
- * nothing else); false if there's no point at the head, so the caller
- * should fall back to `settings.set` (editing the base).
+ *   - Playhead sits exactly on a point → rewrite that point's value.
+ *   - Playhead sits elsewhere on an automated param → AUTO-CREATE a
+ *     new point at the playhead with this value; every other point on
+ *     the lane is untouched, so the edit is local to this bar only.
+ *   - Param has no lane at all → returns false; the caller falls back
+ *     to `settings.set` (a plain, unautomated knob).
+ *
+ * Matches the diamond's multi-lane convention: prefers whichever lane
+ * (in registration order) already has a point at the head; auto-key
+ * creates on the FIRST lane if none do. Full multi-lane control lives
+ * in the lane editor.
  */
 export function setKeyedValueAtPlayhead(
   settings: SettingsStore,
@@ -166,27 +173,31 @@ export function setKeyedValueAtPlayhead(
   opts?: { snapshot?: boolean },
 ): boolean {
   if (!seq?.timeline) return false;
-  const head = seq.playheadBar;
   const keyLanes = laneIndex.get(key) ?? [];
-  for (const lane of keyLanes) {
-    const hit = findPointAt(lane.points, head);
-    if (!hit) continue;
-    // Other lanes on the same key still contribute at this bar (rare
-    // multi-lane case) — hold their contribution steady so the edited
-    // lane's point is the only thing that moves.
-    let otherOffset = 0;
-    for (const other of keyLanes) {
-      if (other !== lane) otherOffset += evalLane(other.points, head);
-    }
-    const base = settings.get(key as never) as unknown;
-    if (typeof base !== 'number') return false;
-    const newValue = absTarget - base - otherOffset;
-    seq.editLanes(() => {
-      lane.points = upsertPoint(lane.points, { ...hit, value: newValue });
-    }, opts);
-    return true;
+  if (keyLanes.length === 0) return false; // not automated — plain base edit
+
+  const head = seq.playheadBar;
+  let lane = keyLanes[0];
+  let hit = null as ReturnType<typeof findPointAt>;
+  for (const l of keyLanes) {
+    const h = findPointAt(l.points, head);
+    if (h) { lane = l; hit = h; break; }
   }
-  return false;
+
+  // Other lanes on the same key still contribute at this bar (rare
+  // multi-lane case) — hold their contribution steady so only the
+  // edited lane's point moves (or a new one is created).
+  let otherOffset = 0;
+  for (const other of keyLanes) {
+    if (other !== lane) otherOffset += evalLane(other.points, head);
+  }
+  const base = settings.get(key as never) as unknown;
+  if (typeof base !== 'number') return false;
+  const newValue = absTarget - base - otherOffset;
+  seq.editLanes(() => {
+    lane.points = upsertPoint(lane.points, { bar: head, value: newValue, easing: hit?.easing });
+  }, opts);
+  return true;
 }
 
 function executeToggle(key: string): void {

@@ -1,9 +1,12 @@
 /**
- * setKeyedValueAtPlayhead: traditional keyframe-editor semantics for the
- * panel slider. If the playhead sits exactly on a lane point, editing
- * the knob must rewrite THAT point's value only — never the global
- * base, which would otherwise shift the whole curve under every other
- * keyframe (the bug reported against round 3 of the timeline UX work).
+ * setKeyedValueAtPlayhead: auto-key semantics for the panel slider.
+ * Once a param has at least one lane, every edit is keyed: on an
+ * existing point it rewrites that point; off one, it auto-creates a
+ * new point at the playhead. Editing the base directly (which shifts
+ * the WHOLE curve under every other keyframe) must never happen for
+ * an automated param — that was the exact bug reported: moving to a
+ * bar with no keyframe and adjusting the knob silently rewrote
+ * Settings, dragging every other keyframe's resolved value with it.
  */
 import { describe, it, expect } from 'vitest';
 import { Sequencer } from '../../sequencer/Sequencer';
@@ -34,11 +37,30 @@ function makeSeqWithLane(
 }
 
 describe('setKeyedValueAtPlayhead', () => {
-  it('returns false with no point at the playhead (caller falls back to base editing)', () => {
-    const { seq, settings } = makeSeqWithLane('zPush', [{ bar: 4, value: 0.5 }]);
-    seq.seek(0);
+  it('returns false for a param with no lane at all (caller falls back to base editing)', () => {
+    const settings = new FakeSettings();
+    settings.state.zPush = 0.2;
+    const seq = new Sequencer(settings as unknown as SettingsStore);
+    registerSequencer(seq);
+    seq.load(makeEmptyTimeline('T')); // no lanes for zPush
     const handled = setKeyedValueAtPlayhead(settings as unknown as SettingsStore, 'zPush', 1.0);
     expect(handled).toBe(false);
+  });
+
+  it('auto-keys a NEW point when the playhead is off an existing keyframe, leaving the base and other points untouched', () => {
+    const { seq, settings } = makeSeqWithLane('zPush', [{ bar: 4, value: 0.5 }], 0.2);
+    seq.seek(10); // no point here — the reported bug's scenario
+    const handled = setKeyedValueAtPlayhead(settings as unknown as SettingsStore, 'zPush', 1.0);
+    expect(handled).toBe(true);
+    expect(settings.state.zPush).toBe(0.2); // base unchanged — the fix
+    const points = seq.timeline!.lanes[0].points;
+    expect(points).toHaveLength(2);
+    const newPt = points.find((p) => p.bar === 10)!;
+    expect(newPt.value).toBeCloseTo(0.8); // 1.0 - base 0.2
+    // The ORIGINAL keyframe at bar 4 must still resolve to its old
+    // value (0.5 + 0.2 = 0.7) — this is what the base-edit bug broke.
+    const oldPt = points.find((p) => p.bar === 4)!;
+    expect(oldPt.value).toBeCloseTo(0.5);
   });
 
   it('rewrites the point at the playhead and leaves the base untouched', () => {

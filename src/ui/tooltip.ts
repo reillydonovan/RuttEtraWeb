@@ -1,0 +1,76 @@
+/**
+ * Delayed hover tooltip — a small CRT-styled popover that appears above
+ * an element after a hover pause and disappears the instant the pointer
+ * leaves. Used to teach the panel: every modulatable slider row and
+ * every section header carries one, sourced from `PARAM_DOCS` /
+ * `SECTION_HINTS` (the same maps that drive the in-app Help and the
+ * About page's Param Reference) so descriptions never drift between
+ * surfaces.
+ *
+ * Popout-safe: the tooltip element lives in the HOVERED element's OWN
+ * document (`el.ownerDocument`), not the module-scope `document` — the
+ * control panel can live in the two-screen popout window.
+ */
+
+const SHOW_DELAY_MS = 550;
+
+/** One shared tooltip element per document (main window + popout each get their own). */
+const tooltipsByDoc = new WeakMap<Document, HTMLElement>();
+
+function tooltipFor(doc: Document): HTMLElement {
+  const existing = tooltipsByDoc.get(doc);
+  if (existing && existing.isConnected) return existing;
+  const el = doc.createElement('div');
+  el.className = 'rw-hover-tip';
+  el.hidden = true;
+  doc.body.appendChild(el);
+  tooltipsByDoc.set(doc, el);
+  return el;
+}
+
+/** Position above the target, centered, flipping below if there's no room. */
+function position(tip: HTMLElement, target: HTMLElement): void {
+  const win = target.ownerDocument.defaultView ?? window;
+  const r = target.getBoundingClientRect();
+  const tr = tip.getBoundingClientRect();
+  let left = r.left + r.width / 2 - tr.width / 2;
+  left = Math.max(4, Math.min(win.innerWidth - tr.width - 4, left));
+  let top = r.top - tr.height - 8;
+  if (top < 4) top = r.bottom + 8;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+/**
+ * Attach a delayed hover tooltip to `el`. `text` may be a plain string
+ * or a lazy function (evaluated on each show) for callers whose copy
+ * depends on live state; a falsy result from the function suppresses
+ * that show.
+ */
+export function attachTooltip(el: HTMLElement, text: string | (() => string | null | undefined)): void {
+  let timer: number | null = null;
+  const cancel = (): void => {
+    if (timer != null) { clearTimeout(timer); timer = null; }
+  };
+  const hide = (): void => {
+    cancel();
+    const tip = tooltipsByDoc.get(el.ownerDocument);
+    if (tip) tip.hidden = true;
+  };
+  el.addEventListener('pointerenter', (ev) => {
+    if (ev.pointerType !== 'mouse') return; // touch has no hover state to speak of
+    cancel();
+    timer = window.setTimeout(() => {
+      timer = null;
+      const content = typeof text === 'function' ? text() : text;
+      if (!content) return;
+      const tip = tooltipFor(el.ownerDocument);
+      tip.textContent = content;
+      tip.hidden = false;
+      position(tip, el);
+    }, SHOW_DELAY_MS);
+  });
+  el.addEventListener('pointerleave', hide);
+  // Don't let a tooltip linger through a drag or click.
+  el.addEventListener('pointerdown', hide);
+}

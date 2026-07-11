@@ -18,6 +18,8 @@ import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus
 import { registerDesignedRange } from './paramRangeRegistry';
 import { attachKeyframeDiamond, setKeyedValueAtPlayhead } from './keyframeAffordance';
 import { whenLiveValues } from './liveValueBus';
+import { attachTooltip } from './tooltip';
+import { PARAM_DOCS } from './help/paramDocs';
 
 /**
  * Append a small dual-engine indicator to the row containing `control`.
@@ -38,6 +40,17 @@ function attachModulationIndicator(control: HTMLElement, paramKey: string): void
   activeTargetsBus.subscribe(paramKey, apply);
 }
 
+/**
+ * Mark `control` as belonging to a Settings key, so `row()` can look up
+ * its `PARAM_DOCS` entry and attach a hover tooltip — one call site per
+ * widget function (slider/toggle/dropdown/colorInput), reusing the
+ * exact key each already threads through to `attachModulationIndicator`
+ * / `attachKeyframeDiamond`.
+ */
+function markParamKey(control: HTMLElement, paramKey: string): void {
+  control.dataset.paramKey = paramKey;
+}
+
 export function row(label: string, control: HTMLElement, hint?: string): HTMLElement {
   const r = document.createElement('div');
   r.className = 'rw-row';
@@ -52,6 +65,14 @@ export function row(label: string, control: HTMLElement, hint?: string): HTMLEle
     h.className = 'rw-hint';
     h.textContent = hint;
     r.appendChild(h);
+  }
+  // Teach-the-panel hover tooltip, sourced from PARAM_DOCS — the same
+  // map that drives the in-app Help Controls tab and the About page's
+  // Param Reference, so descriptions never drift between surfaces.
+  const paramKey = control.dataset.paramKey;
+  const doc = paramKey ? PARAM_DOCS[paramKey] : undefined;
+  if (doc) {
+    attachTooltip(r, doc.range ? `${doc.description} (${doc.range})` : doc.description);
   }
   return r;
 }
@@ -111,20 +132,24 @@ export function slider(
   // Timeline automation offset for this key (namespace 'timeline' in
   // LiveValuesStore). When a lane drives the param, the slider DISPLAYS
   // `base + tlOffset` — the actual value at the playhead. Editing then
-  // branches on traditional keyframe-editor rules (Blender/Resolve):
-  // if the playhead sits exactly ON a keyframe, the edit rewrites THAT
-  // keyframe's value only (setKeyedValueAtPlayhead); otherwise it edits
-  // the base, same as an unautomated param. Either way what you see and
-  // what you set is one number, and modulation still never writes
-  // Settings directly (base/live split intact underneath).
+  // branches on auto-key rules (Blender/Resolve, Ableton/Pro Tools
+  // "write" automation): once the param has at least one lane, every
+  // edit is keyed — on an existing point it rewrites that point; off
+  // one, it AUTO-CREATES a point at the playhead (setKeyedValueAtPlayhead)
+  // rather than editing the base, which would shift the whole curve out
+  // from under every other keyframe. Only truly unautomated params (no
+  // lane at all) fall through to a plain base edit. Either way what you
+  // see and what you set is one number, and modulation still never
+  // writes Settings directly (base/live split intact underneath).
   let tlOffset = 0;
   const toDisplay = (base: number): number => base + tlOffset;
   // Continuous drags (native range, scrub bar) collapse into ONE undo
   // step: only the first edit of a gesture snapshots the timeline, the
   // rest pass `snapshot: false`. Every other interaction (typing, stop
   // chips, keyboard, modal, double-click reset) is its own step — see
-  // the explicit `fresh: true` call sites below. No-op (no undo stack
-  // involved) when there's no keyframe at the playhead to edit.
+  // the explicit `fresh: true` call sites below. No-op (no timeline
+  // undo stack involved) for unautomated params, which just write
+  // `Settings` directly.
   let dragFresh = true;
   const setFromDisplay = (target: number, fresh = dragFresh): void => {
     dragFresh = false;
@@ -338,6 +363,7 @@ export function slider(
   });
 
   attachModulationIndicator(wrap, key as string);
+  markParamKey(wrap, key as string);
   // Keyframing v2: inline ◆ — keyframe this param at the playhead.
   // No-op for keys that aren't modulation targets; hidden until a
   // timeline exists.
@@ -559,6 +585,7 @@ export function toggle(settings: SettingsStore, key: BooleanKeys, label = ''): H
   settings.subscribe(key, (v) => { cb.checked = !!v; });
   cb.addEventListener('change', () => settings.set(key, cb.checked as any));
   attachModulationIndicator(wrap, key as string);
+  markParamKey(wrap, key as string);
   return wrap;
 }
 
@@ -569,6 +596,7 @@ export function dropdown<K extends keyof Settings>(
 ): HTMLElement {
   const sel = document.createElement('select');
   sel.className = 'rw-select';
+  markParamKey(sel, key as string);
   for (const o of options) {
     const opt = document.createElement('option');
     opt.value = String(o.value);
@@ -607,6 +635,7 @@ export function colorInput(settings: SettingsStore, key: StringKeys): HTMLElemen
   const inp = document.createElement('input');
   inp.type = 'color';
   inp.className = 'rw-color';
+  markParamKey(inp, key as string);
   settings.subscribe(key, (v) => { inp.value = v as string; });
   inp.addEventListener('input', () => settings.set(key, inp.value as any));
   return inp;
