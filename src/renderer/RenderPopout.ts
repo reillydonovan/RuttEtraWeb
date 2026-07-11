@@ -1,0 +1,157 @@
+/**
+ * Render-canvas popout: pop the live output into its own draggable
+ * browser window, for the classic performance rig — output on a
+ * projector/second display, this window fullscreen there, everything
+ * else (controls, panel popout) on the operator's screen.
+ *
+ * Unlike `PanelPopout.ts` (which `adoptNode`s plain DOM into the popup —
+ * safe because nothing there holds a WebGL context), the render canvas
+ * has a LIVE WebGL context tied to this window's browsing context.
+ * Moving the actual `<canvas>` via `adoptNode` is not reliable across
+ * browsers — most drop the GL context on transfer. Instead this feeds
+ * the popup a `canvas.captureStream()` `MediaStream` into a `<video>`
+ * element: same-process, no network, effectively zero added latency,
+ * and (unlike moving the node) works everywhere `captureStream` does
+ * — which this codebase already leans on for recording and broadcast.
+ *
+ * The popup owns a self-contained fullscreen toggle: a corner button
+ * that requests/exits the Fullscreen API on the POPUP window (not the
+ * main window), relabels itself on state change, auto-fades out while
+ * fullscreen and reveals on hover (classic video-player affordance —
+ * discoverable because hovering ANYWHERE in the window reveals it, not
+ * just the (invisible) button itself), and responds to `F` as a
+ * keyboard shortcut scoped to the popup (`Esc` already exits fullscreen
+ * natively; the button/label stay in sync via `fullscreenchange`
+ * regardless of how fullscreen was entered/exited).
+ */
+
+export interface RenderPopoutController {
+  /** True while the output lives in the popup window. */
+  isOpen(): boolean;
+  /** Open the popup and start streaming the canvas into it. No-op if already open. */
+  popOut(): void;
+  /** Close the popup and stop the capture stream. No-op if not open. */
+  popIn(): void;
+  toggle(): void;
+}
+
+const CAPTURE_FPS = 60;
+
+export function createRenderPopout(
+  canvas: HTMLCanvasElement,
+  onChange?: (open: boolean) => void,
+): RenderPopoutController {
+  let popup: Window | null = null;
+  let stream: MediaStream | null = null;
+
+  function popOut(): void {
+    if (popup && !popup.closed) { popup.focus(); return; }
+    const aspect = canvas.clientWidth > 0 && canvas.clientHeight > 0
+      ? canvas.clientWidth / canvas.clientHeight
+      : 16 / 9;
+    const w0 = 1280;
+    const h0 = Math.round(w0 / aspect);
+    const w = window.open('', 'ruttetra-output', `popup=yes,width=${w0},height=${h0}`);
+    if (!w) return; // popup blocked — nothing to do, button stays inert
+    popup = w;
+    const doc = w.document;
+    doc.title = 'RUTT/ETRA — Output';
+
+    const style = doc.createElement('style');
+    style.textContent = `
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+      video {
+        width: 100%; height: 100%; object-fit: contain; background: #000;
+        display: block;
+      }
+      #rw-fs-btn {
+        position: fixed; top: 14px; right: 14px; z-index: 10;
+        background: rgba(6,10,6,0.85);
+        border: 1px solid rgba(95,255,133,0.55);
+        color: #7eff9c;
+        font: 13px/1 'Share Tech Mono', ui-monospace, Menlo, monospace;
+        letter-spacing: 0.06em;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 2px;
+        text-transform: uppercase;
+        opacity: 1;
+        transition: opacity 0.25s ease;
+      }
+      #rw-fs-btn:hover, #rw-fs-btn:focus-visible {
+        border-color: #7eff9c;
+        box-shadow: 0 0 8px rgba(95,255,133,0.5);
+      }
+      /* Auto-hide while fullscreen; hovering ANYWHERE in the window
+         reveals it again (hovering only the button itself would be
+         undiscoverable while it's invisible). */
+      body.rw-fs-active #rw-fs-btn { opacity: 0; }
+      body.rw-fs-active:hover #rw-fs-btn { opacity: 1; }
+    `;
+    doc.head.appendChild(style);
+
+    const video = doc.createElement('video');
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    stream = canvas.captureStream(CAPTURE_FPS);
+    video.srcObject = stream;
+    doc.body.appendChild(video);
+    void video.play().catch(() => { /* autoplay is muted+gesture-initiated; ignore */ });
+
+    const fsBtn = doc.createElement('button');
+    fsBtn.id = 'rw-fs-btn';
+    fsBtn.type = 'button';
+    const syncFsLabel = (): void => {
+      const isFs = !!doc.fullscreenElement;
+      fsBtn.textContent = isFs ? '⤢ Exit Fullscreen' : '⛶ Fullscreen';
+      doc.body.classList.toggle('rw-fs-active', isFs);
+    };
+    const toggleFs = (): void => {
+      if (doc.fullscreenElement) void doc.exitFullscreen();
+      else void doc.documentElement.requestFullscreen().catch(() => { /* denied — button just stays put */ });
+    };
+    fsBtn.addEventListener('click', toggleFs);
+    doc.addEventListener('fullscreenchange', syncFsLabel);
+    syncFsLabel();
+    doc.body.appendChild(fsBtn);
+
+    // `F` toggles fullscreen, scoped to this popup only.
+    doc.addEventListener('keydown', (ev) => {
+      if (ev.key === 'f' || ev.key === 'F') {
+        ev.preventDefault();
+        toggleFs();
+      }
+    });
+
+    // Either side closing tears the stream down.
+    w.addEventListener('pagehide', popIn);
+    window.addEventListener('pagehide', closePopup);
+    onChange?.(true);
+  }
+
+  function closePopup(): void {
+    if (stream) {
+      for (const track of stream.getTracks()) track.stop();
+      stream = null;
+    }
+    if (popup && !popup.closed) popup.close();
+    popup = null;
+  }
+
+  function popIn(): void {
+    closePopup();
+    window.removeEventListener('pagehide', closePopup);
+    onChange?.(false);
+  }
+
+  return {
+    isOpen: () => popup != null && !popup.closed,
+    popOut,
+    popIn,
+    toggle(): void {
+      if (popup && !popup.closed) popIn(); else popOut();
+    },
+  };
+}

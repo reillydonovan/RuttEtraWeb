@@ -88,6 +88,7 @@ async function bootSynth(): Promise<void> {
   const bootError    = document.getElementById('boot-error')          as HTMLElement;
   const bootSkip     = document.getElementById('boot-skip')           as HTMLButtonElement;
   const hud = document.getElementById('hud') as HTMLElement;
+  settings.subscribe('hudVisible', (v) => { hud.style.display = v ? '' : 'none'; });
 
   // -------------------------- Layout + perf wiring --------------------------
   const layout = layoutManager();
@@ -686,6 +687,25 @@ async function bootSynth(): Promise<void> {
     panel.addTitleAction(popoutBtn);
   }
 
+  // Render-canvas popout: the OUTPUT side of the same two-screen rig —
+  // pop the live output into its own draggable window (a captured
+  // MediaStream, not the canvas itself — see RenderPopout.ts for why),
+  // which carries its own fullscreen toggle for "seamless" projector use.
+  {
+    const { createRenderPopout } = await import('./renderer/RenderPopout');
+    const renderPopoutBtn = document.createElement('button');
+    renderPopoutBtn.title = 'Pop the output out into a separate window (fullscreen there for a projector/second display)';
+    renderPopoutBtn.textContent = '⛶';
+    const renderPopout = createRenderPopout(canvas, (open) => {
+      renderPopoutBtn.textContent = open ? '⛶•' : '⛶';
+      renderPopoutBtn.title = open
+        ? 'Output window is open — click to bring it back / close it'
+        : 'Pop the output out into a separate window (fullscreen there for a projector/second display)';
+    });
+    renderPopoutBtn.addEventListener('click', () => renderPopout.toggle());
+    panel.addTitleAction(renderPopoutBtn);
+  }
+
   // Panel-wide param search + tab hotkeys (v19, AUDIT item 26). `/`
   // focuses the search, 1/2/3 switch panel tabs — both only when the
   // keystroke isn't going into a text field.
@@ -695,6 +715,21 @@ async function bootSynth(): Promise<void> {
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
     if (e.key === '/') { e.preventDefault(); panelSearch.focus(); return; }
+    // `F` toggles native fullscreen on the MAIN window (documented in
+    // the Shortcuts help). Distinct from the render popout's own `F`,
+    // which is scoped to that separate window.
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.documentElement.requestFullscreen().catch(() => {});
+      return;
+    }
+    // `H` toggles the on-screen FPS/source HUD.
+    if (e.key === 'h' || e.key === 'H') {
+      e.preventDefault();
+      settings.set('hudVisible', !settings.get('hudVisible'));
+      return;
+    }
     // [ / ] cycle panel tabs. Deliberately NOT digit keys: the About
     // reference reserves 1-9 for preset snapshot slots.
     if (e.key === '[' || e.key === ']') {
