@@ -64,6 +64,15 @@ That gives the synth a built-in "video signal" — pick **Sine Bands** or
 and every other pattern parameter is modulatable: drop an LFO on
 **Pattern: Frequency** and watch the stripes breathe.
 
+## Prefer knobs? The hardware skin
+
+The **◉ button** in the panel title bar swaps the flat CRT controls for a
+skeuomorphic hardware panel — rotary knobs (drag vertically; hold \`Shift\`
+for fine control), bat switches, LCD readouts. Same parameters, same
+values, same right-click precise entry; only the faces change. The choice
+is remembered on this machine — it isn't part of your presets or projects.
+Touch layouts keep their touch-friendly controls regardless of skin.
+
 > Tip: the floating **?** button (bottom-left) re-opens this manual at any time.
 `;
 

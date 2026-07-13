@@ -66,6 +66,8 @@ The separation also makes the UI honest. The slider shows the value *you* set, n
 
 - The "freeze" button described above is the only legitimate path from live to base, and it requires user intent.
 - Multiplicative factors (`factor = 1` means no effect) are a separate accumulator from additive offsets and combine via `base * product(factors) + sum(offsets)`. Both still write to `liveValues`, not to `Settings`.
+- **UI skins are faces, not forks (v1.5's hardware skin).** An alternate skin renders *inside* the existing widget functions and writes base through the same single write path (`setFromDisplay()` and friends in `widgets.ts`) — never a parallel widget tree, never a second setter path. Skin code reads `LiveValuesStore` for display only; a skeuomorphic control that "shows live" is exactly where writing live back into base will one day look tempting. It is still the pre-v9 bug.
+- **Skin state is local UI preference, never patch data.** It lives in localStorage (`src/ui/skin.ts`), not in `Settings`/presets/projects — loading someone else's patch must never restyle your panel. See `docs/design/skeuomorphic-skin.md` §1.
 
 ---
 

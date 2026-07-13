@@ -315,10 +315,11 @@ body.viewer-mode #about-link { display: none; }
 #panel-root.collapsed .rw-tabs { display: none; }
 #panel-root.collapsed .rw-panel-title-text { display: none; }
 /* When collapsed there's only ~16px of horizontal space inside the title:
-   hide the dock-toggle and keep the expand toggle centered + clickable. */
+   hide everything except the expand toggle (always the last button),
+   centered + clickable. */
 #panel-root.collapsed .rw-panel-title { padding: 8px 4px; justify-content: center; }
 #panel-root.collapsed .rw-panel-actions { gap: 0; }
-#panel-root.collapsed .rw-panel-actions button:first-child { display: none; }
+#panel-root.collapsed .rw-panel-actions button:not(:last-child) { display: none; }
 
 .rw-panel-title {
   display: flex; align-items: center; justify-content: space-between;
@@ -358,6 +359,12 @@ body.viewer-mode #about-link { display: none; }
 .rw-panel-actions button:hover {
   color: var(--re-accent);
   border-color: var(--re-accent);
+}
+/* Skin toggle lit while the hardware skin is active. */
+.rw-panel-actions button.active {
+  color: var(--re-accent);
+  border-color: var(--re-accent);
+  box-shadow: var(--re-glow);
 }
 .rw-panel-body {
   flex: 1;

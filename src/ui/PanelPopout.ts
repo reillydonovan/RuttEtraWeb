@@ -18,6 +18,8 @@
  * style updates don't propagate to an open popup.
  */
 
+import { applySkinToDocument, releaseDocument } from './skin';
+
 export interface PanelPopoutController {
   /** True while the panel lives in the popup window. */
   isOpen(): boolean;
@@ -55,6 +57,9 @@ export function createPanelPopout(
     copyStyles(w.document);
     w.document.body.className = document.body.className;
     w.document.body.classList.add('rw-popout-body');
+    // `className` above doesn't carry data-* attributes; the skin module
+    // stamps `body[data-skin]` and keeps it live until popIn releases it.
+    applySkinToDocument(w.document);
 
     // Adopt the live panel. The placeholder keeps our seat in the main DOM.
     panelRoot.parentNode?.insertBefore(placeholder, panelRoot);
@@ -68,6 +73,10 @@ export function createPanelPopout(
   }
 
   function closePopup(): void {
+    // Accessing .document on an already-closed window can throw in some
+    // browsers; a stale entry is harmless (stamp() no-ops on a dead body)
+    // but releasing keeps the registry from growing across many popouts.
+    try { if (popup) releaseDocument(popup.document); } catch { /* closed */ }
     if (popup && !popup.closed) popup.close();
     popup = null;
   }

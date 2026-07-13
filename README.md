@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.5.0, July 2026 — hardware skin, Phase 1)
+
+- **Skeuomorphic "hardware panel" skin** — the ◉ button in the panel title bar swaps the flat CRT controls for a euro-synth look: SVG rotary knobs (vertical drag, `Shift` for fine, double-click reset, right-click precise entry — every write path shared with the flat slider), bat toggle switches with LED lenses, pushbutton bezels, and LCD-strip readouts/selects. Implemented as a fifth *face* inside the existing widgets, swapped purely by CSS off `body[data-skin="hardware"]` (the same mechanism the compact layout uses), so the base/live split and auto-key rules hold by construction. The preference is localStorage-only — deliberately **not** a Settings key, so patches never restyle your panel — and the popout panel window stays in sync. Compact/touch layouts keep their touch faces regardless of skin. Design + phase plan: `docs/design/skeuomorphic-skin.md`; new skin invariants added to `PRINCIPLES.md` (principle 2). Live-modulation visualization on the knobs (mod arcs) is Phase 2, not yet implemented.
+
 ## Recent changes (settings v26 → v28, July 2026 — timeline UX + panel polish)
 
 A follow-up round of owner-reported fixes and small features on top of the audit run below, each landed as its own commit. Settings schema v26 → v28.

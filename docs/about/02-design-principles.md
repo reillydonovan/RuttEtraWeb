@@ -10,6 +10,8 @@ When you change the BPM, it changes everywhere at once — Classic LFOs in tempo
 
 When an LFO is wobbling Z Push, the Z Push slider in the UI still shows the value *you* set. The wobble happens on top. Turn the LFO off and Z Push snaps back to where you left it — not to wherever the LFO last had it. Your manual settings are preserved underneath whatever's modulating them.
 
+The same holds in the **hardware skin** (the ◉ button in the panel title bar swaps the flat CRT controls for rotary knobs and bat switches): the knob's pointer is *your* setting, and turning it edits exactly what the flat slider would. The skin choice itself is remembered on your machine, not in your patches — loading someone else's project never restyles your panel.
+
 <h3 id="tells-you-whats-wrong">The synth tells you what's wrong, instead of hiding it.</h3>
 
 If MIDI Clock is selected and no MIDI clock is reaching the synth, an LFO won't quietly run at internal tempo — it'll show a *no clock* indicator. If a configured device disconnects, you'll see it. Silent fallbacks make problems invisible; the synth prefers to show you what's actually happening so you can fix it.

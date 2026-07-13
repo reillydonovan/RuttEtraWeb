@@ -293,7 +293,8 @@ export function slider(
     doc.addEventListener('pointercancel', onUp);
   });
   // Keyboard accessibility — left/right arrows, PageUp/Down, Home/End.
-  scrubBar.addEventListener('keydown', (ev) => {
+  // Shared by the scrub bar and the hardware-skin knob face below.
+  const sliderKeydown = (ev: KeyboardEvent): void => {
     let next = toDisplay(settings.get(key) as number);
     const big = step * 10;
     switch (ev.key) {
@@ -308,9 +309,88 @@ export function slider(
     }
     ev.preventDefault();
     setFromDisplay(snapToStep(next), true);
-  });
+  };
+  scrubBar.addEventListener('keydown', sliderKeydown);
 
-  wrap.append(scrubBar, stopBar, readoutBtn);
+  // ----- Hardware-skin knob face (body[data-skin="hardware"]) -----
+  // Fifth face of the slider (alongside native range / scrub bar / stop
+  // chips / readout), shown only under the hardware skin outside compact
+  // layout — skin.css owns the swap, same convention as layout.css. All
+  // writes flow through setFromDisplay like every other face, so
+  // auto-keying, undo collapsing, and the base/live split hold by
+  // construction (skin invariants, PRINCIPLES.md).
+  const KNOB_SWEEP = 270; // degrees of pot travel, -135°..+135°, 0° = up
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const knob = document.createElement('div');
+  knob.className = 'rw-knob';
+  knob.setAttribute('role', 'slider');
+  knob.setAttribute('aria-orientation', 'vertical');
+  knob.setAttribute('aria-label', String(key));
+  knob.tabIndex = 0;
+  const knobArcPath = (r: number): string => {
+    const pt = (deg: number): string => {
+      const a = (deg * Math.PI) / 180;
+      return `${(20 + r * Math.sin(a)).toFixed(3)} ${(20 - r * Math.cos(a)).toFixed(3)}`;
+    };
+    return `M ${pt(-KNOB_SWEEP / 2)} A ${r} ${r} 0 1 1 ${pt(KNOB_SWEEP / 2)}`;
+  };
+  const knobSvg = document.createElementNS(svgNS, 'svg');
+  knobSvg.setAttribute('viewBox', '0 0 40 40');
+  knobSvg.setAttribute('class', 'rw-knob-svg');
+  const knobTrack = document.createElementNS(svgNS, 'path');
+  knobTrack.setAttribute('d', knobArcPath(17));
+  knobTrack.setAttribute('class', 'rw-knob-track');
+  const knobFill = document.createElementNS(svgNS, 'path');
+  knobFill.setAttribute('d', knobArcPath(17));
+  knobFill.setAttribute('pathLength', String(KNOB_SWEEP));
+  knobFill.setAttribute('stroke-dasharray', `0 ${KNOB_SWEEP}`);
+  knobFill.setAttribute('class', 'rw-knob-fill');
+  const knobCap = document.createElementNS(svgNS, 'circle');
+  knobCap.setAttribute('cx', '20');
+  knobCap.setAttribute('cy', '20');
+  knobCap.setAttribute('r', '13');
+  knobCap.setAttribute('class', 'rw-knob-cap');
+  const knobPtr = document.createElementNS(svgNS, 'line');
+  knobPtr.setAttribute('x1', '20');
+  knobPtr.setAttribute('y1', '20');
+  knobPtr.setAttribute('x2', '20');
+  knobPtr.setAttribute('y2', '9');
+  knobPtr.setAttribute('class', 'rw-knob-ptr');
+  knobSvg.append(knobTrack, knobFill, knobCap, knobPtr);
+  knob.appendChild(knobSvg);
+
+  // Vertical pointer scrub: the full effective range over ~160px of
+  // travel, Shift = fine (×0.1). Same document-level listener pattern
+  // (and popout-safe ownerDocument) as the compact scrub bar above.
+  knob.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    const doc = knob.ownerDocument;
+    const activeId = ev.pointerId;
+    const startY = ev.clientY;
+    const startVal = toDisplay(settings.get(key) as number);
+    endDragGesture();
+    const onMove = (e: PointerEvent): void => {
+      if (e.pointerId !== activeId) return;
+      e.preventDefault();
+      const fine = e.shiftKey ? 0.1 : 1;
+      const span = effMax - effMin;
+      setFromDisplay(snapToStep(startVal + ((startY - e.clientY) / 160) * span * fine));
+    };
+    const onUp = (e: PointerEvent): void => {
+      if (e.pointerId !== activeId) return;
+      doc.removeEventListener('pointermove',   onMove);
+      doc.removeEventListener('pointerup',     onUp);
+      doc.removeEventListener('pointercancel', onUp);
+      endDragGesture();
+    };
+    doc.addEventListener('pointermove',   onMove, { passive: false });
+    doc.addEventListener('pointerup',     onUp);
+    doc.addEventListener('pointercancel', onUp);
+  });
+  knob.addEventListener('dblclick', () => setFromDisplay(defaultValue, true));
+  knob.addEventListener('keydown', sliderKeydown);
+
+  wrap.append(scrubBar, stopBar, readoutBtn, knob);
 
   const apply = (base: number) => {
     // What the slider SHOWS is the value at the playhead: base plus the
@@ -326,6 +406,14 @@ export function slider(
     scrubKnob.style.left = `${pct}%`;
     scrubBar.setAttribute('aria-valuenow', String(v));
     scrubBar.setAttribute('aria-valuetext', formatNum(v, step));
+    // Hardware-skin knob: pointer angle + fill arc track the same
+    // clamped 0..1 position as the scrub bar. Cheap enough to update
+    // unconditionally — no need to branch on the active skin.
+    const knobAngle = -KNOB_SWEEP / 2 + (pct / 100) * KNOB_SWEEP;
+    knobPtr.setAttribute('transform', `rotate(${knobAngle.toFixed(2)} 20 20)`);
+    knobFill.setAttribute('stroke-dasharray', `${((pct / 100) * KNOB_SWEEP).toFixed(2)} ${KNOB_SWEEP}`);
+    knob.setAttribute('aria-valuenow', String(v));
+    knob.setAttribute('aria-valuetext', formatNum(v, step));
     let best = 0, bestDist = Infinity;
     for (let i = 0; i < stops.length; i++) {
       const d = Math.abs(stops[i] - v);
@@ -346,6 +434,8 @@ export function slider(
     num.min = String(effMin);   num.max = String(effMax);
     scrubBar.setAttribute('aria-valuemin', String(effMin));
     scrubBar.setAttribute('aria-valuemax', String(effMax));
+    knob.setAttribute('aria-valuemin', String(effMin));
+    knob.setAttribute('aria-valuemax', String(effMax));
     wrap.classList.toggle('rw-slider--custom-range', normalized != null);
     rebuildStops();
     apply(settings.get(key) as number);

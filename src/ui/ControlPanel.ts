@@ -14,6 +14,7 @@ import './panel.css';
 import { SettingsStore } from '../state/Settings';
 import { attachTooltip } from './tooltip';
 import { SECTION_HINTS } from './help/sectionHints';
+import { getSkin, toggleSkin, subscribeSkin } from './skin';
 
 export type TabId = 'synth' | 'io' | 'help';
 
@@ -81,6 +82,18 @@ export class ControlPanel {
     const actions = document.createElement('div');
     actions.className = 'rw-panel-actions';
 
+    // Skin toggle — flat CRT vs. skeuomorphic hardware panel. A local
+    // UI preference (localStorage via skin.ts), deliberately NOT a
+    // Settings key: loading a patch must never restyle the panel.
+    const skinBtn = document.createElement('button');
+    skinBtn.textContent = '◉';
+    skinBtn.addEventListener('click', () => toggleSkin());
+    subscribeSkin((s) => skinBtn.classList.toggle('active', s === 'hardware'));
+    attachTooltip(skinBtn, () =>
+      getSkin() === 'hardware'
+        ? 'Switch to the flat CRT skin.'
+        : 'Switch to the hardware skin (knobs and switches).');
+
     const dockBtn = document.createElement('button');
     dockBtn.title = 'Toggle dock side';
     dockBtn.textContent = '↔';
@@ -109,7 +122,7 @@ export class ControlPanel {
       this.publishInset();
     });
 
-    actions.append(dockBtn, collapseBtn);
+    actions.append(skinBtn, dockBtn, collapseBtn);
     title.appendChild(actions);
     this.actionsBar = actions;
 

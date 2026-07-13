@@ -39,6 +39,12 @@ When implementing a new modulation source: writes go to `LiveValuesStore`, not `
 
 Forbidden pattern: `settings.set('zPush', liveValues.get('zPush'))` inside any modulation lifecycle (enable, disable, tick, reset). The pre-v9 bug. Disabling that source will leave the parameter stuck.
 
+Skin rules (v1.5 hardware skin, `src/ui/skin.ts` + `skin.css`):
+
+- A skin is a face, not a fork: alternate skins render inside the existing widget functions and write base through the same write path (`setFromDisplay()` in `widgets.ts`). No parallel widget tree, no second setter path.
+- Skin code reads `LiveValuesStore` for display only.
+- Skin state is local UI preference (localStorage), never a `Settings` key — it must not ride into presets/projects/auto-save.
+
 ## 3. No silent fallbacks
 
 If a feature has a configured mode (MIDI Clock, mic input, specific CV device, file reference) and that mode's prerequisite is missing, surface the state — do NOT silently fall back to a default.
