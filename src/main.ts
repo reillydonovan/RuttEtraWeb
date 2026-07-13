@@ -1350,13 +1350,15 @@ async function bootSynth(): Promise<void> {
     const menubarEl = document.getElementById('rw-menubar');
     if (menubarEl) top += menubarEl.getBoundingClientRect().height;
 
+    // Maximized regions (data-region-max) are transient OVERLAYS — they
+    // cover the canvas rather than shrinking it, so they're skipped.
     const panelEl = document.getElementById('panel-root');
-    if (panelEl) {
+    if (panelEl && !panelEl.hasAttribute('data-region-max')) {
       const w = panelEl.getBoundingClientRect().width;
       if (settings.get('panelDock') === 'left') left = w; else right = w;
     }
     const dockEl = document.getElementById('timeline-dock');
-    if (dockEl) {
+    if (dockEl && !dockEl.hasAttribute('data-region-max')) {
       const h = dockEl.getBoundingClientRect().height;
       const dock = settings.get('timelineDock');
       const side = dock === 'hidden' ? settings.get('timelineLastDock') : dock;

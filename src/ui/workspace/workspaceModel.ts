@@ -61,6 +61,44 @@ export function resolveAssignment(prev: Assignment, region: RegionId, view: View
 }
 
 // ---------------------------------------------------------------------
+// Drag-to-dock (Unity/Blender-style): dragging a region's titlebar to a
+// screen edge re-docks the dragged VIEW there. The two shells cover the
+// four edges — left/right are the side shell's dock positions, top/
+// bottom are the dock shell's — so a drop resolves to (assignment,
+// panelDock, timelineDock) writes over the existing Settings keys.
+// ---------------------------------------------------------------------
+
+export type DropZone = 'left' | 'right' | 'top' | 'bottom';
+
+export interface WorkspaceDockState {
+  assignment: Assignment;
+  panelDock: 'left' | 'right';
+  timelineDock: 'top' | 'bottom' | 'hidden';
+}
+
+/**
+ * Dock `view` at `zone`. Left/right → the view moves into the SIDE
+ * shell (swapping if needed) and the shell docks to that edge; top/
+ * bottom → into the DOCK shell, which docks to that edge (also
+ * un-hiding it — dropping a window on an edge must always produce a
+ * visible window there).
+ */
+export function resolveDrop(state: WorkspaceDockState, view: ViewId, zone: DropZone): WorkspaceDockState {
+  if (zone === 'left' || zone === 'right') {
+    return {
+      assignment: resolveAssignment(state.assignment, 'side', view),
+      panelDock: zone,
+      timelineDock: state.timelineDock,
+    };
+  }
+  return {
+    assignment: resolveAssignment(state.assignment, 'dock', view),
+    panelDock: state.panelDock,
+    timelineDock: zone,
+  };
+}
+
+// ---------------------------------------------------------------------
 // Layout presets (Window ▸ Layout) — Unity-style named layouts plus the
 // "Reset Layout" escape hatch for a window state you don't like.
 // Plain literals over the SAME Settings keys the shells already persist.

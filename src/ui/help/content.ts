@@ -60,7 +60,10 @@ const MD_QUICKSTART = `
 > The side panel and the timeline dock are **workspace regions**: each
 > region's top bar has a dropdown picking what it hosts (CONTROLS /
 > TIMELINE / PATCH BAY / OUTPUT (MIRROR)) — pick a view the other region
-> holds and they swap. **Window ▸ Layout** has presets and a
+> holds and they swap. **Drag a bar's ⠿ grip** to a screen edge to
+> re-dock that window there (left/right/top/bottom, Unity/Blender
+> style); **⤢ maximizes** a window (double-click the bar works too) and
+> **–** collapses it. **Window ▸ Layout** has presets and a
 > **Reset Layout** escape hatch back to stock.
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate:
