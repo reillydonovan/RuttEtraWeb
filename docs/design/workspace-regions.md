@@ -19,15 +19,18 @@ active tab. Four windows, each decorating a DOM shell:
 **View** — content shown by a tab. Registry ids
 (`workspaceModel.ViewId`): `renderer`, `panel` (Controls), `timeline`,
 `patchbay`. ANY view may be tabbed in any number of windows — "+"
-always just adds a tab (owner rule; no move semantics, ever). The
-element strategy differs: **factory views** (`MULTI_INSTANCE` =
-renderer, patchbay) give each window its own cached instance
-(`elementFor(view, win)`); **single-DOM views** (panel, timeline) have
-one element that follows the most recent activation (`singletonHome`),
-with `.rw-view-placeholder` shown in other windows holding the tab
-("click to bring it over" = activate = steal). Inactive/unhosted
-elements park in the hidden `#rw-view-park`. A window never lists the
-same view twice.
+always just adds a tab (owner rule; no move semantics, ever) — and
+since v1.13 EVERY view is a per-window instance FACTORY: duplicate
+tabs are fully live simultaneously (two timelines both playing, two
+Controls panels both editable — all instances bind the same Settings/
+Sequencer stores, so they sync by construction). The boot-built
+primary Controls/Timeline elements seed the right/bottom instances;
+extra windows lazily build fresh ones (`elementFor(view, win)`,
+factories registered from main.ts). Requirements this imposed: the
+Sequencer's `onX` callback props are ADDITIVE multicast accessors, and
+TimelineDock installs its document keydown once (module flag) or
+Ctrl+Z would undo N times. Inactive/unhosted elements park in the
+hidden `#rw-view-park`. A window never lists the same view twice.
 
 **The no-side-effects rule (the owner's bright line):** moving or
 adding a view NEVER assigns anything new to another window. The source
@@ -47,11 +50,13 @@ Inactive, the mirror stops.
 ```
 
 - **Tabs** — click to switch; DRAG to move onto another window's tab
-  strip (highlighted while hovered) — the ONE drop-target kind. While a
-  drag is live, empty (hidden) windows reveal themselves as labeled
-  "DROP TAB HERE" strips so they stay reachable. The drag ghost names
-  the view. Dropping into a stowed window un-stows it (hidden dock
-  restores to its last edge; a collapsed right panel expands).
+  strip (highlighted while hovered; an insertion caret marks the
+  landing slot; in-strip drags reorder). While a drag is live, the
+  empty window whose dock area is NEAREST the pointer reveals itself
+  as a labeled "DROP TAB HERE" strip (proximity, one at a time) — all
+  four edges are covered: top and bottom both target the bottom window
+  and pick its dock edge. Dropping into a stowed window un-stows it
+  (hidden dock restores; a collapsed right panel expands).
 - **[+]** — always just adds a tab here; no other window is touched.
 - **✕ per tab** — closes that window's tab (a fully-closed view reopens
   via any [+]). Tabs drag-reorder within their strip; a thin

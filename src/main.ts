@@ -1154,6 +1154,16 @@ async function bootSynth(): Promise<void> {
     // Wire the dock shell into the workspace region system now that the
     // dock's build() has assembled (and won't wipe) the shell children.
     workspace.attachDockRegion(timelineHost, dock.viewRoot);
+    // Timeline is fully multi-instance: additional windows that tab a
+    // TIMELINE get their own dock instance (built into a detached host
+    // whose shell chrome goes unused; the viewRoot is the view). All
+    // instances stay in sync via the Sequencer's additive callbacks.
+    workspace.registerView('timeline', () => {
+      const host = document.createElement('div');
+      host.style.display = 'contents';
+      const extra = new TimelineDock(host, settings, sequencer);
+      return extra.viewRoot;
+    });
   };
   void ensureTimelineDock();
   layout.onModeChange(() => { void ensureTimelineDock(); });
@@ -1168,6 +1178,61 @@ async function bootSynth(): Promise<void> {
   if (layout.current() === 'compact' && !settings.get('mobileColorAutoSet')) {
     settings.batchUpdate({ colorMode: 'video', mobileColorAutoSet: true });
   }
+
+  // Controls is fully multi-instance: additional windows that tab
+  // CONTROLS get their own complete ControlPanel — every section
+  // re-created against the same Settings/IO singletons, so instances
+  // mirror each other by construction. The boot-built primary panel
+  // (right shell; compact/popout machinery owns it) is seeded
+  // separately in createWorkspace.
+  workspace.registerView('panel', () => {
+    const host = document.createElement('div');
+    host.className = 'rw-panel-multihost';
+    const extra = new ControlPanel(host, settings);
+    extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });
+    extra.addSection({ tab: 'synth', title: 'Camera',               body: createCameraSection(settings, cameraRig) });
+    extra.addSection({ tab: 'synth', title: 'XR',                   body: createXrSection(settings, xrManager) });
+    extra.addSection({ tab: 'synth', title: 'Color / Post FX',      body: createColorPostFxSection(settings) });
+    extra.addSection({ tab: 'synth', title: 'Modulation',           body: createModulationContainerSection({ settings, matrix, liveValues, cv: io.cv, gamepad: io.gamepad, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
+    extra.addSection({ tab: 'synth', title: 'Geometry',             body: createGeometrySection(settings) });
+    extra.addSection({ tab: 'synth', title: 'Presets',              body: createPresetsSection(settings) });
+    extra.addSection({
+      tab: 'synth', title: 'Performance',
+      body: createPerformanceSection(settings, { onProfileChange: () => perfMgr.applyForMode(layout.current()) }),
+    });
+    void (async () => {
+      const psMod = await import('./ui/sections/ProjectSection');
+      extra.addSection({
+        tab: 'synth', title: 'Project', initiallyOpen: true,
+        body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
+      });
+      const [rs, ss, ms, as, os, cvs, cvos, sons] = await Promise.all([
+        import('./ui/sections/RecordSection'),
+        import('./ui/sections/ShareSection'),
+        import('./ui/sections/MidiSection'),
+        import('./ui/sections/AudioSection'),
+        import('./ui/sections/OscSection'),
+        import('./ui/sections/CVSection'),
+        import('./ui/sections/CVOutputSection'),
+        import('./ui/sections/SonificationSection'),
+      ]);
+      extra.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, {
+        recorder, sequencer, stereoCompositor, stereoPreview, toast: { show: projectToast },
+      }) });
+      extra.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, whipPublisher, canvas) });
+      extra.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
+      extra.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
+      extra.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
+      extra.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
+      extra.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
+      extra.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
+      const helpMod = await import('./ui/sections/HelpSection');
+      extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });
+    })();
+    return extra.viewRoot;
+  });
 
   // Frame-budget watcher: suggest battery profile if avg ms > 32 ms.
   const watcher = new FrameBudgetWatcher(layout, {

@@ -18,11 +18,18 @@
 
 .rw-pb-surface {
   position: relative;
+}
+/* The zoomable layer - scaled by transform; the cable canvas covers the
+   surface (screen space) so cables stay crisp at any zoom. */
+.rw-pb-board {
+  position: relative;
+  transform-origin: 0 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 16px;
   min-width: 900px;
+  width: max-content;
 }
 .rw-pb-deck {
   display: flex;
@@ -247,7 +254,58 @@
 
 /* ---------- narrow mode (bay hosted in a side window) ---------- */
 
-.rw-pb--narrow .rw-pb-surface { min-width: 0; }
+.rw-pb--narrow .rw-pb-board { min-width: 0; width: auto; }
 .rw-pb--narrow .rw-pb-deck { flex-direction: column; }
 .rw-pb--narrow .rw-pb-rail { flex: 0 0 auto; width: 100%; }
 .rw-pb--narrow .rw-pb-col { width: 100%; }
+
+/* ---------- Max/MSP free layout ---------- */
+
+.rw-pb-unit-handle { cursor: grab; }
+.rw-pb-freemode .rw-pb-deck { pointer-events: none; } /* empty flow containers */
+.rw-pb-unit-free {
+  position: absolute;
+  z-index: 4;
+  pointer-events: auto;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(185, 255, 208, 0.07);
+}
+.rw-pb-unit-dragging {
+  z-index: 8;
+  outline: 1px solid var(--re-accent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(95, 255, 133, 0.25);
+  cursor: grabbing;
+}
+.rw-pb-tidy {
+  float: right;
+  background: transparent;
+  border: 1px solid var(--re-line);
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.rw-pb-tidy:hover { color: var(--re-accent); border-color: var(--re-accent); }
+
+.rw-pb-tools {
+  float: right;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.rw-pb-zoombar { display: inline-flex; gap: 2px; }
+
+/* Stack-reorder insertion line + lifted unit while dragging in tidy mode. */
+.rw-pb-insertline {
+  height: 2px;
+  margin: 2px 0;
+  background: var(--re-accent);
+  box-shadow: 0 0 6px rgba(95, 255, 133, 0.9);
+  pointer-events: none;
+}
+.rw-pb-unit-lifting {
+  opacity: 0.55;
+  outline: 1px dashed var(--re-line-hi);
+}

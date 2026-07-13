@@ -52,11 +52,39 @@ export class Sequencer {
   isPlaying = false;
 
   // ---------- events ----------
-  onPlayStateChange?: (playing: boolean) => void;
-  onPlayheadChange?:  (bar: number) => void;
-  onKeyframeReached?: (kf: Keyframe) => void;
-  onTimelineChange?:  (t: Timeline) => void;
-  onSelectionChange?: (id: string | null) => void;
+  // ADDITIVE accessors (v1.12.1, multi-instance TimelineDocks): every
+  // `seq.onX = fn` assignment SUBSCRIBES rather than replaces, so a
+  // second timeline instance (or RecordSection, which was silently
+  // clobbering the dock's callbacks before) no longer breaks the first.
+  // Reading `this.onX` yields a dispatcher over all subscribers (or
+  // undefined when none), so existing `this.onX?.(...)` call sites and
+  // truthiness checks keep working unchanged.
+  private cbPlayState = new Set<(playing: boolean) => void>();
+  private cbPlayhead2 = new Set<(bar: number) => void>();
+  private cbKeyframe = new Set<(kf: Keyframe) => void>();
+  private cbTimeline = new Set<(t: Timeline) => void>();
+  private cbSelection = new Set<(id: string | null) => void>();
+
+  set onPlayStateChange(fn: ((playing: boolean) => void) | undefined) { if (fn) this.cbPlayState.add(fn); }
+  get onPlayStateChange(): ((playing: boolean) => void) | undefined {
+    return this.cbPlayState.size ? (p) => { for (const f of this.cbPlayState) f(p); } : undefined;
+  }
+  set onPlayheadChange(fn: ((bar: number) => void) | undefined) { if (fn) this.cbPlayhead2.add(fn); }
+  get onPlayheadChange(): ((bar: number) => void) | undefined {
+    return this.cbPlayhead2.size ? (b) => { for (const f of this.cbPlayhead2) f(b); } : undefined;
+  }
+  set onKeyframeReached(fn: ((kf: Keyframe) => void) | undefined) { if (fn) this.cbKeyframe.add(fn); }
+  get onKeyframeReached(): ((kf: Keyframe) => void) | undefined {
+    return this.cbKeyframe.size ? (k) => { for (const f of this.cbKeyframe) f(k); } : undefined;
+  }
+  set onTimelineChange(fn: ((t: Timeline) => void) | undefined) { if (fn) this.cbTimeline.add(fn); }
+  get onTimelineChange(): ((t: Timeline) => void) | undefined {
+    return this.cbTimeline.size ? (t) => { for (const f of this.cbTimeline) f(t); } : undefined;
+  }
+  set onSelectionChange(fn: ((id: string | null) => void) | undefined) { if (fn) this.cbSelection.add(fn); }
+  get onSelectionChange(): ((id: string | null) => void) | undefined {
+    return this.cbSelection.size ? (i) => { for (const f of this.cbSelection) f(i); } : undefined;
+  }
 
   // Additive multi-listener API alongside the single-assignment callbacks
   // above (which TimelineDock owns). Unlike `onTimelineChange`, timeline

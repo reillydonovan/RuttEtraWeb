@@ -55,11 +55,23 @@ Reuses `ui/cableDraw.ts` ('sag') and `ui/rack/rackGeometry.ts` —
   rAF-driven with an `isConnected` early-out so a parked bay costs
   nothing measurable.
 
-## Deliberate v1 scope cuts
+## v1.13: the bay became a node editor
 
-- **No pan/zoom, no free module dragging** — a faceplate is a
-  faceplate. The region scrolls when small. A free-layout spatial rack
-  (fork of the graph editor's pan-zoom canvas) remains future work.
+Owner-directed follow-up (supersedes the "no pan/zoom, no free
+dragging" cut below): board-layer **zoom** (wheel + −/100%/+ buttons;
+the cable canvas stays in screen space so lines are crisp at any
+zoom), **header-drag** interactions — reorder within the vertical
+stacks (insertion line), or drop past the stacks' CONTENT extent
+(content-based hit-test; the flex columns' empty tails don't swallow
+drops) to break the board into **free layout** with magnetic snapping
+(left/top align, stack above/below at a 10px gap), **TIDY** to restore
+the flow, and free-layout **suspend/restore** across narrow-mode
+round-trips so a custom arrangement survives window resizing. Free
+positions are session-local by design.
+
+## Deliberate v1 scope cuts (v1.9, superseded above where noted)
+
+- ~~No pan/zoom, no free module dragging~~ — shipped in v1.13 (above).
 - **No mid-drag auto-scroll**: patching between two jacks that can't be
   on screen together in a short region means scrolling first. Fix
   candidate: edge auto-scroll during a drag.

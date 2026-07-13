@@ -16,6 +16,9 @@ import { LanePointSel } from './LaneRow';
 import { setDockActions } from '../keyframeAffordance';
 import { attachTooltip } from '../tooltip';
 
+/** One document-level keydown for ALL timeline instances (see ctor). */
+let keydownInstalled = false;
+
 export class TimelineDock {
   private host: HTMLElement;
   /** Movable content wrapper (see build()) — public for the workspace
@@ -211,7 +214,13 @@ export class TimelineDock {
     this.settings.subscribe('timelineInspectorWidth', (w) => this.applyInspectorWidth(w));
 
     // Keyboard shortcuts (only when dock is hovered or focused).
-    document.addEventListener('keydown', this.onKeyDown);
+    // ONE global listener even with multiple timeline instances
+    // (v1.12.1: the workspace can tab a timeline in several windows) —
+    // otherwise every Ctrl+Z would undo N times.
+    if (!keydownInstalled) {
+      keydownInstalled = true;
+      document.addEventListener('keydown', this.onKeyDown);
+    }
   }
 
   private onKeyDown = (ev: KeyboardEvent): void => {

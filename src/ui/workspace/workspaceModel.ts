@@ -30,15 +30,11 @@ export type WindowId = 'center' | 'left' | 'right' | 'bottom';
 export const WINDOW_IDS: readonly WindowId[] = ['center', 'left', 'right', 'bottom'];
 const VALID_VIEWS: readonly ViewId[] = ['renderer', 'panel', 'timeline', 'patchbay'];
 
-/**
- * ANY view may be tabbed in several windows at once — "+" always just
- * adds a tab (owner rule: adding never moves, keep it simple). The set
- * below only decides the ELEMENT strategy: factory views get an
- * independent instance per window; the others are single live DOM
- * trees whose one element follows the most recent activation, with a
- * placeholder shown where it currently isn't (Workspace.ts).
- */
-export const MULTI_INSTANCE: ReadonlySet<ViewId> = new Set(['renderer', 'patchbay']);
+// EVERY view is fully multi-instance (owner rule, v1.12.1): any view
+// may be tabbed — and VISIBLE — in any number of windows at once. Each
+// window gets its own element instance from a per-view factory
+// (Workspace.elementFor); all instances bind the same Settings/
+// Sequencer stores, so they stay in sync by construction.
 
 export interface TabsState {
   tabs: Record<WindowId, ViewId[]>;

@@ -382,7 +382,321 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   const deck = document.createElement('div');
   deck.className = 'rw-pb-deck';
   deck.append(rail, col1, col2);
-  surface.append(bus, deck);
+
+  // The BOARD is the zoomable layer (CSS transform scale) - the cable
+  // canvas stays UNscaled in screen space and measures live jack rects,
+  // so cables stay crisp at any zoom (the graph editor's proven trick).
+  const board = document.createElement('div');
+  board.className = 'rw-pb-board';
+  board.append(bus, deck);
+  surface.appendChild(board);
+
+  let zoom = 1;
+  function syncSurfaceSize(): void {
+    surface.style.width = `${board.scrollWidth * zoom}px`;
+    surface.style.height = `${board.scrollHeight * zoom}px`;
+  }
+  function applyZoom(next: number, anchorX?: number, anchorY?: number): void {
+    next = Math.max(0.4, Math.min(2, next));
+    if (next === zoom) return;
+    const prev = zoom;
+    // Keep the point under the anchor (cursor or viewport center)
+    // stationary by compensating the scroll position.
+    const rr = root.getBoundingClientRect();
+    const ax = anchorX !== undefined ? anchorX - rr.left : rr.width / 2;
+    const ay = anchorY !== undefined ? anchorY - rr.top : rr.height / 2;
+    const cx = root.scrollLeft + ax;
+    const cy = root.scrollTop + ay;
+    zoom = next;
+    board.style.transform = `scale(${zoom})`;
+    syncSurfaceSize();
+    root.scrollLeft = cx * (zoom / prev) - ax;
+    root.scrollTop = cy * (zoom / prev) - ay;
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+  }
+
+  // Wheel zoom (cursor-anchored) + traditional -/100%/+ buttons for
+  // pointing devices without a wheel.
+  root.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    applyZoom(zoom * Math.exp(-e.deltaY * 0.0012), e.clientX, e.clientY);
+  }, { passive: false });
+
+  const zoomBar = document.createElement('span');
+  zoomBar.className = 'rw-pb-zoombar';
+  const zoomOut = document.createElement('button');
+  zoomOut.type = 'button';
+  zoomOut.className = 'rw-pb-tidy';
+  zoomOut.textContent = '-';
+  attachTooltip(zoomOut, 'Zoom out (scroll wheel works anywhere on the board too).');
+  zoomOut.addEventListener('click', () => applyZoom(zoom / 1.2));
+  const zoomLabel = document.createElement('button');
+  zoomLabel.type = 'button';
+  zoomLabel.className = 'rw-pb-tidy';
+  zoomLabel.textContent = '100%';
+  attachTooltip(zoomLabel, 'Reset zoom to 100%.');
+  zoomLabel.addEventListener('click', () => applyZoom(1));
+  const zoomIn = document.createElement('button');
+  zoomIn.type = 'button';
+  zoomIn.className = 'rw-pb-tidy';
+  zoomIn.textContent = '+';
+  attachTooltip(zoomIn, 'Zoom in (scroll wheel works anywhere on the board too).');
+  zoomIn.addEventListener('click', () => applyZoom(zoom * 1.2));
+  zoomBar.append(zoomOut, zoomLabel, zoomIn);
+
+  // ---------------- Max/MSP-style free layout -------------------------
+  // Every module/field is draggable by its header. The stacked flow
+  // layout is the tidy default; the FIRST drag freezes every unit at
+  // its current position (re-parented to the surface, absolute), after
+  // which units move freely like nodes in a patcher. TIDY restores the
+  // flow. Cables follow automatically (anchors are live jack rects).
+  // Free positions are session-local by design (the tidy layout is the
+  // document; free layout is a workbench arrangement).
+  let freeMode = false;
+  interface UnitHome { unit: HTMLElement; parent: HTMLElement; next: Node | null }
+  const unitHomes: UnitHome[] = [];
+
+  const tidyBtn = document.createElement('button');
+  tidyBtn.type = 'button';
+  tidyBtn.className = 'rw-pb-tidy';
+  tidyBtn.textContent = 'TIDY';
+  attachTooltip(tidyBtn, 'Snap all modules back into the stacked layout (drag any module header to arrange freely, Max/MSP style).');
+  tidyBtn.addEventListener('click', () => { suspendedFree = null; tidy(); });
+  const pbTools = document.createElement('span');
+  pbTools.className = 'rw-pb-tools';
+  pbTools.append(zoomBar, tidyBtn);
+  bus.appendChild(pbTools);
+
+  function allUnits(): HTMLElement[] {
+    return [
+      bus,
+      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graph-chip')),
+    ];
+  }
+
+  function freeze(): void {
+    if (freeMode) return;
+    freeMode = true;
+    const bRect = board.getBoundingClientRect();
+    const placed = allUnits().map((unit) => ({ unit, r: unit.getBoundingClientRect() }));
+    unitHomes.length = 0;
+    for (const { unit } of placed) {
+      unitHomes.push({ unit, parent: unit.parentElement!, next: unit.nextSibling });
+    }
+    // Two passes: measure everything first, THEN re-parent/absolutize
+    // (in BOARD coordinates, dividing out the zoom).
+    board.style.minHeight = `${board.scrollHeight}px`;
+    board.style.minWidth = `${board.scrollWidth}px`;
+    for (const { unit, r } of placed) {
+      unit.classList.add('rw-pb-unit-free');
+      unit.style.left = `${(r.left - bRect.left) / zoom}px`;
+      unit.style.top = `${(r.top - bRect.top) / zoom}px`;
+      unit.style.width = `${r.width / zoom}px`;
+      board.appendChild(unit);
+    }
+    root.classList.add('rw-pb-freemode');
+    syncSurfaceSize();
+  }
+
+  function tidy(): void {
+    if (!freeMode) return;
+    freeMode = false;
+    for (const h of unitHomes) {
+      h.unit.classList.remove('rw-pb-unit-free');
+      h.unit.style.left = '';
+      h.unit.style.top = '';
+      h.unit.style.width = '';
+      // The recorded next-sibling may itself have been re-parented to
+      // the surface; unitHomes is in original DOM order, and the unit
+      // parents hold only units, so appending in order reproduces the
+      // flow exactly.
+      if (h.next && h.next.parentNode === h.parent) h.parent.insertBefore(h.unit, h.next);
+      else h.parent.appendChild(h.unit);
+    }
+    unitHomes.length = 0;
+    board.style.minHeight = '';
+    board.style.minWidth = '';
+    root.classList.remove('rw-pb-freemode');
+    syncSurfaceSize();
+  }
+
+  // Stack containers a dragged unit can reorder within (owner request:
+  // drag-and-drop node ORDER inside the default vertical stacks, with
+  // an insertion line; dragging away from every stack breaks the board
+  // into free layout instead).
+  const stacks = (): HTMLElement[] => [rail, col1, col2];
+  const insertLine = document.createElement('div');
+  insertLine.className = 'rw-pb-insertline';
+
+  function stackUnder(x: number, y: number): HTMLElement | null {
+    if (freeMode) return null;
+    for (const c of stacks()) {
+      const r = c.getBoundingClientRect();
+      // Vertical extent ends at the LAST UNIT, not the flex column's box
+      // (the columns stretch to the bay's full height, and their empty
+      // tails would otherwise swallow every breakout drop).
+      const units = Array.from(c.children).filter((el) => el !== insertLine) as HTMLElement[];
+      const last = units[units.length - 1];
+      const bottom = last ? last.getBoundingClientRect().bottom + 30 : r.top + 40;
+      if (x >= r.left - 20 && x <= r.right + 20 && y >= r.top - 10 && y <= bottom) return c;
+    }
+    return null;
+  }
+
+  function insertRefIn(container: HTMLElement, y: number, dragged: HTMLElement): HTMLElement | null {
+    for (const child of Array.from(container.children) as HTMLElement[]) {
+      if (child === dragged || child === insertLine) continue;
+      const r = child.getBoundingClientRect();
+      if (y < r.top + r.height / 2) return child;
+    }
+    return null;
+  }
+
+  function makeUnitDraggable(unit: HTMLElement, handle: HTMLElement): void {
+    handle.classList.add('rw-pb-unit-handle');
+    handle.addEventListener('pointerdown', (ev) => {
+      const t = ev.target as HTMLElement;
+      if (t.closest('input, select, button, .rw-rack-jack')) return;
+      ev.preventDefault();
+      const pid = ev.pointerId;
+      const startX = ev.clientX, startY = ev.clientY;
+      let started = false;
+      let baseL = 0, baseT = 0;
+      let stackTarget: HTMLElement | null = null;
+      const canStack = unit !== bus; // the bus stays a top strip
+      const doc = root.ownerDocument;
+
+      const beginFree = (e: PointerEvent): void => {
+        freeze();
+        baseL = parseFloat(unit.style.left) || 0;
+        baseT = parseFloat(unit.style.top) || 0;
+        // Re-base the gesture so the unit doesn't jump.
+        (unit.dataset.dragBaseX as unknown) = undefined;
+        unit.classList.add('rw-pb-unit-dragging');
+        void e;
+      };
+
+      const onMove = (e: PointerEvent): void => {
+        if (e.pointerId !== pid) return;
+        if (!started) {
+          if (Math.hypot(e.clientX - startX, e.clientY - startY) < 5) return;
+          started = true;
+          if (!freeMode) unit.classList.add('rw-pb-unit-lifting');
+          else { beginFree(e); }
+        }
+        e.preventDefault();
+
+        if (!freeMode) {
+          // TIDY mode: reorder within a stack (insertion line), or lift
+          // out past every stack to break into free layout on drop.
+          stackTarget = canStack ? stackUnder(e.clientX, e.clientY) : null;
+          if (stackTarget) {
+            const ref = insertRefIn(stackTarget, e.clientY, unit);
+            if (ref) stackTarget.insertBefore(insertLine, ref);
+            else stackTarget.appendChild(insertLine);
+          } else {
+            insertLine.remove();
+          }
+          return;
+        }
+
+        // FREE mode: absolute move (pointer deltas are visual pixels;
+        // unit coords are board units) + magnetic snapping to nearby
+        // nodes (x-align, top-align, or stack directly beneath).
+        let nl = Math.max(0, baseL + (e.clientX - startX) / zoom);
+        let nt = Math.max(0, baseT + (e.clientY - startY) / zoom);
+        const SNAP = 12;
+        for (const other of Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free'))) {
+          if (other === unit) continue;
+          const ol = parseFloat(other.style.left) || 0;
+          const ot = parseFloat(other.style.top) || 0;
+          const ow = other.offsetWidth, oh = other.offsetHeight;
+          const xOverlap = nl < ol + ow && nl + unit.offsetWidth > ol;
+          if (Math.abs(nl - ol) < SNAP) nl = ol;                        // left-align
+          if (xOverlap && Math.abs(nt - (ot + oh + 10)) < SNAP) nt = ot + oh + 10; // stack below
+          if (xOverlap && Math.abs(nt + unit.offsetHeight + 10 - ot) < SNAP) nt = ot - unit.offsetHeight - 10; // stack above
+          if (Math.abs(nt - ot) < SNAP && !xOverlap) nt = ot;           // top-align
+        }
+        unit.style.left = `${nl}px`;
+        unit.style.top = `${nt}px`;
+        const need = nl + unit.offsetWidth + 24;
+        if (need > board.offsetWidth) { board.style.minWidth = `${need}px`; syncSurfaceSize(); }
+        const needH = nt + unit.offsetHeight + 24;
+        if (needH > board.offsetHeight) { board.style.minHeight = `${needH}px`; syncSurfaceSize(); }
+      };
+
+      const onUp = (e: PointerEvent): void => {
+        if (e.pointerId !== pid) return;
+        doc.removeEventListener('pointermove', onMove);
+        doc.removeEventListener('pointerup', onUp);
+        doc.removeEventListener('pointercancel', onUp);
+        unit.classList.remove('rw-pb-unit-dragging', 'rw-pb-unit-lifting');
+        if (!started) { insertLine.remove(); return; }
+        if (!freeMode) {
+          if (stackTarget && insertLine.parentNode === stackTarget) {
+            // Reorder within/into the stack at the insertion line.
+            stackTarget.insertBefore(unit, insertLine);
+            insertLine.remove();
+          } else {
+            // Dropped away from every stack: break out to free layout
+            // and place the unit under the pointer.
+            insertLine.remove();
+            freeze();
+            const bRect = board.getBoundingClientRect();
+            unit.style.left = `${Math.max(0, (e.clientX - bRect.left) / zoom - unit.offsetWidth / 2)}px`;
+            unit.style.top = `${Math.max(0, (e.clientY - bRect.top) / zoom - 10)}px`;
+            syncSurfaceSize();
+          }
+        }
+      };
+      doc.addEventListener('pointermove', onMove, { passive: false });
+      doc.addEventListener('pointerup', onUp);
+      doc.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  // Handles: module heads, field titles, the bus title, the graph chip.
+  for (const m of Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module'))) {
+    const head = m.querySelector<HTMLElement>('.rw-pb-module-head');
+    if (head) makeUnitDraggable(m, head);
+  }
+  for (const f of Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-field'))) {
+    const title = f.querySelector<HTMLElement>('.rw-pb-field-title');
+    if (title) makeUnitDraggable(f, title);
+  }
+  {
+    const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
+    if (busTitle) makeUnitDraggable(bus, busTitle);
+  }
+  makeUnitDraggable(graphChip, graphChip);
+
+  // Narrow mode and free mode don't mix (narrow stacks the columns) —
+  // but a custom node arrangement must SURVIVE the round-trip (owner
+  // bug report): entering narrow suspends the free layout (positions
+  // saved, board tidied); widening past the threshold re-freezes and
+  // restores every node where it was. Only the TIDY button forgets.
+  let suspendedFree: Array<{ unit: HTMLElement; left: string; top: string; width: string }> | null = null;
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const narrow = root.classList.contains('rw-pb--narrow');
+      if (narrow && freeMode) {
+        suspendedFree = allUnits().map((unit) => ({
+          unit, left: unit.style.left, top: unit.style.top, width: unit.style.width,
+        }));
+        tidy();
+      } else if (!narrow && suspendedFree) {
+        const saved = suspendedFree;
+        suspendedFree = null;
+        freeze();
+        for (const p of saved) {
+          p.unit.style.left = p.left;
+          p.unit.style.top = p.top;
+          p.unit.style.width = p.width;
+        }
+        syncSurfaceSize();
+      }
+    }).observe(root);
+  }
 
   // ---------------- slot value refresh --------------------------------
   function refreshSlots(): void {

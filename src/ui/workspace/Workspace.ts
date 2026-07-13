@@ -31,7 +31,7 @@ import type { SettingsStore } from '../../state/Settings';
 import { layoutManager } from '../layout/LayoutManager';
 import {
   TabsState, ViewId, WindowId,
-  normalizeTabsState, moveView, addTab, activateTab, closeTab, windowOf, getPreset, MULTI_INSTANCE, WINDOW_IDS,
+  normalizeTabsState, moveView, addTab, activateTab, closeTab, getPreset, WINDOW_IDS,
 } from './workspaceModel';
 
 interface WorkspaceDeps {
@@ -77,14 +77,15 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   document.body.appendChild(park);
 
   // -------------------- view instances -------------------------------
-  // Singleton views (Controls, Timeline) have ONE element. Multi-
-  // instance views (Renderer, Patch Bay) have a factory; each window
-  // that tabs them gets its own cached instance.
-  const singletonEls = new Map<ViewId, HTMLElement>();
+  // EVERY view is multi-instance: each window that tabs a view gets its
+  // own cached element from the view's factory. The boot-built primary
+  // Controls/Timeline elements seed the right/bottom instances so the
+  // default layout costs nothing extra; additional windows lazily build
+  // fresh instances (all bound to the same stores — sync by design).
   const factories = new Map<ViewId, () => HTMLElement>();
   const instances = new Map<string, HTMLElement>(); // `view:win`
 
-  singletonEls.set('panel', deps.panelViewEl);
+  instances.set('panel:right', deps.panelViewEl);
 
   interface RendererInstance { el: HTMLElement; video: HTMLVideoElement; stream: MediaStream | null }
   const rendererInstances = new Map<string, RendererInstance>();
@@ -118,40 +119,14 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   }
 
   function isAvailable(view: ViewId): boolean {
-    return singletonEls.has(view) || factories.has(view) || view === 'renderer';
-  }
-
-  /**
-   * Single-DOM views (Controls, Timeline) may be TABBED in several
-   * windows; their one element mounts where it was most recently
-   * activated. Other windows with the view active show a placeholder
-   * ("click the tab to bring it here" = activate again → steal).
-   */
-  const singletonHome = new Map<ViewId, WindowId>();
-  const placeholders = new Map<string, HTMLElement>();
-
-  function placeholderFor(view: ViewId, win: WindowId): HTMLElement {
-    const key = `${view}:${win}`;
-    let el = placeholders.get(key);
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'rw-view-placeholder';
-      el.textContent = `${VIEW_LABELS[view]} is shown in another window — click its tab here to bring it over.`;
-      placeholders.set(key, el);
+    if (factories.has(view) || view === 'renderer') return true;
+    for (const key of instances.keys()) {
+      if (key.startsWith(view + ':')) return true;
     }
-    return el;
-  }
-
-  /** The window that should hold a singleton view's element right now. */
-  function singletonOwner(view: ViewId, state: TabsState): WindowId | null {
-    const activeIn = WINDOW_IDS.filter((w) => state.active[w] === view);
-    if (activeIn.length === 0) return null;
-    const home = singletonHome.get(view);
-    return home && activeIn.includes(home) ? home : activeIn[0];
+    return false;
   }
 
   function elementFor(view: ViewId, win: WindowId): HTMLElement | null {
-    if (singletonEls.has(view)) return singletonEls.get(view)!;
     const key = `${view}:${win}`;
     const cached = instances.get(key);
     if (cached) return cached;
@@ -337,7 +312,6 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       if (here) li.classList.add('disabled');
       else li.addEventListener('click', () => {
         ul.remove();
-        singletonHome.set(v, win);
         writeState(addTab(currentState(), v, win));
       });
       ul.appendChild(li);
@@ -415,13 +389,17 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   /** For empty (hidden) windows only: which one's dock area is near the
    *  pointer. Proximity-based, one at a time (owner feedback) — occupied
    *  windows are targeted via their visible tab strips instead. */
-  function emptyWindowAt(x: number, y: number, state: TabsState): WindowId | null {
+  function emptyWindowAt(x: number, y: number, state: TabsState): { win: WindowId; dock?: 'top' | 'bottom' } | null {
     const vw = window.innerWidth, vh = window.innerHeight;
     const empty = (id: WindowId): boolean => state.tabs[id].length === 0;
-    if (empty('left') && x < vw * 0.15) return 'left';
-    if (empty('right') && x > vw * 0.85) return 'right';
-    if (empty('bottom') && y > vh * 0.78) return 'bottom';
-    if (empty('center') && x > vw * 0.3 && x < vw * 0.7 && y > vh * 0.3 && y < vh * 0.7) return 'center';
+    if (empty('left') && x < vw * 0.15) return { win: 'left' };
+    if (empty('right') && x > vw * 0.85) return { win: 'right' };
+    // The bottom WINDOW answers both horizontal edges: drop at the
+    // bottom of the screen → docked bottom; at the top (below the menu
+    // bar) → docked top. Same proximity pattern as the side windows.
+    if (empty('bottom') && y > vh * 0.78) return { win: 'bottom', dock: 'bottom' };
+    if (empty('bottom') && y < vh * 0.22 && y > 30) return { win: 'bottom', dock: 'top' };
+    if (empty('center') && x > vw * 0.3 && x < vw * 0.7 && y > vh * 0.3 && y < vh * 0.7) return { win: 'center' };
     return null;
   }
 
@@ -442,7 +420,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     let started = false;
     let ghost: HTMLElement | null = null;
     let hoverStrip: WindowId | null = null;
-    let hoverEmpty: WindowId | null = null;
+    let hoverEmpty: { win: WindowId; dock?: 'top' | 'bottom' } | null = null;
     let dropX = startX;
 
     const start = (): void => {
@@ -498,7 +476,11 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       for (const w of windows.values()) {
         w.bar.classList.toggle('rw-strip-hover', w.id === hoverStrip);
       }
-      setEmptyReveal(hoverEmpty);
+      setEmptyReveal(hoverEmpty?.win ?? null);
+      // Preview the dock edge on the revealed bottom window.
+      if (hoverEmpty?.win === 'bottom' && hoverEmpty.dock && settings.get('timelineDock') !== hoverEmpty.dock) {
+        // visual only — the shell repositions via its data-dock CSS on drop
+      }
       const hw = hoverStrip ? windows.get(hoverStrip) : null;
       setCaret(hoverStrip, hw ? stripIndexAt(hw, e.clientX) : 0);
     };
@@ -513,24 +495,25 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       setCaret(null, 0);
       if (!apply) { window.dispatchEvent(new Event('rw:layout-resize')); return; }
       if (!started) {
-        // Plain click: activate the tab (and, for single-DOM views,
-        // claim the element for this window).
-        singletonHome.set(view, from);
+        // Plain click: activate the tab.
         writeState(activateTab(currentState(), from, view));
-        // Same-state activation still needs a re-host (the settings
-        // subscription only fires on change).
         refresh();
         return;
       }
-      const target = hoverStrip ?? hoverEmpty;
+      const target = hoverStrip ?? hoverEmpty?.win ?? null;
       if (target) {
         const win = windows.get(target);
         const index = hoverStrip && win ? stripIndexAt(win, dropX) : undefined;
-        singletonHome.set(view, target);
         writeState(moveView(currentState(), view, target, index, from));
-        // Dropping into a stowed window must produce a VISIBLE window.
-        if (target === 'bottom' && settings.get('timelineDock') === 'hidden') {
-          settings.set('timelineDock', settings.get('timelineLastDock'));
+        // Dropping into a stowed window must produce a VISIBLE window;
+        // an empty-zone drop at the top/bottom edge also picks the
+        // bottom window's dock edge.
+        if (target === 'bottom') {
+          const edge = hoverEmpty?.dock;
+          if (edge) settings.set('timelineDock', edge);
+          else if (settings.get('timelineDock') === 'hidden') {
+            settings.set('timelineDock', settings.get('timelineLastDock'));
+          }
         }
         if (target === 'right' && settings.get('panelCollapsed')) {
           settings.set('panelCollapsed', false);
@@ -547,15 +530,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   }
 
   // ------------------------- hosting --------------------------------
-  /** Element (or placeholder) a window should display for `view`. */
-  function displayFor(view: ViewId, win: WindowId, state: TabsState): HTMLElement | null {
-    if (singletonEls.has(view)) {
-      return singletonOwner(view, state) === win
-        ? singletonEls.get(view)!
-        : placeholderFor(view, win);
-    }
-    return elementFor(view, win);
-  }
+
 
   function applyState(state: TabsState): void {
     renderStrips(state);
@@ -563,7 +538,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     // moved between windows), then mount what each window should show.
     for (const w of windows.values()) {
       if (w.mounted) {
-        const prev = w.shell.querySelector(':scope > .rw-panel-view, :scope > .rw-timeline-view, :scope > .rw-view-renderer, :scope > .rw-patchbay, :scope > .rw-view-placeholder');
+        const prev = w.shell.querySelector(':scope > .rw-panel-view, :scope > .rw-timeline-view, :scope > .rw-view-renderer, :scope > .rw-patchbay');
         if (prev) park.appendChild(prev);
         w.mounted = null;
       }
@@ -571,7 +546,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     for (const w of windows.values()) {
       const want = state.active[w.id];
       if (want) {
-        const el = displayFor(want, w.id, state);
+        const el = elementFor(want, w.id);
         if (el) {
           w.shell.appendChild(el);
           w.mounted = want;
@@ -617,13 +592,13 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
 
   return {
     attachDockRegion(dockShell: HTMLElement, timelineViewEl: HTMLElement): void {
-      singletonEls.set('timeline', timelineViewEl);
+      instances.set('timeline:bottom', timelineViewEl);
       if (!windows.has('bottom')) buildWindow('bottom', dockShell);
       refresh();
     },
     registerView(id: ViewId, el: HTMLElement | (() => HTMLElement)): void {
       if (typeof el === 'function') factories.set(id, el);
-      else singletonEls.set(id, el);
+      else instances.set(`${id}:right`, el);
       refresh();
     },
     onPanelPopout(open: boolean): void {

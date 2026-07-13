@@ -74,8 +74,11 @@ Run these in order; stop and report on the first failure:
   normalized by `normalizeTabsState`; the no-side-effects rule (moving
   a view never assigns anything to another window) is enforced by the
   pure `moveView()` — follow the add-a-view checklist in the design
-  doc for any new ViewId; multi-instance views register a FACTORY with
-  registerView and must be listed in workspaceModel.MULTI_INSTANCE. Never
+  doc for any new ViewId; EVERY view registers a FACTORY with
+  registerView (per-window live instances — duplicates sync via the
+  shared stores). Sequencer `onX` props are additive multicast
+  accessors: assigning subscribes, never replaces — do not 'reset' a
+  callback by reassigning it. Never
   re-parent the live WebGL canvas; renderer-outside-center is a
   captureStream mirror.
 - **Menubar offset**: anything new pinned to the top of the viewport

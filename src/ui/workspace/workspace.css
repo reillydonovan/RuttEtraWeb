@@ -290,20 +290,3 @@ body.viewer-mode #rw-center-shell {
   opacity: 0.75;
 }
 #rw-center-shell.rw-center-passthrough .rw-region-bar:hover { opacity: 1; }
-
-/* Placeholder pane: a single-DOM view (Controls/Timeline) is tabbed
-   here but its live element is currently shown in another window. */
-.rw-view-placeholder {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  text-align: center;
-  color: var(--re-text-dim);
-  font-family: var(--re-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  background: rgba(10, 16, 10, 0.5);
-}
