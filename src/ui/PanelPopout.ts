@@ -19,6 +19,7 @@
  */
 
 import { applySkinToDocument, releaseDocument } from './skin';
+import { applyTextScaleToDocument } from './textScale';
 
 export interface PanelPopoutController {
   /** True while the panel lives in the popup window. */
@@ -35,6 +36,7 @@ export function createPanelPopout(
   onChange?: (open: boolean) => void,
 ): PanelPopoutController {
   let popup: Window | null = null;
+  let unsubTextScale: (() => void) | null = null;
   /** Marks where the panel came from so popIn restores the exact spot. */
   const placeholder = document.createComment('rw-panel-popout-placeholder');
 
@@ -60,6 +62,7 @@ export function createPanelPopout(
     // `className` above doesn't carry data-* attributes; the skin module
     // stamps `body[data-skin]` and keeps it live until popIn releases it.
     applySkinToDocument(w.document);
+    unsubTextScale = applyTextScaleToDocument(w.document);
 
     // Adopt the live panel. The placeholder keeps our seat in the main DOM.
     panelRoot.parentNode?.insertBefore(placeholder, panelRoot);
@@ -77,6 +80,8 @@ export function createPanelPopout(
     // browsers; a stale entry is harmless (stamp() no-ops on a dead body)
     // but releasing keeps the registry from growing across many popouts.
     try { if (popup) releaseDocument(popup.document); } catch { /* closed */ }
+    unsubTextScale?.();
+    unsubTextScale = null;
     if (popup && !popup.closed) popup.close();
     popup = null;
   }

@@ -58,15 +58,15 @@
       <!-- Center workspace region shell — positioned by main.ts resize()
            to the exact rect the render canvas occupies. Hosts the
            RENDERER view (click-through) or any other view (overlay). -->
-      <div id="rw-center-shell"></div>
+      <div id="rw-center-shell" class="rw-zoomchrome"></div>
       <!-- Left workspace window — hidden while it holds no tabs. -->
-      <aside id="rw-left-shell"></aside>
-      <aside id="panel-root"></aside>
-      <div id="hud"></div>
+      <aside id="rw-left-shell" class="rw-zoomchrome"></aside>
+      <aside id="panel-root" class="rw-zoomchrome"></aside>
+      <div id="hud" class="rw-zoomchrome"></div>
       <!-- The manual link lives in the menu bar (Help → Open Manual);
            the old always-visible #about-link corner anchor was absorbed
            there when the app menu bar shipped. -->
-      <div id="timeline-dock" data-dock="hidden"></div>
+      <div id="timeline-dock" class="rw-zoomchrome" data-dock="hidden"></div>
       <video id="src-video" autoplay muted playsinline style="display:none"></video>
     </div>
     <script type="module" src="/src/main.ts"></script>

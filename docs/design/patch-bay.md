@@ -69,12 +69,48 @@ the flow, and free-layout **suspend/restore** across narrow-mode
 round-trips so a custom arrangement survives window resizing. Free
 positions are session-local by design.
 
+## v1.14: click-drag-to-pan, dynamic reflow, a VIDEO SOURCE module
+
+Owner-directed follow-up round two:
+
+- **Click-drag-to-pan** on empty background (`PatchBayView.ts`) — a
+  pointerdown whose target isn't a module/field/jack/control starts a
+  scroll-position drag, the standard node-editor gesture. A **150px
+  pan-headroom** padding on `.rw-pb-surface` (the scrolled element, not
+  the board — keeps the board's own `width:100%` math untouched) gives
+  the outermost free-layout node room to have its own far edge brought
+  into view instead of sitting flush against the scrollport. Scoped to
+  `.rw-pb-freemode:not(.rw-pb--narrow)` only: the default flow layout
+  already exactly fills its window (extra room there would just open
+  with dead space scrolled into view), and a free layout that gets
+  squeezed narrow (see below) doesn't need it either since it's
+  temporarily flattened back to the stacked flow.
+- **Dynamic reflow going from wide back to narrow** (owner bug report:
+  nodes didn't resize shrinking a maximized window back down): the flow
+  layout's `.rw-pb-board` changed from `width:max-content` to
+  `width:100%` so it continuously reflows with the container instead of
+  holding its intrinsic size until the ~900px narrow snap. A free
+  layout's units now rescale their `left`/`width` proportionally on
+  every resize (tracked against a `freeRefWidth` baseline in
+  `PatchBayView.ts`), and `syncSurfaceSize()` was rewritten to derive
+  from `root.clientWidth`/`clientHeight` (ground truth) instead of
+  reading `board.scrollWidth` back — the old version was circular once
+  `width:100%` meant the board just echoed whatever surface was last
+  set to, so it never shrank again after the first zoom or free-mode
+  action locked in an explicit surface size.
+- **A VIDEO SOURCE module** in the rail, above the FUNCTION GENERATOR
+  stack: WEBCAM / SCREEN / FILE buttons and a live LCD readout, wired
+  directly to the `VideoSourceManager` instance Controls already uses
+  (`createPatchBayView(settings, source)` — the factory in `main.ts`
+  now threads it through). No jack — like `cols`/`scanRate`, it's a
+  one-shot device/stream choice, not a continuous modulation signal.
+
 ## Deliberate v1 scope cuts (v1.9, superseded above where noted)
 
 - ~~No pan/zoom, no free module dragging~~ — shipped in v1.13 (above).
-- **No mid-drag auto-scroll**: patching between two jacks that can't be
-  on screen together in a short region means scrolling first. Fix
-  candidate: edge auto-scroll during a drag.
+- ~~No mid-drag auto-scroll~~ — pan is now click-drag on empty
+  background at any time (v1.14); a true auto-scroll-while-dragging-a-
+  cable is still unbuilt if that turns out to not be enough.
 - **Param cells are jack + label**, not mini-knobs — value editing
   lives in the Controls view; the bay is the patching surface. Mini
   knobs (same slider-face machinery) are the obvious v2.

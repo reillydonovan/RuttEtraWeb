@@ -94,6 +94,20 @@ Run these in order; stop and report on the first failure:
   inconsistent. Applies to the timeline dock as much as the panel: it
   had zero styled tooltips until 2026-07-11 despite the panel getting a
   full hover-tooltip pass earlier the same session.
+- **CSS `zoom` on a workspace window shell breaks alignment — scope it
+  to the shell's CHILDREN.** `--rw-panel-inset-left`/`-right` (and
+  similar) are real screen-pixel values published by JS from OTHER
+  elements' post-zoom rects. Applying `zoom` directly to an
+  absolutely-positioned shell that reads one of these as its own
+  `left`/`right`/`width` re-scales that already-resolved pixel value a
+  SECOND time for that one element, desyncing its edges from its
+  neighbors (confirmed 2026-07-13 building the Text Size feature:
+  windows drifted apart/overlapped at any non-1 scale). The fix is
+  `.rw-zoomchrome > * { zoom: var(--rw-text-scale, 1); }` (children
+  only, `panel.css`) — never `.rw-zoomchrome { zoom: ...; }` on the
+  shell itself. The same reasoning applies to any other absolutely/
+  fixed-positioned sibling whose geometry comes from a published CSS
+  var: zoom its content, not its own box.
 - **Global CSS safety nets over per-callsite fixes**: `panel.css` has
   three deliberately unscoped rules — `input[type="range"]`,
   `*::-webkit-scrollbar`, `input[type="file"]::file-selector-button` —

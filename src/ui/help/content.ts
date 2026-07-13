@@ -52,8 +52,8 @@ const MD_QUICKSTART = `
 
 > Desktop has a traditional **menu bar** along the top: **File** (project
 > New/Open/Save + backup), **Edit** (timeline undo/redo), **View** (skins,
-> HUD, fullscreen, docking), **Window** (pop-out controls/output, workspace
-> regions, layout presets), and **Help** (this manual and more).
+> HUD, fullscreen, docking, **Text Size**), **Window** (pop-out controls/output,
+> workspace regions, layout presets), and **Help** (this manual and more).
 > Everything in it is also reachable the old ways — same actions, one
 > implementation.
 >
@@ -71,11 +71,14 @@ const MD_QUICKSTART = `
 > wiring your microphone to Z Push in about two minutes — the same
 > patch in cables (Patch Bay) and dropdowns (Modulation panel).
 >
-> The **PATCH BAY** view is the instrument as a hardware faceplate:
-> the four Classic slots become FUNCTION GENERATOR modules with SRC IN
-> and OUT jacks, every parameter is a labeled jack in the original
-> console's engraved groups, and dragging cables between them IS
-> editing the slots' Source/Target — the Modulation panel updates as
+> The **PATCH BAY** view is the instrument as a hardware faceplate and a
+> node editor: scroll to zoom, click-drag empty background to pan, drag
+> a module's header to reorder or break it into free layout. The four
+> Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
+> jacks, a VIDEO SOURCE module switches the same webcam/screen/file
+> source as the Source panel, every parameter is a labeled jack in the
+> original console's engraved groups, and dragging cables between them
+> IS editing the slots' Source/Target — the Modulation panel updates as
 > you patch. Try **Window ▸ Layout ▸ Patch Bay**.
 
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.

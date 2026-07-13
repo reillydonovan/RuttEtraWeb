@@ -32,6 +32,7 @@ import {
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
+import type { VideoSourceManager } from '../../input/sources';
 
 const CLASSIC_COLOR = '#5fff85';
 const SOURCE_COLOR  = '#b9ffd0';
@@ -44,7 +45,7 @@ type JackId =
   | { kind: 'slotsrc'; index: number }
   | { kind: 'src'; source: ModSource };
 
-export function createPatchBayView(settings: SettingsStore): HTMLElement {
+export function createPatchBayView(settings: SettingsStore, source: VideoSourceManager): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
 
@@ -197,6 +198,56 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   // ---------------- left rail: function generators --------------------
   const rail = document.createElement('div');
   rail.className = 'rw-pb-rail';
+
+  // VIDEO SOURCE module — the same `VideoSourceManager` instance Controls
+  // uses, so switching here (or there) is the SAME state, not a mirror:
+  // no separate "patch bay video source" concept to fall out of sync.
+  // No jack (it feeds the mesh upstream of everything patchable here,
+  // same reasoning `cols`/`scanRate` stay off the modulation TARGETS
+  // list — a one-shot device/stream choice, not a continuous signal).
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const title = document.createElement('span');
+    title.textContent = 'VIDEO SOURCE';
+    head.append(title);
+    const lcdRow = document.createElement('div');
+    lcdRow.className = 'rw-pb-row';
+    const lcd = document.createElement('span');
+    lcd.className = 'rw-pb-lcd';
+    lcdRow.append(lcd);
+    const btnRow = document.createElement('div');
+    btnRow.className = 'rw-pb-row';
+    const mkBtn = (label: string, tooltip: string, run: () => void): HTMLButtonElement => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rw-pb-tidy';
+      b.textContent = label;
+      attachTooltip(b, tooltip);
+      b.addEventListener('click', run);
+      btnRow.appendChild(b);
+      return b;
+    };
+    mkBtn('WEBCAM', 'Switch to the default webcam.', () => { void source.useWebcam(); });
+    mkBtn('SCREEN', 'Switch to a screen/window/tab share.', () => { void source.useScreen(); });
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'video/*';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files?.[0];
+      if (f) source.useFile(f);
+      fileInput.value = '';
+    });
+    mkBtn('FILE', 'Load a local video file.', () => fileInput.click());
+    mod.append(head, lcdRow, btnRow, fileInput);
+    rail.appendChild(mod);
+    source.subscribe((state) => {
+      lcd.textContent = state.kind === 'none' ? 'NONE' : `${state.kind.toUpperCase()}: ${state.label || '—'}`;
+    });
+  }
 
   const writeSlot = (index: number, patch: Partial<ModSlot>): void => {
     const slots = settings.get('modSlots').slice();
@@ -392,9 +443,20 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   surface.appendChild(board);
 
   let zoom = 1;
+  // Always re-derives from ground truth (the real, JS-untouched
+  // container size + free mode's real absolute content extent) rather
+  // than reading board.scrollWidth — board's CSS width is a percentage
+  // of `surface`, so reading its rendered size back would just echo
+  // whatever surface was last set to and never shrink again on a later
+  // plain window resize (the bug behind nodes not resizing going from
+  // a maximized window back down to a smaller one).
   function syncSurfaceSize(): void {
-    surface.style.width = `${board.scrollWidth * zoom}px`;
-    surface.style.height = `${board.scrollHeight * zoom}px`;
+    const baseW = root.clientWidth || board.scrollWidth;
+    const baseH = root.clientHeight || board.scrollHeight;
+    const contentW = freeMode ? Math.max(baseW, parseFloat(board.style.minWidth) || 0) : baseW;
+    const contentH = freeMode ? Math.max(baseH, parseFloat(board.style.minHeight) || 0) : baseH;
+    surface.style.width = `${contentW * zoom}px`;
+    surface.style.height = `${contentH * zoom}px`;
   }
   function applyZoom(next: number, anchorX?: number, anchorY?: number): void {
     next = Math.max(0.4, Math.min(2, next));
@@ -421,6 +483,43 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
     e.preventDefault();
     applyZoom(zoom * Math.exp(-e.deltaY * 0.0012), e.clientX, e.clientY);
   }, { passive: false });
+
+  // Click-drag-to-pan on empty background, the standard node-editor
+  // canvas gesture (Blender/Unity/Figma): grab anywhere that ISN'T a
+  // module, jack, or control and drag to scroll the board around.
+  root.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.button !== 1) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graph-chip, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
+    e.preventDefault();
+    const pid = e.pointerId;
+    const startX = e.clientX, startY = e.clientY;
+    const startLeft = root.scrollLeft, startTop = root.scrollTop;
+    let started = false;
+    root.setPointerCapture(pid);
+    const onMove = (ev: PointerEvent): void => {
+      if (ev.pointerId !== pid) return;
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (!started) {
+        if (Math.hypot(dx, dy) < 4) return;
+        started = true;
+        root.classList.add('rw-pb-panning');
+      }
+      root.scrollLeft = startLeft - dx;
+      root.scrollTop = startTop - dy;
+    };
+    const onUp = (ev: PointerEvent): void => {
+      if (ev.pointerId !== pid) return;
+      root.releasePointerCapture(pid);
+      root.removeEventListener('pointermove', onMove);
+      root.removeEventListener('pointerup', onUp);
+      root.removeEventListener('pointercancel', onUp);
+      root.classList.remove('rw-pb-panning');
+    };
+    root.addEventListener('pointermove', onMove);
+    root.addEventListener('pointerup', onUp);
+    root.addEventListener('pointercancel', onUp);
+  });
 
   const zoomBar = document.createElement('span');
   zoomBar.className = 'rw-pb-zoombar';
@@ -453,6 +552,13 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   // Free positions are session-local by design (the tidy layout is the
   // document; free layout is a workbench arrangement).
   let freeMode = false;
+  // Baseline root width the current free-layout positions/widths were
+  // measured against — lets the resize observer below rescale every
+  // unit's left/width by the ratio of new/old width so a custom
+  // arrangement shrinks and grows horizontally WITH the window instead
+  // of holding fixed pixel geometry (owner bug report: nodes didn't
+  // resize going from a maximized window back down to a smaller one).
+  let freeRefWidth: number | null = null;
   interface UnitHome { unit: HTMLElement; parent: HTMLElement; next: Node | null }
   const unitHomes: UnitHome[] = [];
 
@@ -495,12 +601,14 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
       board.appendChild(unit);
     }
     root.classList.add('rw-pb-freemode');
+    freeRefWidth = root.getBoundingClientRect().width;
     syncSurfaceSize();
   }
 
   function tidy(): void {
     if (!freeMode) return;
     freeMode = false;
+    freeRefWidth = null;
     for (const h of unitHomes) {
       h.unit.classList.remove('rw-pb-unit-free');
       h.unit.style.left = '';
@@ -677,7 +785,8 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   // restores every node where it was. Only the TIDY button forgets.
   let suspendedFree: Array<{ unit: HTMLElement; left: string; top: string; width: string }> | null = null;
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(() => {
+    new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? root.clientWidth;
       const narrow = root.classList.contains('rw-pb--narrow');
       if (narrow && freeMode) {
         suspendedFree = allUnits().map((unit) => ({
@@ -694,7 +803,31 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
           p.unit.style.width = p.width;
         }
         syncSurfaceSize();
+        freeRefWidth = w;
+      } else if (!narrow && freeMode) {
+        // Continuous case: the window is shrinking/growing but never
+        // crossed the narrow threshold. Rescale every free unit's
+        // left/width by how much the container width changed since the
+        // last measurement, so a custom layout tracks the window
+        // horizontally instead of holding stale pixel geometry.
+        if (freeRefWidth == null) freeRefWidth = w;
+        else if (w > 0 && Math.abs(w - freeRefWidth) > 0.5) {
+          const ratio = w / freeRefWidth;
+          for (const unit of allUnits()) {
+            if (!unit.classList.contains('rw-pb-unit-free')) continue;
+            const l = parseFloat(unit.style.left) || 0;
+            const uw = parseFloat(unit.style.width) || unit.offsetWidth;
+            unit.style.left = `${l * ratio}px`;
+            unit.style.width = `${uw * ratio}px`;
+          }
+          syncSurfaceSize();
+          freeRefWidth = w;
+        }
       }
+      // Ground-truth resync on every resize (cheap, idempotent) — keeps
+      // the scrollable surface correct even in plain flow mode after a
+      // zoom action had previously locked in an explicit px size.
+      syncSurfaceSize();
     }).observe(root);
   }
 

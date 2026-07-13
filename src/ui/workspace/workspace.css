@@ -200,7 +200,20 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   width: auto !important;
   height: auto !important;
   z-index: 35 !important;
+  /* Force an OPAQUE backdrop while maximized: the render canvas keeps
+     rendering underneath at full size the whole time (availableCanvasRect
+     deliberately skips maximized shells so un-maximizing needs no
+     reflow), and several windows' own background is the CRT panel's
+     translucent `--re-panel` (fine normally, stacked over the dark app
+     background — not fine full-screen over a bright render). Owner
+     report: the timeline dock read as see-through when maximized while
+     other windows didn't (their mounted content happened to fully
+     cover the translucent shell backdrop; the timeline's didn't). The
+     renderer's own maximize is excluded — its transparency there is
+     the whole point (the canvas IS the content). */
+  background: var(--re-bg, #0a0e0a) !important;
 }
+.rw-region-max.rw-center-passthrough { background: transparent !important; }
 
 /* Drag ghost + edge drop zones */
 .rw-drag-ghost {

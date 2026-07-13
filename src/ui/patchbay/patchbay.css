@@ -11,10 +11,13 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  cursor: grab;
   background:
     radial-gradient(circle at 30% 0%, rgba(95, 255, 133, 0.05), transparent 55%),
     linear-gradient(180deg, #131a13, #0b100b);
 }
+/* Click-drag-to-pan on empty background (node-editor convention). */
+.rw-patchbay.rw-pb-panning { cursor: grabbing; }
 
 .rw-pb-surface {
   position: relative;
@@ -29,7 +32,14 @@
   gap: 14px;
   padding: 16px;
   min-width: 900px;
-  width: max-content;
+  /* Fill the surface so the flow (TIDY) layout's columns reflow
+     continuously as the window shrinks toward the 900px floor instead
+     of holding their max-content size and just clipping/scrolling
+     (owner report: nodes didn't dynamically resize going from a
+     maximized window back down). Free mode still grows past this via
+     an inline min-width set directly on the element when a dragged
+     node needs more room (see freeze()/onMove in PatchBayView.ts). */
+  width: 100%;
 }
 .rw-pb-deck {
   display: flex;
@@ -261,6 +271,16 @@
 
 /* ---------- Max/MSP free layout ---------- */
 
+/* Pan headroom (owner request): click-drag-to-pan a free-form layout
+   would otherwise leave the outermost node flush against the
+   scrollport's edge with no room to bring its own far edge fully into
+   view. Scoped to free mode only — padding here on the SCROLLED
+   surface (not the board) insets it symmetrically without disturbing
+   the board's own width math, but it also inflates the scrollable
+   region beyond the viewport, so it stays off in the default flow
+   layout (which fills the viewport exactly and would otherwise open
+   with dead space scrolled into view). */
+.rw-pb-freemode:not(.rw-pb--narrow) .rw-pb-surface { padding: 150px; }
 .rw-pb-unit-handle { cursor: grab; }
 .rw-pb-freemode .rw-pb-deck { pointer-events: none; } /* empty flow containers */
 .rw-pb-unit-free {

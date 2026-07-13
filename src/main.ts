@@ -702,7 +702,7 @@ async function bootSynth(): Promise<void> {
     const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
     // Factory: the bay is multi-instance — every window that tabs it
     // gets its own independent instance (all reading the same Settings).
-    workspace.registerView('patchbay', () => createPatchBayView(settings));
+    workspace.registerView('patchbay', () => createPatchBayView(settings, source));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own
@@ -784,6 +784,34 @@ async function bootSynth(): Promise<void> {
       checked: () => !!settings.get('hudVisible'),
     },
   ]);
+  // Global legibility control (owner request: some users find the
+  // default text hard to read). Purely a presentation preference
+  // (localStorage, like the skin) — never changes the default for
+  // anyone who hasn't touched it, never rides into a saved project.
+  {
+    const { increaseTextScale, decreaseTextScale, resetTextScale, getTextScale } = await import('./ui/textScale');
+    registerActions([
+      {
+        id: 'view.textScaleIncrease', label: 'Text Size: Increase', shortcut: 'Ctrl+=',
+        run: () => increaseTextScale(),
+      },
+      {
+        id: 'view.textScaleDecrease', label: 'Text Size: Decrease', shortcut: 'Ctrl+-',
+        run: () => decreaseTextScale(),
+      },
+      {
+        id: 'view.textScaleReset', label: 'Text Size: Reset', shortcut: 'Ctrl+0',
+        run: () => resetTextScale(),
+        enabled: () => getTextScale() !== 1,
+      },
+    ]);
+    window.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || isTypingTarget(e.target)) return;
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); runAction('view.textScaleIncrease'); }
+      else if (e.key === '-') { e.preventDefault(); runAction('view.textScaleDecrease'); }
+      else if (e.key === '0') { e.preventDefault(); runAction('view.textScaleReset'); }
+    });
+  }
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
     if (e.key === '/') { e.preventDefault(); panelSearch.focus(); return; }
@@ -805,6 +833,7 @@ async function bootSynth(): Promise<void> {
   // no menu-only logic beyond tiny download/upload wrappers.
   {
     const { createMenuBar } = await import('./ui/menu/MenuBar');
+    const { getTextScale } = await import('./ui/textScale');
     const { getSkin, setSkin } = await import('./ui/skin');
     const { exportEverything, importEverything } = await import('./state/exportEverything');
     const download = (name: string, text: string): void => {
@@ -948,6 +977,17 @@ async function bootSynth(): Promise<void> {
           { actionId: 'view.fullscreen' },
           { sep: true },
           {
+            label: 'Text Size',
+            submenu: () => [
+              { label: `Current: ${Math.round(getTextScale() * 100)}%`, enabled: () => false },
+              { sep: true },
+              { actionId: 'view.textScaleIncrease' },
+              { actionId: 'view.textScaleDecrease' },
+              { actionId: 'view.textScaleReset' },
+            ],
+          },
+          { sep: true },
+          {
             label: 'Timeline: Top',
             run: () => settings.set('timelineDock', 'top'),
             checked: () => settings.get('timelineDock') === 'top',
@@ -1000,6 +1040,7 @@ async function bootSynth(): Promise<void> {
         ],
       },
     ]);
+    menubar.el.classList.add('rw-zoomchrome');
     document.getElementById('app')?.appendChild(menubar.el);
   }
 

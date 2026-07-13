@@ -16,7 +16,32 @@
   --re-warn:      #ff5c5c;
   --re-glow:      0 0 8px rgba(95, 255, 133, 0.55);
   --re-mono:      'VT323', 'Share Tech Mono', ui-monospace, Menlo, monospace;
+  --rw-text-scale: 1;
 }
+
+/* Global legibility control (View -> Text Size): scales UI chrome
+   fonts AND control sizing together via `zoom`, which — unlike a
+   font-size-only change — also grows padding/knobs/rows proportionally
+   without touching the many hardcoded font-size declarations across
+   panel/timeline/rack/patchbay/workspace CSS.
+
+   Applied to CHILDREN of `.rw-zoomchrome`, never the marked element
+   itself: the marked elements (workspace window shells, the menu bar)
+   are absolutely-positioned siblings whose `left`/`right`/`width` are
+   real screen-pixel values published by JS (`--rw-panel-inset-left`
+   etc., read from OTHER elements' post-zoom rects). Zooming a shell
+   itself re-scales those already-resolved pixel values a SECOND time
+   for that one element, which desyncs its edges from its neighbors —
+   a real bug an owner hit switching Text Size (windows drifted apart/
+   overlapped). Zooming only the content children scales what's
+   visible without perturbing any shell's own outer box. A class (not
+   a `#app >` structural selector) so it keeps working when an element
+   is `adoptNode`-d into the panel popout's bare <body> (no `#app`
+   wrapper there — but the same children live inside it regardless).
+   The WebGL render canvas never carries this class, so the 3D
+   output's pixel size never changes with this preference; the default
+   (1) is a no-op, matching the "keep the default size" requirement. */
+.rw-zoomchrome > * { zoom: var(--rw-text-scale, 1); }
 
 * { box-sizing: border-box; }
 
