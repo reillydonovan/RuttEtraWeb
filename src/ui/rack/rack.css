@@ -94,6 +94,13 @@ body[data-skin="rack"] .rw-rack-jack--hover {
   box-shadow: 0 0 10px rgba(95, 255, 133, 0.9);
   transform: scale(1.25);
 }
+/* The jack currently being dragged from — instant feedback on
+   pointerdown, independent of the cable canvas. */
+body[data-skin="rack"] .rw-rack-jack--grab {
+  border-color: var(--re-accent);
+  box-shadow: 0 0 12px rgba(95, 255, 133, 1);
+  transform: scale(1.35);
+}
 
 .rw-rack-dragging,
 .rw-rack-dragging .rw-rack-jack { cursor: grabbing; }

@@ -1301,6 +1301,37 @@ body[data-layout="compact"] .rw-kf-nav { display: none; }
   pointer-events: none;
 }
 
+/* Value & range mini-menu button (▾) — always visible but dim, at the
+   left of the strip above each slider (the ◆/▸ cluster owns the right).
+   Absolutely positioned so it stays out of both the grid face's flow
+   and the hardware skin's flex row. */
+.rw-range-menu-btn {
+  position: absolute;
+  left: -2px;
+  top: -13px;
+  width: 14px;
+  height: 13px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--re-text-dim);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.rw-range-menu-btn:hover {
+  color: var(--re-accent);
+  opacity: 1;
+}
+/* Custom range active: the ▾ glows amber-free green so the clamp is
+   visible at a glance (the number box already glows too). */
+.rw-slider--custom-range .rw-range-menu-btn {
+  color: var(--re-accent);
+  opacity: 1;
+}
+body[data-layout="compact"] .rw-range-menu-btn { display: none; }
+
 /* Diamond context menu (created in the control's ownerDocument so it
    works inside the two-screen popout). */
 .rw-kf-menu {

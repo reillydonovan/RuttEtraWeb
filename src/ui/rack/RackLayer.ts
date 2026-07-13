@@ -63,9 +63,19 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
   /** slotIndex -> injected output jack element. */
   const slotJacks = new Map<number, HTMLElement>();
 
-  /** In-progress drag: which slot's cable, where the loose end is
-   *  (viewport coords), and the input jack it would snap to. */
-  let pending: { slotIndex: number; pos: Pt; hoverKey: string | null } | null = null;
+  /**
+   * In-progress drag (viewport coords). Bidirectional (Phase 0 of the
+   * workspace plan — an empty input jack doing nothing on drag read as
+   * "cables are broken" to the owner):
+   *   'to-param' — fixed end at slot `slotIndex`'s output jack; loose
+   *                end seeks param INPUT jacks.
+   *   'to-slot'  — fixed end at `paramKey`'s input jack; loose end
+   *                seeks slot OUTPUT jacks.
+   */
+  type Pending =
+    | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
+    | { kind: 'to-slot'; paramKey: string; pos: Pt; hover: number | null };
+  let pending: Pending | null = null;
 
   // ------------------------------------------------------------------
   // Jack injection
@@ -84,11 +94,12 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
         const i = slotForParam(settings.get('modSlots'), key);
         return i >= 0
           ? `Patched from Classic slot ${i + 1} — drag to move the cable, drop in space to unplug.`
-          : 'Modulation input — drag a cable here from a slot’s output jack.';
+          : 'Modulation input — drag from here to a slot’s output jack (or the other way around) to patch it.';
       });
       jack.addEventListener('pointerdown', (ev) => {
         const i = slotForParam(settings.get('modSlots'), key);
-        if (i >= 0) beginDrag(ev, i);
+        if (i >= 0) beginDrag(ev, i, jack);
+        else beginReverseDrag(ev, key, jack);
       });
       el.appendChild(jack);
       paramJacks.set(key, jack);
@@ -101,7 +112,7 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
       jack.className = 'rw-rack-jack rw-rack-jack--out';
       jack.dataset.rackJackOut = String(index);
       attachTooltip(jack, 'Slot output — drag a cable to any param’s input jack; drop in space to unplug.');
-      jack.addEventListener('pointerdown', (ev) => beginDrag(ev, index));
+      jack.addEventListener('pointerdown', (ev) => beginDrag(ev, index, jack));
       (card.querySelector('.rw-mod-slot-row') ?? card).appendChild(jack);
       slotJacks.set(index, jack);
     }
@@ -143,33 +154,27 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
   // Drag-to-patch
   // ------------------------------------------------------------------
 
-  function beginDrag(ev: PointerEvent, slotIndex: number): void {
+  /** Shared gesture runner for both drag directions. `hoverEl` maps the
+   *  current snap hit to the jack element that should light up. */
+  function runGesture(
+    ev: PointerEvent,
+    grabbedJack: HTMLElement,
+    onMovePos: (pos: Pt) => void,
+    onDrop: () => void,
+  ): void {
     ev.preventDefault();
     ev.stopPropagation();
     const doc = panelRoot.ownerDocument;
     const activeId = ev.pointerId;
-    pending = { slotIndex, pos: { x: ev.clientX, y: ev.clientY }, hoverKey: null };
     panelRoot.classList.add('rw-rack-dragging');
-
-    const snapTargets = (): Array<Pt & { key: string }> => {
-      const out: Array<Pt & { key: string }> = [];
-      for (const [key, el] of paramJacks) {
-        const r = visibleRect(el);
-        if (r) out.push({ key, ...rectCenter(r) });
-      }
-      return out;
-    };
+    // Immediate feedback on the grabbed jack, independent of the cable
+    // canvas — a drag must visibly respond even if drawing is broken.
+    grabbedJack.classList.add('rw-rack-jack--grab');
 
     const onMove = (e: PointerEvent): void => {
-      if (e.pointerId !== activeId || !pending) return;
+      if (e.pointerId !== activeId) return;
       e.preventDefault();
-      pending.pos = { x: e.clientX, y: e.clientY };
-      const hit = nearestJack(snapTargets(), pending.pos, SNAP_PX);
-      if (hit?.key !== pending.hoverKey) {
-        if (pending.hoverKey) paramJacks.get(pending.hoverKey)?.classList.remove('rw-rack-jack--hover');
-        pending.hoverKey = hit?.key ?? null;
-        if (pending.hoverKey) paramJacks.get(pending.hoverKey)?.classList.add('rw-rack-jack--hover');
-      }
+      onMovePos({ x: e.clientX, y: e.clientY });
     };
     const onUp = (e: PointerEvent): void => {
       if (e.pointerId !== activeId) return;
@@ -177,19 +182,72 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
       doc.removeEventListener('pointerup',     onUp);
       doc.removeEventListener('pointercancel', onUp);
       panelRoot.classList.remove('rw-rack-dragging');
-      if (!pending) return;
-      const { slotIndex: i, hoverKey } = pending;
-      if (pending.hoverKey) paramJacks.get(pending.hoverKey)?.classList.remove('rw-rack-jack--hover');
-      pending = null;
-      const slots = settings.get('modSlots');
-      const next = hoverKey ?? 'none';
-      if (slots[i] && slots[i].target !== next) {
-        settings.set('modSlots', applyCableTarget(slots, i, next as ModTarget | 'none'));
-      }
+      grabbedJack.classList.remove('rw-rack-jack--grab');
+      onDrop();
     };
     doc.addEventListener('pointermove',   onMove, { passive: false });
     doc.addEventListener('pointerup',     onUp);
     doc.addEventListener('pointercancel', onUp);
+  }
+
+  function jackCenters<K>(jacks: Map<K, HTMLElement>): Array<Pt & { id: K }> {
+    const out: Array<Pt & { id: K }> = [];
+    for (const [id, el] of jacks) {
+      const r = visibleRect(el);
+      if (r) out.push({ id, ...rectCenter(r) });
+    }
+    return out;
+  }
+
+  /** Drag a slot's cable by its loose (param) end. */
+  function beginDrag(ev: PointerEvent, slotIndex: number, grabbedJack: HTMLElement): void {
+    const p: Pending = { kind: 'to-param', slotIndex, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, grabbedJack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(jackCenters(paramJacks), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) {
+          if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+          p.hover = hit?.id ?? null;
+          if (p.hover) paramJacks.get(p.hover)?.classList.add('rw-rack-jack--hover');
+        }
+      },
+      () => {
+        if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+        pending = null;
+        const slots = settings.get('modSlots');
+        const next = p.hover ?? 'none';
+        if (slots[slotIndex] && slots[slotIndex].target !== next) {
+          settings.set('modSlots', applyCableTarget(slots, slotIndex, next as ModTarget | 'none'));
+        }
+      });
+  }
+
+  /** Drag from an UNPLUGGED input jack: the loose end seeks slot output
+   *  jacks; dropping on one patches that slot to this param. */
+  function beginReverseDrag(ev: PointerEvent, paramKey: string, grabbedJack: HTMLElement): void {
+    const p: Pending = { kind: 'to-slot', paramKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, grabbedJack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(jackCenters(slotJacks), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) {
+          if (p.hover != null) slotJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+          p.hover = hit?.id ?? null;
+          if (p.hover != null) slotJacks.get(p.hover)?.classList.add('rw-rack-jack--hover');
+        }
+      },
+      () => {
+        if (p.hover != null) slotJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+        pending = null;
+        if (p.hover == null) return; // dropped in space — nothing was plugged
+        const slots = settings.get('modSlots');
+        if (slots[p.hover] && slots[p.hover].target !== paramKey) {
+          settings.set('modSlots', applyCableTarget(slots, p.hover, paramKey as ModTarget));
+        }
+      });
   }
 
   // ------------------------------------------------------------------
@@ -205,6 +263,19 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
 
     if (needsInject) { needsInject = false; injectJacks(); }
     if (!canvas || !ctx) return;
+
+    // Popout-safe: PanelPopout adoptNode's the panel (and this canvas)
+    // into another window's document, and an adopted 2D canvas can lose
+    // its context/buffer. Recreate it in the panel's CURRENT document
+    // whenever they diverge (also covers pop-in back to the main window).
+    if (canvas.ownerDocument !== panelRoot.ownerDocument) {
+      canvas.remove();
+      canvas = panelRoot.ownerDocument.createElement('canvas');
+      canvas.className = 'rw-rack-cables';
+      ctx = canvas.getContext('2d');
+      panelRoot.appendChild(canvas);
+      if (!ctx) return;
+    }
 
     const panelRect = panelRoot.getBoundingClientRect();
     const win = panelRoot.ownerDocument.defaultView ?? window;
@@ -226,7 +297,7 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
     // Classic cables (+ the one being dragged, which follows the pointer).
     const slots = settings.get('modSlots');
     for (const c of classicCables(slots)) {
-      if (pending && pending.slotIndex === c.slotIndex) continue;
+      if (pending?.kind === 'to-param' && pending.slotIndex === c.slotIndex) continue;
       const jack = paramJacks.get(c.target);
       const outJack = slotJacks.get(c.slotIndex);
       if (!jack || !outJack) continue;
@@ -256,8 +327,10 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
 
     // Pending (dragged) cable, highlighted, loose end on the pointer.
     if (pending) {
-      const outJack = slotJacks.get(pending.slotIndex);
-      const a = outJack ? anchorFor(outJack) : null;
+      const fixedJack = pending.kind === 'to-param'
+        ? slotJacks.get(pending.slotIndex)
+        : paramJacks.get(pending.paramKey);
+      const a = fixedJack ? anchorFor(fixedJack) : null;
       if (a) {
         drawPatchCable(ctx, local(a), local(pending.pos), CLASSIC_COLOR, {
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,

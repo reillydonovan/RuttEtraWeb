@@ -72,8 +72,9 @@ hardware panel — rotary knobs (drag vertically; hold \`Shift\` for fine
 control), bat switches, LCD readouts. **RACK** adds modular chrome and
 **live patch cables**: every modulatable knob grows an input jack, each
 Classic mod slot gets an output jack, and dragging a cable between them
-sets that slot's Target — exactly the same edit as the Modulation
-panel's dropdown. Drop a cable in empty space to unplug it. Cyan cables
+— in either direction — sets that slot's Target, exactly the same edit
+as the Modulation panel's dropdown. Drop a cable in empty space to
+unplug it. Cyan cables
 show Graph-engine bindings (read-only here; edit them in the graph
 editor). Same parameters, same values in every skin; the choice is
 remembered on this machine — it isn't part of your presets or projects.

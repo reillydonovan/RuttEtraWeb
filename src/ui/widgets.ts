@@ -465,6 +465,50 @@ export function slider(
   // timeline exists.
   attachKeyframeDiamond(wrap, key as string, settings);
 
+  // Discoverable range clamp (owner request): the v19 custom-range
+  // editor has only ever been reachable via right-click, which nobody
+  // finds. A small always-visible ▾ opens a mini-menu exposing the SAME
+  // modal (reuse, not a fork) plus quick reset actions.
+  const rangeBtn = document.createElement('button');
+  rangeBtn.type = 'button';
+  rangeBtn.className = 'rw-range-menu-btn';
+  rangeBtn.textContent = '▾';
+  attachTooltip(rangeBtn, 'Value & range menu — set a custom min/max clamp for this slider.');
+  rangeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const doc = rangeBtn.ownerDocument;
+    doc.getElementById('rw-range-menu')?.remove();
+    const ul = doc.createElement('ul');
+    ul.id = 'rw-range-menu';
+    ul.className = 'rw-kf-menu'; // same CRT popover recipe as the ◆ menu
+    const r = rangeBtn.getBoundingClientRect();
+    ul.style.left = `${r.left}px`;
+    ul.style.top = `${r.bottom + 4}px`;
+    const item = (label: string, disabled: boolean, onClick?: () => void): void => {
+      const li = doc.createElement('li');
+      li.textContent = label;
+      if (disabled) li.classList.add('disabled');
+      else li.addEventListener('click', () => { onClick?.(); ul.remove(); });
+      ul.appendChild(li);
+    };
+    const hasOverride = (settings.get('paramRangeOverrides') ?? {})[key as string] != null;
+    item('Set range / exact value…', false, openModal);
+    item('Reset range to stock', !hasOverride, () => {
+      const cur = { ...(settings.get('paramRangeOverrides') ?? {}) };
+      delete cur[key as string];
+      settings.set('paramRangeOverrides', cur as never);
+    });
+    item(`Reset value to default (${formatNum(defaultValue, step)})`, false, () => setFromDisplay(defaultValue, true));
+    doc.body.appendChild(ul);
+    const close = (e: Event): void => {
+      if (e.target instanceof Node && ul.contains(e.target)) return;
+      ul.remove();
+      doc.removeEventListener('pointerdown', close, true);
+    };
+    doc.addEventListener('pointerdown', close, true);
+  });
+  wrap.appendChild(rangeBtn);
+
   // Timeline-driven display + live-modulation badge.
   //
   // The 'timeline' namespace offset folds INTO the slider's displayed
