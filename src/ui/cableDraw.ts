@@ -31,8 +31,22 @@ export function cableControlPoints(a: CablePoint, b: CablePoint, style: CableSty
     const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5);
     return [{ x: a.x + dx, y: a.y }, { x: b.x - dx, y: b.y }];
   }
-  const sag = Math.min(140, Math.hypot(b.x - a.x, b.y - a.y) * 0.25 + 24);
-  return [{ x: a.x, y: a.y + sag }, { x: b.x, y: b.y + sag }];
+  const dx = b.x - a.x;
+  const dist = Math.hypot(dx, b.y - a.y);
+  const sag = Math.min(140, dist * 0.25 + 24);
+  // A physical cable billows sideways under its own slack — most
+  // noticeably when both ends sit at nearly the same x, where a purely
+  // vertical 'sag' curve is visually indistinguishable from any other
+  // same-column cable and looks like it terminates wherever it happens
+  // to cross a jack it's only passing by (rack skin / Patch Bay bug:
+  // several cables sharing one source jack, all landing in the same
+  // left-rail column, collapsed into what read as a single cable
+  // running through every module in between). The billow fades out
+  // once the endpoints already have real horizontal separation, where
+  // an already-diagonal curve reads fine without it.
+  const straightness = Math.max(0, 1 - Math.abs(dx) / 60);
+  const bow = straightness * Math.min(60, dist * 0.15);
+  return [{ x: a.x + bow, y: a.y + sag }, { x: b.x + bow, y: b.y + sag }];
 }
 
 export interface CableDrawOpts {

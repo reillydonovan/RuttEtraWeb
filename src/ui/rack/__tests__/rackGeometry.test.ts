@@ -126,4 +126,12 @@ describe('cableControlPoints', () => {
     const [c1] = cableControlPoints({ x: 0, y: 0 }, { x: 10000, y: 0 }, 'sag');
     expect(c1.y).toBe(140);
   });
+  it('sag billows sideways when both ends share nearly the same x — otherwise a straight vertical line through several stacked jacks is indistinguishable from any one of them (rack/Patch Bay bug)', () => {
+    const [c1, c2] = cableControlPoints({ x: 40, y: 0 }, { x: 33, y: 400 }, 'sag');
+    expect(c1.x).toBeGreaterThan(40);
+    expect(c2.x).toBeGreaterThan(33);
+    // Both control points billow by the same amount, so the belly stays
+    // a smooth, single-direction curve rather than a lopsided kink.
+    expect(c1.x - 40).toBeCloseTo(c2.x - 33, 5);
+  });
 });
