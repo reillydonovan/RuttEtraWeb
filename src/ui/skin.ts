@@ -19,9 +19,18 @@
 
 import './skin.css';
 
-export type SkinId = 'standard' | 'hardware';
+/**
+ * 'standard'  — flat CRT (the original theme).
+ * 'hardware'  — skeuomorphic faces: knobs, bat switches, LCD strips.
+ * 'rack'      — hardware faces PLUS rack-module chrome and a live
+ *               patch-cable layer (src/ui/rack/). CSS that targets the
+ *               hardware faces matches both via
+ *               `body:is([data-skin="hardware"], [data-skin="rack"])`.
+ */
+export type SkinId = 'standard' | 'hardware' | 'rack';
 
 const STORAGE_KEY = 'rw-ui-skin';
+const VALID: readonly SkinId[] = ['standard', 'hardware', 'rack'];
 
 type Listener = (skin: SkinId) => void;
 const listeners = new Set<Listener>();
@@ -35,7 +44,8 @@ const stampedDocs = new Set<Document>();
 
 function readStored(): SkinId {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'hardware' ? 'hardware' : 'standard';
+    const v = localStorage.getItem(STORAGE_KEY) as SkinId | null;
+    return v && VALID.includes(v) ? v : 'standard';
   } catch {
     return 'standard';
   }
@@ -55,8 +65,9 @@ export function setSkin(skin: SkinId): void {
   for (const fn of listeners) fn(skin);
 }
 
+/** Cycle standard → hardware → rack → standard. */
 export function toggleSkin(): SkinId {
-  setSkin(current === 'hardware' ? 'standard' : 'hardware');
+  setSkin(VALID[(VALID.indexOf(current) + 1) % VALID.length]);
   return current;
 }
 

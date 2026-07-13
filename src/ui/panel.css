@@ -319,7 +319,7 @@ body.viewer-mode #about-link { display: none; }
    centered + clickable. */
 #panel-root.collapsed .rw-panel-title { padding: 8px 4px; justify-content: center; }
 #panel-root.collapsed .rw-panel-actions { gap: 0; }
-#panel-root.collapsed .rw-panel-actions button:not(:last-child) { display: none; }
+#panel-root.collapsed .rw-panel-actions > *:not(:last-child) { display: none; }
 
 .rw-panel-title {
   display: flex; align-items: center; justify-content: space-between;
@@ -360,12 +360,25 @@ body.viewer-mode #about-link { display: none; }
   color: var(--re-accent);
   border-color: var(--re-accent);
 }
-/* Skin toggle lit while the hardware skin is active. */
-.rw-panel-actions button.active {
+/* Skin picker in the title bar — sized to match the 24px action
+   buttons; lit while a non-default skin is active. */
+.rw-skin-select {
+  background: transparent;
+  border: 1px solid var(--re-line);
+  color: var(--re-text-dim);
+  height: 24px;
+  cursor: pointer;
+  font-family: var(--re-mono);
+  font-size: 12px;
+  padding: 0 2px;
+}
+.rw-skin-select:hover,
+.rw-skin-select.active {
   color: var(--re-accent);
   border-color: var(--re-accent);
-  box-shadow: var(--re-glow);
 }
+.rw-skin-select.active { box-shadow: var(--re-glow); }
+.rw-skin-select option { background: var(--re-bg); color: var(--re-text); }
 .rw-panel-body {
   flex: 1;
   overflow-y: auto;

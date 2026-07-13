@@ -14,7 +14,7 @@ import './panel.css';
 import { SettingsStore } from '../state/Settings';
 import { attachTooltip } from './tooltip';
 import { SECTION_HINTS } from './help/sectionHints';
-import { getSkin, toggleSkin, subscribeSkin } from './skin';
+import { SkinId, setSkin, subscribeSkin } from './skin';
 
 export type TabId = 'synth' | 'io' | 'help';
 
@@ -82,17 +82,24 @@ export class ControlPanel {
     const actions = document.createElement('div');
     actions.className = 'rw-panel-actions';
 
-    // Skin toggle — flat CRT vs. skeuomorphic hardware panel. A local
-    // UI preference (localStorage via skin.ts), deliberately NOT a
-    // Settings key: loading a patch must never restyle the panel.
-    const skinBtn = document.createElement('button');
-    skinBtn.textContent = '◉';
-    skinBtn.addEventListener('click', () => toggleSkin());
-    subscribeSkin((s) => skinBtn.classList.toggle('active', s === 'hardware'));
-    attachTooltip(skinBtn, () =>
-      getSkin() === 'hardware'
-        ? 'Switch to the flat CRT skin.'
-        : 'Switch to the hardware skin (knobs and switches).');
+    // Skin picker — flat CRT / skeuomorphic hardware / full rack with
+    // patch cables. A local UI preference (localStorage via skin.ts),
+    // deliberately NOT a Settings key: loading a patch must never
+    // restyle the panel.
+    const skinSel = document.createElement('select');
+    skinSel.className = 'rw-skin-select';
+    for (const [value, label] of [['standard', 'CRT'], ['hardware', 'HW'], ['rack', 'RACK']] as const) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      skinSel.appendChild(opt);
+    }
+    skinSel.addEventListener('change', () => setSkin(skinSel.value as SkinId));
+    subscribeSkin((s) => {
+      skinSel.value = s;
+      skinSel.classList.toggle('active', s !== 'standard');
+    });
+    attachTooltip(skinSel, 'Panel skin: flat CRT, hardware (knobs and switches), or full rack with patch cables. Remembered on this machine, not in your patches.');
 
     const dockBtn = document.createElement('button');
     dockBtn.title = 'Toggle dock side';
@@ -122,7 +129,7 @@ export class ControlPanel {
       this.publishInset();
     });
 
-    actions.append(skinBtn, dockBtn, collapseBtn);
+    actions.append(skinSel, dockBtn, collapseBtn);
     title.appendChild(actions);
     this.actionsBar = actions;
 

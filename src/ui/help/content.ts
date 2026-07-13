@@ -64,13 +64,19 @@ That gives the synth a built-in "video signal" — pick **Sine Bands** or
 and every other pattern parameter is modulatable: drop an LFO on
 **Pattern: Frequency** and watch the stripes breathe.
 
-## Prefer knobs? The hardware skin
+## Prefer knobs? Panel skins
 
-The **◉ button** in the panel title bar swaps the flat CRT controls for a
-skeuomorphic hardware panel — rotary knobs (drag vertically; hold \`Shift\`
-for fine control), bat switches, LCD readouts. Same parameters, same
-values, same right-click precise entry; only the faces change. The choice
-is remembered on this machine — it isn't part of your presets or projects.
+The **skin picker** in the panel title bar (CRT / HW / RACK) switches
+between three looks. **HW** swaps the flat controls for a skeuomorphic
+hardware panel — rotary knobs (drag vertically; hold \`Shift\` for fine
+control), bat switches, LCD readouts. **RACK** adds modular chrome and
+**live patch cables**: every modulatable knob grows an input jack, each
+Classic mod slot gets an output jack, and dragging a cable between them
+sets that slot's Target — exactly the same edit as the Modulation
+panel's dropdown. Drop a cable in empty space to unplug it. Cyan cables
+show Graph-engine bindings (read-only here; edit them in the graph
+editor). Same parameters, same values in every skin; the choice is
+remembered on this machine — it isn't part of your presets or projects.
 Touch layouts keep their touch-friendly controls regardless of skin.
 
 > Tip: the floating **?** button (bottom-left) re-opens this manual at any time.

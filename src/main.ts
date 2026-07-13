@@ -659,6 +659,14 @@ async function bootSynth(): Promise<void> {
   // -------------------------- UI panel ---------------------------------
   const panel = new ControlPanel(panelHost, settings);
 
+  // Rack skin's patch-cable layer — inert unless the skin is 'rack'
+  // (subscribes to skin.ts; sections that mount later are picked up by
+  // its MutationObserver, so order here doesn't matter).
+  {
+    const { createRackLayer } = await import('./ui/rack/RackLayer');
+    createRackLayer(panelHost, settings);
+  }
+
   // Two-screen popout (v19): move the whole control panel into its own
   // window so output can go fullscreen on a second display. Same JS
   // context — no state sync needed. Desktop feature; the button simply

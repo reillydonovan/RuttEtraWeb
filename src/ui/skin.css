@@ -1,7 +1,7 @@
 /* ============================================================
    Hardware skin — skeuomorphic euro-panel faces
    ============================================================
-   Selected by `body[data-skin="hardware"]`, stamped by src/ui/skin.ts.
+   Selected by `body:is([data-skin="hardware"], [data-skin="rack"])`, stamped by src/ui/skin.ts.
    Same face-swap convention as the compact layout (layout.css): every
    face is always in the DOM; CSS decides which is visible, so a skin
    flip is a pure repaint with no JS rebuild.
@@ -19,17 +19,17 @@
 
 .rw-knob { display: none; }
 
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-slider {
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-slider input[type="range"],
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-slider .rw-num {
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider input[type="range"],
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider .rw-num {
   display: none;
 }
 
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-knob {
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-knob {
   display: block;
   width: 44px;
   height: 44px;
@@ -42,7 +42,7 @@ body[data-skin="hardware"]:not([data-layout="compact"]) .rw-knob {
   user-select: none;
   -webkit-user-select: none;
 }
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-knob:focus-visible {
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-knob:focus-visible {
   outline: 1px solid var(--re-accent);
   outline-offset: 2px;
   border-radius: 50%;
@@ -75,15 +75,15 @@ body[data-skin="hardware"]:not([data-layout="compact"]) .rw-knob:focus-visible {
 
 /* Timeline-keyed param: pointer + fill go amber, matching the standard
    skin's `.rw-slider--tl` readout tint. */
-body[data-skin="hardware"] .rw-slider--tl .rw-knob-ptr,
-body[data-skin="hardware"] .rw-slider--tl .rw-knob-fill {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-slider--tl .rw-knob-ptr,
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-slider--tl .rw-knob-fill {
   stroke: var(--re-accent-2);
   filter: drop-shadow(0 0 2px rgba(255, 179, 71, 0.55));
 }
 
 /* LCD readout beside the knob — reuses the compact readout button (and
    its existing click → numeric modal), restyled as a backlit display. */
-body[data-skin="hardware"]:not([data-layout="compact"]) .rw-slider-readout {
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider-readout {
   display: block;
   flex: 1 1 auto;
   min-width: 0;
@@ -99,14 +99,14 @@ body[data-skin="hardware"]:not([data-layout="compact"]) .rw-slider-readout {
   text-shadow: var(--re-glow);
   cursor: pointer;
 }
-body[data-skin="hardware"] .rw-slider--tl .rw-slider-readout {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-slider--tl .rw-slider-readout {
   color: var(--re-accent-2);
   text-shadow: 0 0 8px rgba(255, 179, 71, 0.55);
 }
 
 /* ---------- bat switch (toggle face) ---------- */
 
-body[data-skin="hardware"] .rw-toggle-sw {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle-sw {
   width: 20px;
   height: 30px;
   border: 1px solid var(--re-line-hi);
@@ -118,7 +118,7 @@ body[data-skin="hardware"] .rw-toggle-sw {
 /* The lever: a raised bar that sits low when off, high when on. Base
    theme animates its ::after dot horizontally via `left`/`width`, so
    both states here must pin `left`/`right` and free the width. */
-body[data-skin="hardware"] .rw-toggle-sw::after {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle-sw::after {
   content: '';
   position: absolute;
   left: 3px;
@@ -131,10 +131,10 @@ body[data-skin="hardware"] .rw-toggle-sw::after {
   border: 1px solid var(--re-line-hi);
   transition: top 0.08s ease-out, background 0.08s ease-out;
 }
-body[data-skin="hardware"] .rw-toggle input:checked + .rw-toggle-sw {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle input:checked + .rw-toggle-sw {
   background: linear-gradient(180deg, rgba(20, 40, 24, 0.95), rgba(8, 20, 10, 0.95));
 }
-body[data-skin="hardware"] .rw-toggle input:checked + .rw-toggle-sw::after {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle input:checked + .rw-toggle-sw::after {
   top: 3px;
   left: 3px;
   right: 3px;
@@ -143,7 +143,7 @@ body[data-skin="hardware"] .rw-toggle input:checked + .rw-toggle-sw::after {
   box-shadow: var(--re-glow);
 }
 /* LED lens next to the label, lit when on. */
-body[data-skin="hardware"] .rw-toggle-txt::before {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle-txt::before {
   content: '';
   display: inline-block;
   width: 7px;
@@ -154,7 +154,7 @@ body[data-skin="hardware"] .rw-toggle-txt::before {
   background: rgba(95, 255, 133, 0.12);
   border: 1px solid var(--re-line);
 }
-body[data-skin="hardware"] .rw-toggle input:checked ~ .rw-toggle-txt::before {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-toggle input:checked ~ .rw-toggle-txt::before {
   background: var(--re-accent);
   box-shadow: var(--re-glow);
   border-color: var(--re-accent);
@@ -162,7 +162,7 @@ body[data-skin="hardware"] .rw-toggle input:checked ~ .rw-toggle-txt::before {
 
 /* ---------- pushbutton (button face) ---------- */
 
-body[data-skin="hardware"] .rw-btn {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-btn {
   border: 1px solid var(--re-line-hi);
   border-radius: 3px;
   background: linear-gradient(180deg, rgba(34, 44, 34, 0.95), rgba(14, 20, 14, 0.95));
@@ -170,7 +170,7 @@ body[data-skin="hardware"] .rw-btn {
     0 2px 0 rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(185, 255, 208, 0.12);
 }
-body[data-skin="hardware"] .rw-btn:active:not(:disabled) {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-btn:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.6),
@@ -179,8 +179,8 @@ body[data-skin="hardware"] .rw-btn:active:not(:disabled) {
 
 /* ---------- LCD strips (select / text / number faces) ---------- */
 
-body[data-skin="hardware"] .rw-select,
-body[data-skin="hardware"] .rw-text {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-select,
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-text {
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--re-line);
   border-radius: 2px;
@@ -191,7 +191,7 @@ body[data-skin="hardware"] .rw-text {
 
 /* ---------- color swatch: screw-mounted lens frame ---------- */
 
-body[data-skin="hardware"] .rw-color {
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-color {
   border: 2px solid var(--re-line-hi);
   border-radius: 4px;
   box-shadow:

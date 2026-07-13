@@ -10,7 +10,7 @@ When you change the BPM, it changes everywhere at once — Classic LFOs in tempo
 
 When an LFO is wobbling Z Push, the Z Push slider in the UI still shows the value *you* set. The wobble happens on top. Turn the LFO off and Z Push snaps back to where you left it — not to wherever the LFO last had it. Your manual settings are preserved underneath whatever's modulating them.
 
-The same holds in the **hardware skin** (the ◉ button in the panel title bar swaps the flat CRT controls for rotary knobs and bat switches): the knob's pointer is *your* setting, and turning it edits exactly what the flat slider would. The skin choice itself is remembered on your machine, not in your patches — loading someone else's project never restyles your panel.
+The same holds in the **hardware and rack skins** (the skin picker in the panel title bar swaps the flat CRT controls for rotary knobs, bat switches, and — in RACK — live patch cables): the knob's pointer is *your* setting, and turning it edits exactly what the flat slider would. Dragging a patch cable edits the same slot Target the Modulation panel's dropdown does — cables are a picture of your patch, not a separate system. The skin choice itself is remembered on your machine, not in your patches — loading someone else's project never restyles your panel.
 
 <h3 id="tells-you-whats-wrong">The synth tells you what's wrong, instead of hiding it.</h3>
 

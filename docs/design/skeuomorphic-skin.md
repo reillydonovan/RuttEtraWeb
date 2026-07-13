@@ -1,10 +1,28 @@
 # Skeuomorphic "hardware panel" UI skin — design
 
 Status: **Phase 1 shipped** (2026-07-13, v1.5.0): skin module +
-localStorage preference, title-bar ◉ toggle, rotary-knob face for
-sliders, bat-switch face for toggles, pushbutton/LCD CSS reskins,
-popout stamping, PRINCIPLES/README/About/Help updates. Phases 2–4
-(live-mod arcs, routing affordance, full chrome) not started.
+localStorage preference, rotary-knob face for sliders, bat-switch face
+for toggles, pushbutton/LCD CSS reskins, popout stamping,
+PRINCIPLES/README/About/Help updates.
+
+**Rack mode shipped** (2026-07-13, v1.6.0, owner request): a THIRD skin
+`'rack'` — hardware faces plus rack-module chrome and a live
+patch-cable layer (`src/ui/rack/`). This supersedes §3's "defer cables"
+recommendation for the Classic engine: the geometry problem was solved
+with a per-frame anchor fallback chain (jack → section header → tab
+strip), so cables into collapsed/other-tab sections stay legible
+instead of vanishing. Classic cables are drag-editable (they write
+`modSlots[i].target` through the same `settings.set` path as the
+Target dropdown; plugging also enables the slot — the physical
+gesture's meaning); graph cables render read-only, with the graph
+editor remaining their editing surface. The cable bezier recipe is
+shared with the graph editor via `ui/cableDraw.ts`. The v1.5.0 ◉
+toggle became a three-way CRT / HW / RACK dropdown in the title bar.
+Not done in rack v1: cables to `cv:N` virtual targets (no jack to land
+on — they draw nothing); drag-to-patch for graph bindings; the
+spatial free-layout rack (§3's original vision) remains future work.
+
+Phase 2 (live-mod arcs on knobs) still not started.
 Branch: `skeuomorphic` (owner decision 2026-07-13 — build here despite
 the doc's original branch-hygiene concern; the branch's earlier commits
 are the unrelated Keyframing v2 / timeline work).

@@ -16,6 +16,7 @@
 
 import { GraphPatch, splitInputRef } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
+import { drawPatchCable } from '../cableDraw';
 
 export interface CableAnchorResolver {
   /** Returns canvas-relative {x,y} for a node's input port, or null if unknown. */
@@ -121,23 +122,13 @@ export function createCableLayer(): CableLayer {
   }
 
   function drawCable(a: {x:number;y:number}, b: {x:number;y:number}, color: string, highlight: boolean): void {
-    const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5);
-    ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = highlight ? 14 : 6;
-    ctx.lineWidth = highlight ? 3 : 2;
-    if (!reduceMotion) {
-      ctx.setLineDash([10, 6]);
-      ctx.lineDashOffset = -dashOffset;
-    } else {
-      ctx.setLineDash([]);
-    }
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.bezierCurveTo(a.x + dx, a.y, b.x - dx, b.y, b.x, b.y);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.setLineDash([]);
+    // Shared recipe with the rack skin's cable layer (ui/cableDraw.ts).
+    drawPatchCable(ctx, a, b, color, {
+      style: 'flow',
+      highlight,
+      dashed: !reduceMotion,
+      dashOffset,
+    });
   }
 
   function start(): void {

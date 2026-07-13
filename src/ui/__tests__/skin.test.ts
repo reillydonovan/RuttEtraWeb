@@ -61,10 +61,18 @@ describe('skin module', () => {
     expect(seen).toEqual(['standard']);
   });
 
-  it('toggleSkin flips and returns the new skin', async () => {
+  it('toggleSkin cycles standard → hardware → rack → standard', async () => {
     const skin = await freshSkin();
     expect(skin.toggleSkin()).toBe('hardware');
+    expect(skin.toggleSkin()).toBe('rack');
     expect(skin.toggleSkin()).toBe('standard');
+  });
+
+  it('reads a stored rack preference at import', async () => {
+    localStorage.setItem('rw-ui-skin', 'rack');
+    const skin = await freshSkin();
+    expect(skin.getSkin()).toBe('rack');
+    expect(document.body.dataset.skin).toBe('rack');
   });
 
   it('unsubscribe stops notifications', async () => {

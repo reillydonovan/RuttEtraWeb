@@ -187,6 +187,9 @@ export function createModulationSection(
     const { el, refresh, rebuildTargetOptions } = createSlot(settings, matrix, i, cv, gamepad);
     refreshers.push(refresh);
     if (rebuildTargetOptions) targetRebuilders.push(rebuildTargetOptions);
+    // Stable slot-index marker — the rack skin's cable layer anchors
+    // each slot's output jack to this card (RackLayer.ts).
+    el.dataset.modSlot = String(i);
     root.appendChild(el);
   }
 
