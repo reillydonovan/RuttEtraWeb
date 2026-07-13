@@ -643,7 +643,17 @@ The **DISPLAY** dropdown next to the transport's counter switches how the
 playhead position is shown: **Bars/Beats** (the real clock), **Timecode**
 (\`HH:MM:SS:FF\`), **Frames**, or **Samples**. Only Bars/Beats is the actual
 clock — the rest are display-only conversions (a picker for fps or kHz
-appears alongside them) and never affect playback, editing, or snapping.
+appears alongside them) and never affect playback, editing, or snapping. The
+**LENGTH** field follows the same setting (seconds/frames/samples instead of
+bars) and converts back to the real bar count when you edit it. BPM/LENGTH/
+B-BAR all support click-to-type, drag-to-scrub (Unity-style: click focuses,
+drag up/down adjusts, \`Shift\` = fine).
+
+## Timeline track scroll & zoom
+Once a zoomed-in track is wider than the dock, plain wheel scrolls lane rows
+vertically as usual; **Shift+wheel** pans horizontally; **Ctrl/Cmd+wheel**
+zooms, anchored to the bar under the cursor (Premiere/Blender/Resolve
+convention) — same as the transport's \`−\`/\`+\` buttons, just continuous.
 
 ## Recording a timeline
 The **Record** panel has a **Record Timeline** button: it seeks to bar 0,

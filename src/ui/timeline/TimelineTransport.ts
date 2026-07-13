@@ -12,8 +12,10 @@ import {
 import { makeEmptyTimeline } from '../../sequencer/types';
 import {
   ReadoutFormat, READOUT_FPS_OPTIONS, READOUT_SAMPLE_RATE_OPTIONS, formatReadout,
+  lengthDisplayFromBars, lengthBarsFromDisplay,
 } from '../../sequencer/timecode';
 import { attachTooltip } from '../tooltip';
+import { attachNumberDragScrub } from '../widgets';
 
 export interface TransportEvents {
   onZoomChange?: (pixelsPerBar: number) => void;
@@ -35,6 +37,7 @@ export class TimelineTransport {
   private loopBtn!: HTMLButtonElement;
   private bpmInput!: HTMLInputElement;
   private lenInput!: HTMLInputElement;
+  private lenLabel!: HTMLLabelElement;
   private bpbInput!: HTMLInputElement;
   private syncSel!: HTMLSelectElement;
   private formatSel!: HTMLSelectElement;
@@ -59,6 +62,7 @@ export class TimelineTransport {
       const s = String(v);
       if (this.bpmInput && this.bpmInput.value !== s) this.bpmInput.value = s;
       this.updateReadout(this.seq.playheadBar);
+      if (this.lenLabel) this.updateLengthField();
     });
     // Readout display-format prefs — also settable from outside this
     // component in principle (project load), so mirror + re-render.
@@ -66,16 +70,19 @@ export class TimelineTransport {
       if (this.formatSel && this.formatSel.value !== v) this.formatSel.value = v;
       this.updateReadoutVisibility();
       this.updateReadout(this.seq.playheadBar);
+      if (this.lenLabel) this.updateLengthField();
     });
     settings.subscribe('timelineReadoutFps', (v) => {
       const s = String(v);
       if (this.fpsSel && this.fpsSel.value !== s) this.fpsSel.value = s;
       this.updateReadout(this.seq.playheadBar);
+      if (this.lenLabel) this.updateLengthField();
     });
     settings.subscribe('timelineReadoutSampleRate', (v) => {
       const s = String(v);
       if (this.srSel && this.srSel.value !== s) this.srSel.value = s;
       this.updateReadout(this.seq.playheadBar);
+      if (this.lenLabel) this.updateLengthField();
     });
   }
 
@@ -86,11 +93,6 @@ export class TimelineTransport {
   // -----------------------------------------------------------------
 
   private build(): void {
-    const title = document.createElement('span');
-    title.className = 'rw-tl-title';
-    title.textContent = 'TIMELINE';
-    this.el.appendChild(title);
-
     // Timeline picker
     this.timelinePicker = document.createElement('select');
     this.timelinePicker.className = 'rw-select';
@@ -137,33 +139,51 @@ export class TimelineTransport {
       this.bpmInput = document.createElement('input');
       this.bpmInput.type = 'number';
       this.bpmInput.min = '20'; this.bpmInput.max = '400'; this.bpmInput.step = '1';
-      this.bpmInput.className = 'rw-num';
+      this.bpmInput.className = 'rw-num rw-num-scrubbable';
       this.bpmInput.style.width = '64px';
       this.bpmInput.addEventListener('change', () => {
         const v = parseFloat(this.bpmInput.value);
         if (!Number.isNaN(v)) this.seq.setBpm(v);
       });
+      attachNumberDragScrub(this.bpmInput, () => 1);
       lbl.appendChild(this.bpmInput);
       attachTooltip(lbl, 'Tempo — the single shared clock every LFO, Graph clock node, and this timeline reads (Settings.internalBpm)');
       this.el.appendChild(lbl);
     }
 
-    // Length (bars)
+    // Length — follows the DISPLAY format (bars by default; total
+    // runtime/frames/samples in the other formats, see updateLengthField).
     {
-      const lbl = document.createElement('label');
-      lbl.textContent = 'BARS';
+      this.lenLabel = document.createElement('label');
+      this.lenLabel.textContent = 'BARS';
       this.lenInput = document.createElement('input');
       this.lenInput.type = 'number';
-      this.lenInput.min = '1'; this.lenInput.max = '999'; this.lenInput.step = '1';
-      this.lenInput.className = 'rw-num';
-      this.lenInput.style.width = '54px';
+      this.lenInput.min = '1'; this.lenInput.step = '1';
+      this.lenInput.className = 'rw-num rw-num-scrubbable';
+      this.lenInput.style.width = '64px';
       this.lenInput.addEventListener('change', () => {
-        const v = parseInt(this.lenInput.value, 10);
-        if (!Number.isNaN(v)) this.seq.setLengthBars(v);
+        const v = parseFloat(this.lenInput.value);
+        if (Number.isNaN(v)) return;
+        const bars = lengthBarsFromDisplay(
+          this.settings.get('timelineReadoutFormat'),
+          v,
+          this.settings.get('internalBpm'),
+          this.seq.timeline?.beatsPerBar ?? 4,
+          this.settings.get('timelineReadoutFps'),
+          this.settings.get('timelineReadoutSampleRate'),
+        );
+        this.seq.setLengthBars(bars);
       });
-      lbl.appendChild(this.lenInput);
-      attachTooltip(lbl, 'Timeline length in bars — where the loop point and the end of the ruler sit');
-      this.el.appendChild(lbl);
+      attachNumberDragScrub(this.lenInput, () => parseFloat(this.lenInput.step) || 1);
+      this.lenLabel.appendChild(this.lenInput);
+      attachTooltip(this.lenLabel, () => {
+        const fmt = this.settings.get('timelineReadoutFormat');
+        if (fmt === 'timecode') return 'Timeline length as total runtime (seconds) — converts to/from the underlying bar count';
+        if (fmt === 'frames') return 'Timeline length as a total frame count — converts to/from the underlying bar count';
+        if (fmt === 'samples') return 'Timeline length as a total sample count — converts to/from the underlying bar count';
+        return 'Timeline length in bars — where the loop point and the end of the ruler sit';
+      });
+      this.el.appendChild(this.lenLabel);
     }
 
     // Beats per bar
@@ -173,12 +193,13 @@ export class TimelineTransport {
       this.bpbInput = document.createElement('input');
       this.bpbInput.type = 'number';
       this.bpbInput.min = '1'; this.bpbInput.max = '16'; this.bpbInput.step = '1';
-      this.bpbInput.className = 'rw-num';
+      this.bpbInput.className = 'rw-num rw-num-scrubbable';
       this.bpbInput.style.width = '48px';
       this.bpbInput.addEventListener('change', () => {
         const v = parseInt(this.bpbInput.value, 10);
         if (!Number.isNaN(v)) this.seq.setBeatsPerBar(v);
       });
+      attachNumberDragScrub(this.bpbInput, () => 1);
       lbl.appendChild(this.bpbInput);
       attachTooltip(lbl, 'Beats per bar — sets the ruler\'s minor gridlines and beat-snap spacing');
       this.el.appendChild(lbl);
@@ -311,6 +332,34 @@ export class TimelineTransport {
     this.srSel.hidden = fmt !== 'samples';
   }
 
+  /** Re-label the LENGTH field and repopulate it in the current DISPLAY
+   *  format's units (owner request: BARS should read as total runtime
+   *  in Timecode, total frame count in Frames, total sample count in
+   *  Samples — not stay bar-labeled while everything else reformats). */
+  private updateLengthField(): void {
+    const fmt = this.settings.get('timelineReadoutFormat');
+    const labels: Record<ReadoutFormat, string> = {
+      bars: 'BARS', timecode: 'LENGTH (s)', frames: 'FRAMES', samples: 'SAMPLES',
+    };
+    this.lenLabel.firstChild!.textContent = labels[fmt];
+    this.lenInput.max = fmt === 'bars' ? '999' : '';
+    const bpm = this.settings.get('internalBpm');
+    const t = this.seq.timeline;
+    const beatsPerBar = t?.beatsPerBar ?? 4;
+    const fps = this.settings.get('timelineReadoutFps');
+    const sampleRate = this.settings.get('timelineReadoutSampleRate');
+    // The step MUST be exactly one bar's worth in the current display
+    // unit — the underlying model only stores a whole bar count, so a
+    // smaller step (the previous flat 0.1s for Timecode) round-trips
+    // back to the SAME bar on release and the native spinner arrows
+    // (and drag-scrub) look like they do nothing (owner bug report).
+    const oneBar = lengthDisplayFromBars(fmt, 1, bpm, beatsPerBar, fps, sampleRate);
+    this.lenInput.step = String(oneBar || 1);
+    const bars = t ? t.lengthBars : 16;
+    const display = lengthDisplayFromBars(fmt, bars, bpm, beatsPerBar, fps, sampleRate);
+    this.lenInput.value = String(display);
+  }
+
   private btn(label: string, onClick: () => void, title?: string, kind?: 'primary' | 'warn'): HTMLElement {
     const b = document.createElement('button');
     b.className = 'rw-btn';
@@ -357,16 +406,15 @@ export class TimelineTransport {
     // BPM here regardless of whether a timeline is loaded.
     this.bpmInput.value = String(this.settings.get('internalBpm'));
     if (t) {
-      this.lenInput.value = String(t.lengthBars);
       this.bpbInput.value = String(t.beatsPerBar);
       this.syncSel.value  = t.syncMode;
       this.loopBtn.classList.toggle('primary', t.loop);
       this.loopBtn.textContent = t.loop ? 'LOOP ON' : 'LOOP OFF';
     } else {
-      this.lenInput.value = '16';
       this.bpbInput.value = '4';
       this.syncSel.value = 'internal';
     }
+    this.updateLengthField();
     this.formatSel.value = this.settings.get('timelineReadoutFormat');
     this.fpsSel.value = String(this.settings.get('timelineReadoutFps'));
     this.srSel.value = String(this.settings.get('timelineReadoutSampleRate'));

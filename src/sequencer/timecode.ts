@@ -27,6 +27,12 @@ export function barToSeconds(bar: number, bpm: number, beatsPerBar: number): num
   return (bar * beatsPerBar * 60) / bpm;
 }
 
+/** Elapsed seconds -> bar position, the inverse of `barToSeconds`. */
+export function secondsToBar(seconds: number, bpm: number, beatsPerBar: number): number {
+  if (beatsPerBar <= 0) return 0;
+  return (seconds * bpm) / (beatsPerBar * 60);
+}
+
 /**
  * `HH:MM:SS:FF`, non-drop-frame. `fps` may be a broadcast rate like
  * 29.97 — the FF digit range uses its rounded nominal frame count
@@ -85,6 +91,48 @@ export function formatReadout(
   if (format === 'timecode') return `${formatTimecode(seconds, fps)}  ·  ${anchor}`;
   if (format === 'frames') return `frame ${totalFrames(seconds, fps)}  ·  ${anchor}`;
   return `smp ${totalSamples(seconds, sampleRate)}  ·  ${anchor}`;
+}
+
+/**
+ * Timeline LENGTH field — the transport's total-length control follows
+ * the same DISPLAY format as the playhead readout (owner request): in
+ * Bars/Beats it's bar count as always, but in Timecode it reads as
+ * total runtime (seconds), in Frames as a total frame count, and in
+ * Samples as a total sample count. `lengthBars` (an integer bar count)
+ * stays the ONE stored value in every format — these are editing-unit
+ * conversions on top of it, not a second length field.
+ */
+export function lengthDisplayFromBars(
+  format: ReadoutFormat,
+  lengthBars: number,
+  bpm: number,
+  beatsPerBar: number,
+  fps: number,
+  sampleRate: number,
+): number {
+  if (format === 'bars') return lengthBars;
+  const seconds = barToSeconds(lengthBars, bpm, beatsPerBar);
+  if (format === 'timecode') return Math.round(seconds * 100) / 100;
+  if (format === 'frames') return totalFrames(seconds, fps);
+  return totalSamples(seconds, sampleRate);
+}
+
+/** Inverse of `lengthDisplayFromBars` — rounds to a whole bar (the
+ *  underlying model's actual unit) and clamps to at least 1. */
+export function lengthBarsFromDisplay(
+  format: ReadoutFormat,
+  displayValue: number,
+  bpm: number,
+  beatsPerBar: number,
+  fps: number,
+  sampleRate: number,
+): number {
+  let bars: number;
+  if (format === 'bars') bars = displayValue;
+  else if (format === 'timecode') bars = secondsToBar(displayValue, bpm, beatsPerBar);
+  else if (format === 'frames') bars = secondsToBar(displayValue / Math.max(1e-9, fps), bpm, beatsPerBar);
+  else bars = secondsToBar(displayValue / Math.max(1, sampleRate), bpm, beatsPerBar);
+  return Math.max(1, Math.round(bars));
 }
 
 /** `M:SS`, or `H:MM:SS` past an hour — a compact ruler-tick label. Full

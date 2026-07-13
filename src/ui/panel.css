@@ -43,6 +43,15 @@
    (1) is a no-op, matching the "keep the default size" requirement. */
 .rw-zoomchrome > * { zoom: var(--rw-text-scale, 1); }
 
+/* Click-to-type, drag-to-scrub number inputs (widgets.ts
+   attachNumberDragScrub) — cursor hints the drag is available on
+   inputs actually wired to it (`.rw-num-scrubbable`, NOT every
+   `.rw-num` — most are plain typed fields with no scrub gesture), and
+   locks to ns-resize app-wide during an active scrub so it doesn't
+   flicker to a text caret while the pointer crosses other elements. */
+input.rw-num-scrubbable { cursor: ns-resize; }
+body.rw-num-scrubbing, body.rw-num-scrubbing * { cursor: ns-resize !important; }
+
 * { box-sizing: border-box; }
 
 /* Themed scrollbars app-wide — a bare native scrollbar (system-chrome

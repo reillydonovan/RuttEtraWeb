@@ -167,6 +167,7 @@ export class TimelineDock {
     this.body.appendChild(this.inspector.el);
     this.body.appendChild(this.buildInspectorResizeHandle());
     this.viewRoot.appendChild(this.body);
+    this.bindWheelZoomPan();
 
     // Height drag handle on the dock's free edge (top edge when docked
     // bottom, bottom edge when docked top — CSS picks the side).
@@ -393,11 +394,36 @@ export class TimelineDock {
   }
 
   setZoom(z: number): void {
-    this.pixelsPerBar = z;
-    this.transport.setZoom(z);
-    this.ruler.setPixelsPerBar(z);
-    this.track.setPixelsPerBar(z);
-    this.laneEditor.setPixelsPerBar(z);
+    this.pixelsPerBar = Math.max(20, Math.min(240, Math.round(z)));
+    this.transport.setZoom(this.pixelsPerBar);
+    this.ruler.setPixelsPerBar(this.pixelsPerBar);
+    this.track.setPixelsPerBar(this.pixelsPerBar);
+    this.laneEditor.setPixelsPerBar(this.pixelsPerBar);
+  }
+
+  /**
+   * Adobe Premiere / Blender / Resolve timeline conventions, once a
+   * zoomed-in track extends past the dock's width (owner request):
+   * plain wheel keeps scrolling the lane rows vertically (unchanged);
+   * Shift+wheel pans the track horizontally; Ctrl/Cmd+wheel zooms,
+   * anchored to the bar under the cursor so that point stays put
+   * (same cursor-anchored recipe as the Patch Bay's board zoom).
+   */
+  private bindWheelZoomPan(): void {
+    this.scroller.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = this.scroller.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const barUnderCursor = (this.scroller.scrollLeft + cursorX) / this.pixelsPerBar;
+        const next = this.pixelsPerBar * Math.exp(-e.deltaY * 0.0012);
+        this.setZoom(next);
+        this.scroller.scrollLeft = barUnderCursor * this.pixelsPerBar - cursorX;
+      } else if (e.shiftKey) {
+        e.preventDefault();
+        this.scroller.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
   }
 
   resize(): void {

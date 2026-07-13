@@ -805,6 +805,55 @@ export function readout(): HTMLElement {
   return d;
 }
 
+/**
+ * Unity/Blender-style "click to type, drag to scrub" behavior for a
+ * plain `<input type="number">` that isn't a Settings-bound slider (the
+ * timeline transport's BPM/LENGTH/B-BAR fields, for instance). Reuses
+ * the vertical-scrub convention the hardware knob already uses
+ * (up = increase, Shift = fine ×0.1), but layered on TOP of the
+ * input's normal click-to-focus/type behavior rather than replacing
+ * it: a plain click still focuses and lets you type; only a drag past
+ * a small threshold takes over as a scrub, at which point the input is
+ * blurred (no blinking caret/selection fighting the drag) and a single
+ * synthetic `change` fires at release so existing `change` listeners
+ * apply the final value exactly once (not on every pixel of movement).
+ */
+export function attachNumberDragScrub(input: HTMLInputElement, getStep: () => number): void {
+  const THRESHOLD = 4;
+  input.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const doc = input.ownerDocument;
+    const startY = ev.clientY;
+    const startVal = parseFloat(input.value) || 0;
+    let dragging = false;
+    const onMove = (e: PointerEvent): void => {
+      const dy = startY - e.clientY; // up = increase
+      if (!dragging) {
+        if (Math.abs(dy) < THRESHOLD) return;
+        dragging = true;
+        input.blur();
+        doc.body.classList.add('rw-num-scrubbing');
+      }
+      e.preventDefault();
+      const step = getStep() || 1;
+      const fine = e.shiftKey ? 0.1 : 1;
+      const next = startVal + Math.round((dy - Math.sign(dy) * THRESHOLD) / 4) * step * fine;
+      input.value = String(next);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const onUp = (): void => {
+      doc.removeEventListener('pointermove', onMove);
+      doc.removeEventListener('pointerup', onUp);
+      doc.removeEventListener('pointercancel', onUp);
+      doc.body.classList.remove('rw-num-scrubbing');
+      if (dragging) input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    doc.addEventListener('pointermove', onMove);
+    doc.addEventListener('pointerup', onUp);
+    doc.addEventListener('pointercancel', onUp);
+  });
+}
+
 function formatNum(v: number, step: number): string {
   if (step >= 1) return String(Math.round(v));
   if (step >= 0.1) return v.toFixed(2);

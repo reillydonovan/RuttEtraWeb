@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  barToSeconds, formatTimecode, totalFrames, totalSamples, formatReadout, formatRulerTick,
+  barToSeconds, secondsToBar, formatTimecode, totalFrames, totalSamples, formatReadout, formatRulerTick,
+  lengthDisplayFromBars, lengthBarsFromDisplay,
 } from '../timecode';
 
 describe('barToSeconds', () => {
@@ -16,6 +17,47 @@ describe('barToSeconds', () => {
   it('returns 0 for non-positive bpm (no divide-by-zero)', () => {
     expect(barToSeconds(4, 0, 4)).toBe(0);
     expect(barToSeconds(4, -10, 4)).toBe(0);
+  });
+});
+
+describe('secondsToBar', () => {
+  it('is the inverse of barToSeconds', () => {
+    expect(secondsToBar(barToSeconds(3, 120, 4), 120, 4)).toBeCloseTo(3);
+    expect(secondsToBar(barToSeconds(7, 90, 3), 90, 3)).toBeCloseTo(7);
+  });
+
+  it('returns 0 for non-positive beatsPerBar (no divide-by-zero)', () => {
+    expect(secondsToBar(10, 120, 0)).toBe(0);
+  });
+});
+
+describe('lengthDisplayFromBars / lengthBarsFromDisplay', () => {
+  const bpm = 120, bpb = 4, fps = 30, sr = 48000;
+
+  it('bars format passes the bar count through unchanged', () => {
+    expect(lengthDisplayFromBars('bars', 16, bpm, bpb, fps, sr)).toBe(16);
+    expect(lengthBarsFromDisplay('bars', 16, bpm, bpb, fps, sr)).toBe(16);
+  });
+
+  it('timecode format reads/writes total runtime in seconds', () => {
+    // 16 bars @ 120bpm/4-per-bar = 32s.
+    expect(lengthDisplayFromBars('timecode', 16, bpm, bpb, fps, sr)).toBeCloseTo(32);
+    expect(lengthBarsFromDisplay('timecode', 32, bpm, bpb, fps, sr)).toBe(16);
+  });
+
+  it('frames format reads/writes a total frame count at the notational fps', () => {
+    expect(lengthDisplayFromBars('frames', 16, bpm, bpb, fps, sr)).toBe(32 * fps);
+    expect(lengthBarsFromDisplay('frames', 32 * fps, bpm, bpb, fps, sr)).toBe(16);
+  });
+
+  it('samples format reads/writes a total sample count at the notational rate', () => {
+    expect(lengthDisplayFromBars('samples', 16, bpm, bpb, fps, sr)).toBe(32 * sr);
+    expect(lengthBarsFromDisplay('samples', 32 * sr, bpm, bpb, fps, sr)).toBe(16);
+  });
+
+  it('lengthBarsFromDisplay always rounds to a whole bar and clamps to >= 1', () => {
+    expect(lengthBarsFromDisplay('timecode', 0.001, bpm, bpb, fps, sr)).toBe(1);
+    expect(lengthBarsFromDisplay('bars', 3.6, bpm, bpb, fps, sr)).toBe(4);
   });
 });
 
