@@ -149,3 +149,30 @@ describe('migrateSettings v27 -> v28 (timeline readout format)', () => {
     expect(kept.timelineReadoutSampleRate).toBe(44100);
   });
 });
+
+describe('migrateSettings v28 -> v29 (workspace regions)', () => {
+  it('backfills the stock assignment (panel side, timeline dock)', () => {
+    const out = migrateSettings({ _v: 28 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(29);
+    expect(out.panelRegionView).toBe('panel');
+    expect(out.dockRegionView).toBe('timeline');
+  });
+
+  it('preserves an explicit valid assignment', () => {
+    const kept = migrateSettings({ _v: 28, panelRegionView: 'timeline', dockRegionView: 'panel' });
+    expect(kept.panelRegionView).toBe('timeline');
+    expect(kept.dockRegionView).toBe('panel');
+  });
+
+  it('normalizes foreign view ids to defaults', () => {
+    const out = migrateSettings({ _v: 28, panelRegionView: 'holodeck', dockRegionView: 'timeline' });
+    expect(out.panelRegionView).toBe('panel');
+    expect(out.dockRegionView).toBe('timeline');
+  });
+
+  it('resolves a same-view collision to the stock assignment', () => {
+    const out = migrateSettings({ _v: 28, panelRegionView: 'timeline', dockRegionView: 'timeline' });
+    expect(out.panelRegionView).toBe('panel');
+    expect(out.dockRegionView).toBe('timeline');
+  });
+});

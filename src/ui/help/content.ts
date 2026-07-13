@@ -52,9 +52,16 @@ const MD_QUICKSTART = `
 
 > Desktop has a traditional **menu bar** along the top: **File** (project
 > New/Open/Save + backup), **Edit** (timeline undo/redo), **View** (skins,
-> HUD, fullscreen, docking), **Window** (pop-out controls/output), and
-> **Help** (this manual and more). Everything in it is also reachable the
-> old ways — same actions, one implementation.
+> HUD, fullscreen, docking), **Window** (pop-out controls/output, workspace
+> regions, layout presets), and **Help** (this manual and more).
+> Everything in it is also reachable the old ways — same actions, one
+> implementation.
+>
+> The side panel and the timeline dock are **workspace regions**: each
+> region's top bar has a dropdown picking what it hosts (CONTROLS /
+> TIMELINE / OUTPUT (MIRROR)) — pick a view the other region holds and
+> they swap. **Window ▸ Layout** has presets and a **Reset Layout**
+> escape hatch back to stock.
 
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.

@@ -885,6 +885,18 @@ export interface Settings {
   panelWidth: number;
   panelTab: 'synth' | 'io' | 'help';
   hudVisible: boolean;
+  /**
+   * v29: workspace regions — which VIEW each of the two dock-region
+   * shells hosts. Normalized by `normalizeAssignment`
+   * (ui/workspace/workspaceModel): unknown ids or a same-view collision
+   * reset both to defaults, so there is no silently-broken half state.
+   * The shells keep their existing geometry keys (panelDock/panelWidth,
+   * timelineDock/timelineHeight) — these only say WHAT is inside.
+   * Project-portable like panelDock (unlike the skin, which is
+   * deliberately localStorage-only). Inert in the compact layout.
+   */
+  panelRegionView: 'panel' | 'timeline' | 'output' | 'patchbay';
+  dockRegionView: 'panel' | 'timeline' | 'output' | 'patchbay';
 
   // ---------- Help ----------
   helpSeen: boolean;
@@ -1355,6 +1367,8 @@ export const DEFAULTS: Settings = {
   panelWidth: 360,
   panelTab: 'synth',
   hudVisible: true,
+  panelRegionView: 'panel',
+  dockRegionView: 'timeline',
 
   helpSeen: false,
   helpAutoOpen: true,
@@ -1450,7 +1464,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 28;
+const CURRENT_VERSION = 29;
 
 interface Versioned { _v?: number }
 
@@ -1977,6 +1991,22 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.timelineReadoutFps = (s.timelineReadoutFps as number | undefined) ?? 30;
     s.timelineReadoutSampleRate = (s.timelineReadoutSampleRate as number | undefined) ?? 48000;
     s._v = 28;
+  }
+
+  // v28 -> v29: workspace regions — which view each dock-region shell
+  // hosts. Pure UI-state backfill to the current layout (panel in the
+  // side shell, timeline in the dock), so every existing project opens
+  // pixel-identical. Foreign/colliding values normalize to the same
+  // defaults (see ui/workspace/workspaceModel.normalizeAssignment; the
+  // inline check here keeps Settings dependency-free). Idempotent.
+  if ((s._v ?? 1) < 29) {
+    const views = ['panel', 'timeline', 'output', 'patchbay'];
+    let side = views.includes(s.panelRegionView as string) ? s.panelRegionView : 'panel';
+    let dock = views.includes(s.dockRegionView as string) ? s.dockRegionView : 'timeline';
+    if (side === dock) { side = 'panel'; dock = 'timeline'; }
+    s.panelRegionView = side as Settings['panelRegionView'];
+    s.dockRegionView = dock as Settings['dockRegionView'];
+    s._v = 29;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

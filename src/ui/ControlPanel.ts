@@ -34,6 +34,14 @@ interface TabPane {
 
 export class ControlPanel {
   readonly root: HTMLElement;
+  /**
+   * The panel's movable CONTENT (title bar, tabs, body) — everything
+   * except shell chrome (width handle, collapse strip), which stays on
+   * `root` (#panel-root). The workspace region system re-parents this
+   * element to host the Controls view in another region; PanelPopout
+   * still adopts the whole shell.
+   */
+  readonly viewRoot: HTMLElement;
   private bodyHost: HTMLElement;
   private tabsBar: HTMLElement;
   private tabPanes: Record<TabId, TabPane>;
@@ -53,11 +61,14 @@ export class ControlPanel {
   /** Insert an element between the title bar and the tab strip
    *  (used by the panel-wide param search). */
   addBeforeTabs(el: HTMLElement): void {
-    this.root.insertBefore(el, this.tabsBar);
+    this.viewRoot.insertBefore(el, this.tabsBar);
   }
 
   constructor(host: HTMLElement, private settings: SettingsStore) {
     this.root = host;
+    this.viewRoot = document.createElement('div');
+    this.viewRoot.className = 'rw-panel-view';
+    this.root.appendChild(this.viewRoot);
     this.root.setAttribute('data-dock', settings.get('panelDock'));
     if (settings.get('panelCollapsed')) this.root.classList.add('collapsed');
 
@@ -164,7 +175,7 @@ export class ControlPanel {
       this.applyActiveTab();
     });
 
-    this.root.append(title, tabs, body);
+    this.viewRoot.append(title, tabs, body);
 
     // Width resize: drag the panel's inner edge (left edge when docked
     // right, right edge when docked left). Applied via a CSS custom

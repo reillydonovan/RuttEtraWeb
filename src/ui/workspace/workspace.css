@@ -1,0 +1,67 @@
+/* ============================================================
+   Workspace regions — view-switcher bars on the two dock shells
+   ============================================================
+   Desktop-only chrome: hidden in compact layout (where ResponsivePanel
+   owns presentation) and viewer mode. The shells' own geometry rules
+   are untouched — the bar is just the first flex child. */
+
+#rw-view-park { display: none; }
+
+.rw-region-bar {
+  flex: 0 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--re-line);
+  font-family: var(--re-mono);
+  z-index: 5;
+}
+body[data-layout="compact"] .rw-region-bar,
+body.viewer-mode .rw-region-bar {
+  display: none;
+}
+#panel-root.collapsed .rw-region-bar { display: none; }
+
+.rw-region-bar-label {
+  color: var(--re-text-dim);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.rw-region-select {
+  background: transparent;
+  border: 1px solid var(--re-line);
+  color: var(--re-text-dim);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  height: 16px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.rw-region-select:hover { color: var(--re-accent); border-color: var(--re-accent); }
+.rw-region-select option { background: var(--re-bg); color: var(--re-text); }
+
+/* Movable content wrappers fill whatever shell hosts them. */
+.rw-panel-view,
+.rw-timeline-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Output mirror view — letterboxed live copy of the render canvas. */
+.rw-view-output {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+.rw-view-output video {
+  max-width: 100%;
+  max-height: 100%;
+}

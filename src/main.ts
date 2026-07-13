@@ -683,6 +683,17 @@ async function bootSynth(): Promise<void> {
     createRackLayer(panelHost, settings);
   }
 
+  // Workspace regions (v29): the side/dock shells each get a view
+  // switcher; the dock region is wired later by ensureTimelineDock
+  // (the TimelineDock's build() wipes the shell's children).
+  const { createWorkspace } = await import('./ui/workspace/Workspace');
+  const workspace = createWorkspace({
+    settings,
+    canvas,
+    panelShell: panelHost,
+    panelViewEl: panel.viewRoot,
+  });
+
   // Two-screen popout (v19): move the whole control panel into its own
   // window so output can go fullscreen on a second display. Same JS
   // context — no state sync needed. Desktop feature; the button simply
@@ -709,6 +720,10 @@ async function bootSynth(): Promise<void> {
       } else {
         panel.refreshInset();
       }
+      // Popout wins over region assignments: while the panel shell
+      // lives in the popup, force default hosting (transient — no
+      // Settings writes), restore the arrangement on pop-in.
+      workspace.onPanelPopout(open);
     });
     popoutBtn.addEventListener('click', () => popout.toggle());
     panel.addTitleAction(popoutBtn);
@@ -949,10 +964,44 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'WINDOW',
-        items: () => [
-          { actionId: 'window.panelPopout' },
-          { actionId: 'window.renderPopout' },
-        ],
+        items: () => {
+          const regionRadio = (region: 'side' | 'dock', view: 'panel' | 'timeline' | 'output', label: string) => ({
+            label,
+            run: () => workspace.setRegionView(region, view),
+            checked: () => workspace.getAssignment()[region] === view,
+          });
+          return [
+            { actionId: 'window.panelPopout' },
+            { actionId: 'window.renderPopout' },
+            { sep: true as const },
+            {
+              label: 'Side Region',
+              submenu: () => [
+                regionRadio('side', 'panel', 'Controls'),
+                regionRadio('side', 'timeline', 'Timeline'),
+                regionRadio('side', 'output', 'Output (mirror)'),
+              ],
+            },
+            {
+              label: 'Dock Region',
+              submenu: () => [
+                regionRadio('dock', 'panel', 'Controls'),
+                regionRadio('dock', 'timeline', 'Timeline'),
+                regionRadio('dock', 'output', 'Output (mirror)'),
+              ],
+            },
+            { sep: true as const },
+            {
+              label: 'Layout',
+              submenu: () => [
+                { label: 'Default', run: () => workspace.applyPreset('default') },
+                { label: 'Performance (output maximized)', run: () => workspace.applyPreset('performance') },
+                { label: 'Editing (tall timeline)', run: () => workspace.applyPreset('editing') },
+              ],
+            },
+            { label: 'Reset Layout', run: () => workspace.applyPreset('default') },
+          ];
+        },
       },
       {
         label: 'HELP',
@@ -1117,6 +1166,9 @@ async function bootSynth(): Promise<void> {
     const dock = new TimelineDock(timelineHost, settings, sequencer);
     setTimeout(() => dock.resize(), 0);
     timelineDock = dock;
+    // Wire the dock shell into the workspace region system now that the
+    // dock's build() has assembled (and won't wipe) the shell children.
+    workspace.attachDockRegion(timelineHost, dock.viewRoot);
   };
   void ensureTimelineDock();
   layout.onModeChange(() => { void ensureTimelineDock(); });

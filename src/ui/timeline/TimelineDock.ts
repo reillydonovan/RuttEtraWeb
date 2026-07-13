@@ -18,6 +18,9 @@ import { attachTooltip } from '../tooltip';
 
 export class TimelineDock {
   private host: HTMLElement;
+  /** Movable content wrapper (see build()) — public for the workspace
+   *  region system. */
+  viewRoot!: HTMLElement;
   private settings: SettingsStore;
   private seq: Sequencer;
 
@@ -131,8 +134,15 @@ export class TimelineDock {
     });
     this.host.appendChild(this.mini);
 
+    // Movable CONTENT wrapper (transport + body) — the workspace region
+    // system re-parents this to host the Timeline view in another
+    // region. Shell chrome (mini strip, height handle) stays on host.
+    this.viewRoot = document.createElement('div');
+    this.viewRoot.className = 'rw-timeline-view';
+    this.host.appendChild(this.viewRoot);
+
     // Header (transport)
-    this.host.appendChild(this.transport.el);
+    this.viewRoot.appendChild(this.transport.el);
 
     // Body: scroller + inspector
     this.body = document.createElement('div');
@@ -153,7 +163,7 @@ export class TimelineDock {
     this.body.appendChild(this.scroller);
     this.body.appendChild(this.inspector.el);
     this.body.appendChild(this.buildInspectorResizeHandle());
-    this.host.appendChild(this.body);
+    this.viewRoot.appendChild(this.body);
 
     // Height drag handle on the dock's free edge (top edge when docked
     // bottom, bottom edge when docked top — CSS picks the side).

@@ -51,6 +51,30 @@ Run these in order; stop and report on the first failure:
   the relevant `docs/about/*.md`.
 - **No service worker**: never reintroduce one; `public/sw.js` is a
   kill-switch for old installs.
+- **Multi-surface commands go through the action registry**
+  (`src/ui/actions.ts`): a command reachable from 2+ surfaces (keyboard
+  shortcut, menu bar item, panel button) must be ONE registered action
+  dispatched by id from each surface — never a second copy of the
+  handler. The Ctrl+S / File▸Save pair is the reference.
+- **Skin invariants** (PRINCIPLES.md principle 2 additions): a skin is
+  a face inside the existing widgets, never a parallel widget tree or a
+  second setter path; skin code reads LiveValuesStore display-only;
+  skin state is localStorage (`src/ui/skin.ts`), never Settings. Rack
+  cables write patch data (`modSlots[i].target`) via `applyCableTarget`
+  — also never live values.
+- **Workspace shell/content contract**: shell chrome (resize handles,
+  collapse strip, dock mini-bar, region bar) lives on the SHELL
+  (#panel-root / #timeline-dock); movable content lives in
+  `ControlPanel.viewRoot` / `TimelineDock.viewRoot`, which the region
+  system re-parents. New panel-level chrome must pick its side of that
+  line deliberately, or it will vanish (or tag along) when the user
+  swaps regions. Region keys (`panelRegionView`/`dockRegionView`, v29)
+  are normalized — extend `workspaceModel`'s VALID_VIEWS for any new
+  ViewId.
+- **Menubar offset**: anything new pinned to the top of the viewport
+  must offset by `var(--rw-menubar-h, 0px)` (0 in compact/viewer), and
+  anything changing available canvas space must be measurable by
+  `availableCanvasRect()` via a live rect.
 - **Hover help is `attachTooltip` (`src/ui/tooltip.ts`), not native
   `title`**: a delayed (550ms), CRT-styled popover, popout-safe, and
   accepts a lazy `() => string` for state-dependent text (e.g. a
