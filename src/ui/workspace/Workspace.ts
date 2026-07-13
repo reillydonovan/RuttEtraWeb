@@ -121,6 +121,35 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     return singletonEls.has(view) || factories.has(view) || view === 'renderer';
   }
 
+  /**
+   * Single-DOM views (Controls, Timeline) may be TABBED in several
+   * windows; their one element mounts where it was most recently
+   * activated. Other windows with the view active show a placeholder
+   * ("click the tab to bring it here" = activate again → steal).
+   */
+  const singletonHome = new Map<ViewId, WindowId>();
+  const placeholders = new Map<string, HTMLElement>();
+
+  function placeholderFor(view: ViewId, win: WindowId): HTMLElement {
+    const key = `${view}:${win}`;
+    let el = placeholders.get(key);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'rw-view-placeholder';
+      el.textContent = `${VIEW_LABELS[view]} is shown in another window — click its tab here to bring it over.`;
+      placeholders.set(key, el);
+    }
+    return el;
+  }
+
+  /** The window that should hold a singleton view's element right now. */
+  function singletonOwner(view: ViewId, state: TabsState): WindowId | null {
+    const activeIn = WINDOW_IDS.filter((w) => state.active[w] === view);
+    if (activeIn.length === 0) return null;
+    const home = singletonHome.get(view);
+    return home && activeIn.includes(home) ? home : activeIn[0];
+  }
+
   function elementFor(view: ViewId, win: WindowId): HTMLElement | null {
     if (singletonEls.has(view)) return singletonEls.get(view)!;
     const key = `${view}:${win}`;
@@ -300,21 +329,16 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       if (!isAvailable(v)) continue;
       const li = document.createElement('li');
       const here = state.tabs[win].includes(v);
-      const home = windowOf(state, v);
-      const multi = MULTI_INSTANCE.has(v);
-      // Multi-instance views add a DUPLICATE tab — no other window is
-      // affected. Single-instance views (one live DOM) must move, and
-      // the label says so instead of doing it silently.
-      li.textContent = here
-        ? `${VIEW_LABELS[v]} (already here)`
-        : multi || !home
-          ? VIEW_LABELS[v]
-          : `${VIEW_LABELS[v]} (moves here)`;
+      // "+" ALWAYS just adds a tab here — never moves, never touches
+      // another window (owner rule: keep it simple). Single-DOM views
+      // simply gain another tab; their one element follows whichever
+      // tab was clicked last (placeholder shown elsewhere).
+      li.textContent = here ? `${VIEW_LABELS[v]} (already here)` : VIEW_LABELS[v];
       if (here) li.classList.add('disabled');
       else li.addEventListener('click', () => {
         ul.remove();
-        const cur = currentState();
-        writeState(multi ? addTab(cur, v, win) : moveView(cur, v, win));
+        singletonHome.set(v, win);
+        writeState(addTab(currentState(), v, win));
       });
       ul.appendChild(li);
     }
@@ -489,14 +513,20 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       setCaret(null, 0);
       if (!apply) { window.dispatchEvent(new Event('rw:layout-resize')); return; }
       if (!started) {
-        // Plain click: activate the tab.
+        // Plain click: activate the tab (and, for single-DOM views,
+        // claim the element for this window).
+        singletonHome.set(view, from);
         writeState(activateTab(currentState(), from, view));
+        // Same-state activation still needs a re-host (the settings
+        // subscription only fires on change).
+        refresh();
         return;
       }
       const target = hoverStrip ?? hoverEmpty;
       if (target) {
         const win = windows.get(target);
         const index = hoverStrip && win ? stripIndexAt(win, dropX) : undefined;
+        singletonHome.set(view, target);
         writeState(moveView(currentState(), view, target, index, from));
         // Dropping into a stowed window must produce a VISIBLE window.
         if (target === 'bottom' && settings.get('timelineDock') === 'hidden') {
@@ -517,44 +547,41 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   }
 
   // ------------------------- hosting --------------------------------
-  function mount(win: Win, view: ViewId): void {
-    if (win.mounted === view) return;
-    if (win.mounted) {
-      const prev = elementFor(win.mounted, win.id);
-      if (prev) park.appendChild(prev);
-      win.mounted = null;
+  /** Element (or placeholder) a window should display for `view`. */
+  function displayFor(view: ViewId, win: WindowId, state: TabsState): HTMLElement | null {
+    if (singletonEls.has(view)) {
+      return singletonOwner(view, state) === win
+        ? singletonEls.get(view)!
+        : placeholderFor(view, win);
     }
-    const el = elementFor(view, win.id);
-    // A late-registering view (the patch bay factory loads async) must
-    // NOT mark the window as mounted — registerView's refresh() retries
-    // and succeeds once the factory exists. (Bug: the bay's window
-    // stayed empty forever because mounted was set with no element.)
-    if (!el) return;
-    win.shell.appendChild(el);
-    win.mounted = view;
-    win.shell.dataset.regionView = view;
-    if (win.id === 'center') {
-      win.shell.classList.toggle('rw-center-passthrough', view === 'renderer');
-    }
+    return elementFor(view, win);
   }
 
   function applyState(state: TabsState): void {
     renderStrips(state);
-    // Park mismatched views first, then mount actives.
+    // Park EVERY currently-mounted element first (ownership may have
+    // moved between windows), then mount what each window should show.
     for (const w of windows.values()) {
-      const want = state.active[w.id];
-      if (w.mounted && w.mounted !== want) {
-        const prev = elementFor(w.mounted, w.id);
+      if (w.mounted) {
+        const prev = w.shell.querySelector(':scope > .rw-panel-view, :scope > .rw-timeline-view, :scope > .rw-view-renderer, :scope > .rw-patchbay, :scope > .rw-view-placeholder');
         if (prev) park.appendChild(prev);
         w.mounted = null;
       }
     }
     for (const w of windows.values()) {
       const want = state.active[w.id];
-      if (want) mount(w, want);
-      else {
+      if (want) {
+        const el = displayFor(want, w.id, state);
+        if (el) {
+          w.shell.appendChild(el);
+          w.mounted = want;
+        }
+        w.shell.dataset.regionView = want;
+      } else {
         w.shell.dataset.regionView = '';
-        if (w.id === 'center') w.shell.classList.add('rw-center-passthrough');
+      }
+      if (w.id === 'center') {
+        w.shell.classList.toggle('rw-center-passthrough', want === 'renderer' || want === null);
       }
     }
     // Renderer instances: passthrough only as the center's active tab;

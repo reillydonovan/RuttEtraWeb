@@ -18,14 +18,16 @@ active tab. Four windows, each decorating a DOM shell:
 
 **View** — content shown by a tab. Registry ids
 (`workspaceModel.ViewId`): `renderer`, `panel` (Controls), `timeline`,
-`patchbay`. **Multi-instance views** (`MULTI_INSTANCE` = renderer,
-patchbay) register a FACTORY and may hold duplicate tabs in several
-windows at once — each window gets its own cached instance
-(`elementFor(view, win)`). Single-instance views (panel, timeline)
-register one element and live in exactly one window; adding them
-elsewhere MOVES them and the [+] menu says "(moves here)". Inactive/
-unhosted elements park in the hidden `#rw-view-park`. A window never
-shows the same view twice.
+`patchbay`. ANY view may be tabbed in any number of windows — "+"
+always just adds a tab (owner rule; no move semantics, ever). The
+element strategy differs: **factory views** (`MULTI_INSTANCE` =
+renderer, patchbay) give each window its own cached instance
+(`elementFor(view, win)`); **single-DOM views** (panel, timeline) have
+one element that follows the most recent activation (`singletonHome`),
+with `.rw-view-placeholder` shown in other windows holding the tab
+("click to bring it over" = activate = steal). Inactive/unhosted
+elements park in the hidden `#rw-view-park`. A window never lists the
+same view twice.
 
 **The no-side-effects rule (the owner's bright line):** moving or
 adding a view NEVER assigns anything new to another window. The source
@@ -50,8 +52,7 @@ Inactive, the mirror stops.
   "DROP TAB HERE" strips so they stay reachable. The drag ghost names
   the view. Dropping into a stowed window un-stows it (hidden dock
   restores to its last edge; a collapsed right panel expands).
-- **[+]** — add a view: multi-instance views get a DUPLICATE tab (no
-  other window affected); single-instance views move (labeled).
+- **[+]** — always just adds a tab here; no other window is touched.
 - **✕ per tab** — closes that window's tab (a fully-closed view reopens
   via any [+]). Tabs drag-reorder within their strip; a thin
   **insertion caret** (`.rw-wtab-caret`, DOM-present only during a

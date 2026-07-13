@@ -31,10 +31,10 @@ describe('normalizeTabsState', () => {
     expect(s.active.center).toBeNull();
   });
 
-  it('a view appearing in two windows keeps only its first home', () => {
-    const s = state({ center: ['renderer'], right: ['panel'], bottom: ['panel', 'timeline'] });
+  it('a view may be tabbed in several windows (+" always adds); never twice in ONE window', () => {
+    const s = state({ center: ['renderer'], right: ['panel'], bottom: ['panel', 'panel', 'timeline'] });
     expect(s.tabs.right).toEqual(['panel']);
-    expect(s.tabs.bottom).toEqual(['timeline']);
+    expect(s.tabs.bottom).toEqual(['panel', 'timeline']); // multi-homed OK, in-window dupe dropped
   });
 
   it('unknown ids drop; actives must be members (else first tab)', () => {

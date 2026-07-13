@@ -31,10 +31,12 @@ export const WINDOW_IDS: readonly WindowId[] = ['center', 'left', 'right', 'bott
 const VALID_VIEWS: readonly ViewId[] = ['renderer', 'panel', 'timeline', 'patchbay'];
 
 /**
- * Views that can exist as DUPLICATE tabs in several windows at once
- * (each window gets its own element instance from a factory). Controls
- * and Timeline are single live DOM trees — adding them elsewhere MOVES
- * them (the "+" menu says so), never silently.
+ * ANY view may be tabbed in several windows at once — "+" always just
+ * adds a tab (owner rule: adding never moves, keep it simple). The set
+ * below only decides the ELEMENT strategy: factory views get an
+ * independent instance per window; the others are single live DOM
+ * trees whose one element follows the most recent activation, with a
+ * placeholder shown where it currently isn't (Workspace.ts).
  */
 export const MULTI_INSTANCE: ReadonlySet<ViewId> = new Set(['renderer', 'patchbay']);
 
@@ -74,11 +76,11 @@ function cloneState(s: TabsState): TabsState {
 
 /**
  * Validator/normalizer for possibly-foreign state (old files, hand
- * edits): unknown view ids drop out, a view appearing in several
- * windows keeps only its FIRST home, and each window's active tab must
- * be one of its tabs (else its first tab, else null). Views may be
- * absent from every window (a CLOSED tab — reopen via any window's
- * "+"); there is no whole-state reset — tabs degrade gracefully.
+ * edits): unknown view ids drop out, a window never lists the same
+ * view twice, and each window's active tab must be one of its tabs
+ * (else its first tab, else null). A view may be tabbed in several
+ * windows, or in none (a CLOSED tab — reopen via any window's "+");
+ * there is no whole-state reset — tabs degrade gracefully.
  */
 export function normalizeTabsState(raw: Partial<TabsState> | null | undefined): TabsState {
   const seenGlobal = new Set<ViewId>();
@@ -92,8 +94,7 @@ export function normalizeTabsState(raw: Partial<TabsState> | null | undefined): 
       // would duplicate views); 'output' is the one legacy alias.
       if (v !== 'output' && !(VALID_VIEWS as readonly string[]).includes(v as string)) continue;
       const id = normalizeViewId(v, 'renderer');
-      if (seenHere.has(id)) continue;                       // never twice in one window
-      if (!MULTI_INSTANCE.has(id) && seenGlobal.has(id)) continue; // single-instance: first home wins
+      if (seenHere.has(id)) continue; // never twice in one window
       seenHere.add(id);
       seenGlobal.add(id);
       tabs[w].push(id);
