@@ -42,6 +42,9 @@ export interface WorkspaceController {
   /** Wire the dock shell once the TimelineDock exists (it is created
    *  lazily, and its build() wipes the shell's children). */
   attachDockRegion(dockShell: HTMLElement, timelineViewEl: HTMLElement): void;
+  /** Register a late-loading view (patch bay) — adds it to every
+   *  region's dropdown and re-hosts if an assignment already wants it. */
+  registerView(id: ViewId, el: HTMLElement): void;
   /** Popout arbitration: while the panel popout is open, force default
    *  hosting transiently (no Settings writes). */
   onPanelPopout(open: boolean): void;
@@ -58,7 +61,8 @@ const VIEW_LABELS: Record<ViewId, string> = {
   patchbay: 'PATCH BAY',
 };
 
-/** Views selectable in the dropdowns. 'patchbay' joins in Phase 3. */
+/** Views selectable at construction; late registrations (patch bay)
+ *  extend the dropdowns via registerView(). */
 const SELECTABLE: readonly ViewId[] = ['panel', 'timeline', 'output'];
 
 export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
@@ -226,6 +230,18 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       viewEls.set('timeline', timelineViewEl);
       viewEls.set('output', getOutputView());
       if (!regions.has('dock')) buildRegionBar('dock', dockShell);
+      refresh();
+    },
+    registerView(id: ViewId, el: HTMLElement): void {
+      viewEls.set(id, el);
+      for (const r of regions.values()) {
+        if (!r.select.querySelector(`option[value="${id}"]`)) {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = VIEW_LABELS[id];
+          r.select.appendChild(opt);
+        }
+      }
       refresh();
     },
     onPanelPopout(open: boolean): void {

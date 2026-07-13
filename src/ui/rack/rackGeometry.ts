@@ -73,6 +73,19 @@ export function applyCableTarget(
 }
 
 /**
+ * Re-plug slot `index`'s SOURCE side (patch bay: dragging a signal jack
+ * into a slot's SRC IN). Same enable-on-plug semantics as
+ * `applyCableTarget`; same wholesale-array write pattern.
+ */
+export function applyCableSource(
+  slots: readonly ModSlot[],
+  index: number,
+  source: ModSlot['source'],
+): ModSlot[] {
+  return slots.map((s, i) => (i === index ? { ...s, source, enabled: true } : s));
+}
+
+/**
  * Index of the last slot whose cable is plugged into `paramKey`, or -1.
  * "Last" so that when two slots share a target, grabbing the input jack
  * picks up the most recently added cable first.

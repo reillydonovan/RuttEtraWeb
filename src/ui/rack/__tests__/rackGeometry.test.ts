@@ -5,7 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  classicCables, graphCables, applyCableTarget, slotForParam, nearestJack, rectCenter,
+  classicCables, graphCables, applyCableTarget, applyCableSource,
+  slotForParam, nearestJack, rectCenter,
 } from '../rackGeometry';
 import { cableControlPoints } from '../../cableDraw';
 import type { ModSlot } from '../../../state/Settings';
@@ -62,6 +63,16 @@ describe('applyCableTarget', () => {
     const next = applyCableTarget(slots, 0, 'none');
     expect(next[0].target).toBe('none');
     expect(next[0].enabled).toBe(true);
+  });
+});
+
+describe('applyCableSource', () => {
+  it('plugging a source sets it AND enables the slot (patch bay SRC IN)', () => {
+    const slots = [slot({ source: 'sine' })];
+    const next = applyCableSource(slots, 0, 'audio');
+    expect(next[0].source).toBe('audio');
+    expect(next[0].enabled).toBe(true);
+    expect(slots[0].source).toBe('sine'); // input untouched
   });
 });
 

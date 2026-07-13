@@ -694,6 +694,13 @@ async function bootSynth(): Promise<void> {
     panelViewEl: panel.viewRoot,
   });
 
+  // Patch Bay view — its own chunk, registered once loaded (a stored
+  // 'patchbay' region assignment re-hosts as soon as it lands).
+  void (async () => {
+    const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
+    workspace.registerView('patchbay', createPatchBayView(settings));
+  })();
+
   // Two-screen popout (v19): move the whole control panel into its own
   // window so output can go fullscreen on a second display. Same JS
   // context — no state sync needed. Desktop feature; the button simply
@@ -965,7 +972,7 @@ async function bootSynth(): Promise<void> {
       {
         label: 'WINDOW',
         items: () => {
-          const regionRadio = (region: 'side' | 'dock', view: 'panel' | 'timeline' | 'output', label: string) => ({
+          const regionRadio = (region: 'side' | 'dock', view: 'panel' | 'timeline' | 'output' | 'patchbay', label: string) => ({
             label,
             run: () => workspace.setRegionView(region, view),
             checked: () => workspace.getAssignment()[region] === view,
@@ -979,6 +986,7 @@ async function bootSynth(): Promise<void> {
               submenu: () => [
                 regionRadio('side', 'panel', 'Controls'),
                 regionRadio('side', 'timeline', 'Timeline'),
+                regionRadio('side', 'patchbay', 'Patch Bay'),
                 regionRadio('side', 'output', 'Output (mirror)'),
               ],
             },
@@ -987,6 +995,7 @@ async function bootSynth(): Promise<void> {
               submenu: () => [
                 regionRadio('dock', 'panel', 'Controls'),
                 regionRadio('dock', 'timeline', 'Timeline'),
+                regionRadio('dock', 'patchbay', 'Patch Bay'),
                 regionRadio('dock', 'output', 'Output (mirror)'),
               ],
             },
@@ -997,6 +1006,7 @@ async function bootSynth(): Promise<void> {
                 { label: 'Default', run: () => workspace.applyPreset('default') },
                 { label: 'Performance (output maximized)', run: () => workspace.applyPreset('performance') },
                 { label: 'Editing (tall timeline)', run: () => workspace.applyPreset('editing') },
+                { label: 'Patch Bay (bay in the dock)', run: () => workspace.applyPreset('patchbay') },
               ],
             },
             { label: 'Reset Layout', run: () => workspace.applyPreset('default') },

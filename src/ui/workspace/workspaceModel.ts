@@ -95,6 +95,12 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
     panelCollapsed: false, panelWidth: 360,
     timelineDock: 'bottom', timelineHeight: 380,
   },
+  {
+    id: 'patchbay', label: 'Patch Bay (bay in the dock)',
+    assignment: { side: 'panel', dock: 'patchbay' },
+    panelCollapsed: false, panelWidth: 360,
+    timelineDock: 'bottom', timelineHeight: 420,
+  },
 ];
 
 export function getPreset(id: string): LayoutPreset | undefined {

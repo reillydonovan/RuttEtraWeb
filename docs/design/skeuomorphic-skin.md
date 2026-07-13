@@ -23,6 +23,13 @@ on — they draw nothing); drag-to-patch for graph bindings; the
 spatial free-layout rack (§3's original vision) remains future work.
 
 Phase 2 (live-mod arcs on knobs) still not started.
+
+**The spatial rack view shipped separately** (2026-07-13, v1.9.0) as
+the PATCH BAY workspace view — see `docs/design/patch-bay.md`. §3's
+"defer to a dedicated spatial view" recommendation is now fully
+resolved: the rack SKIN keeps its overlay cables on the accordion; the
+BAY owns a fixed faceplate where the anchor-fallback problem doesn't
+exist.
 Branch: `skeuomorphic` (owner decision 2026-07-13 — build here despite
 the doc's original branch-hygiene concern; the branch's earlier commits
 are the unrelated Keyframing v2 / timeline work).
