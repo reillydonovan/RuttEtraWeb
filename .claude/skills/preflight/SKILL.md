@@ -62,15 +62,22 @@ Run these in order; stop and report on the first failure:
   skin state is localStorage (`src/ui/skin.ts`), never Settings. Rack
   cables write patch data (`modSlots[i].target`) via `applyCableTarget`
   — also never live values.
-- **Workspace shell/content contract**: shell chrome (resize handles,
-  collapse strip, dock mini-bar, region bar) lives on the SHELL
-  (#panel-root / #timeline-dock); movable content lives in
-  `ControlPanel.viewRoot` / `TimelineDock.viewRoot`, which the region
-  system re-parents. New panel-level chrome must pick its side of that
-  line deliberately, or it will vanish (or tag along) when the user
-  swaps regions. Region keys (`panelRegionView`/`dockRegionView`, v29)
-  are normalized — extend `workspaceModel`'s VALID_VIEWS for any new
-  ViewId.
+- **Workspace window system — read `docs/design/workspace-regions.md`
+  before touching regions/views.** Core contract: shell chrome (resize
+  handles, collapse strip, dock mini-bar, region bar) lives on the
+  SHELL (#rw-center-shell / #rw-left-shell / #panel-root / #timeline-dock); movable
+  content lives in the view wrappers (`ControlPanel.viewRoot`,
+  `TimelineDock.viewRoot`, patch bay root, renderer wrapper), which the
+  region system re-parents. New panel-level chrome must pick its side
+  of that line deliberately, or it will vanish (or tag along) when the
+  user re-docks windows. Tab-state keys (`workspaceTabs`/`workspaceActive`, v31) are
+  normalized by `normalizeTabsState`; the no-side-effects rule (moving
+  a view never assigns anything to another window) is enforced by the
+  pure `moveView()` — follow the add-a-view checklist in the design
+  doc for any new ViewId; multi-instance views register a FACTORY with
+  registerView and must be listed in workspaceModel.MULTI_INSTANCE. Never
+  re-parent the live WebGL canvas; renderer-outside-center is a
+  captureStream mirror.
 - **Menubar offset**: anything new pinned to the top of the viewport
   must offset by `var(--rw-menubar-h, 0px)` (0 in compact/viewer), and
   anything changing available canvas space must be measurable by

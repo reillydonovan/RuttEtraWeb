@@ -43,6 +43,7 @@ import ioHtml            from '../../docs/about/06-io.md?aboutMd';
 import performanceHtml   from '../../docs/about/07-performance.md?aboutMd';
 import referenceHtml     from '../../docs/about/08-reference.md?aboutMd';
 import aboutHtml         from '../../docs/about/09-about.md?aboutMd';
+import tutorialsHtml     from '../../docs/about/10-tutorials.md?aboutMd';
 
 // Build the auto-generated tables. These import pure-data modules:
 //   - paramDocs (settings descriptions) is a plain object literal
@@ -59,6 +60,7 @@ const SECTIONS: { html: string; injectAfter?: 'reference' }[] = [
   { html: ioHtml },
   { html: performanceHtml },
   { html: referenceHtml },
+  { html: tutorialsHtml },
   { html: aboutHtml },
 ];
 

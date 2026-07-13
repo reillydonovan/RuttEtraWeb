@@ -112,13 +112,9 @@ export class ControlPanel {
     });
     attachTooltip(skinSel, 'Panel skin: flat CRT, hardware (knobs and switches), or full rack with patch cables. Remembered on this machine, not in your patches.');
 
-    const dockBtn = document.createElement('button');
-    dockBtn.title = 'Toggle dock side';
-    dockBtn.textContent = '↔';
-    dockBtn.addEventListener('click', () => {
-      const next = settings.get('panelDock') === 'right' ? 'left' : 'right';
-      settings.set('panelDock', next);
-    });
+    // (The old ↔ dock-side toggle is gone: since the v31 tab model the
+    // panel shell IS the right window — the left side belongs to the
+    // left workspace window; drag tabs there instead.)
     settings.subscribe('panelDock', (v) => {
       this.root.setAttribute('data-dock', v);
       this.publishInset();
@@ -140,7 +136,7 @@ export class ControlPanel {
       this.publishInset();
     });
 
-    actions.append(skinSel, dockBtn, collapseBtn);
+    actions.append(skinSel, collapseBtn);
     title.appendChild(actions);
     this.actionsBar = actions;
 
@@ -189,8 +185,8 @@ export class ControlPanel {
   // Panel width resize (clamped 280–600, persisted as Settings.panelWidth)
   // -----------------------------------------------------------------
 
-  private static readonly WIDTH_MIN = 280;
-  private static readonly WIDTH_MAX = 600;
+  private static readonly WIDTH_MIN = 220;
+  private static readonly WIDTH_MAX = 1400;
 
   private applyPanelWidth(w: number): void {
     const clamped = Math.max(ControlPanel.WIDTH_MIN, Math.min(ControlPanel.WIDTH_MAX, w));
@@ -212,9 +208,14 @@ export class ControlPanel {
       ? 40
       : Math.max(ControlPanel.WIDTH_MIN, Math.min(
           ControlPanel.WIDTH_MAX, width ?? this.settings.get('panelWidth')));
-    const side = this.settings.get('panelDock');
-    style.setProperty('--rw-panel-inset-right', side === 'right' ? `${w}px` : '0px');
-    style.setProperty('--rw-panel-inset-left',  side === 'left'  ? `${w}px` : '0px');
+    // Since the v31 tab model the panel shell is the RIGHT window
+    // (panelDock is forced 'right'); the LEFT inset var belongs to the
+    // left workspace window and must not be stomped from here. A hidden
+    // (zero-tab) window publishes 0 — otherwise a preset that writes
+    // panelWidth AFTER emptying the window re-truncates the bottom
+    // strip at a stale inset (the owner's Wide-layout bug).
+    const hidden = this.root.classList.contains('rw-window-empty');
+    style.setProperty('--rw-panel-inset-right', hidden ? '0px' : `${w}px`);
     // Let the render canvas track the panel's footprint live, mid-drag
     // — not just once the width commits to Settings on release. Bare
     // `window` (not `this.root.ownerDocument.defaultView`): this

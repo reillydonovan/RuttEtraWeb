@@ -881,22 +881,28 @@ export interface Settings {
   // ---------- UI ----------
   panelDock: 'left' | 'right';
   panelCollapsed: boolean;
-  /** v27: width of the side control panel (drag its inner edge; clamped 280–600). */
+  /** v27: width of the side control panel (drag its inner edge; clamped 220–1400 since v1.10.1). */
   panelWidth: number;
   panelTab: 'synth' | 'io' | 'help';
   hudVisible: boolean;
   /**
-   * v29: workspace regions — which VIEW each of the two dock-region
-   * shells hosts. Normalized by `normalizeAssignment`
-   * (ui/workspace/workspaceModel): unknown ids or a same-view collision
-   * reset both to defaults, so there is no silently-broken half state.
-   * The shells keep their existing geometry keys (panelDock/panelWidth,
-   * timelineDock/timelineHeight) — these only say WHAT is inside.
-   * Project-portable like panelDock (unlike the skin, which is
-   * deliberately localStorage-only). Inert in the compact layout.
+   * v31: workspace windows/tabs (Unity dock model — supersedes the
+   * v29/v30 one-view-per-region keys, migrated below). Four windows
+   * (center/left/right/bottom), each an ordered ViewId tab list plus an
+   * active tab. Normalized by `normalizeTabsState`
+   * (ui/workspace/workspaceModel): unknown ids drop, duplicate homes
+   * keep the first, the renderer always exists somewhere, actives must
+   * be members. Geometry stays on the shells' own keys (panelWidth,
+   * leftPanelWidth, timelineDock/Height). Project-portable; inert in
+   * the compact layout.
    */
-  panelRegionView: 'panel' | 'timeline' | 'output' | 'patchbay';
-  dockRegionView: 'panel' | 'timeline' | 'output' | 'patchbay';
+  workspaceTabs: Record<'center' | 'left' | 'right' | 'bottom',
+    Array<'renderer' | 'panel' | 'timeline' | 'patchbay'>>;
+  workspaceActive: Record<'center' | 'left' | 'right' | 'bottom',
+    'renderer' | 'panel' | 'timeline' | 'patchbay' | null>;
+  /** v31: width of the LEFT workspace window (hidden when it has no
+   *  tabs); same 220–1400 clamp as panelWidth. */
+  leftPanelWidth: number;
 
   // ---------- Help ----------
   helpSeen: boolean;
@@ -1367,8 +1373,13 @@ export const DEFAULTS: Settings = {
   panelWidth: 360,
   panelTab: 'synth',
   hudVisible: true,
-  panelRegionView: 'panel',
-  dockRegionView: 'timeline',
+  workspaceTabs: {
+    center: ['renderer'], left: ['patchbay'], right: ['panel'], bottom: ['timeline'],
+  },
+  workspaceActive: {
+    center: 'renderer', left: 'patchbay', right: 'panel', bottom: 'timeline',
+  },
+  leftPanelWidth: 400,
 
   helpSeen: false,
   helpAutoOpen: true,
@@ -1464,7 +1475,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 29;
+const CURRENT_VERSION = 31;
 
 interface Versioned { _v?: number }
 
@@ -1977,7 +1988,7 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   }
 
   // v26 -> v27: resizable side control panel. Pure UI-state backfill;
-  // the panel clamps to 280–600 on apply. Idempotent.
+  // the panel clamps on apply (220–1400 since v1.10.1). Idempotent.
   if ((s._v ?? 1) < 27) {
     s.panelWidth = (s.panelWidth as number | undefined) ?? 360;
     s._v = 27;
@@ -2001,12 +2012,80 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   // inline check here keeps Settings dependency-free). Idempotent.
   if ((s._v ?? 1) < 29) {
     const views = ['panel', 'timeline', 'output', 'patchbay'];
-    let side = views.includes(s.panelRegionView as string) ? s.panelRegionView : 'panel';
-    let dock = views.includes(s.dockRegionView as string) ? s.dockRegionView : 'timeline';
+    const legacy29 = s as Record<string, unknown>;
+    let side = views.includes(legacy29.panelRegionView as string) ? legacy29.panelRegionView : 'panel';
+    let dock = views.includes(legacy29.dockRegionView as string) ? legacy29.dockRegionView : 'timeline';
     if (side === dock) { side = 'panel'; dock = 'timeline'; }
-    s.panelRegionView = side as Settings['panelRegionView'];
-    s.dockRegionView = dock as Settings['dockRegionView'];
+    legacy29.panelRegionView = side;
+    legacy29.dockRegionView = dock;
     s._v = 29;
+  }
+
+  // v29 -> v30: the CENTER joined the workspace as a real region and the
+  // renderer became a view like any other — the v29 'output' mirror view
+  // id folds into 'renderer'. Backfill center, translate legacy values,
+  // and reset the whole assignment to stock on any duplicate (same
+  // reset-is-the-validator rule as v29). Idempotent.
+  if ((s._v ?? 1) < 30) {
+    const views30 = ['renderer', 'panel', 'timeline', 'patchbay'];
+    const norm30 = (v: unknown, fallback: string): string => {
+      if (v === 'output') return 'renderer';
+      return views30.includes(v as string) ? (v as string) : fallback;
+    };
+    const legacy30r = s as Record<string, unknown>;
+    let center = norm30(legacy30r.centerRegionView, 'renderer');
+    let side30 = norm30(legacy30r.panelRegionView, 'panel');
+    let dock30 = norm30(legacy30r.dockRegionView, 'timeline');
+    if (new Set([center, side30, dock30]).size !== 3) {
+      center = 'renderer'; side30 = 'panel'; dock30 = 'timeline';
+    }
+    const legacy30 = s as Record<string, unknown>;
+    legacy30.centerRegionView = center;
+    legacy30.panelRegionView = side30;
+    legacy30.dockRegionView = dock30;
+    s._v = 30;
+  }
+
+  // v30 -> v31: Unity tab model — four windows (center/left/right/
+  // bottom) each holding an ordered tab list. The v30 one-view-per-
+  // region keys become single-tab windows (center/right/bottom); the
+  // NEW left window starts empty for migrated files so an existing
+  // arrangement looks unchanged (fresh installs get the 4-up default
+  // with the patch bay left). The patch bay joins the right window's
+  // tabs if it had no home. panelDock is forced 'right' — the left
+  // side now belongs to the left window (drag tabs there instead).
+  // Idempotent; deep normalization happens in workspaceModel.
+  if ((s._v ?? 1) < 31) {
+    const views31 = ['renderer', 'panel', 'timeline', 'patchbay'];
+    const pick = (v: unknown, fallback: string): string =>
+      (v === 'output' ? 'renderer' : views31.includes(v as string) ? (v as string) : fallback);
+    const legacy = s as Record<string, unknown>;
+    const center = pick(legacy.centerRegionView, 'renderer');
+    const right = pick(legacy.panelRegionView, 'panel');
+    const bottom = pick(legacy.dockRegionView, 'timeline');
+    const tabs: Record<string, string[]> = {
+      center: [center], left: [], right: [right], bottom: [bottom],
+    };
+    // Dedupe (first home wins) and re-home any missing core views.
+    const seen = new Set<string>();
+    for (const w of ['center', 'left', 'right', 'bottom']) {
+      tabs[w] = tabs[w].filter((v) => (seen.has(v) ? false : (seen.add(v), true)));
+    }
+    if (!seen.has('renderer')) tabs.center.push('renderer');
+    if (!seen.has('panel')) tabs.right.push('panel');
+    if (!seen.has('timeline')) tabs.bottom.push('timeline');
+    if (!seen.has('patchbay')) tabs.right.push('patchbay');
+    s.workspaceTabs = tabs as Settings['workspaceTabs'];
+    s.workspaceActive = {
+      center: (tabs.center[0] ?? null), left: (tabs.left[0] ?? null),
+      right: (tabs.right[0] ?? null), bottom: (tabs.bottom[0] ?? null),
+    } as Settings['workspaceActive'];
+    s.leftPanelWidth = (s.leftPanelWidth as number | undefined) ?? 400;
+    s.panelDock = 'right';
+    delete (s as Record<string, unknown>).centerRegionView;
+    delete (s as Record<string, unknown>).panelRegionView;
+    delete (s as Record<string, unknown>).dockRegionView;
+    s._v = 31;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

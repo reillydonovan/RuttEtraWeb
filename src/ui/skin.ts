@@ -43,11 +43,14 @@ const listeners = new Set<Listener>();
 const stampedDocs = new Set<Document>();
 
 function readStored(): SkinId {
+  // Default skin is 'rack' (owner decision 2026-07-13): fresh sessions
+  // open with the modular look + live cables; an explicitly-chosen skin
+  // is respected as before.
   try {
     const v = localStorage.getItem(STORAGE_KEY) as SkinId | null;
-    return v && VALID.includes(v) ? v : 'standard';
+    return v && VALID.includes(v) ? v : 'rack';
   } catch {
-    return 'standard';
+    return 'rack';
   }
 }
 

@@ -18,10 +18,10 @@ beforeEach(() => {
 });
 
 describe('skin module', () => {
-  it('defaults to standard with no stored preference', async () => {
+  it('defaults to RACK with no stored preference (owner decision)', async () => {
     const skin = await freshSkin();
-    expect(skin.getSkin()).toBe('standard');
-    expect(document.body.dataset.skin).toBeUndefined();
+    expect(skin.getSkin()).toBe('rack');
+    expect(document.body.dataset.skin).toBe('rack');
   });
 
   it('reads a stored hardware preference at import and stamps the body', async () => {
@@ -31,13 +31,14 @@ describe('skin module', () => {
     expect(document.body.dataset.skin).toBe('hardware');
   });
 
-  it('normalizes garbage stored values to standard', async () => {
+  it('normalizes garbage stored values to the rack default', async () => {
     localStorage.setItem('rw-ui-skin', 'chrome-1998');
     const skin = await freshSkin();
-    expect(skin.getSkin()).toBe('standard');
+    expect(skin.getSkin()).toBe('rack');
   });
 
   it('setSkin persists, stamps, and notifies; standard removes the attribute', async () => {
+    localStorage.setItem('rw-ui-skin', 'standard');
     const skin = await freshSkin();
     const seen: string[] = [];
     skin.subscribeSkin((s) => seen.push(s));
@@ -54,6 +55,7 @@ describe('skin module', () => {
   });
 
   it('setSkin to the current value is a no-op (no duplicate notify)', async () => {
+    localStorage.setItem('rw-ui-skin', 'standard');
     const skin = await freshSkin();
     const seen: string[] = [];
     skin.subscribeSkin((s) => seen.push(s));
@@ -62,6 +64,7 @@ describe('skin module', () => {
   });
 
   it('toggleSkin cycles standard → hardware → rack → standard', async () => {
+    localStorage.setItem('rw-ui-skin', 'standard');
     const skin = await freshSkin();
     expect(skin.toggleSkin()).toBe('hardware');
     expect(skin.toggleSkin()).toBe('rack');
@@ -76,6 +79,7 @@ describe('skin module', () => {
   });
 
   it('unsubscribe stops notifications', async () => {
+    localStorage.setItem('rw-ui-skin', 'standard');
     const skin = await freshSkin();
     const seen: string[] = [];
     const off = skin.subscribeSkin((s) => seen.push(s));
@@ -85,6 +89,7 @@ describe('skin module', () => {
   });
 
   it('stamps registered popout documents and stops after release', async () => {
+    localStorage.setItem('rw-ui-skin', 'standard');
     const skin = await freshSkin();
     const popoutDoc = document.implementation.createHTMLDocument('popout');
     skin.applySkinToDocument(popoutDoc);

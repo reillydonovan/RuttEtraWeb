@@ -15,6 +15,7 @@
 
 import './menubar.css';
 import { getAction, runAction } from '../actions';
+import { attachTooltip } from '../tooltip';
 
 export type MenuEntry =
   | { sep: true }
@@ -30,6 +31,8 @@ export type MenuEntry =
 
 export interface MenuSpec {
   label: string;
+  /** Hover tooltip on the top-level menu button. */
+  hint?: string;
   items: () => MenuEntry[];
 }
 
@@ -135,6 +138,7 @@ export function createMenuBar(specs: MenuSpec[]): { el: HTMLElement } {
     btn.textContent = spec.label;
     btn.setAttribute('role', 'menuitem');
     btn.setAttribute('aria-haspopup', 'menu');
+    if (spec.hint) attachTooltip(btn, spec.hint);
     btn.addEventListener('click', () => {
       if (openButton === btn) closeAll();
       else openFor(btn, spec);

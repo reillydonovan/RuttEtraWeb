@@ -52,6 +52,17 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
   surface.className = 'rw-pb-surface';
   root.appendChild(surface);
 
+  // Narrow mode: below ~900px the three deck columns stack vertically
+  // so the whole patch stays visible (vertical scroll, no horizontal
+  // truncation) — the bay must work in a 400px side window as well as
+  // the full center (workspace design system: any view, any window).
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      root.classList.toggle('rw-pb--narrow', w > 0 && w < 900);
+    }).observe(root);
+  }
+
   let canvas = document.createElement('canvas');
   canvas.className = 'rw-pb-cables';
   surface.appendChild(canvas);
@@ -264,30 +275,33 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
     rail.appendChild(mod);
   }
 
-  // SOURCES field.
+  // SOURCES bus — a horizontal strip across the TOP of the bay, like a
+  // hardware bus bar. Owner feedback drove this: with sources stacked
+  // in the rail, four default-sine cables collapsed into one unreadable
+  // vertical line. Spread across the top, every cable has a distinct
+  // start point and drops visibly down to its module's SRC IN.
+  const bus = document.createElement('div');
+  bus.className = 'rw-pb-bus';
   {
-    const field = document.createElement('div');
-    field.className = 'rw-pb-field';
     const t = document.createElement('div');
     t.className = 'rw-pb-field-title';
     t.textContent = 'SOURCES';
-    field.appendChild(t);
-    const grid = document.createElement('div');
-    grid.className = 'rw-pb-grid';
+    bus.appendChild(t);
+    const strip = document.createElement('div');
+    strip.className = 'rw-pb-bus-strip';
     for (const s of SOURCE_JACKS) {
       const cell = document.createElement('div');
-      cell.className = 'rw-pb-cell';
+      cell.className = 'rw-pb-bus-cell';
       const jack = makeJack('rw-pb-jack--src');
       jack.addEventListener('pointerdown', (ev) => dragSource(ev, s.source, jack));
       attachTooltip(jack, `${s.label} — drag to a generator’s SRC IN.`);
       const l = document.createElement('span');
       l.textContent = s.label;
       cell.append(jack, l);
-      grid.appendChild(cell);
+      strip.appendChild(cell);
       srcJacks.set(s.source, jack);
     }
-    field.appendChild(grid);
-    rail.appendChild(field);
+    bus.appendChild(strip);
   }
 
   // GRAPH ENGINE chip — the read-only source end of graph-binding cables.
@@ -351,14 +365,24 @@ export function createPatchBayView(settings: SettingsStore): HTMLElement {
     const grid = document.createElement('div');
     grid.className = 'rw-pb-grid';
     cvField.append(t, grid);
-    for (const opt of cvOutputTargets(settings)) {
+    const cvOpts = cvOutputTargets(settings);
+    if (!cvOpts.length) {
+      const hint = document.createElement('div');
+      hint.className = 'rw-pb-hint';
+      hint.textContent = 'No CV output channels yet — add them in I/O → CV Out and jacks appear here.';
+      grid.appendChild(hint);
+    }
+    for (const opt of cvOpts) {
       addParamCell(grid, String(opt.v), opt.l.replace(/^CV Out:\s*/, ''));
     }
   }
   rebuildCvField();
   settings.subscribe('cvOutputChannels', rebuildCvField);
 
-  surface.append(rail, col1, col2);
+  const deck = document.createElement('div');
+  deck.className = 'rw-pb-deck';
+  deck.append(rail, col1, col2);
+  surface.append(bus, deck);
 
   // ---------------- slot value refresh --------------------------------
   function refreshSlots(): void {

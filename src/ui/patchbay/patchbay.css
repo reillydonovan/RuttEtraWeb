@@ -19,10 +19,49 @@
 .rw-pb-surface {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 14px;
   padding: 16px;
   min-width: 900px;
+}
+.rw-pb-deck {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* SOURCES bus bar — horizontal strip across the top; every signal jack
+   gets a distinct x position so cables to the generators below never
+   collapse into one vertical line (owner feedback: rack1.png). */
+.rw-pb-bus {
+  border: 1px solid var(--re-line-hi);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(30, 40, 30, 0.6), rgba(12, 18, 12, 0.5));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(185, 255, 208, 0.07);
+  padding: 8px 12px;
+  font-family: var(--re-mono);
+}
+.rw-pb-bus-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+.rw-pb-bus-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--re-text);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* Empty-state hint (e.g. CV OUT with no channels configured). */
+.rw-pb-hint {
+  color: var(--re-text-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .rw-pb-cables {
@@ -205,3 +244,10 @@
   font-size: 11px;
   cursor: help;
 }
+
+/* ---------- narrow mode (bay hosted in a side window) ---------- */
+
+.rw-pb--narrow .rw-pb-surface { min-width: 0; }
+.rw-pb--narrow .rw-pb-deck { flex-direction: column; }
+.rw-pb--narrow .rw-pb-rail { flex: 0 0 auto; width: 100%; }
+.rw-pb--narrow .rw-pb-col { width: 100%; }

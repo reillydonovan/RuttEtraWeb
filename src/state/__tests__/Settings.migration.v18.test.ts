@@ -150,29 +150,59 @@ describe('migrateSettings v27 -> v28 (timeline readout format)', () => {
   });
 });
 
-describe('migrateSettings v28 -> v29 (workspace regions)', () => {
-  it('backfills the stock assignment (panel side, timeline dock)', () => {
+describe('migrateSettings v28/v29/v30 legacy region keys -> v31 tabs', () => {
+  it('a stock v28 file lands on classic-shaped tabs (left window empty)', () => {
     const out = migrateSettings({ _v: 28 });
-    expect(out._v ?? 0).toBeGreaterThanOrEqual(29);
-    expect(out.panelRegionView).toBe('panel');
-    expect(out.dockRegionView).toBe('timeline');
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(31);
+    expect(out.workspaceTabs).toEqual({
+      center: ['renderer'], left: [], right: ['panel', 'patchbay'], bottom: ['timeline'],
+    });
+    // The intermediate v29/v30 keys are superseded and removed.
+    expect((out as Record<string, unknown>).panelRegionView).toBeUndefined();
+    expect((out as Record<string, unknown>).centerRegionView).toBeUndefined();
   });
 
-  it('preserves an explicit valid assignment', () => {
-    const kept = migrateSettings({ _v: 28, panelRegionView: 'timeline', dockRegionView: 'panel' });
-    expect(kept.panelRegionView).toBe('timeline');
-    expect(kept.dockRegionView).toBe('panel');
+  it('a swapped v29 arrangement survives as single-tab windows', () => {
+    const out = migrateSettings({ _v: 28, panelRegionView: 'timeline', dockRegionView: 'panel' });
+    expect(out.workspaceTabs?.right).toEqual(['timeline', 'patchbay']);
+    expect(out.workspaceTabs?.bottom).toEqual(['panel']);
   });
 
-  it('normalizes foreign view ids to defaults', () => {
+  it("the legacy v29 'output' view id folds into stock (one renderer view now)", () => {
+    const out = migrateSettings({ _v: 28, panelRegionView: 'panel', dockRegionView: 'output' });
+    expect(out.workspaceTabs?.center).toEqual(['renderer']);
+    expect(out.workspaceTabs?.bottom).toEqual(['timeline']);
+  });
+
+  it('foreign ids and collisions normalize to stock tabs', () => {
     const out = migrateSettings({ _v: 28, panelRegionView: 'holodeck', dockRegionView: 'timeline' });
-    expect(out.panelRegionView).toBe('panel');
-    expect(out.dockRegionView).toBe('timeline');
+    expect(out.workspaceTabs?.right).toEqual(['panel', 'patchbay']);
+  });
+});
+
+describe('migrateSettings v30 -> v31 (window tabs)', () => {
+  it('backfills the tab model from v30 single-view regions (left window empty)', () => {
+    const out = migrateSettings({ _v: 30, centerRegionView: 'renderer', panelRegionView: 'panel', dockRegionView: 'timeline' });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(31);
+    expect(out.workspaceTabs).toEqual({
+      center: ['renderer'], left: [], right: ['panel', 'patchbay'], bottom: ['timeline'],
+    });
+    expect(out.workspaceActive?.right).toBe('panel');
+    expect(out.panelDock).toBe('right');
+    expect(out.leftPanelWidth).toBe(400);
   });
 
-  it('resolves a same-view collision to the stock assignment', () => {
-    const out = migrateSettings({ _v: 28, panelRegionView: 'timeline', dockRegionView: 'timeline' });
-    expect(out.panelRegionView).toBe('panel');
-    expect(out.dockRegionView).toBe('timeline');
+  it('keeps a non-stock v30 arrangement; un-homed core views re-home sensibly', () => {
+    const out = migrateSettings({ _v: 30, centerRegionView: 'patchbay', panelRegionView: 'panel', dockRegionView: 'renderer' });
+    expect(out.workspaceTabs?.center).toEqual(['patchbay']);
+    // renderer kept its window; the timeline (homeless in this v30
+    // state) re-homes to the bottom window as a second tab.
+    expect(out.workspaceTabs?.bottom).toEqual(['renderer', 'timeline']);
+    expect(out.workspaceTabs?.right).toEqual(['panel']);
+  });
+
+  it('fresh defaults (no prior keys) land on the 4-up default via DEFAULTS', () => {
+    const out = migrateSettings({});
+    expect(out.workspaceTabs?.center).toContain('renderer');
   });
 });

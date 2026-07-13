@@ -71,5 +71,19 @@ export function drawPatchCable(
   ctx.moveTo(a.x, a.y);
   ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y);
   ctx.stroke();
+  // Physical cables get plug dots so start/end points read at a glance
+  // even where several cables overlap (owner feedback on the bay's
+  // left rail). Editor-flow cables keep bare ends (ports draw their own
+  // dots).
+  if ((opts.style ?? 'flow') === 'sag') {
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }

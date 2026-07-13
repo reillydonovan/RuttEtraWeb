@@ -32,10 +32,146 @@ body.viewer-mode .rw-region-bar {
 .rw-region-grip {
   color: var(--re-text-dim);
   font-size: 11px;
-  cursor: grab;
   user-select: none;
 }
-.rw-region-bar { cursor: grab; touch-action: none; user-select: none; }
+/* TAB STRIP (Unity dock model): every window's bar holds a row of
+   tabs — click to switch, drag to another strip or a drop zone to
+   move. One design system for all four windows. */
+.rw-tabstrip {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.rw-wtab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 10px 1px 6px;
+  border: 1px solid var(--re-line);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: rgba(10, 16, 10, 0.6);
+  color: var(--re-text-dim);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  height: 16px;
+  white-space: nowrap;
+}
+.rw-wtab.active {
+  border-color: var(--re-line-hi);
+  background: linear-gradient(180deg, rgba(34, 46, 34, 0.95), rgba(16, 24, 16, 0.8));
+  color: var(--re-accent);
+}
+.rw-wtab:hover { box-shadow: 0 0 6px rgba(95, 255, 133, 0.35); }
+.rw-wtab-caret {
+  flex: 0 0 2px;
+  width: 2px;
+  height: 16px;
+  background: var(--re-accent);
+  box-shadow: 0 0 6px rgba(95, 255, 133, 0.9);
+  pointer-events: none;
+}
+.rw-wtab-close {
+  /* A real hit target — a bare glyph collapsed to ~4px and clicks fell
+     through to the tab. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 1;
+  border-radius: 2px;
+  color: var(--re-text-dim);
+  opacity: 0.35;
+  cursor: pointer;
+}
+.rw-wtab:hover .rw-wtab-close,
+.rw-wtab.active .rw-wtab-close { opacity: 0.8; }
+.rw-wtab-close:hover {
+  opacity: 1 !important;
+  color: var(--re-warn);
+  background: rgba(255, 92, 92, 0.15);
+}
+
+/* Insertion caret — ONLY exists in the DOM during a live tab drag
+   (created/removed by beginTabDrag); a thin accent line that nudges
+   itself between tabs to show the landing slot. */
+.rw-wtab-caret {
+  flex: 0 0 2px;
+  width: 2px;
+  height: 16px;
+  background: var(--re-accent);
+  box-shadow: 0 0 6px rgba(95, 255, 133, 0.9);
+  pointer-events: none;
+}
+
+.rw-region-bar { touch-action: none; user-select: none; }
+/* Strip highlighted as a drop target while a tab drag hovers it. */
+.rw-region-bar.rw-strip-hover {
+  background: rgba(95, 255, 133, 0.14);
+  box-shadow: inset 0 0 12px rgba(95, 255, 133, 0.25);
+}
+.rw-tab-add { margin-left: 4px; }
+
+/* A window with no tabs disappears entirely (drag a tab onto its
+   strip while dragging — see below — use another window's "+", or a
+   Layout preset to bring it back). */
+.rw-window-empty { display: none !important; }
+/* While a tab drag is live, ONLY the empty window whose dock area is
+   near the pointer reveals itself (proximity, one at a time — owner
+   feedback; occupied windows are targeted via their tab strips). */
+body.rw-region-dragging .rw-window-empty.rw-drop-reveal {
+  display: flex !important;
+  background: rgba(10, 16, 10, 0.8);
+  outline: 1px dashed var(--re-accent);
+  box-shadow: inset 0 0 30px rgba(95, 255, 133, 0.15);
+}
+body.rw-region-dragging .rw-window-empty.rw-drop-reveal::after {
+  content: 'DROP TAB HERE';
+  margin: auto;
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+/* Left workspace window — mirror of the right panel shell. */
+#rw-left-shell {
+  position: absolute;
+  left: 0;
+  top: var(--rw-menubar-h, 0px);
+  bottom: 0;
+  width: 400px;
+  z-index: 10;
+  background: var(--re-panel);
+  border-right: 1px solid var(--re-line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body[data-layout="compact"] #rw-left-shell,
+body.viewer-mode #rw-left-shell { display: none; }
+.rw-left-resize {
+  position: absolute;
+  right: -4px;
+  /* Below the tab bar — a full-height handle overlapped the bar,
+     lighting up as a phantom vertical line on tab hover and stealing
+     clicks from the tabs' ✕ buttons. */
+  top: 22px;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 12;
+}
+.rw-left-resize:hover { background: rgba(95, 255, 133, 0.15); }
 body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important; }
 .rw-region-bar-spacer { flex: 1 1 auto; }
 .rw-region-btn {
@@ -80,27 +216,6 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   font-size: 11px;
   letter-spacing: 0.12em;
 }
-.rw-dropzones {
-  position: fixed;
-  inset: 0;
-  z-index: 190;
-  pointer-events: none;
-}
-.rw-dropzone {
-  position: absolute;
-  border: 1px dashed var(--re-line-hi);
-  background: rgba(95, 255, 133, 0.05);
-  transition: background 90ms ease, border-color 90ms ease;
-}
-.rw-dropzone--left   { left: 0;  top: 15%; bottom: 15%; width: 12%; }
-.rw-dropzone--right  { right: 0; top: 15%; bottom: 15%; width: 12%; }
-.rw-dropzone--top    { top: var(--rw-menubar-h, 0px); left: 18%; right: 18%; height: 14%; }
-.rw-dropzone--bottom { bottom: 0; left: 18%; right: 18%; height: 14%; }
-.rw-dropzone.active {
-  background: rgba(95, 255, 133, 0.18);
-  border-color: var(--re-accent);
-  box-shadow: inset 0 0 24px rgba(95, 255, 133, 0.25);
-}
 .rw-region-select {
   background: transparent;
   border: 1px solid var(--re-line);
@@ -124,8 +239,9 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   min-width: 0;
 }
 
-/* Output mirror view — letterboxed live copy of the render canvas. */
-.rw-view-output {
+/* Renderer view — pass-through in the center (the one real WebGL
+   canvas shows beneath), captureStream mirror everywhere else. */
+.rw-view-renderer {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -133,7 +249,44 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   justify-content: center;
   background: #000;
 }
-.rw-view-output video {
+.rw-view-renderer video {
   max-width: 100%;
   max-height: 100%;
 }
+.rw-view-renderer--passthrough {
+  background: transparent;
+  pointer-events: none;
+}
+.rw-view-renderer--passthrough video { display: none; }
+
+/* Center workspace region shell — positioned by main.ts resize() to
+   the canvas rect. Click-through while it hosts the renderer (only
+   the bar takes the pointer), a normal opaque window otherwise. */
+#rw-center-shell {
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+#rw-center-shell.rw-center-passthrough {
+  pointer-events: none;
+  background: transparent;
+}
+#rw-center-shell.rw-center-passthrough .rw-region-bar {
+  pointer-events: auto;
+}
+#rw-center-shell:not(.rw-center-passthrough) {
+  background: var(--re-bg);
+}
+body[data-layout="compact"] #rw-center-shell,
+body.viewer-mode #rw-center-shell {
+  display: none;
+}
+/* The center bar floats subtly over the image while pass-through. */
+#rw-center-shell.rw-center-passthrough .rw-region-bar {
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom-color: rgba(95, 255, 133, 0.12);
+  opacity: 0.75;
+}
+#rw-center-shell.rw-center-passthrough .rw-region-bar:hover { opacity: 1; }

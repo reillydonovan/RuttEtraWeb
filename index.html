@@ -55,6 +55,12 @@
           <button id="boot-skip">continue without video →</button>
         </div>
       </div>
+      <!-- Center workspace region shell — positioned by main.ts resize()
+           to the exact rect the render canvas occupies. Hosts the
+           RENDERER view (click-through) or any other view (overlay). -->
+      <div id="rw-center-shell"></div>
+      <!-- Left workspace window — hidden while it holds no tabs. -->
+      <aside id="rw-left-shell"></aside>
       <aside id="panel-root"></aside>
       <div id="hud"></div>
       <!-- The manual link lives in the menu bar (Help → Open Manual);

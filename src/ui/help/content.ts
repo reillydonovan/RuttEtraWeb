@@ -57,14 +57,19 @@ const MD_QUICKSTART = `
 > Everything in it is also reachable the old ways — same actions, one
 > implementation.
 >
-> The side panel and the timeline dock are **workspace regions**: each
-> region's top bar has a dropdown picking what it hosts (CONTROLS /
-> TIMELINE / PATCH BAY / OUTPUT (MIRROR)) — pick a view the other region
-> holds and they swap. **Drag a bar's ⠿ grip** to a screen edge to
-> re-dock that window there (left/right/top/bottom, Unity/Blender
-> style); **⤢ maximizes** a window (double-click the bar works too) and
-> **–** collapses it. **Window ▸ Layout** has presets and a
-> **Reset Layout** escape hatch back to stock.
+> The interface is four **windows** (left / center / right / bottom),
+> each holding **tabs** like Unity or Blender: click to switch, drag a
+> tab onto another window's strip to move it (empty windows appear as
+> drop strips while you drag), or use a window's **[+]** to pull any
+> view in (RENDERER / CONTROLS /
+> TIMELINE / PATCH BAY). Moving a view never disturbs another window —
+> its old home just shows its own next tab. ⤢ maximizes, – collapses.
+> **Window ▸ Layout**: Default (4-up), Classic, Tall, Wide,
+> Performance, Patch Bay — and **Reset Layout** to retreat to stock.
+>
+> New to patching? The About page's **Tutorials** section walks through
+> wiring your microphone to Z Push in about two minutes — the same
+> patch in cables (Patch Bay) and dropdowns (Modulation panel).
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate:
 > the four Classic slots become FUNCTION GENERATOR modules with SRC IN

@@ -690,6 +690,8 @@ async function bootSynth(): Promise<void> {
   const workspace = createWorkspace({
     settings,
     canvas,
+    centerShell: document.getElementById('rw-center-shell') as HTMLElement,
+    leftShell: document.getElementById('rw-left-shell') as HTMLElement,
     panelShell: panelHost,
     panelViewEl: panel.viewRoot,
   });
@@ -698,7 +700,9 @@ async function bootSynth(): Promise<void> {
   // 'patchbay' region assignment re-hosts as soon as it lands).
   void (async () => {
     const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
-    workspace.registerView('patchbay', createPatchBayView(settings));
+    // Factory: the bay is multi-instance — every window that tabs it
+    // gets its own independent instance (all reading the same Settings).
+    workspace.registerView('patchbay', () => createPatchBayView(settings));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own
@@ -721,9 +725,8 @@ async function bootSynth(): Promise<void> {
       // footprint — let the timeline dock reclaim the full width. On
       // pop-in the panel recomputes its insets.
       if (open) {
-        const style = document.documentElement.style;
-        style.setProperty('--rw-panel-inset-right', '0px');
-        style.setProperty('--rw-panel-inset-left', '0px');
+        // Right var only — the LEFT inset belongs to the left window.
+        document.documentElement.style.setProperty('--rw-panel-inset-right', '0px');
       } else {
         panel.refreshInset();
       }
@@ -894,6 +897,7 @@ async function bootSynth(): Promise<void> {
     const menubar = createMenuBar([
       {
         label: 'FILE',
+        hint: 'Project files: new, open, save, recent list, whole-workspace backup.',
         items: () => [
           { actionId: 'file.new' },
           { actionId: 'file.open' },
@@ -926,6 +930,7 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'EDIT',
+        hint: 'Undo/redo for timeline edits (scene keyframes, lanes).',
         items: () => [
           { actionId: 'edit.undo' },
           { actionId: 'edit.redo' },
@@ -933,6 +938,7 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'VIEW',
+        hint: 'Skins, HUD, fullscreen, and panel/timeline docking.',
         items: () => [
           skinRadio('standard', 'Skin: CRT (flat)'),
           skinRadio('hardware', 'Skin: Hardware'),
@@ -940,17 +946,6 @@ async function bootSynth(): Promise<void> {
           { sep: true },
           { actionId: 'view.hud' },
           { actionId: 'view.fullscreen' },
-          { sep: true },
-          {
-            label: 'Panel: Dock Left',
-            run: () => settings.set('panelDock', 'left'),
-            checked: () => settings.get('panelDock') === 'left',
-          },
-          {
-            label: 'Panel: Dock Right',
-            run: () => settings.set('panelDock', 'right'),
-            checked: () => settings.get('panelDock') === 'right',
-          },
           { sep: true },
           {
             label: 'Timeline: Top',
@@ -971,42 +966,21 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'WINDOW',
+        hint: 'Pop-out windows, per-window views, layout presets, Reset Layout.',
         items: () => {
-          const regionRadio = (region: 'side' | 'dock', view: 'panel' | 'timeline' | 'output' | 'patchbay', label: string) => ({
-            label,
-            run: () => workspace.setRegionView(region, view),
-            checked: () => workspace.getAssignment()[region] === view,
-          });
           return [
             { actionId: 'window.panelPopout' },
             { actionId: 'window.renderPopout' },
             { sep: true as const },
             {
-              label: 'Side Region',
-              submenu: () => [
-                regionRadio('side', 'panel', 'Controls'),
-                regionRadio('side', 'timeline', 'Timeline'),
-                regionRadio('side', 'patchbay', 'Patch Bay'),
-                regionRadio('side', 'output', 'Output (mirror)'),
-              ],
-            },
-            {
-              label: 'Dock Region',
-              submenu: () => [
-                regionRadio('dock', 'panel', 'Controls'),
-                regionRadio('dock', 'timeline', 'Timeline'),
-                regionRadio('dock', 'patchbay', 'Patch Bay'),
-                regionRadio('dock', 'output', 'Output (mirror)'),
-              ],
-            },
-            { sep: true as const },
-            {
               label: 'Layout',
               submenu: () => [
-                { label: 'Default', run: () => workspace.applyPreset('default') },
+                { label: 'Default (4-up: bay left, output center)', run: () => workspace.applyPreset('default') },
+                { label: 'Classic (no left window)', run: () => workspace.applyPreset('classic') },
+                { label: 'Tall (everything in one column)', run: () => workspace.applyPreset('tall') },
+                { label: 'Wide (tall bottom strip)', run: () => workspace.applyPreset('wide') },
                 { label: 'Performance (output maximized)', run: () => workspace.applyPreset('performance') },
-                { label: 'Editing (tall timeline)', run: () => workspace.applyPreset('editing') },
-                { label: 'Patch Bay (bay in the dock)', run: () => workspace.applyPreset('patchbay') },
+                { label: 'Patch Bay (bay center, output docked)', run: () => workspace.applyPreset('patchbay') },
               ],
             },
             { label: 'Reset Layout', run: () => workspace.applyPreset('default') },
@@ -1015,6 +989,7 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'HELP',
+        hint: 'Quick start, shortcuts, the full manual, and the About box.',
         items: () => [
           helpTab('quickstart', 'Quick Start'),
           helpTab('controls', 'Controls Reference'),
@@ -1355,14 +1330,21 @@ async function bootSynth(): Promise<void> {
     const panelEl = document.getElementById('panel-root');
     if (panelEl && !panelEl.hasAttribute('data-region-max')) {
       const w = panelEl.getBoundingClientRect().width;
-      if (settings.get('panelDock') === 'left') left = w; else right = w;
+      if (settings.get('panelDock') === 'left') left += w; else right += w;
+    }
+    // The LEFT workspace window (empty/hidden = zero-width rect).
+    const leftEl = document.getElementById('rw-left-shell');
+    if (leftEl && !leftEl.hasAttribute('data-region-max')) {
+      left += leftEl.getBoundingClientRect().width;
     }
     const dockEl = document.getElementById('timeline-dock');
     if (dockEl && !dockEl.hasAttribute('data-region-max')) {
       const h = dockEl.getBoundingClientRect().height;
       const dock = settings.get('timelineDock');
       const side = dock === 'hidden' ? settings.get('timelineLastDock') : dock;
-      if (side === 'top') top = h; else bottom = h;
+      // `+=` — a top-docked strip stacks BELOW the menu bar, it doesn't
+      // replace its contribution.
+      if (side === 'top') top += h; else bottom += h;
     }
     return {
       x: left,
@@ -1398,6 +1380,16 @@ async function bootSynth(): Promise<void> {
     overlay.style.top = `${rect.y}px`;
     overlay.style.width = `${rect.width}px`;
     overlay.style.height = `${rect.height}px`;
+    // The center workspace region shell tracks the same rect — its bar
+    // sits atop the render area and its hosted view (when not the
+    // pass-through renderer) fills it.
+    const centerShell = document.getElementById('rw-center-shell');
+    if (centerShell && !centerShell.hasAttribute('data-region-max')) {
+      centerShell.style.left = `${rect.x}px`;
+      centerShell.style.top = `${rect.y}px`;
+      centerShell.style.width = `${rect.width}px`;
+      centerShell.style.height = `${rect.height}px`;
+    }
     timelineDock?.resize();
   }
   function scheduleResize(): void {

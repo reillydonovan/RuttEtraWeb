@@ -1,122 +1,145 @@
 /**
- * Workspace region model — swap semantics, normalization (the reset
- * path doubles as the validator), and layout presets.
+ * Workspace window/tab model (v1.12, Unity dock model). The owner's
+ * bright line under test: moving/adding a view NEVER assigns anything
+ * new to another window — the source window only falls back to its own
+ * next tab.
  */
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_ASSIGNMENT, normalizeViewId, normalizeAssignment, resolveAssignment,
-  resolveDrop, LAYOUT_PRESETS, getPreset,
+  DEFAULT_TABS, normalizeViewId, normalizeTabsState, windowOf,
+  moveView, activateTab, closeTab, LAYOUT_PRESETS, getPreset, TabsState,
 } from '../workspaceModel';
 
+const state = (tabs: Partial<TabsState['tabs']>, active?: Partial<TabsState['active']>): TabsState =>
+  normalizeTabsState({
+    tabs: { center: [], left: [], right: [], bottom: [], ...tabs } as TabsState['tabs'],
+    active: { center: null, left: null, right: null, bottom: null, ...active } as TabsState['active'],
+  });
+
 describe('normalizeViewId', () => {
-  it('accepts known ids and falls back on garbage', () => {
-    expect(normalizeViewId('timeline', 'panel')).toBe('timeline');
+  it('accepts known ids, maps legacy output, falls back on garbage', () => {
     expect(normalizeViewId('patchbay', 'panel')).toBe('patchbay');
-    expect(normalizeViewId('chrome-1998', 'panel')).toBe('panel');
-    expect(normalizeViewId(undefined, 'timeline')).toBe('timeline');
-    expect(normalizeViewId(42, 'panel')).toBe('panel');
+    expect(normalizeViewId('output', 'panel')).toBe('renderer');
+    expect(normalizeViewId('holodeck', 'panel')).toBe('panel');
   });
 });
 
-describe('normalizeAssignment', () => {
-  it('passes a valid assignment through', () => {
-    expect(normalizeAssignment({ side: 'timeline', dock: 'panel' }))
-      .toEqual({ side: 'timeline', dock: 'panel' });
+describe('normalizeTabsState', () => {
+  it('null → empty everywhere (views may be closed; DEFAULTS/migrations seed real state)', () => {
+    const s = normalizeTabsState(null);
+    expect(s.tabs.center).toEqual([]);
+    expect(s.active.center).toBeNull();
   });
-  it('null/garbage resets to defaults', () => {
-    expect(normalizeAssignment(null)).toEqual(DEFAULT_ASSIGNMENT);
-    expect(normalizeAssignment({ side: 'x', dock: 'y' })).toEqual(DEFAULT_ASSIGNMENT);
+
+  it('a view appearing in two windows keeps only its first home', () => {
+    const s = state({ center: ['renderer'], right: ['panel'], bottom: ['panel', 'timeline'] });
+    expect(s.tabs.right).toEqual(['panel']);
+    expect(s.tabs.bottom).toEqual(['timeline']);
   });
-  it('same-view collision resets BOTH to defaults', () => {
-    expect(normalizeAssignment({ side: 'timeline', dock: 'timeline' })).toEqual(DEFAULT_ASSIGNMENT);
+
+  it('unknown ids drop; actives must be members (else first tab)', () => {
+    const s = normalizeTabsState({
+      tabs: { center: ['renderer', 'holodeck' as never], left: [], right: ['panel'], bottom: [] },
+      active: { center: 'panel' as never, left: null, right: 'panel', bottom: 'timeline' as never },
+    });
+    expect(s.tabs.center).toEqual(['renderer']);
+    expect(s.active.center).toBe('renderer'); // fell back to first tab
+    expect(s.active.bottom).toBeNull();
   });
 });
 
-describe('resolveAssignment (Unity swap semantics)', () => {
-  it('assigning an unhosted view just replaces the region', () => {
-    expect(resolveAssignment({ side: 'panel', dock: 'timeline' }, 'dock', 'output'))
-      .toEqual({ side: 'panel', dock: 'output' });
+describe('moveView (the no-side-effects rule)', () => {
+  const base = DEFAULT_TABS; // center:[renderer] left:[patchbay] right:[panel] bottom:[timeline]
+
+  it('moves a view to another window and activates it there', () => {
+    const s = moveView(base, 'panel', 'bottom');
+    expect(s.tabs.bottom).toEqual(['timeline', 'panel']);
+    expect(s.active.bottom).toBe('panel');
+    expect(s.tabs.right).toEqual([]);
   });
-  it('assigning the other region’s view swaps the two', () => {
-    expect(resolveAssignment({ side: 'panel', dock: 'timeline' }, 'side', 'timeline'))
-      .toEqual({ side: 'timeline', dock: 'panel' });
-    expect(resolveAssignment({ side: 'timeline', dock: 'panel' }, 'dock', 'timeline'))
-      .toEqual({ side: 'panel', dock: 'timeline' });
+
+  it('NEVER assigns a new view to the source window — it just empties or falls back', () => {
+    const s = moveView(base, 'panel', 'bottom');
+    // right lost its only tab: nothing was pushed into it.
+    expect(s.tabs.right).toEqual([]);
+    expect(s.active.right).toBeNull();
+    // and no other window changed at all.
+    expect(s.tabs.center).toEqual(base.tabs.center);
+    expect(s.tabs.left).toEqual(base.tabs.left);
+    expect(s.active.center).toBe('renderer');
   });
-  it('re-assigning the same view is a no-op', () => {
-    expect(resolveAssignment({ side: 'panel', dock: 'timeline' }, 'side', 'panel'))
-      .toEqual({ side: 'panel', dock: 'timeline' });
+
+  it('source with multiple tabs falls back to its own neighboring tab', () => {
+    const multi = state(
+      { center: ['renderer'], bottom: ['timeline', 'panel', 'patchbay'] },
+      { bottom: 'panel' },
+    );
+    const s = moveView(multi, 'panel', 'center');
+    expect(s.tabs.bottom).toEqual(['timeline', 'patchbay']);
+    expect(s.active.bottom).toBe('patchbay'); // its own next tab, nothing new
+    expect(s.active.center).toBe('panel');
+    expect(s.tabs.center).toEqual(['renderer', 'panel']);
+  });
+
+  it('moving within the same window reorders without duplication', () => {
+    const multi = state({ center: ['renderer'], bottom: ['timeline', 'panel'] });
+    const s = moveView(multi, 'panel', 'bottom', 0);
+    expect(s.tabs.bottom).toEqual(['panel', 'timeline']);
   });
 });
 
-describe('resolveDrop (drag a window to a screen edge)', () => {
-  const base = {
-    assignment: { side: 'panel', dock: 'timeline' } as const,
-    panelDock: 'right' as const,
-    timelineDock: 'bottom' as const,
-  };
-
-  it('panel → left edge: side shell docks left, hosting unchanged', () => {
-    expect(resolveDrop(base, 'panel', 'left')).toEqual({
-      assignment: { side: 'panel', dock: 'timeline' },
-      panelDock: 'left',
-      timelineDock: 'bottom',
-    });
+describe('closeTab', () => {
+  it('removes the view from the window; it lives nowhere (reopen via +)', () => {
+    const s = closeTab(DEFAULT_TABS, 'left', 'patchbay');
+    expect(s.tabs.left).toEqual([]);
+    expect(s.active.left).toBeNull();
+    expect(windowOf(s, 'patchbay')).toBeNull();
+    // No other window touched.
+    expect(s.tabs.center).toEqual(DEFAULT_TABS.tabs.center);
   });
 
-  it('timeline → top edge: dock shell docks top', () => {
-    expect(resolveDrop(base, 'timeline', 'top')).toEqual({
-      assignment: { side: 'panel', dock: 'timeline' },
-      panelDock: 'right',
-      timelineDock: 'top',
-    });
+  it('active falls back to the neighboring tab', () => {
+    const multi = state({ center: ['renderer'], bottom: ['timeline', 'panel', 'patchbay'] }, { bottom: 'panel' });
+    const s = closeTab(multi, 'bottom', 'panel');
+    expect(s.tabs.bottom).toEqual(['timeline', 'patchbay']);
+    expect(s.active.bottom).toBe('patchbay');
   });
 
-  it('timeline → right edge: timeline moves into the side shell (swap), shell docks right', () => {
-    expect(resolveDrop(base, 'timeline', 'right')).toEqual({
-      assignment: { side: 'timeline', dock: 'panel' },
-      panelDock: 'right',
-      timelineDock: 'bottom',
-    });
-  });
-
-  it('panel → bottom edge: panel moves into the dock shell (swap)', () => {
-    expect(resolveDrop(base, 'panel', 'bottom')).toEqual({
-      assignment: { side: 'timeline', dock: 'panel' },
-      panelDock: 'right',
-      timelineDock: 'bottom',
-    });
-  });
-
-  it('dropping on top/bottom un-hides a hidden dock', () => {
-    const hidden = { ...base, timelineDock: 'hidden' as const };
-    expect(resolveDrop(hidden, 'timeline', 'bottom').timelineDock).toBe('bottom');
-  });
-
-  it('patch bay → left edge: bay takes the side shell, panel displaced to dock? No — swap only when held', () => {
-    // patchbay is unhosted in `base`, so the side view is simply replaced
-    // (panel parks) — matching setRegionView semantics.
-    expect(resolveDrop(base, 'patchbay', 'left')).toEqual({
-      assignment: { side: 'patchbay', dock: 'timeline' },
-      panelDock: 'left',
-      timelineDock: 'bottom',
-    });
+  it('no-op when the window does not hold the view', () => {
+    expect(closeTab(DEFAULT_TABS, 'center', 'panel')).toEqual(DEFAULT_TABS);
   });
 });
 
-describe('layout presets', () => {
-  it('every preset carries a valid (non-colliding) assignment', () => {
-    for (const p of LAYOUT_PRESETS) {
-      expect(normalizeAssignment(p.assignment)).toEqual(p.assignment);
-    }
+describe('activateTab', () => {
+  it('switches the active tab; no-op for non-members', () => {
+    const multi = state({ center: ['renderer'], bottom: ['timeline', 'panel'] });
+    expect(activateTab(multi, 'bottom', 'panel').active.bottom).toBe('panel');
+    expect(activateTab(multi, 'bottom', 'patchbay').active.bottom).toBe('timeline');
   });
-  it('default preset is the escape hatch: today’s stock layout', () => {
+});
+
+describe('layout presets (Unity family)', () => {
+  it('exposes the expected preset ids', () => {
+    expect(LAYOUT_PRESETS.map((p) => p.id))
+      .toEqual(['default', 'classic', 'tall', 'wide', 'performance', 'patchbay']);
+  });
+
+  it('default is the owner 4-up: bay left, renderer center, controls right, timeline bottom', () => {
     const d = getPreset('default')!;
-    expect(d.assignment).toEqual(DEFAULT_ASSIGNMENT);
-    expect(d.panelCollapsed).toBe(false);
-    expect(d.timelineDock).toBe('bottom');
+    expect(d.state.tabs).toEqual({
+      center: ['renderer'], left: ['patchbay'], right: ['panel'], bottom: ['timeline'],
+    });
   });
-  it('unknown preset id resolves to undefined (caller no-ops)', () => {
-    expect(getPreset('nope')).toBeUndefined();
+
+  it('tall stacks everything into the right column as tabs', () => {
+    const t = getPreset('tall')!;
+    expect(t.state.tabs.right).toEqual(['panel', 'timeline', 'patchbay']);
+    expect(t.state.tabs.bottom).toEqual([]);
+  });
+
+  it('every preset normalizes to itself (no duplicate homes, renderer present)', () => {
+    for (const p of LAYOUT_PRESETS) {
+      expect(normalizeTabsState(p.state)).toEqual(p.state);
+    }
   });
 });

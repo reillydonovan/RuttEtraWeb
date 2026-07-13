@@ -319,11 +319,11 @@ export class TimelineDock {
   }
 
   // -----------------------------------------------------------------
-  // Dock height resize (drag the free edge; clamped 140–600)
+  // Dock height resize (drag the free edge; clamped 100–900)
   // -----------------------------------------------------------------
 
-  private static readonly HEIGHT_MIN = 140;
-  private static readonly HEIGHT_MAX = 600;
+  private static readonly HEIGHT_MIN = 100;
+  private static readonly HEIGHT_MAX = 900;
 
   private buildHeightResizeHandle(): HTMLElement {
     const handle = document.createElement('div');

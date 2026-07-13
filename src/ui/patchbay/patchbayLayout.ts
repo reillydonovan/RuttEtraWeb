@@ -116,4 +116,10 @@ export const SOURCE_JACKS: ReadonlyArray<{ source: ModSource; label: string }> =
   { source: 'beat',     label: 'BEAT' },
   { source: 'joystickX', label: 'JOY X' },
   { source: 'joystickY', label: 'JOY Y' },
+  // External control inputs. Their fine config (which CC number, which
+  // CV channel, which OSC address) lives in the generator's slot body
+  // in the Modulation panel — the jack picks the SIGNAL TYPE.
+  { source: 'midiCC',   label: 'MIDI CC' },
+  { source: 'cvAudio',  label: 'CV IN' },
+  { source: 'osc',      label: 'OSC' },
 ];
