@@ -57,10 +57,9 @@
       </div>
       <aside id="panel-root"></aside>
       <div id="hud"></div>
-      <!-- Long-form manual at about.html — separate page, separate
-           bundle, no synth state shared. Plain anchor so it works
-           without any JS, including in the no-script fallback. -->
-      <a id="about-link" href="./about.html" title="Open the manual">ABOUT</a>
+      <!-- The manual link lives in the menu bar (Help → Open Manual);
+           the old always-visible #about-link corner anchor was absorbed
+           there when the app menu bar shipped. -->
       <div id="timeline-dock" data-dock="hidden"></div>
       <video id="src-video" autoplay muted playsinline style="display:none"></video>
     </div>

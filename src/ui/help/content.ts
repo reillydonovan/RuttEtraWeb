@@ -50,6 +50,12 @@ keyframe-based timeline so the whole thing can perform itself.
 const MD_QUICKSTART = `
 # Quick start
 
+> Desktop has a traditional **menu bar** along the top: **File** (project
+> New/Open/Save + backup), **Edit** (timeline undo/redo), **View** (skins,
+> HUD, fullscreen, docking), **Window** (pop-out controls/output), and
+> **Help** (this manual and more). Everything in it is also reachable the
+> old ways — same actions, one implementation.
+
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
 3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ).

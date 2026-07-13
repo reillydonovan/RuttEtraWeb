@@ -162,10 +162,11 @@ html, body, #app {
 }
 #boot-skip:hover { color: var(--re-accent); }
 
-/* HUD line at top showing FPS / source */
+/* HUD line at top showing FPS / source — sits just below the app menu
+   bar (the var is 0 whenever the bar is hidden). */
 #hud {
   position: absolute;
-  top: 8px;
+  top: calc(var(--rw-menubar-h, 0px) + 8px);
   left: 12px;
   z-index: 4;
   color: var(--re-text-dim);
@@ -176,50 +177,13 @@ html, body, #app {
 }
 #hud .hud-warn { color: var(--re-warn); }
 
-/* Persistent "ABOUT" link at the top edge of the synth page. Routes
- * to the long-form manual at about.html. The link is plain anchor
- * markup so it works without JS, sits above the panel + canvas, and
- * matches the panel's text treatment. Hidden when the page is in
- * viewer mode (peer fullscreen consumption). */
-#about-link {
-  position: absolute;
-  top: 8px;
-  /* Tracks the panel's LIVE width via the same --rw-panel-inset-right
-     custom property the timeline dock uses (published by
-     ControlPanel.publishInset(), updated during a resize drag, not
-     just on release) — a hardcoded offset here would only clear the
-     panel at its default width and get covered by the panel's own
-     title bar the moment someone drags it wider. Falls back to the
-     360px default when the panel hasn't published yet (or is docked
-     left, in which case the inset is 0 and this just hugs the edge). */
-  right: calc(var(--rw-panel-inset-right, 360px) + 20px);
-  z-index: 11;
-  font-family: 'VT323', monospace;
-  font-size: 14px;
-  letter-spacing: 0.15em;
-  color: var(--re-text-dim);
-  text-decoration: none;
-  padding: 2px 8px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  text-shadow: 0 0 4px rgba(0,0,0,0.5);
-  transition: color 120ms ease, border-color 120ms ease, text-shadow 120ms ease;
-}
-#about-link:hover, #about-link:focus-visible {
-  color: var(--re-phosphor, #66ff66);
-  border-color: var(--re-line);
-  text-shadow: 0 0 6px rgba(102, 255, 102, 0.6);
-  outline: none;
-}
-@media (max-width: 720px) {
-  #about-link { right: 8px; top: 6px; font-size: 12px; }
-}
-body.viewer-mode #about-link { display: none; }
+/* The old standalone #about-link was absorbed into the menu bar's Help
+   menu (Help → Open Manual) — see src/ui/menu/MenuBar.ts. */
 
-/* Panel */
+/* Panel — starts below the app menu bar (var is 0 when hidden). */
 #panel-root {
   position: absolute;
-  top: 0; bottom: 0;
+  top: var(--rw-menubar-h, 0px); bottom: 0;
   /* Custom property driven by the drag handle (`.rw-panel-resize`),
      persisted as Settings.panelWidth. Collapsed/popout rules below
      override the width outright. */

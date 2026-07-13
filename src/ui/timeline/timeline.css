@@ -27,7 +27,8 @@
   border-bottom: none;
 }
 #timeline-dock[data-dock="top"] {
-  top: 0;
+  /* Below the app menu bar (0 when the bar is hidden). */
+  top: var(--rw-menubar-h, 0px);
   border-top: none;
 }
 #timeline-dock[data-dock="hidden"] {

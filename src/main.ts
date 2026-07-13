@@ -615,44 +615,60 @@ async function bootSynth(): Promise<void> {
     if (projectStore.getState().dirty) autoSave.tick();
   });
 
-  // Keyboard shortcuts: Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S.
-  // We must `preventDefault` Ctrl+S (browser "save page as") and
-  // Ctrl+O ("open file"). New / Open / Save dispatch through the
-  // ProjectStore directly; Save As opens a name prompt.
+  // Project file actions — ONE implementation each, registered in the
+  // app-wide action registry (src/ui/actions.ts). The Ctrl+N/O/S
+  // shortcuts below and the File menu both dispatch through these ids,
+  // so the save-with-prompt dance exists exactly once.
+  const { registerActions, runAction } = await import('./ui/actions');
+  const saveAsWithPrompt = (): void => {
+    const name = window.prompt('Project name:', projectStore.getState().name ?? `Project ${new Date().toLocaleDateString()}`);
+    if (name != null) void projectStore.saveAs(name).then((ok) => {
+      if (ok) AutoSave.clearPending();
+    });
+  };
+  registerActions([
+    {
+      id: 'file.new', label: 'New Project', shortcut: 'Ctrl+N',
+      run: () => {
+        const cur = projectStore.getState();
+        if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
+        projectStore.newProject();
+        AutoSave.clearPending();
+      },
+    },
+    {
+      id: 'file.open', label: 'Open Project…', shortcut: 'Ctrl+O',
+      run: () => {
+        const cur = projectStore.getState();
+        if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
+        if (cur.hasFsAccess) void projectStore.openWithPicker();
+      },
+    },
+    {
+      id: 'file.save', label: 'Save Project', shortcut: 'Ctrl+S',
+      run: () => {
+        const cur = projectStore.getState();
+        if (!cur.name) saveAsWithPrompt();
+        else void projectStore.saveToCurrent().then((ok) => {
+          if (ok) AutoSave.clearPending();
+        });
+      },
+    },
+    { id: 'file.saveAs', label: 'Save Project As…', shortcut: 'Ctrl+Shift+S', run: saveAsWithPrompt },
+  ]);
+
   window.addEventListener('keydown', (ev) => {
     if (!(ev.ctrlKey || ev.metaKey)) return;
     const k = ev.key.toLowerCase();
     if (k === 's') {
       ev.preventDefault();
-      if (ev.shiftKey) {
-        const name = window.prompt('Project name:', projectStore.getState().name ?? `Project ${new Date().toLocaleDateString()}`);
-        if (name != null) void projectStore.saveAs(name).then((ok) => {
-          if (ok) AutoSave.clearPending();
-        });
-      } else {
-        const cur = projectStore.getState();
-        if (!cur.name) {
-          const name = window.prompt('Project name:', `Project ${new Date().toLocaleDateString()}`);
-          if (name != null) void projectStore.saveAs(name).then((ok) => {
-            if (ok) AutoSave.clearPending();
-          });
-        } else {
-          void projectStore.saveToCurrent().then((ok) => {
-            if (ok) AutoSave.clearPending();
-          });
-        }
-      }
+      runAction(ev.shiftKey ? 'file.saveAs' : 'file.save');
     } else if (k === 'o') {
       ev.preventDefault();
-      const cur = projectStore.getState();
-      if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
-      if (cur.hasFsAccess) void projectStore.openWithPicker();
+      runAction('file.open');
     } else if (k === 'n') {
       ev.preventDefault();
-      const cur = projectStore.getState();
-      if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
-      projectStore.newProject();
-      AutoSave.clearPending();
+      runAction('file.new');
     }
   });
 
@@ -671,6 +687,8 @@ async function bootSynth(): Promise<void> {
   // window so output can go fullscreen on a second display. Same JS
   // context — no state sync needed. Desktop feature; the button simply
   // does nothing if the popup is blocked.
+  let panelPopoutCtl: { toggle(): void; isOpen(): boolean } | null = null;
+  let renderPopoutCtl: { toggle(): void; isOpen(): boolean } | null = null;
   {
     const { createPanelPopout } = await import('./ui/PanelPopout');
     const popoutBtn = document.createElement('button');
@@ -694,6 +712,7 @@ async function bootSynth(): Promise<void> {
     });
     popoutBtn.addEventListener('click', () => popout.toggle());
     panel.addTitleAction(popoutBtn);
+    panelPopoutCtl = popout;
   }
 
   // Render-canvas popout: the OUTPUT side of the same two-screen rig —
@@ -713,6 +732,7 @@ async function bootSynth(): Promise<void> {
     });
     renderPopoutBtn.addEventListener('click', () => renderPopout.toggle());
     panel.addTitleAction(renderPopoutBtn);
+    renderPopoutCtl = renderPopout;
   }
 
   // Panel-wide param search + tab hotkeys (v19, AUDIT item 26). `/`
@@ -721,24 +741,29 @@ async function bootSynth(): Promise<void> {
   const { createPanelSearch, isTypingTarget } = await import('./ui/PanelSearch');
   const panelSearch = createPanelSearch(panelHost, settings);
   panel.addBeforeTabs(panelSearch.el);
+  // View toggles shared by the `F`/`H` shortcuts and the View menu.
+  registerActions([
+    {
+      id: 'view.fullscreen', label: 'Fullscreen', shortcut: 'F',
+      // Distinct from the render popout's own `F`, which is scoped to
+      // that separate window.
+      run: () => {
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else void document.documentElement.requestFullscreen().catch(() => {});
+      },
+      checked: () => !!document.fullscreenElement,
+    },
+    {
+      id: 'view.hud', label: 'HUD (FPS / source)', shortcut: 'H',
+      run: () => settings.set('hudVisible', !settings.get('hudVisible')),
+      checked: () => !!settings.get('hudVisible'),
+    },
+  ]);
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
     if (e.key === '/') { e.preventDefault(); panelSearch.focus(); return; }
-    // `F` toggles native fullscreen on the MAIN window (documented in
-    // the Shortcuts help). Distinct from the render popout's own `F`,
-    // which is scoped to that separate window.
-    if (e.key === 'f' || e.key === 'F') {
-      e.preventDefault();
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void document.documentElement.requestFullscreen().catch(() => {});
-      return;
-    }
-    // `H` toggles the on-screen FPS/source HUD.
-    if (e.key === 'h' || e.key === 'H') {
-      e.preventDefault();
-      settings.set('hudVisible', !settings.get('hudVisible'));
-      return;
-    }
+    if (e.key === 'f' || e.key === 'F') { e.preventDefault(); runAction('view.fullscreen'); return; }
+    if (e.key === 'h' || e.key === 'H') { e.preventDefault(); runAction('view.hud'); return; }
     // [ / ] cycle panel tabs. Deliberately NOT digit keys: the About
     // reference reserves 1-9 for preset snapshot slots.
     if (e.key === '[' || e.key === ']') {
@@ -748,6 +773,201 @@ async function bootSynth(): Promise<void> {
       settings.set('panelTab', order[next]);
     }
   });
+
+  // ------------------------- App menu bar -------------------------------
+  // File / Edit / View / Window / Help along the top. Every item runs an
+  // action from the shared registry (or a module function directly) —
+  // no menu-only logic beyond tiny download/upload wrappers.
+  {
+    const { createMenuBar } = await import('./ui/menu/MenuBar');
+    const { getSkin, setSkin } = await import('./ui/skin');
+    const { exportEverything, importEverything } = await import('./state/exportEverything');
+    const download = (name: string, text: string): void => {
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    };
+    const pickFile = (onText: (text: string) => void): void => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = 'application/json,.json';
+      inp.addEventListener('change', async () => {
+        const f = inp.files?.[0];
+        if (f) onText(await f.text());
+      });
+      inp.click();
+    };
+    registerActions([
+      {
+        id: 'file.exportEverything', label: 'Export Everything…',
+        run: () => download(`ruttetra-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, exportEverything()),
+      },
+      {
+        id: 'file.importEverything', label: 'Import Everything…',
+        run: () => pickFile((text) => {
+          if (!confirm('Import will overwrite local settings, user presets, and timelines. Continue?')) return;
+          try { importEverything(text); } catch (e) { alert(`Import failed: ${(e as Error).message}`); }
+        }),
+      },
+      {
+        id: 'edit.undo', label: 'Undo (Timeline)', shortcut: 'Ctrl+Z',
+        run: () => sequencer.undo(),
+        enabled: () => sequencer.canUndo(),
+      },
+      {
+        id: 'edit.redo', label: 'Redo (Timeline)', shortcut: 'Ctrl+Y',
+        run: () => sequencer.redo(),
+        enabled: () => sequencer.canRedo(),
+      },
+      {
+        id: 'window.panelPopout', label: 'Pop Out Controls',
+        run: () => panelPopoutCtl?.toggle(),
+        checked: () => !!panelPopoutCtl?.isOpen(),
+      },
+      {
+        id: 'window.renderPopout', label: 'Pop Out Output',
+        run: () => renderPopoutCtl?.toggle(),
+        checked: () => !!renderPopoutCtl?.isOpen(),
+      },
+      {
+        id: 'help.manual', label: 'Open Manual (About page)',
+        run: () => { window.open('./about.html', '_blank'); },
+      },
+      {
+        id: 'help.about', label: 'About RUTT/ETRA…',
+        run: () => {
+          const overlay = document.createElement('div');
+          overlay.className = 'rw-about-dialog';
+          const card = document.createElement('div');
+          card.className = 'rw-about-dialog-card';
+          card.innerHTML = `
+            <h2>RUTT/ETRA</h2>
+            <p>Web recreation of the 1973 Rutt/Etra Scan Processor.</p>
+            <p>v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit}</p>
+            <p class="dim">Built ${__BUILD_INFO__.builtAt}</p>`;
+          overlay.appendChild(card);
+          overlay.addEventListener('click', () => overlay.remove());
+          document.addEventListener('keydown', function esc(e) {
+            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); }
+          });
+          document.body.appendChild(overlay);
+        },
+      },
+    ]);
+    const helpTab = (id: string, label: string) => ({
+      label,
+      run: () => {
+        settings.set('panelTab', 'help');
+        settings.set('helpActiveTab', id as never);
+      },
+    });
+    const skinRadio = (id: 'standard' | 'hardware' | 'rack', label: string) => ({
+      label,
+      run: () => setSkin(id),
+      checked: () => getSkin() === id,
+    });
+    const menubar = createMenuBar([
+      {
+        label: 'FILE',
+        items: () => [
+          { actionId: 'file.new' },
+          { actionId: 'file.open' },
+          {
+            label: 'Open Recent',
+            submenu: () => {
+              const recent = projectStore.getState().recent.slice(0, 8);
+              if (!recent.length) return [{ label: '(empty)', enabled: () => false }];
+              return [
+                ...recent.map((r) => ({
+                  label: r.name || '(untitled)',
+                  run: () => {
+                    const cur = projectStore.getState();
+                    if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
+                    void projectStore.openRecent(r);
+                  },
+                })),
+                { sep: true as const },
+                { label: 'Clear Recent', run: () => projectStore.clearRecent() },
+              ];
+            },
+          },
+          { sep: true },
+          { actionId: 'file.save' },
+          { actionId: 'file.saveAs' },
+          { sep: true },
+          { actionId: 'file.exportEverything' },
+          { actionId: 'file.importEverything' },
+        ],
+      },
+      {
+        label: 'EDIT',
+        items: () => [
+          { actionId: 'edit.undo' },
+          { actionId: 'edit.redo' },
+        ],
+      },
+      {
+        label: 'VIEW',
+        items: () => [
+          skinRadio('standard', 'Skin: CRT (flat)'),
+          skinRadio('hardware', 'Skin: Hardware'),
+          skinRadio('rack', 'Skin: Rack (patch cables)'),
+          { sep: true },
+          { actionId: 'view.hud' },
+          { actionId: 'view.fullscreen' },
+          { sep: true },
+          {
+            label: 'Panel: Dock Left',
+            run: () => settings.set('panelDock', 'left'),
+            checked: () => settings.get('panelDock') === 'left',
+          },
+          {
+            label: 'Panel: Dock Right',
+            run: () => settings.set('panelDock', 'right'),
+            checked: () => settings.get('panelDock') === 'right',
+          },
+          { sep: true },
+          {
+            label: 'Timeline: Top',
+            run: () => settings.set('timelineDock', 'top'),
+            checked: () => settings.get('timelineDock') === 'top',
+          },
+          {
+            label: 'Timeline: Bottom',
+            run: () => settings.set('timelineDock', 'bottom'),
+            checked: () => settings.get('timelineDock') === 'bottom',
+          },
+          {
+            label: 'Timeline: Hidden',
+            run: () => settings.set('timelineDock', 'hidden'),
+            checked: () => settings.get('timelineDock') === 'hidden',
+          },
+        ],
+      },
+      {
+        label: 'WINDOW',
+        items: () => [
+          { actionId: 'window.panelPopout' },
+          { actionId: 'window.renderPopout' },
+        ],
+      },
+      {
+        label: 'HELP',
+        items: () => [
+          helpTab('quickstart', 'Quick Start'),
+          helpTab('controls', 'Controls Reference'),
+          helpTab('shortcuts', 'Keyboard Shortcuts'),
+          { sep: true },
+          { actionId: 'help.manual' },
+          { actionId: 'help.about' },
+        ],
+      },
+    ]);
+    document.getElementById('app')?.appendChild(menubar.el);
+  }
 
   // Tiny ad-hoc toast for project events. Auto-dismisses after 4s.
   // Lives in the DOM only when a message is up — no permanent fixture.
@@ -1062,6 +1282,11 @@ async function bootSynth(): Promise<void> {
   function availableCanvasRect(): { x: number; y: number; width: number; height: number } {
     const vp = layout.viewport();
     let left = 0, right = 0, top = 0, bottom = 0;
+
+    // App menu bar — same live-rect philosophy as the panel/dock below:
+    // 0 when hidden (compact layout, viewer mode), so no special cases.
+    const menubarEl = document.getElementById('rw-menubar');
+    if (menubarEl) top += menubarEl.getBoundingClientRect().height;
 
     const panelEl = document.getElementById('panel-root');
     if (panelEl) {
