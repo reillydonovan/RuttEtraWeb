@@ -79,8 +79,10 @@ const MD_QUICKSTART = `
 > Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
 > jacks, a VIDEO SOURCE module switches the same webcam/screen/file
 > source as the Source panel, every parameter is a labeled jack in the
-> original console's engraved groups, and dragging cables between them
-> IS editing the slots' Source/Target — the Modulation panel updates as
+> original console's engraved groups **with its live value in an
+> editable field under the jack** — run the whole synth from the bay
+> without Controls open — and dragging cables between them IS editing
+> the slots' Source/Target — the Modulation panel updates as
 > you patch. A GRAPH ENGINE section shows one module per graph node in
 > the patch (labeled LFO, Audio Envelope, etc.) — every node, dimmed if
 > unconnected — a full peer of the other modules, so its header
@@ -88,7 +90,9 @@ const MD_QUICKSTART = `
 > draggable: grab a bound param's jack to re-route that node's output
 > elsewhere, or drop it in space to unplug. Some nodes also take an
 > input from another node (Ramp's trigger, Noise's clock) — those show
-> as IN jacks, wireable straight from another node's OUT jack.
+> as IN jacks, wireable straight from another node's OUT jack — and any
+> node's OUT can drag straight onto a faceplate param too, patching a
+> live binding on drop.
 > **Right-click empty board space** for a categorized Add Node menu — it
 > also appears as a normal row in Controls ▸ Modulation's Beginner view,
 > switching modes automatically if needed. Each module shows the node's

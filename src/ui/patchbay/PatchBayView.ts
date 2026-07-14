@@ -40,12 +40,13 @@
 
 import './patchbay.css';
 import '../graph/graph.css';
-import type { SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/Settings';
+import type { Settings, SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import { getDef } from '../../modulation/graph/registry';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
+import { PARAM_DOCS } from '../help/paramDocs';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
@@ -119,6 +120,13 @@ export function createPatchBayView(
   const slotOutJacks = new Map<number, HTMLElement>();
   const slotSrcJacks = new Map<number, HTMLElement>();
   const srcJacks = new Map<ModSource, HTMLElement>();
+  /** Direct base-value edit control per faceplate param (owner: "a user
+   *  can run the entire synth in the patch bay if they don't want to
+   *  use the controls tab") — every faceplate param is numeric by
+   *  construction (ModTarget excludes booleans/enums), so this is
+   *  always a plain number input. `cv:N` virtual CV-out targets aren't
+   *  real Settings keys and don't get one (see addParamCell). */
+  const paramValueInputs = new Map<string, HTMLInputElement>();
   /** Graph node IN jacks, keyed `${nodeId}#${port}` (`port` a real
    *  declared input port name) — populated in rebuildGraphModules
    *  alongside the OUT-jack `graphNodeJacks` (declared closer to it). */
@@ -137,7 +145,10 @@ export function createPatchBayView(
     | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: number | null }
     | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null }
     | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: string | null }
-    | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: string | null };
+    | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: GraphOutHover };
+  /** An OUT jack can land on another node's IN jack (wire) OR a faceplate
+   *  param jack (binding) — see dragGraphOut. */
+  type GraphOutHover = { kind: 'in'; key: string } | { kind: 'param'; key: string } | null;
   let pending: Pending | null = null;
 
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
@@ -261,24 +272,78 @@ export function createPatchBayView(
    *  in empty space does nothing — an OUT can fan out to several
    *  bindings/inputs at once, so unlike an IN jack there's no single
    *  "the" connection a drop-in-space could unambiguously remove. */
+  /** Drag a graph node's OUT jack toward either another node's IN jack
+   *  (wires them — see applyNodeInputRef) or a faceplate param jack
+   *  (creates/retargets a TargetBinding for this node -> that param —
+   *  owner: dragging an LFO's OUT onto e.g. H Position did nothing but
+   *  show a dead rubber-band, since only node-to-node wiring was wired
+   *  up; every node should be able to feed a param directly from here,
+   *  same as a Classic slot's OUT). Whichever jack is CLOSER wins when
+   *  both are in snap range. */
   function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
+    const setGraphOutHover = (next: GraphOutHover): void => {
+      const prev = p.hover;
+      if (prev?.kind === next?.kind && prev?.key === next?.key) return;
+      if (prev?.kind === 'in') setHover(graphInputJacks, prev.key, null);
+      if (prev?.kind === 'param') setHover(paramJacks, prev.key, null);
+      if (next?.kind === 'in') setHover(graphInputJacks, null, next.key);
+      if (next?.kind === 'param') setHover(paramJacks, null, next.key);
+      p.hover = next;
+    };
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(centersOf(graphInputJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(graphInputJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        const inHit = nearestJack(centersOf(graphInputJacks), pos, SNAP_PX);
+        const paramHit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
+        if (inHit && paramHit) {
+          const dIn = Math.hypot(inHit.x - pos.x, inHit.y - pos.y);
+          const dParam = Math.hypot(paramHit.x - pos.x, paramHit.y - pos.y);
+          setGraphOutHover(dIn <= dParam ? { kind: 'in', key: inHit.id } : { kind: 'param', key: paramHit.id });
+        } else if (inHit) {
+          setGraphOutHover({ kind: 'in', key: inHit.id });
+        } else if (paramHit) {
+          setGraphOutHover({ kind: 'param', key: paramHit.id });
+        } else {
+          setGraphOutHover(null);
+        }
       },
       () => {
-        setHover(graphInputJacks, p.hover, null);
+        const hover = p.hover;
+        setGraphOutHover(null);
         pending = null;
-        if (!p.hover) return;
+        if (!hover) return;
         const patch = settings.get('modGraph');
         if (!patch) return;
-        const { nodeId: targetId, port: targetPort } = splitJackKey(p.hover);
-        const ref = refFromJackKey(sourceKey);
-        const updated = applyNodeInputRef(patch, targetId, targetPort, ref);
+        if (hover.kind === 'in') {
+          const { nodeId: targetId, port: targetPort } = splitJackKey(hover.key);
+          const ref = refFromJackKey(sourceKey);
+          const updated = applyNodeInputRef(patch, targetId, targetPort, ref);
+          settings.set('modGraph', updated);
+          void getEngine().then((e) => e.setPatch(updated));
+          return;
+        }
+        // hover.kind === 'param': create a binding, or retarget this
+        // node's own placeholder ('none') binding if it still has one —
+        // the exact companion binding addGraphNode() creates, so a
+        // fresh node's first drag-to-param consumes it instead of
+        // piling up an orphaned extra binding.
+        const { nodeId: srcId, port: srcPort } = splitJackKey(sourceKey);
+        const placeholder = patch.bindings.find((b) => (
+          b.paramKey === 'none' && b.sourceNodeId === srcId
+          && (b.sourcePort || defaultOutputPort(srcId)) === srcPort
+        ));
+        const updated: GraphPatch = placeholder
+          ? { ...patch, bindings: patch.bindings.map((b) => (b.id === placeholder.id ? { ...b, paramKey: hover.key } : b)) }
+          : {
+            ...patch,
+            bindings: [...patch.bindings, {
+              id: genId('b'), paramKey: hover.key, sourceNodeId: srcId,
+              sourcePort: srcPort === defaultOutputPort(srcId) ? undefined : srcPort,
+              amount: 0.25, mode: 'additive',
+            }],
+          };
         settings.set('modGraph', updated);
         void getEngine().then((e) => e.setPatch(updated));
       });
@@ -507,9 +572,42 @@ export function createPatchBayView(
   const col2 = document.createElement('div');
   col2.className = 'rw-pb-col';
 
+  /** Best-effort numeric range for a modulatable Settings key, sourced
+   *  from `PARAM_DOCS`'s human-readable `range` field — the SAME data
+   *  that already drives in-app Help and the About page's Param
+   *  Reference (one source, not a second hand-authored table). Handles
+   *  the handful of radian ranges written as e.g. '0..2π'. A key
+   *  `PARAM_DOCS` doesn't cover falls back to a generous, unclamped
+   *  default — still a fully usable number input, just without a tight
+   *  min/max hint. */
+  function paramRangeFor(key: string): { min: number; max: number; step: number } {
+    const text = PARAM_DOCS[key]?.range;
+    const m = text?.match(/^(-?[\d.]+)(\s*π)?\s*\.\.\s*(-?[\d.]+)(\s*π)?/);
+    const min = m ? parseFloat(m[1]) * (m[2] ? Math.PI : 1) : -10;
+    const max = m ? parseFloat(m[3]) * (m[4] ? Math.PI : 1) : 10;
+    const span = Math.abs(max - min);
+    const step = span <= 2 ? 0.01 : span <= 20 ? 0.1 : 1;
+    return { min, max, step };
+  }
+
+  /** Write a faceplate param's BASE value directly (never the live
+   *  value — this is a UI write, same base/live split every other
+   *  control in the app respects; modulation still layers on top via
+   *  LiveValuesStore, untouched by this). Same runtime-key cast
+   *  MidiMapping.ts already uses for "an arbitrary Settings key by
+   *  string" — there's no narrower generic TS can offer here since the
+   *  key only exists as a string at this point. */
+  function writeParamValue(key: string, value: number): void {
+    const k = key as keyof Settings;
+    if (typeof settings.get(k) !== 'number') return;
+    settings.set(k, value as never);
+  }
+
   function addParamCell(grid: HTMLElement, key: string, label: string): void {
     const cell = document.createElement('div');
     cell.className = 'rw-pb-cell';
+    const topRow = document.createElement('div');
+    topRow.className = 'rw-pb-cell-top';
     const jack = makeJack('rw-rack-jack--in');
     jack.addEventListener('pointerdown', (ev) => dragParam(ev, key, jack));
     attachTooltip(jack, () => {
@@ -527,7 +625,28 @@ export function createPatchBayView(
     });
     const l = document.createElement('span');
     l.textContent = label;
-    cell.append(jack, l);
+    topRow.append(jack, l);
+    cell.appendChild(topRow);
+
+    // Direct base-value edit — `cv:N` virtual CV-out targets aren't
+    // real Settings keys, so they don't get one.
+    if (!key.startsWith('cv:')) {
+      const range = paramRangeFor(key);
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'rw-pb-cell-value';
+      input.step = String(range.step);
+      input.min = String(range.min);
+      input.max = String(range.max);
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        if (Number.isFinite(v)) writeParamValue(key, v);
+      });
+      attachTooltip(input, `${label} — base value (${range.min}..${range.max}). Any modulation on this param adds/multiplies on top, live.`);
+      cell.appendChild(input);
+      paramValueInputs.set(key, input);
+    }
+
     grid.appendChild(cell);
     paramJacks.set(key, jack);
   }
@@ -1581,6 +1700,21 @@ export function createPatchBayView(
     }
     for (const [nodeId, mod] of graphModuleEls) {
       mod.classList.toggle('rw-pb-graphnode--inert', !connectedNodes.has(nodeId));
+    }
+
+    // Refresh faceplate value inputs from the live base (another
+    // surface — a Classic slider, a preset load, keyframe playback —
+    // may have changed it); skip whichever one the user is actively
+    // typing into, same rule every other live-refresh loop here uses.
+    for (const [key, input] of paramValueInputs) {
+      if (document.activeElement === input) continue;
+      const v = settings.get(key as keyof Settings);
+      if (typeof v !== 'number') continue;
+      // Round for DISPLAY only (e.g. a 4:3 aspect ratio is
+      // 1.3333333333333333 as a raw float) — writes still use the
+      // input's own exact typed value, untouched by this.
+      const rounded = Number(v.toFixed(4));
+      if (parseFloat(input.value) !== rounded) input.value = String(rounded);
     }
   }
   requestAnimationFrame(frame);

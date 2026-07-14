@@ -273,19 +273,42 @@
   gap: 8px 10px;
 }
 
+/* Each cell is jack+label on top, a direct base-value input below it
+   (owner: "a user can run the entire synth in the patch bay if they
+   don't want to use the controls tab") — every faceplate param is a
+   number by construction (ModTarget excludes booleans/enums), so this
+   is always a plain number input; `cv:N` virtual targets skip it
+   (addParamCell) since they aren't real Settings keys. */
 .rw-pb-cell {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 3px;
   color: var(--re-text);
   font-size: 11px;
   letter-spacing: 0.04em;
+  min-width: 0;
+}
+.rw-pb-cell-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 .rw-pb-cell span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.rw-pb-cell-value {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.8);
+  color: var(--re-accent);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  padding: 2px 4px;
 }
 
 /* ---------- narrow mode (bay hosted in a side window) ---------- */
