@@ -89,7 +89,10 @@ const MD_QUICKSTART = `
 > elsewhere, or drop it in space to unplug. Some nodes also take an
 > input from another node (Ramp's trigger, Noise's clock) — those show
 > as IN jacks, wireable straight from another node's OUT jack.
-> **Right-click empty board space** for a categorized Add Node menu.
+> **Right-click empty board space** for a categorized Add Node menu — it
+> also appears as a normal row in Controls ▸ Modulation's Beginner view,
+> switching modes automatically if needed. Each module shows the node's
+> own params (shape, rate, etc.) plus a mute LED right on the faceplate.
 > Try **Window ▸ Layout ▸ Patch Bay**.
 
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.

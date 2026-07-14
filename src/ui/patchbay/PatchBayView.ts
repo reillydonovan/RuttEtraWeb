@@ -974,6 +974,15 @@ export function createPatchBayView(
    *  position / drag-handler binding survives unrelated `modGraph`
    *  writes (e.g. a param tweak on some OTHER node). */
   const graphModuleEls = new Map<string, HTMLElement>();
+  /** On-faceplate control per node param, keyed `${nodeId}#${paramName}`
+   *  — the node's own knobs (rate, shape, etc.), so a module feels like
+   *  a real synth voice, not just jacks and a label (owner: "control
+   *  knobs on the node in the patch bay so it feels like an actual
+   *  analog synth"). Reconciled every rebuild (same rule as IN/OUT
+   *  rows — a node's `type`, and therefore its param set, can mutate in
+   *  place); VALUES refreshed separately via `refreshGraphControls()`
+   *  so typing into one doesn't require a structural rebuild. */
+  const graphParamInputs = new Map<string, { el: HTMLInputElement | HTMLSelectElement; kind: 'number' | 'enum' | 'boolean' }>();
   // null (not '') so the very first call — an empty graph's signature
   // is also '' — doesn't collide with "unchanged" and skip building
   // the empty-state message.
@@ -1017,6 +1026,9 @@ export function createPatchBayView(
       for (const key of Array.from(graphInputJacks.keys())) {
         if (key.startsWith(`${nodeId}#`)) graphInputJacks.delete(key);
       }
+      for (const key of Array.from(graphParamInputs.keys())) {
+        if (key.startsWith(`${nodeId}#`)) graphParamInputs.delete(key);
+      }
       const homeIdx = unitHomes.findIndex((h) => h.unit === el);
       if (homeIdx >= 0) unitHomes.splice(homeIdx, 1);
     }
@@ -1040,6 +1052,23 @@ export function createPatchBayView(
         mod.className = 'rw-pb-graphnode';
         head = document.createElement('div');
         head.className = 'rw-pb-module-head';
+        // Mute LED, same convention as a FUNCTION GENERATOR module's own
+        // enable toggle (owner: knobs/toggles here should feel like a
+        // real synth module, not just jacks and a label).
+        const en = document.createElement('input');
+        en.type = 'checkbox';
+        en.className = 'rw-pb-led-toggle';
+        en.addEventListener('change', () => {
+          const cur = settings.get('modGraph');
+          if (!cur) return;
+          const upd: GraphPatch = { ...cur, nodes: cur.nodes.map((n) => (n.id === nodeId ? { ...n, enabled: en.checked } : n)) };
+          settings.set('modGraph', upd);
+          void getEngine().then((e) => e.setPatch(upd));
+        });
+        attachTooltip(en, 'Enable this node (muted: tick is skipped, every output reads 0).');
+        const titleEl = document.createElement('span');
+        titleEl.className = 'rw-pb-graphnode-title';
+        head.append(en, titleEl);
         mod.appendChild(head);
         makeUnitDraggable(mod, head);
         rail.appendChild(mod);
@@ -1047,7 +1076,8 @@ export function createPatchBayView(
       } else {
         head = mod.querySelector('.rw-pb-module-head')!;
       }
-      if (head.textContent !== label) head.textContent = label;
+      const titleEl = head.querySelector('.rw-pb-graphnode-title')!;
+      if (titleEl.textContent !== label) titleEl.textContent = label;
 
       // Reconcile IN rows against the node's CURRENT type's input
       // ports — NOT "built once at creation": Beginner view mutates an
@@ -1096,6 +1126,68 @@ export function createPatchBayView(
         graphInputJacks.set(`${nodeId}#${portName}`, jack);
       }
 
+      // Reconcile param controls (rate, shape, etc.) — the node's OWN
+      // knobs, between its IN and OUT jacks, same signal-flow-order
+      // convention. Free-text params (only the Note node's `text`) are
+      // skipped — this view has no text-editing affordance and Note
+      // nodes have no ports anyway, so they'd render as a bare label.
+      const wantedParams = new Map(
+        Object.entries(def?.params ?? {}).filter(([, spec]) => spec.kind !== 'text'),
+      );
+      const haveParams = new Set(
+        [...graphParamInputs.keys()]
+          .filter((k) => k.startsWith(`${nodeId}#`))
+          .map((k) => k.slice(nodeId.length + 1)),
+      );
+      for (const name of haveParams) {
+        if (wantedParams.has(name)) continue;
+        graphParamInputs.get(`${nodeId}#${name}`)?.el.closest('.rw-pb-row')?.remove();
+        graphParamInputs.delete(`${nodeId}#${name}`);
+      }
+      for (const [paramName, spec] of wantedParams) {
+        if (graphParamInputs.has(`${nodeId}#${paramName}`)) continue;
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row';
+        const rowLabel = document.createElement('label');
+        rowLabel.textContent = paramName;
+        let ctl: HTMLInputElement | HTMLSelectElement;
+        let kind: 'number' | 'enum' | 'boolean';
+        if (spec.kind === 'number') {
+          kind = 'number';
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.step = String(spec.step);
+          input.min = String(spec.min);
+          input.max = String(spec.max);
+          input.addEventListener('input', () => {
+            const v = parseFloat(input.value);
+            if (Number.isFinite(v)) writeGraphNodeParam(nodeId, paramName, v);
+          });
+          ctl = input;
+        } else if (spec.kind === 'enum') {
+          kind = 'enum';
+          const sel = document.createElement('select');
+          sel.className = 'rw-select';
+          for (const opt of spec.options) {
+            const o = document.createElement('option');
+            o.value = opt; o.textContent = opt;
+            sel.appendChild(o);
+          }
+          sel.addEventListener('change', () => writeGraphNodeParam(nodeId, paramName, sel.value));
+          ctl = sel;
+        } else {
+          kind = 'boolean';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.addEventListener('change', () => writeGraphNodeParam(nodeId, paramName, cb.checked));
+          ctl = cb;
+        }
+        attachTooltip(row, `${label} · ${paramName}`);
+        row.append(rowLabel, ctl);
+        mod.insertBefore(row, mod.querySelector('.rw-pb-row--out'));
+        graphParamInputs.set(`${nodeId}#${paramName}`, { el: ctl, kind });
+      }
+
       // Reconcile OUT rows against the node's full declared output
       // list (`def.outputs`) — not just ports something happens to be
       // plugged into yet, so a freshly-added, unwired node still has a
@@ -1126,8 +1218,47 @@ export function createPatchBayView(
       }
     }
   }
+
+  /** Write one graph node's param — same two-write pattern (Settings +
+   *  live engine push) every graph-editing surface uses. */
+  function writeGraphNodeParam(nodeId: string, paramName: string, value: number | string | boolean): void {
+    const patch = settings.get('modGraph');
+    if (!patch) return;
+    const next: GraphPatch = {
+      ...patch,
+      nodes: patch.nodes.map((n) => (n.id === nodeId ? { ...n, params: { ...n.params, [paramName]: value } } : n)),
+    };
+    settings.set('modGraph', next);
+    void getEngine().then((e) => e.setPatch(next));
+  }
+
+  /** Refresh control VALUES (param inputs + the enable LED) from the
+   *  current patch — separate from `rebuildGraphModules()`'s structural
+   *  work so typing into one control doesn't require (or race) a DOM
+   *  rebuild. Skips any input the user is actively editing, same rule
+   *  `refreshSlots()` uses for the Classic RATE/AMT fields below. */
+  function refreshGraphControls(): void {
+    const patch = settings.get('modGraph');
+    for (const [nodeId, mod] of graphModuleEls) {
+      const node = patch?.nodes.find((n) => n.id === nodeId);
+      const en = mod.querySelector<HTMLInputElement>('.rw-pb-led-toggle');
+      if (en && document.activeElement !== en) en.checked = node?.enabled !== false;
+    }
+    for (const [key, entry] of graphParamInputs) {
+      const { nodeId, port: paramName } = splitJackKey(key);
+      const node = patch?.nodes.find((n) => n.id === nodeId);
+      const def = node ? getDef(node.type) : null;
+      const spec = def?.params[paramName];
+      if (!spec || document.activeElement === entry.el) continue;
+      const val = node?.params[paramName] ?? spec.default;
+      if (entry.kind === 'boolean') (entry.el as HTMLInputElement).checked = !!val;
+      else entry.el.value = String(val);
+    }
+  }
+
   rebuildGraphModules();
-  settings.subscribe('modGraph', () => rebuildGraphModules());
+  refreshGraphControls();
+  settings.subscribe('modGraph', () => { rebuildGraphModules(); refreshGraphControls(); });
 
   // ---------------- right-click: add a graph node ---------------------
   // Blender/Max-MSP convention: right-click empty board space opens a
@@ -1179,10 +1310,31 @@ export function createPatchBayView(
     const def = getDef(type);
     const inputs: Record<string, string | null> = {};
     for (const p of def?.inputs ?? []) inputs[p.name] = null;
+    const nodeId = genId('n');
+    // A companion 'none'-targeted binding (owner: "the patch is parallel
+    // between the patch bay and the controls, they should be backwards
+    // compatible") — Beginner view's rows are derived from BINDINGS, not
+    // raw nodes (`rowsFromPatch` iterates `patch.bindings`), so a bare
+    // node added here would be invisible there even though it already
+    // shows up fine in Advanced view's canvas (which reads `patch.nodes`
+    // directly). 'none' keeps it non-destructive — nothing modulates
+    // until the user actually picks a target, same as Beginner's own
+    // target dropdown default and the Patch Bay's own unplug convention
+    // (applyGraphBindingTarget) — and it correctly still counts as
+    // "inert"/dimmed here until a REAL target or wire exists.
     const next: GraphPatch = {
-      ...patch,
-      nodes: [...patch.nodes, { id: genId('n'), type, params: {}, inputs }],
+      nodes: [...patch.nodes, { id: nodeId, type, params: {}, inputs }],
+      bindings: [...patch.bindings, {
+        id: genId('b'), paramKey: 'none', sourceNodeId: nodeId, amount: 0.25, mode: 'additive',
+      }],
     };
+    // Same "actually active, not silently inert" rule loadSamplePatch()
+    // already follows: the graph engine's own tick() no-ops entirely
+    // while modMode is 'classic', so a node added here would sit in
+    // Settings doing nothing (and Beginner view's graph rows are gated
+    // behind the GRAPH/BOTH mode tabs too) until the user happened to
+    // flip modes themselves.
+    if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
     settings.set('modGraph', next);
     void getEngine().then((e) => e.setPatch(next));
   }
