@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter,
+  graphBindingForParam, applyGraphBindingTarget,
 } from '../rackGeometry';
 import { cableControlPoints } from '../../cableDraw';
 import type { ModSlot } from '../../../state/Settings';
@@ -53,6 +54,56 @@ describe('graphCables', () => {
       ],
     } as unknown as GraphPatch;
     expect(graphCables(patch)[0]).toMatchObject({ sourceNodeId: 'sync1', sourcePort: 'phase' });
+  });
+});
+
+describe('graphBindingForParam', () => {
+  it('returns the LAST binding targeting the param, or null', () => {
+    const patch = {
+      nodes: [],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'n1', amount: 1, mode: 'additive' },
+        { id: 'b2', paramKey: 'focus', sourceNodeId: 'n1', amount: 1, mode: 'additive' },
+        { id: 'b3', paramKey: 'zPush', sourceNodeId: 'n2', amount: 1, mode: 'additive' },
+      ],
+    } as unknown as GraphPatch;
+    expect(graphBindingForParam(patch, 'zPush')).toBe('b3');
+    expect(graphBindingForParam(patch, 'hSize')).toBeNull();
+  });
+  it('ignores unplugged (paramKey "none") bindings and a null patch', () => {
+    expect(graphBindingForParam(null, 'zPush')).toBeNull();
+    const patch = {
+      nodes: [],
+      bindings: [{ id: 'b1', paramKey: 'none', sourceNodeId: 'n1', amount: 1, mode: 'additive' }],
+    } as unknown as GraphPatch;
+    expect(graphBindingForParam(patch, 'none')).toBeNull();
+  });
+});
+
+describe('applyGraphBindingTarget', () => {
+  it('re-targets the matching binding by id, leaving others and nodes untouched', () => {
+    const patch = {
+      nodes: [{ id: 'n1' }],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'n1', amount: 1, mode: 'additive' },
+        { id: 'b2', paramKey: 'focus', sourceNodeId: 'n1', amount: 1, mode: 'additive' },
+      ],
+    } as unknown as GraphPatch;
+    const next = applyGraphBindingTarget(patch, 'b1', 'hSize');
+    expect(next.bindings[0].paramKey).toBe('hSize');
+    expect(next.bindings[1]).toBe(patch.bindings[1]); // untouched binding is the same object
+    expect(next.nodes).toBe(patch.nodes);             // nodes untouched
+    expect(patch.bindings[0].paramKey).toBe('zPush');  // input not mutated
+  });
+
+  it('"none" unplugs without deleting the binding', () => {
+    const patch = {
+      nodes: [],
+      bindings: [{ id: 'b1', paramKey: 'zPush', sourceNodeId: 'n1', amount: 1, mode: 'additive' }],
+    } as unknown as GraphPatch;
+    const next = applyGraphBindingTarget(patch, 'b1', 'none');
+    expect(next.bindings).toHaveLength(1);
+    expect(next.bindings[0].paramKey).toBe('none');
   });
 });
 

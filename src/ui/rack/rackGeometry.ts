@@ -50,7 +50,9 @@ export function classicCables(slots: readonly ModSlot[]): ClassicCable[] {
   return out;
 }
 
-/** Cables implied by graph bindings (read-only in the rack, v1). */
+/** Cables implied by graph bindings. Draggable in the Patch Bay from the
+ *  param (target) end, same as Classic cables — see
+ *  `graphBindingForParam`/`applyGraphBindingTarget`. */
 export function graphCables(patch: GraphPatch | null | undefined): GraphCable[] {
   if (!patch) return [];
   return patch.bindings.map((b) => ({
@@ -60,6 +62,35 @@ export function graphCables(patch: GraphPatch | null | undefined): GraphCable[] 
     sourceNodeId: b.sourceNodeId,
     sourcePort: b.sourcePort,
   }));
+}
+
+/**
+ * Id of the last binding (last in array, mirroring `slotForParam`'s
+ * tie-break) whose target is `paramKey`, or null. 'none'-targeted
+ * bindings (unplugged, see `applyGraphBindingTarget`) don't count.
+ */
+export function graphBindingForParam(patch: GraphPatch | null | undefined, paramKey: string): string | null {
+  if (!patch) return null;
+  for (let i = patch.bindings.length - 1; i >= 0; i--) {
+    const b = patch.bindings[i];
+    if (b.paramKey === paramKey && b.paramKey !== 'none') return b.id;
+  }
+  return null;
+}
+
+/**
+ * Re-plug a graph binding's target ('none' = unplug). Returns a new
+ * `GraphPatch` (bindings array replaced wholesale, nodes untouched) —
+ * same wholesale-array convention as `applyCableTarget`. The binding
+ * itself is kept (not deleted) on unplug, so it can be re-targeted
+ * later from the Graph editor, mirroring how a Classic slot's cable
+ * unplugs to 'none' without deleting the slot.
+ */
+export function applyGraphBindingTarget(patch: GraphPatch, bindingId: string, paramKey: string): GraphPatch {
+  return {
+    ...patch,
+    bindings: patch.bindings.map((b) => (b.id === bindingId ? { ...b, paramKey } : b)),
+  };
 }
 
 /**

@@ -8,7 +8,7 @@ description: Run RuttEtraWeb's full pre-commit verification pipeline (typecheck,
 Run these in order; stop and report on the first failure:
 
 1. `npm run typecheck` — `tsc --noEmit`, catches type drift fast.
-2. `npm test` — vitest, node env. Expect ALL suites green (441+ tests).
+2. `npm test` — vitest, node env. Expect ALL suites green (536+ tests).
 3. `npm run build` — full production build (typecheck + vite, multi-page).
 4. `node scripts/check-about-bundle.cjs` — MUST pass after every build:
    asserts the about page ships zero synth runtime (no three.js, Web
@@ -40,6 +40,18 @@ Run these in order; stop and report on the first failure:
   deliberately EXCLUDE any target whose consumer does something
   expensive on every write (mesh rebuild, GPU resolution resize) —
   continuous modulation would hammer that operation every frame.
+- **Editing `modGraph` from a new surface needs TWO writes, not one**:
+  `settings.set('modGraph', next)` persists the patch, but
+  `GraphEngine` "never mutates the graph itself — `setPatch()` is the
+  only way to change topology" (its own doc comment) — it does NOT
+  subscribe to `Settings` and pick up the change on its own. Every
+  graph-editing surface (Beginner/Advanced view, `ModulationContainerSection`,
+  the Patch Bay's draggable graph cables added 2026-07-14) writes
+  `settings.set('modGraph', next)` **and** awaits
+  `getEngine().then((e) => e.setPatch(next))` in the same edit. Miss
+  the second call and the edit LOOKS like it worked (Settings/UI update)
+  but is silently inert live — the same shape of bug as the base/live
+  `TARGETS` gotcha above, one layer down the stack.
 - **Audio/CV/MIDI-out safety**: outward-facing outputs (sonification, CV
   out channels, MIDI clock out) are structurally forced OFF on every
   load in `migrateSettings()` — never weaken this.

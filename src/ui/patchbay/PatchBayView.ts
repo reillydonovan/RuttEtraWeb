@@ -15,7 +15,14 @@
  *   param jack (plugged)     grab to move; drop in space to unplug
  *   param jack (empty)       reverse-drag to a slot OUT
  *   SOURCES jack → SRC IN    sets modSlots[i].source  (applyCableSource)
- *   graph binding cables     read-only (the graph editor edits those)
+ *   graph binding cables     drag the param end to re-target, or drop in
+ *                            space to unplug — sets bindings[i].paramKey
+ *                            (applyGraphBindingTarget) and pushes the
+ *                            result live via getEngine().setPatch(). The
+ *                            node-side jack stays fixed (an output can
+ *                            feed several bindings at once; grabbing it
+ *                            would be ambiguous about which cable moves) —
+ *                            add new bindings from the Graph editor.
  *
  * Unlike the rack skin's overlay there is NO DOM scanning and NO anchor
  * fallback chain — the bay owns its layout, so the jack registry is
@@ -30,10 +37,12 @@ import { getDef } from '../../modulation/graph/registry';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
+  graphBindingForParam, applyGraphBindingTarget,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
+import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 
 const CLASSIC_COLOR = '#5fff85';
 const SOURCE_COLOR  = '#b9ffd0';
@@ -46,7 +55,11 @@ type JackId =
   | { kind: 'slotsrc'; index: number }
   | { kind: 'src'; source: ModSource };
 
-export function createPatchBayView(settings: SettingsStore, source: VideoSourceManager): HTMLElement {
+export function createPatchBayView(
+  settings: SettingsStore,
+  source: VideoSourceManager,
+  getEngine: () => Promise<GraphEngine>,
+): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
 
@@ -86,7 +99,8 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
   type Pending =
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
     | { kind: 'to-slotout'; paramKey: string; pos: Pt; hover: number | null }
-    | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: number | null };
+    | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: number | null }
+    | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null };
   let pending: Pending | null = null;
 
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
@@ -154,9 +168,35 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
       });
   }
 
+  function dragGraphParam(ev: PointerEvent, bindingId: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-param-graph', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+      },
+      () => {
+        setHover(paramJacks, p.hover, null);
+        pending = null;
+        const patch = settings.get('modGraph');
+        if (!patch) return;
+        const binding = patch.bindings.find((b) => b.id === bindingId);
+        const next = p.hover ?? 'none';
+        if (binding && binding.paramKey !== next) {
+          const updated = applyGraphBindingTarget(patch, bindingId, next);
+          settings.set('modGraph', updated);
+          void getEngine().then((e) => e.setPatch(updated));
+        }
+      });
+  }
+
   function dragParam(ev: PointerEvent, key: string, jack: HTMLElement): void {
     const i = slotForParam(settings.get('modSlots'), key);
     if (i >= 0) { dragSlotOut(ev, i, jack); return; }
+    const bindingId = graphBindingForParam(settings.get('modGraph'), key);
+    if (bindingId) { dragGraphParam(ev, bindingId, jack); return; }
     const p: Pending = { kind: 'to-slotout', paramKey: key, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
     runGesture(ev, jack,
@@ -356,23 +396,28 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     bus.appendChild(strip);
   }
 
-  // GRAPH ENGINE — one small read-only module per graph node that is
-  // currently the source of a live binding (owner feedback: a single
-  // generic "GRAPH ENGINE" chip collapsed every graph source into one
+  // GRAPH ENGINE — one small module per graph node that is currently the
+  // source of a live (plugged) binding (owner feedback: a single generic
+  // "GRAPH ENGINE" chip collapsed every graph source into one
   // undifferentiated point, so a cyan cable told you THAT something in
   // the graph fed a param, never WHICH node — LFO, Audio Band, etc. —
-  // was doing it). Read-only here, same as before — edit the actual
-  // graph in the Graph editor's Advanced view. Deliberately NOT
-  // `.rw-pb-module`/`.rw-pb-field` (which `allUnits()` picks up for
-  // free-mode dragging): these come and go as the graph changes, and
-  // the free-mode position-freeze/restore machinery only expects
-  // stable, user-placed units.
+  // was doing it). The node's OUTPUT jack here is fixed (one jack can
+  // feed several bindings, so grabbing it would be ambiguous about which
+  // cable moves) — but each cable IS draggable from its PARAM end, same
+  // as a Classic cable: grab it on the faceplate and drop it on a
+  // different param jack to re-target that one binding, or drop it in
+  // space to unplug (owner: "the patch cables should not be fixed or
+  // static"). Add new bindings / edit node params in the Graph editor.
+  // Deliberately NOT `.rw-pb-module`/`.rw-pb-field` (which `allUnits()`
+  // picks up for free-mode dragging): these come and go as the graph
+  // changes, and the free-mode position-freeze/restore machinery only
+  // expects stable, user-placed units.
   const graphSection = document.createElement('div');
   graphSection.className = 'rw-pb-graph-section';
   const graphTitle = document.createElement('div');
   graphTitle.className = 'rw-pb-field-title';
   graphTitle.textContent = 'GRAPH ENGINE';
-  attachTooltip(graphTitle, 'Graph nodes that are the source of a live binding. Read-only here — edit them in the Graph editor.');
+  attachTooltip(graphTitle, 'Graph nodes that are the source of a live binding. Drag a bound param\'s cable (below, on the faceplate) to re-target or unplug it; add new bindings in the Graph editor.');
   graphSection.appendChild(graphTitle);
   const graphList = document.createElement('div');
   graphList.className = 'rw-pb-graph-list';
@@ -392,8 +437,11 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     const bindings = patch?.bindings ?? [];
     // Group the ports actually in use by node, preserving first-seen
     // order so the list doesn't reshuffle every time a binding changes.
+    // Bindings unplugged to 'none' (see applyGraphBindingTarget) don't
+    // count as an active output — same convention as classicCables().
     const byNode = new Map<string, Set<string>>();
     for (const b of bindings) {
+      if (b.paramKey === 'none') continue;
       const port = b.sourcePort ?? '';
       if (!byNode.has(b.sourceNodeId)) byNode.set(b.sourceNodeId, new Set());
       byNode.get(b.sourceNodeId)!.add(port);
@@ -431,7 +479,7 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
         const rowLabel = document.createElement('label');
         rowLabel.textContent = port || 'OUT';
         const jack = makeJack('rw-rack-jack--out rw-pb-jack--graphout');
-        attachTooltip(jack, `${label}${port ? ' · ' + port : ''} — read-only here, edit in the Graph editor.`);
+        attachTooltip(jack, `${label}${port ? ' · ' + port : ''} — this output jack is fixed; drag the cable's PARAM end below to re-target it, or add new bindings in the Graph editor.`);
         row.append(rowLabel, jack);
         mod.appendChild(row);
         graphNodeJacks.set(`${nodeId}#${port}`, jack);
@@ -455,9 +503,16 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     jack.addEventListener('pointerdown', (ev) => dragParam(ev, key, jack));
     attachTooltip(jack, () => {
       const i = slotForParam(settings.get('modSlots'), key);
-      return i >= 0
-        ? `${label} — patched from Function Gen ${i + 1}. Drag to move, drop in space to unplug.`
-        : `${label} — drag to a generator OUT (or from one to here) to patch.`;
+      if (i >= 0) return `${label} — patched from Function Gen ${i + 1}. Drag to move, drop in space to unplug.`;
+      const patch = settings.get('modGraph');
+      const bindingId = graphBindingForParam(patch, key);
+      if (bindingId) {
+        const b = patch?.bindings.find((x) => x.id === bindingId);
+        const node = b ? patch?.nodes.find((n) => n.id === b.sourceNodeId) : null;
+        const nodeLabel = node ? getDef(node.type)?.label ?? node.type : 'a graph node';
+        return `${label} — patched from ${nodeLabel} (graph). Drag to move, drop in space to unplug.`;
+      }
+      return `${label} — drag to a generator OUT (or from one to here) to patch.`;
     });
     const l = document.createElement('span');
     l.textContent = label;
@@ -1006,10 +1061,13 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
       });
     }
 
-    // Graph binding cables, read-only — one per binding, from that
-    // binding's OWN source node's jack (rebuilt above whenever the set
-    // of active graph sources changes), not one shared point.
+    // Graph binding cables — one per binding, from that binding's OWN
+    // source node's jack (rebuilt above whenever the set of active graph
+    // sources changes), not one shared point. Draggable from the param
+    // end (dragGraphParam); skip the static draw for whichever binding is
+    // currently being dragged so only its rubber-band shows.
     for (const gc of graphCables(settings.get('modGraph'))) {
+      if (pending?.kind === 'to-param-graph' && pending.bindingId === gc.bindingId) continue;
       const srcJack = graphNodeJacks.get(`${gc.sourceNodeId}#${gc.sourcePort ?? ''}`);
       const g = anchor(srcJack);
       const b = anchor(paramJacks.get(gc.paramKey));
@@ -1021,12 +1079,25 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     }
 
     if (pending) {
-      const fixed = pending.kind === 'to-param' ? slotOutJacks.get(pending.slotIndex)
-        : pending.kind === 'to-slotout' ? paramJacks.get(pending.paramKey)
-        : srcJacks.get(pending.source);
+      let fixed: HTMLElement | undefined;
+      let color = CLASSIC_COLOR;
+      if (pending.kind === 'to-param') {
+        fixed = slotOutJacks.get(pending.slotIndex);
+      } else if (pending.kind === 'to-slotout') {
+        fixed = paramJacks.get(pending.paramKey);
+      } else if (pending.kind === 'to-slotsrc') {
+        fixed = srcJacks.get(pending.source);
+        color = SOURCE_COLOR;
+      } else {
+        const bindingId = pending.bindingId;
+        const patch = settings.get('modGraph');
+        const b = patch?.bindings.find((x) => x.id === bindingId);
+        fixed = b ? graphNodeJacks.get(`${b.sourceNodeId}#${b.sourcePort ?? ''}`) : undefined;
+        color = GRAPH_COLOR;
+      }
       const a = anchor(fixed);
       if (a) {
-        drawPatchCable(ctx, local(a), local(pending.pos), pending.kind === 'to-slotsrc' ? SOURCE_COLOR : CLASSIC_COLOR, {
+        drawPatchCable(ctx, local(a), local(pending.pos), color, {
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,
         });
       }
