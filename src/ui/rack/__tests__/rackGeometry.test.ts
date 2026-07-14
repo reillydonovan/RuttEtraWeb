@@ -8,6 +8,7 @@ import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter,
   graphBindingForParam, applyGraphBindingTarget,
+  nodeWires, applyNodeInputRef,
 } from '../rackGeometry';
 import { cableControlPoints } from '../../cableDraw';
 import type { ModSlot } from '../../../state/Settings';
@@ -104,6 +105,55 @@ describe('applyGraphBindingTarget', () => {
     const next = applyGraphBindingTarget(patch, 'b1', 'none');
     expect(next.bindings).toHaveLength(1);
     expect(next.bindings[0].paramKey).toBe('none');
+  });
+});
+
+describe('nodeWires', () => {
+  it('resolves each wired input via splitInputRef, defaulting sourcePort to \'\'', () => {
+    const patch = {
+      nodes: [
+        { id: 'a', type: 'sync', inputs: {}, params: {} },
+        { id: 'b', type: 'noise', inputs: { clock: 'a#pulse' }, params: {} },
+        { id: 'c', type: 'ramp', inputs: { trigger: 'a' }, params: {} },
+      ],
+      bindings: [],
+    } as unknown as GraphPatch;
+    expect(nodeWires(patch)).toEqual([
+      { targetNodeId: 'b', targetPort: 'clock', sourceNodeId: 'a', sourcePort: 'pulse' },
+      { targetNodeId: 'c', targetPort: 'trigger', sourceNodeId: 'a', sourcePort: '' },
+    ]);
+  });
+  it('skips null/missing refs and handles a null patch', () => {
+    expect(nodeWires(null)).toEqual([]);
+    const patch = {
+      nodes: [{ id: 'a', type: 'ramp', inputs: { trigger: null }, params: {} }],
+      bindings: [],
+    } as unknown as GraphPatch;
+    expect(nodeWires(patch)).toEqual([]);
+  });
+});
+
+describe('applyNodeInputRef', () => {
+  it('wires a port by id, leaving other nodes/inputs untouched', () => {
+    const patch = {
+      nodes: [
+        { id: 'a', type: 'sync', inputs: {}, params: {} },
+        { id: 'b', type: 'noise', inputs: {}, params: {} },
+      ],
+      bindings: [],
+    } as unknown as GraphPatch;
+    const next = applyNodeInputRef(patch, 'b', 'clock', 'a#pulse');
+    expect(next.nodes[1].inputs).toEqual({ clock: 'a#pulse' });
+    expect(next.nodes[0]).toBe(patch.nodes[0]); // untouched node is the same object
+    expect(patch.nodes[1].inputs).toEqual({}); // input not mutated
+  });
+  it('null unplugs the port', () => {
+    const patch = {
+      nodes: [{ id: 'b', type: 'noise', inputs: { clock: 'a#pulse' }, params: {} }],
+      bindings: [],
+    } as unknown as GraphPatch;
+    const next = applyNodeInputRef(patch, 'b', 'clock', null);
+    expect(next.nodes[0].inputs).toEqual({ clock: null });
   });
 });
 

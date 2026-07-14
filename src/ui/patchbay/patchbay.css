@@ -147,18 +147,11 @@
 }
 
 /* GRAPH ENGINE — dynamic per-node modules (see PatchBayView.ts's
-   rebuildGraphModules). Not a drag/free-mode unit, so it lives outside
-   the `.rw-pb-module, .rw-pb-field` selector `allUnits()` scans. */
-.rw-pb-graph-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.rw-pb-graph-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+   rebuildGraphModules). Each `.rw-pb-graphnode` is a real child of the
+   rail stack, drag/reorder/free-layout-capable exactly like a
+   `.rw-pb-module` or `.rw-pb-field` (picked up by `allUnits()` above).
+   `graphTitle`/`.rw-pb-graph-empty` are the only non-draggable
+   (`data-pb-static`) rail children — plain section-divider labels. */
 .rw-pb-graph-empty {
   font-family: var(--re-mono);
   font-size: 10px;

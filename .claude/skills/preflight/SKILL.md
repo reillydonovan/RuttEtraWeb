@@ -8,7 +8,7 @@ description: Run RuttEtraWeb's full pre-commit verification pipeline (typecheck,
 Run these in order; stop and report on the first failure:
 
 1. `npm run typecheck` — `tsc --noEmit`, catches type drift fast.
-2. `npm test` — vitest, node env. Expect ALL suites green (536+ tests).
+2. `npm test` — vitest, node env. Expect ALL suites green (540+ tests).
 3. `npm run build` — full production build (typecheck + vite, multi-page).
 4. `node scripts/check-about-bundle.cjs` — MUST pass after every build:
    asserts the about page ships zero synth runtime (no three.js, Web
@@ -51,7 +51,29 @@ Run these in order; stop and report on the first failure:
   `getEngine().then((e) => e.setPatch(next))` in the same edit. Miss
   the second call and the edit LOOKS like it worked (Settings/UI update)
   but is silently inert live — the same shape of bug as the base/live
-  `TARGETS` gotcha above, one layer down the stack.
+  `TARGETS` gotcha above, one layer down the stack. Relatedly:
+  `AutoSave`'s project-recovery path writes `Settings` directly and does
+  NOT prime the graph node registry the way `loadSamplePatch()` does
+  (`await ensureGraphEngine()` before writing `modGraph`) — a project
+  restored via the recovery prompt can render graph node labels as raw
+  lowercase type strings that never self-correct. Known gap, not yet
+  fixed (found 2026-07-14 while verifying node-to-node wiring); if you
+  touch project restore, this is the place to fix it.
+- **A graph node's `type` can change in place, same id** — Beginner
+  view's source dropdown (`BeginnerView.ts`, `adapter.source.set`)
+  mutates an EXISTING node's `type` rather than creating a new node
+  (e.g. retargeting a row from LFO to Noise keeps the same `nodeId`).
+  Any Patch Bay/rack UI that derives per-node structure from
+  `getDef(node.type)` — jack rows, labels, port lists — must reconcile
+  that structure on EVERY rebuild, not just "when the module is first
+  created." A real bug shipped this way once: IN-jack rows were built
+  once at module-creation time on the (false) assumption that a node's
+  input ports never change post-creation; retargeting LFO -> Noise via
+  Beginner view left the module stuck with zero IN rows forever, since
+  nothing revisited it after creation. Caught live, not by typecheck or
+  unit tests — the fix mirrors the OUT-row reconciliation pattern
+  (`PatchBayView.ts`'s `rebuildGraphModules`): diff current vs. wanted
+  every call, keyed off the node's CURRENT `def`.
 - **Audio/CV/MIDI-out safety**: outward-facing outputs (sonification, CV
   out channels, MIDI clock out) are structurally forced OFF on every
   load in `migrateSettings()` — never weaken this.

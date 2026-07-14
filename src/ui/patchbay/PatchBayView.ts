@@ -18,11 +18,20 @@
  *   graph binding cables     drag the param end to re-target, or drop in
  *                            space to unplug — sets bindings[i].paramKey
  *                            (applyGraphBindingTarget) and pushes the
- *                            result live via getEngine().setPatch(). The
- *                            node-side jack stays fixed (an output can
- *                            feed several bindings at once; grabbing it
- *                            would be ambiguous about which cable moves) —
- *                            add new bindings from the Graph editor.
+ *                            result live via getEngine().setPatch().
+ *   graph node OUT → IN      drag a node's OUT jack onto another active
+ *                            node's IN jack to wire it (or the IN jack
+ *                            onto an OUT — reverse-drag works either
+ *                            way), drop a plugged IN jack in space to
+ *                            unplug — sets node.inputs[port]
+ *                            (applyNodeInputRef), same live-push via
+ *                            setPatch(). A node's OUT jack itself stays
+ *                            un-retargetable by dragging (it can feed
+ *                            several bindings/inputs at once — grabbing
+ *                            it only ever ADDS a new connection, never
+ *                            moves/removes an existing one); add new
+ *                            bindings, or nodes with no active
+ *                            connection yet, from the Graph editor.
  *
  * Unlike the rack skin's overlay there is NO DOM scanning and NO anchor
  * fallback chain — the bay owns its layout, so the jack registry is
@@ -34,20 +43,31 @@ import type { SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/S
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import { getDef } from '../../modulation/graph/registry';
+import { splitInputRef } from '../../modulation/graph/types';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
   graphBindingForParam, applyGraphBindingTarget,
+  nodeWires, applyNodeInputRef,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 
-const CLASSIC_COLOR = '#5fff85';
-const SOURCE_COLOR  = '#b9ffd0';
-const GRAPH_COLOR   = '#5fffd0';
+const CLASSIC_COLOR   = '#5fff85';
+const SOURCE_COLOR    = '#b9ffd0';
+const GRAPH_COLOR     = '#5fffd0';
+const NODE_WIRE_COLOR = '#ffb347';
 const SNAP_PX = 26;
+
+/** Parse a `${nodeId}#${port}` jack-registry key ('' port = default
+ *  output). Node ids never contain '#' (see genId()), so splitting on
+ *  the first occurrence is safe. */
+function splitJackKey(key: string): { nodeId: string; port: string } {
+  const i = key.indexOf('#');
+  return i < 0 ? { nodeId: key, port: '' } : { nodeId: key.slice(0, i), port: key.slice(i + 1) };
+}
 
 type JackId =
   | { kind: 'param'; key: string }
@@ -88,6 +108,9 @@ export function createPatchBayView(
   const slotOutJacks = new Map<number, HTMLElement>();
   const slotSrcJacks = new Map<number, HTMLElement>();
   const srcJacks = new Map<ModSource, HTMLElement>();
+  /** Graph node IN jacks, keyed `${nodeId}#${port}` — populated in
+   *  rebuildGraphModules alongside the existing OUT-jack `graphNodeJacks`. */
+  const graphInputJacks = new Map<string, HTMLElement>();
 
   function makeJack(cls: string): HTMLElement {
     const j = document.createElement('span');
@@ -100,7 +123,9 @@ export function createPatchBayView(
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
     | { kind: 'to-slotout'; paramKey: string; pos: Pt; hover: number | null }
     | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: number | null }
-    | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null };
+    | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null }
+    | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: string | null }
+    | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: string | null };
   let pending: Pending | null = null;
 
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
@@ -190,6 +215,70 @@ export function createPatchBayView(
           void getEngine().then((e) => e.setPatch(updated));
         }
       });
+  }
+
+  /** Drag an existing (or empty) graph node IN jack: snaps to any graph
+   *  OUT jack, on drop wires that OUT into this IN (or unplugs if
+   *  dropped in space) — mirrors dragSlotOut/dragGraphParam's "grab the
+   *  target end" pattern. */
+  function dragGraphIn(ev: PointerEvent, nodeId: string, port: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-graphin', nodeId, port, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(centersOf(graphNodeJacks), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) { setHover(graphNodeJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+      },
+      () => {
+        setHover(graphNodeJacks, p.hover, null);
+        pending = null;
+        const patch = settings.get('modGraph');
+        if (!patch) return;
+        const ref = p.hover ? refFromJackKey(p.hover) : null;
+        const node = patch.nodes.find((n) => n.id === nodeId);
+        if (node && (node.inputs[port] ?? null) !== ref) {
+          const updated = applyNodeInputRef(patch, nodeId, port, ref);
+          settings.set('modGraph', updated);
+          void getEngine().then((e) => e.setPatch(updated));
+        }
+      });
+  }
+
+  /** Drag a graph node's OUT jack toward an IN jack to wire it. Dropping
+   *  in empty space does nothing — an OUT can fan out to several
+   *  bindings/inputs at once, so unlike an IN jack there's no single
+   *  "the" connection a drop-in-space could unambiguously remove. */
+  function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(centersOf(graphInputJacks), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) { setHover(graphInputJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+      },
+      () => {
+        setHover(graphInputJacks, p.hover, null);
+        pending = null;
+        if (!p.hover) return;
+        const patch = settings.get('modGraph');
+        if (!patch) return;
+        const { nodeId: targetId, port: targetPort } = splitJackKey(p.hover);
+        const ref = refFromJackKey(sourceKey);
+        const updated = applyNodeInputRef(patch, targetId, targetPort, ref);
+        settings.set('modGraph', updated);
+        void getEngine().then((e) => e.setPatch(updated));
+      });
+  }
+
+  /** `${nodeId}#${port}` jack key -> a `GraphNode.inputs` ref string,
+   *  following the engine's own convention (splitInputRef): a plain node
+   *  id means "that node's default output" (our '' port sentinel),
+   *  `nodeId#port` names a specific one. */
+  function refFromJackKey(key: string): string {
+    const { nodeId, port } = splitJackKey(key);
+    return port ? `${nodeId}#${port}` : nodeId;
   }
 
   function dragParam(ev: PointerEvent, key: string, jack: HTMLElement): void {
@@ -396,99 +485,9 @@ export function createPatchBayView(
     bus.appendChild(strip);
   }
 
-  // GRAPH ENGINE — one small module per graph node that is currently the
-  // source of a live (plugged) binding (owner feedback: a single generic
-  // "GRAPH ENGINE" chip collapsed every graph source into one
-  // undifferentiated point, so a cyan cable told you THAT something in
-  // the graph fed a param, never WHICH node — LFO, Audio Band, etc. —
-  // was doing it). The node's OUTPUT jack here is fixed (one jack can
-  // feed several bindings, so grabbing it would be ambiguous about which
-  // cable moves) — but each cable IS draggable from its PARAM end, same
-  // as a Classic cable: grab it on the faceplate and drop it on a
-  // different param jack to re-target that one binding, or drop it in
-  // space to unplug (owner: "the patch cables should not be fixed or
-  // static"). Add new bindings / edit node params in the Graph editor.
-  // Deliberately NOT `.rw-pb-module`/`.rw-pb-field` (which `allUnits()`
-  // picks up for free-mode dragging): these come and go as the graph
-  // changes, and the free-mode position-freeze/restore machinery only
-  // expects stable, user-placed units.
-  const graphSection = document.createElement('div');
-  graphSection.className = 'rw-pb-graph-section';
-  const graphTitle = document.createElement('div');
-  graphTitle.className = 'rw-pb-field-title';
-  graphTitle.textContent = 'GRAPH ENGINE';
-  attachTooltip(graphTitle, 'Graph nodes that are the source of a live binding. Drag a bound param\'s cable (below, on the faceplate) to re-target or unplug it; add new bindings in the Graph editor.');
-  graphSection.appendChild(graphTitle);
-  const graphList = document.createElement('div');
-  graphList.className = 'rw-pb-graph-list';
-  graphSection.appendChild(graphList);
-  rail.appendChild(graphSection);
-
-  /** Keyed `${nodeId}#${port}` (port '' = the node's default output). */
-  const graphNodeJacks = new Map<string, HTMLElement>();
-  // null (not '') so the very first call — an empty graph's signature
-  // is also '' — doesn't collide with "unchanged" and skip building
-  // the empty-state message.
-  let graphSig: string | null = null;
-
-  function rebuildGraphModules(): void {
-    const patch = settings.get('modGraph');
-    const nodes = patch?.nodes ?? [];
-    const bindings = patch?.bindings ?? [];
-    // Group the ports actually in use by node, preserving first-seen
-    // order so the list doesn't reshuffle every time a binding changes.
-    // Bindings unplugged to 'none' (see applyGraphBindingTarget) don't
-    // count as an active output — same convention as classicCables().
-    const byNode = new Map<string, Set<string>>();
-    for (const b of bindings) {
-      if (b.paramKey === 'none') continue;
-      const port = b.sourcePort ?? '';
-      if (!byNode.has(b.sourceNodeId)) byNode.set(b.sourceNodeId, new Set());
-      byNode.get(b.sourceNodeId)!.add(port);
-    }
-    const sig = [...byNode.entries()]
-      .map(([id, ports]) => `${id}:${nodes.find((n) => n.id === id)?.type ?? '?'}:${[...ports].sort().join(',')}`)
-      .join('|');
-    if (sig === graphSig) return;
-    graphSig = sig;
-
-    graphList.innerHTML = '';
-    graphNodeJacks.clear();
-    if (byNode.size === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'rw-pb-graph-empty';
-      empty.textContent = 'No active graph outputs yet — bindings you add in the Graph editor appear here.';
-      graphList.appendChild(empty);
-      return;
-    }
-    for (const [nodeId, ports] of byNode) {
-      const node = nodes.find((n) => n.id === nodeId);
-      const def = node ? getDef(node.type) : null;
-      const label = def?.label ?? node?.type ?? 'Unknown node';
-      const mod = document.createElement('div');
-      mod.className = 'rw-pb-graphnode';
-      const head = document.createElement('div');
-      head.className = 'rw-pb-module-head';
-      const title = document.createElement('span');
-      title.textContent = label;
-      head.appendChild(title);
-      mod.appendChild(head);
-      for (const port of ports) {
-        const row = document.createElement('div');
-        row.className = 'rw-pb-row rw-pb-row--out';
-        const rowLabel = document.createElement('label');
-        rowLabel.textContent = port || 'OUT';
-        const jack = makeJack('rw-rack-jack--out rw-pb-jack--graphout');
-        attachTooltip(jack, `${label}${port ? ' · ' + port : ''} — this output jack is fixed; drag the cable's PARAM end below to re-target it, or add new bindings in the Graph editor.`);
-        row.append(rowLabel, jack);
-        mod.appendChild(row);
-        graphNodeJacks.set(`${nodeId}#${port}`, jack);
-      }
-      graphList.appendChild(mod);
-    }
-  }
-  rebuildGraphModules();
-  settings.subscribe('modGraph', () => rebuildGraphModules());
+  // GRAPH ENGINE section (per-node modules + rebuildGraphModules) is set
+  // up further below, after the free-layout machinery (`unitHomes`,
+  // `makeUnitDraggable`) it depends on is declared.
 
   // ---------------- faceplate columns ---------------------------------
   const col1 = document.createElement('div');
@@ -625,7 +624,7 @@ export function createPatchBayView(
   root.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.button !== 1) return;
     const t = e.target as HTMLElement;
-    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graph-chip, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
+    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
     e.preventDefault();
     const pid = e.pointerId;
     const startX = e.clientX, startY = e.clientY;
@@ -711,7 +710,7 @@ export function createPatchBayView(
   function allUnits(): HTMLElement[] {
     return [
       bus,
-      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field')),
+      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode')),
     ];
   }
 
@@ -771,6 +770,13 @@ export function createPatchBayView(
   const insertLine = document.createElement('div');
   insertLine.className = 'rw-pb-insertline';
 
+  /** True for a non-draggable divider/label left directly in a stack
+   *  (e.g. `graphTitle`, the graph-empty message) — these are skipped
+   *  as reorder boundaries so a stack full of real units doesn't treat
+   *  a label as either the "last unit" for bottom-edge purposes or a
+   *  valid "insert before this" reference. */
+  const isStaticChild = (el: Element): boolean => (el as HTMLElement).dataset?.pbStatic === 'true';
+
   function stackUnder(x: number, y: number): HTMLElement | null {
     if (freeMode) return null;
     for (const c of stacks()) {
@@ -778,7 +784,7 @@ export function createPatchBayView(
       // Vertical extent ends at the LAST UNIT, not the flex column's box
       // (the columns stretch to the bay's full height, and their empty
       // tails would otherwise swallow every breakout drop).
-      const units = Array.from(c.children).filter((el) => el !== insertLine) as HTMLElement[];
+      const units = Array.from(c.children).filter((el) => el !== insertLine && !isStaticChild(el)) as HTMLElement[];
       const last = units[units.length - 1];
       const bottom = last ? last.getBoundingClientRect().bottom + 30 : r.top + 40;
       if (x >= r.left - 20 && x <= r.right + 20 && y >= r.top - 10 && y <= bottom) return c;
@@ -788,7 +794,7 @@ export function createPatchBayView(
 
   function insertRefIn(container: HTMLElement, y: number, dragged: HTMLElement): HTMLElement | null {
     for (const child of Array.from(container.children) as HTMLElement[]) {
-      if (child === dragged || child === insertLine) continue;
+      if (child === dragged || child === insertLine || isStaticChild(child)) continue;
       const r = child.getBoundingClientRect();
       if (y < r.top + r.height / 2) return child;
     }
@@ -898,7 +904,9 @@ export function createPatchBayView(
     });
   }
 
-  // Handles: module heads, field titles, the bus title, the graph chip.
+  // Handles: module heads, field titles, the bus title. Graph node
+  // modules get their handle wired individually in rebuildGraphModules
+  // (they're created dynamically, after this one-shot setup loop runs).
   for (const m of Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module'))) {
     const head = m.querySelector<HTMLElement>('.rw-pb-module-head');
     if (head) makeUnitDraggable(m, head);
@@ -911,8 +919,213 @@ export function createPatchBayView(
     const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
     if (busTitle) makeUnitDraggable(bus, busTitle);
   }
-  // graphSection is deliberately not draggable/free-mode — see its own
-  // comment above (dynamic membership doesn't mix with position-freeze).
+  // GRAPH ENGINE — one small module per graph node that's currently
+  // "active": the source of a live (plugged) param binding, OR feeding
+  // another active node's input port (transitively — a Sync node wired
+  // only into another active node's clock input, never itself bound to
+  // a param, still gets a module so the patch is reflected accurately).
+  // Owner feedback drove the original per-node-not-one-chip version; a
+  // follow-up ask ("input to the LFO or any graph element like osc cv
+  // in sine pulse etc") drove the IN jacks below — a node TYPE'S real
+  // input ports (`getDef(type).inputs`, e.g. Ramp's `trigger`, Noise's
+  // `clock`; LFO currently defines none) are rendered as draggable jacks
+  // here, wireable from another active node's OUT jack, instead of only
+  // being wireable in the Graph editor's canvas.
+  //
+  // The module itself is a full peer of a FUNCTION GENERATOR module or
+  // param field (owner: "globally shared parallel node behavior
+  // properties") — same `.rw-pb-module-head` handle, same
+  // `makeUnitDraggable`, reorderable within `rail`'s stack or breakable
+  // into free layout — it's a real child of `rail`, not a separate
+  // wrapper `allUnits()` has to special-case. `graphTitle` and the
+  // empty-state message are the only non-draggable (`data-pb-static`)
+  // children left in the stack, so stack reordering skips over them
+  // rather than treating label text as a drop boundary.
+  const graphTitle = document.createElement('div');
+  graphTitle.className = 'rw-pb-field-title';
+  graphTitle.dataset.pbStatic = 'true';
+  graphTitle.textContent = 'GRAPH ENGINE';
+  attachTooltip(graphTitle, 'Active graph nodes — feeding a live param binding, or wired into another active node\'s input. Drag a module by its header to reorder/move it, like any other module. Drag a bound param\'s cable (on the faceplate) to re-target or unplug it; add new bindings/nodes in the Graph editor.');
+  rail.appendChild(graphTitle);
+  const graphEmpty = document.createElement('div');
+  graphEmpty.className = 'rw-pb-graph-empty';
+  graphEmpty.dataset.pbStatic = 'true';
+  graphEmpty.textContent = 'No active graph outputs yet — bindings you add in the Graph editor appear here.';
+
+  /** Keyed `${nodeId}#${port}` (port '' = the node's default output). */
+  const graphNodeJacks = new Map<string, HTMLElement>();
+  /** One `.rw-pb-graphnode` element per active source node, kept alive
+   *  across rebuilds (see rebuildGraphModules) so a module's free-layout
+   *  position / drag-handler binding survives unrelated `modGraph`
+   *  writes (e.g. a param tweak on some OTHER node). */
+  const graphModuleEls = new Map<string, HTMLElement>();
+  // null (not '') so the very first call — an empty graph's signature
+  // is also '' — doesn't collide with "unchanged" and skip building
+  // the empty-state message.
+  let graphSig: string | null = null;
+
+  function rebuildGraphModules(): void {
+    const patch = settings.get('modGraph');
+    const nodes = patch?.nodes ?? [];
+    const bindings = patch?.bindings ?? [];
+    // Nodes directly active via a live (non-'none') param binding, and
+    // the OUT ports they use. Preserves first-seen order so the list
+    // doesn't reshuffle every time a binding changes.
+    const byNode = new Map<string, Set<string>>();
+    for (const b of bindings) {
+      if (b.paramKey === 'none') continue;
+      const port = b.sourcePort ?? '';
+      if (!byNode.has(b.sourceNodeId)) byNode.set(b.sourceNodeId, new Set());
+      byNode.get(b.sourceNodeId)!.add(port);
+    }
+    // Closure: any node feeding an active node's INPUT is active too
+    // (guard against cycles — feedback patches are a supported, real
+    // graph-engine feature — with a visited set).
+    const queue = [...byNode.keys()];
+    const visited = new Set(queue);
+    while (queue.length) {
+      const id = queue.shift()!;
+      const node = nodes.find((n) => n.id === id);
+      if (!node) continue;
+      for (const ref of Object.values(node.inputs)) {
+        if (!ref) continue;
+        const { nodeId: fromId, port: fromPort } = splitInputRef(ref);
+        if (!byNode.has(fromId)) byNode.set(fromId, new Set());
+        byNode.get(fromId)!.add(fromPort ?? '');
+        if (!visited.has(fromId)) { visited.add(fromId); queue.push(fromId); }
+      }
+    }
+    const sig = [...byNode.entries()]
+      .map(([id, ports]) => `${id}:${nodes.find((n) => n.id === id)?.type ?? '?'}:${[...ports].sort().join(',')}`)
+      .join('|');
+    if (sig === graphSig) return;
+    graphSig = sig;
+
+    // Remove modules for nodes that are no longer active — actual DOM
+    // removal (not a full innerHTML wipe) so an unrelated node's module
+    // elsewhere in `rail`/`board` (possibly mid free-layout-drag) is
+    // untouched. Also prune any stale `unitHomes` entry so `tidy()`
+    // never tries to reinsert a detached element (see freeze()/tidy()).
+    for (const [nodeId, el] of Array.from(graphModuleEls)) {
+      if (byNode.has(nodeId)) continue;
+      el.remove();
+      graphModuleEls.delete(nodeId);
+      for (const key of Array.from(graphNodeJacks.keys())) {
+        if (key.startsWith(`${nodeId}#`)) graphNodeJacks.delete(key);
+      }
+      for (const key of Array.from(graphInputJacks.keys())) {
+        if (key.startsWith(`${nodeId}#`)) graphInputJacks.delete(key);
+      }
+      const homeIdx = unitHomes.findIndex((h) => h.unit === el);
+      if (homeIdx >= 0) unitHomes.splice(homeIdx, 1);
+    }
+
+    if (byNode.size === 0) {
+      graphEmpty.remove();
+      rail.insertBefore(graphEmpty, graphTitle.nextSibling);
+      return;
+    }
+    graphEmpty.remove();
+
+    for (const [nodeId, ports] of byNode) {
+      const node = nodes.find((n) => n.id === nodeId);
+      const def = node ? getDef(node.type) : null;
+      const label = def?.label ?? node?.type ?? 'Unknown node';
+
+      let mod = graphModuleEls.get(nodeId);
+      let head: HTMLElement;
+      if (!mod) {
+        mod = document.createElement('div');
+        mod.className = 'rw-pb-graphnode';
+        head = document.createElement('div');
+        head.className = 'rw-pb-module-head';
+        mod.appendChild(head);
+        makeUnitDraggable(mod, head);
+        rail.appendChild(mod);
+        graphModuleEls.set(nodeId, mod);
+      } else {
+        head = mod.querySelector('.rw-pb-module-head')!;
+      }
+      if (head.textContent !== label) head.textContent = label;
+
+      // Reconcile IN rows against the node's CURRENT type's input
+      // ports — NOT "built once at creation": Beginner view mutates an
+      // EXISTING node's `type` in place when its source dropdown
+      // changes (same id, e.g. LFO -> Noise), so a module can gain or
+      // lose input ports without its element ever being torn down. A
+      // first version of this gated IN-row creation on `!mod` (module
+      // just-created) and missed exactly this case — caught live by
+      // retargeting a Beginner row's source from LFO to Noise and
+      // finding the resulting module had no "clock" IN row at all.
+      const wantedIns = new Map((def?.inputs ?? []).map((p) => [p.name, p] as const));
+      const haveIns = new Set(
+        [...graphInputJacks.keys()]
+          .filter((k) => k.startsWith(`${nodeId}#`))
+          .map((k) => k.slice(nodeId.length + 1)),
+      );
+      for (const port of haveIns) {
+        if (wantedIns.has(port)) continue;
+        graphInputJacks.get(`${nodeId}#${port}`)?.closest('.rw-pb-row')?.remove();
+        graphInputJacks.delete(`${nodeId}#${port}`);
+      }
+      for (const [portName, portSpec] of wantedIns) {
+        if (graphInputJacks.has(`${nodeId}#${portName}`)) continue;
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row';
+        const rowLabel = document.createElement('label');
+        rowLabel.textContent = portSpec.label ?? portSpec.name;
+        const jack = makeJack('rw-rack-jack--in rw-pb-jack--graphin');
+        jack.addEventListener('pointerdown', (ev) => dragGraphIn(ev, nodeId, portSpec.name, jack));
+        attachTooltip(jack, () => {
+          const cur = settings.get('modGraph');
+          const curNode = cur?.nodes.find((n) => n.id === nodeId);
+          const ref = curNode?.inputs[portSpec.name];
+          const portLabel = portSpec.label ?? portSpec.name;
+          if (!ref) return `${label} · ${portLabel} IN — drag from another active node's OUT jack here to wire it (or drag this jack to one).`;
+          const { nodeId: srcId } = splitInputRef(ref);
+          const srcNode = cur?.nodes.find((n) => n.id === srcId);
+          const srcLabel = srcNode ? (getDef(srcNode.type)?.label ?? srcNode.type) : 'an unknown node';
+          return `${label} · ${portLabel} IN — wired from ${srcLabel}. Drag to move, drop in space to unplug.`;
+        });
+        row.append(jack, rowLabel);
+        // Land new IN rows right before the first OUT row (or at the
+        // end if there isn't one yet) so IN stays visually above OUT
+        // even when ports arrive across separate rebuilds.
+        mod.insertBefore(row, mod.querySelector('.rw-pb-row--out'));
+        graphInputJacks.set(`${nodeId}#${portName}`, jack);
+      }
+
+      // Reconcile OUT rows in place: drop rows for ports no longer
+      // used, add rows for newly-used ports. Never touches a row whose
+      // port is unchanged, so its jack element (and any mid-drag cable
+      // anchored to it) stays stable.
+      const havePorts = new Set(
+        [...graphNodeJacks.keys()]
+          .filter((k) => k.startsWith(`${nodeId}#`))
+          .map((k) => k.slice(nodeId.length + 1)),
+      );
+      for (const port of havePorts) {
+        if (ports.has(port)) continue;
+        graphNodeJacks.get(`${nodeId}#${port}`)?.closest('.rw-pb-row')?.remove();
+        graphNodeJacks.delete(`${nodeId}#${port}`);
+      }
+      for (const port of ports) {
+        if (graphNodeJacks.has(`${nodeId}#${port}`)) continue;
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row rw-pb-row--out';
+        const rowLabel = document.createElement('label');
+        rowLabel.textContent = port || 'OUT';
+        const jack = makeJack('rw-rack-jack--out rw-pb-jack--graphout');
+        jack.addEventListener('pointerdown', (ev) => dragGraphOut(ev, `${nodeId}#${port}`, jack));
+        attachTooltip(jack, `${label}${port ? ' · ' + port : ''} OUT — drag onto another active node's IN jack to wire it. To re-target/unplug a PARAM binding, drag the cable's param-end on the faceplate instead.`);
+        row.append(rowLabel, jack);
+        mod.appendChild(row);
+        graphNodeJacks.set(`${nodeId}#${port}`, jack);
+      }
+    }
+  }
+  rebuildGraphModules();
+  settings.subscribe('modGraph', () => rebuildGraphModules());
 
   // Narrow mode and free mode don't mix (narrow stacks the columns) —
   // but a custom node arrangement must SURVIVE the round-trip (owner
@@ -1078,6 +1291,22 @@ export function createPatchBayView(
       });
     }
 
+    // Node-to-node input wiring (a graph node's OUT feeding ANOTHER
+    // node's IN port, e.g. a Sync's pulse into Noise's clock) — distinct
+    // from a binding, which feeds a Settings param. Draggable from
+    // either end (dragGraphIn/dragGraphOut); skip the static draw for
+    // whichever IN port is currently being dragged so only its
+    // rubber-band shows (OUT-side drags only ever create a new wire, so
+    // there's no existing one to hide while dragging from that end).
+    const graphPatchForWires = settings.get('modGraph');
+    for (const w of nodeWires(graphPatchForWires)) {
+      if (pending?.kind === 'to-graphin' && pending.nodeId === w.targetNodeId && pending.port === w.targetPort) continue;
+      const a = anchor(graphNodeJacks.get(`${w.sourceNodeId}#${w.sourcePort}`));
+      const b = anchor(graphInputJacks.get(`${w.targetNodeId}#${w.targetPort}`));
+      if (!a || !b) continue;
+      drawPatchCable(ctx, local(a), local(b), NODE_WIRE_COLOR, { style: 'sag', dashed: false });
+    }
+
     if (pending) {
       let fixed: HTMLElement | undefined;
       let color = CLASSIC_COLOR;
@@ -1088,12 +1317,18 @@ export function createPatchBayView(
       } else if (pending.kind === 'to-slotsrc') {
         fixed = srcJacks.get(pending.source);
         color = SOURCE_COLOR;
-      } else {
+      } else if (pending.kind === 'to-param-graph') {
         const bindingId = pending.bindingId;
         const patch = settings.get('modGraph');
         const b = patch?.bindings.find((x) => x.id === bindingId);
         fixed = b ? graphNodeJacks.get(`${b.sourceNodeId}#${b.sourcePort ?? ''}`) : undefined;
         color = GRAPH_COLOR;
+      } else if (pending.kind === 'to-graphin') {
+        fixed = graphInputJacks.get(`${pending.nodeId}#${pending.port}`);
+        color = NODE_WIRE_COLOR;
+      } else {
+        fixed = graphNodeJacks.get(pending.sourceKey);
+        color = NODE_WIRE_COLOR;
       }
       const a = anchor(fixed);
       if (a) {
@@ -1108,6 +1343,10 @@ export function createPatchBayView(
     }
     for (const [i, el] of slotOutJacks) {
       el.classList.toggle('rw-rack-jack--plugged', slots[i] ? slots[i].target !== 'none' : false);
+    }
+    for (const [key, el] of graphInputJacks) {
+      const { nodeId, port } = splitJackKey(key);
+      el.classList.toggle('rw-rack-jack--plugged', !!graphPatchForWires?.nodes.find((n) => n.id === nodeId)?.inputs[port]);
     }
   }
   requestAnimationFrame(frame);

@@ -12,7 +12,7 @@
  */
 
 import type { ModSlot, ModTarget } from '../../state/Settings';
-import type { GraphPatch } from '../../modulation/graph/types';
+import { splitInputRef, type GraphPatch } from '../../modulation/graph/types';
 
 export interface Pt { x: number; y: number }
 
@@ -22,6 +22,17 @@ export interface ClassicCable {
   /** Disabled slots keep their cable, drawn dimmed — like a patched but
    *  muted module. */
   enabled: boolean;
+}
+
+/** A wired connection from one graph node's output port into another
+ *  graph node's input port (`GraphNode.inputs[port]` — distinct from a
+ *  `TargetBinding`, which feeds a Settings param instead). */
+export interface NodeWire {
+  targetNodeId: string;
+  targetPort: string;
+  sourceNodeId: string;
+  /** '' means the source's default (first) output port. */
+  sourcePort: string;
 }
 
 export interface GraphCable {
@@ -90,6 +101,43 @@ export function applyGraphBindingTarget(patch: GraphPatch, bindingId: string, pa
   return {
     ...patch,
     bindings: patch.bindings.map((b) => (b.id === bindingId ? { ...b, paramKey } : b)),
+  };
+}
+
+/** Every currently-wired node-to-node input connection in the patch
+ *  (`GraphNode.inputs[port]` refs, resolved via the shared
+ *  `splitInputRef` parser — the same one the engine/topo-sort/editor
+ *  use, so this reads exactly what they'd read). */
+export function nodeWires(patch: GraphPatch | null | undefined): NodeWire[] {
+  if (!patch) return [];
+  const out: NodeWire[] = [];
+  for (const n of patch.nodes) {
+    for (const [port, ref] of Object.entries(n.inputs)) {
+      if (!ref) continue;
+      const { nodeId: sourceNodeId, port: sourcePort } = splitInputRef(ref);
+      out.push({ targetNodeId: n.id, targetPort: port, sourceNodeId, sourcePort: sourcePort ?? '' });
+    }
+  }
+  return out;
+}
+
+/**
+ * Wire (or unplug, `ref: null`) one node's input port. `ref` follows the
+ * engine's own convention (`splitInputRef`): a plain node id reads that
+ * node's default/first output; `nodeId#port` names a specific output on
+ * a multi-output node. Returns a new `GraphPatch` (nodes array replaced
+ * wholesale, bindings untouched) — same wholesale-array convention as
+ * `applyGraphBindingTarget`.
+ */
+export function applyNodeInputRef(
+  patch: GraphPatch,
+  nodeId: string,
+  port: string,
+  ref: string | null,
+): GraphPatch {
+  return {
+    ...patch,
+    nodes: patch.nodes.map((n) => (n.id === nodeId ? { ...n, inputs: { ...n.inputs, [port]: ref } } : n)),
   };
 }
 

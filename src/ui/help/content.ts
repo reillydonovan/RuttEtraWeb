@@ -82,10 +82,14 @@ const MD_QUICKSTART = `
 > original console's engraved groups, and dragging cables between them
 > IS editing the slots' Source/Target — the Modulation panel updates as
 > you patch. A GRAPH ENGINE section shows one module per graph node
-> that's actively feeding a param (labeled LFO, Audio Envelope, etc.) —
-> those cables are draggable too: grab a bound param's jack to re-route
-> that node's output elsewhere, or drop it in space to unplug. Try
-> **Window ▸ Layout ▸ Patch Bay**.
+> that's actively feeding a param or another node's input (labeled LFO,
+> Audio Envelope, etc.) — a full peer of the other modules, so its
+> header drags/reorders/breaks into free layout too. Its param cables
+> are draggable: grab a bound param's jack to re-route that node's
+> output elsewhere, or drop it in space to unplug. Some nodes also take
+> an input from another node (Ramp's trigger, Noise's clock) — those
+> show as IN jacks, wireable straight from another active node's OUT
+> jack. Try **Window ▸ Layout ▸ Patch Bay**.
 
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
