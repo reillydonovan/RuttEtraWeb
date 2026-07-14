@@ -136,6 +136,7 @@
 .rw-pb-module,
 .rw-pb-field,
 .rw-pb-graphnode {
+  position: relative;
   border: 1px solid var(--re-line-hi);
   border-radius: 3px;
   background: linear-gradient(180deg, rgba(30, 40, 30, 0.6), rgba(12, 18, 12, 0.5));
@@ -145,6 +146,26 @@
   padding: 8px;
   font-family: var(--re-mono);
 }
+
+/* Faceplate screws in the top corners — same machined-screw recipe as
+   the rack skin's section headers (rack.css), selling the eurorack
+   module look the owner's RE-4 reference photo has everywhere. */
+.rw-pb-module::before, .rw-pb-module::after,
+.rw-pb-field::before, .rw-pb-field::after,
+.rw-pb-graphnode::before, .rw-pb-graphnode::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3c463c 0%, #141a14 55%, #2a332a 100%);
+  border: 1px solid rgba(95, 255, 133, 0.28);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+.rw-pb-module::before, .rw-pb-field::before, .rw-pb-graphnode::before { left: 4px; }
+.rw-pb-module::after, .rw-pb-field::after, .rw-pb-graphnode::after { right: 4px; }
 
 /* GRAPH ENGINE — dynamic per-node modules (see PatchBayView.ts's
    rebuildGraphModules). Each `.rw-pb-graphnode` is a real child of the
@@ -273,12 +294,14 @@
   gap: 8px 10px;
 }
 
-/* Each cell is jack+label on top, a direct base-value input below it
-   (owner: "a user can run the entire synth in the patch bay if they
-   don't want to use the controls tab") — every faceplate param is a
-   number by construction (ModTarget excludes booleans/enums), so this
-   is always a plain number input; `cv:N` virtual targets skip it
-   (addParamCell) since they aren't real Settings keys. */
+/* Each cell mirrors one row of the real RE-4 faceplate (owner reference
+   photo, screenshots/ruttetra.jpeg): IN jack + engraved label + OUT
+   jack on top, then a rotary knob beside its backlit value readout —
+   "a user can run the entire synth in the patch bay if they don't want
+   to use the controls tab". Every faceplate param is a number by
+   construction (ModTarget excludes booleans/enums); `cv:N` virtual
+   targets get jacks only (addParamCell) — they aren't real Settings
+   keys. */
 .rw-pb-cell {
   display: flex;
   flex-direction: column;
@@ -294,12 +317,21 @@
   gap: 6px;
   min-width: 0;
 }
-.rw-pb-cell span:last-child {
+.rw-pb-cell-top span:not(.rw-rack-jack) {
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.rw-pb-cell-ctl {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
 .rw-pb-cell-value {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--re-line);
@@ -309,6 +341,85 @@
   font-family: var(--re-mono);
   font-size: 11px;
   padding: 2px 4px;
+}
+/* Live (modulated) readout — same amber language as Controls' orange
+   ▸ badge (`.rw-live-badge`); hidden while the param sits at base. */
+.rw-pb-cell-live {
+  font-family: var(--re-mono);
+  font-size: 10px;
+  color: var(--re-accent-2);
+  text-shadow: 0 0 4px rgba(255, 179, 71, 0.45);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.rw-pb-cell-live[hidden] { display: none; }
+
+/* ---------- mini rotary knob (miniKnob.ts) ---------- */
+/* Same visual recipe as the hardware skin's slider knob face
+   (skin.css .rw-knob-*), scaled down for jack cells and graph node
+   param rows, plus an amber LIVE needle the slider knob doesn't have. */
+.rw-pbknob {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rw-pbknob:focus-visible {
+  outline: 1px solid var(--re-accent);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.rw-pbknob-svg { display: block; width: 100%; height: 100%; }
+.rw-pbknob-track {
+  fill: none;
+  stroke: var(--re-line);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.rw-pbknob-fill {
+  fill: none;
+  stroke: var(--re-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(95, 255, 133, 0.55));
+}
+.rw-pbknob-cap {
+  fill: var(--re-panel-hi);
+  stroke: var(--re-line-hi);
+  stroke-width: 1;
+}
+.rw-pbknob-ptr {
+  stroke: var(--re-text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.rw-pbknob-liveptr {
+  stroke: var(--re-accent-2);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(255, 179, 71, 0.55));
+}
+
+/* Scope node's live phosphor trace (drawn per-frame in frame()). */
+.rw-pb-scoperow { display: block; }
+.rw-pb-scope-canvas {
+  display: block;
+  width: 100%;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* Waveform-shape jack on enum params (LFO shape) — slightly smaller so
+   it reads as a picker, not a full signal input. */
+.rw-patchbay .rw-pb-jack--shape {
+  width: 13px;
+  height: 13px;
 }
 
 /* ---------- narrow mode (bay hosted in a side window) ---------- */
@@ -332,6 +443,13 @@
 .rw-pb-freemode:not(.rw-pb--narrow) .rw-pb-surface { padding: 150px; }
 .rw-pb-unit-handle { cursor: grab; }
 .rw-pb-freemode .rw-pb-deck { pointer-events: none; } /* empty flow containers */
+/* Static rail children (the GRAPH ENGINE divider label + empty-state
+   message) are NOT free-layout units — when freeze() re-parents every
+   real unit to the board, they'd be left behind in the collapsed rail,
+   rendering as text floating at the top-left of the board with nothing
+   anchoring it (owner bug report, patchproblem5/6). Free layout has no
+   section dividers by design, so hide them until TIDY restores flow. */
+.rw-pb-freemode [data-pb-static] { display: none; }
 .rw-pb-unit-free {
   position: absolute;
   z-index: 4;

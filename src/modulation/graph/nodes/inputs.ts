@@ -226,3 +226,34 @@ register<{}>({
     outputs.gate = v > 0.5 ? 1 : 0;
   },
 });
+
+// ---------- Param Out (Patch Bay per-param OUT jacks) ----------
+//
+// A synth parameter's LIVE value (base + every modulation layer) as a
+// control signal — the software equivalent of the RE-4's per-param
+// output jack. Reads via the engine-wired `deps.paramLive` hook, which
+// sees the PREVIOUS frame's contributions (this frame's bindings apply
+// after nodes tick), so param→param patches get a clean one-frame
+// delay — the same semantics as a feedback loop's cycle edges. The key
+// list mirrors `TARGETS` (the modulation-target registry) so this node
+// can read exactly what the rest of the system can write.
+
+import { TARGETS } from '../../../ui/targets';
+
+const PARAM_OUT_KEYS = TARGETS.map((t) => String(t.v));
+
+register<{}>({
+  type: 'param-out',
+  category: 'Inputs',
+  label: 'Param Out',
+  description: 'A synth parameter’s live value (base + all modulation, one frame behind) as a control signal — what the Patch Bay’s per-param OUT jacks create. Raw parameter units; add a Scale/Range processor to normalize.',
+  inputs: [],
+  outputs: [{ name: 'out', kind: 'control' }],
+  params: {
+    key: { kind: 'enum', options: PARAM_OUT_KEYS, default: 'zPush' },
+  },
+  init: () => ({}),
+  tick(ctx, _s, _i, params, outputs) {
+    outputs.out = ctx.deps.paramLive?.(String(params.key ?? '')) ?? 0;
+  },
+});

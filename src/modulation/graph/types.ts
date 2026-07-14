@@ -47,7 +47,11 @@ export type NodeType =
   // outputs, documents a patch for whoever opens it next. A new node
   // type needs no schema bump: unrecognized types already round-trip
   // fine (GraphEngine skips defs it can't find).
-  | 'note';
+  | 'note'
+  // Patch Bay-era additions: a synth param's live value as a signal
+  // (the per-param OUT jack creates these), and a passthrough
+  // oscilloscope whose Patch Bay module draws its signal live.
+  | 'param-out' | 'scope';
 
 export type CurveType = 'linear' | 'exp' | 'log' | 'sCurve';
 export type BindingMode = 'additive' | 'multiplicative';
@@ -195,6 +199,17 @@ export interface NodeDeps {
    * sequencer and Classic LFO patches in Tempo sync mode.
    */
   bpm?: number;
+  /**
+   * Read a synth param's LIVE value (base + all modulation) by Settings
+   * key — wired by GraphEngine from its LiveValuesStore. Used by the
+   * `param-out` node (the Patch Bay's per-param OUT jacks). READ-ONLY by
+   * contract: the base/live split forbids any node writing live values.
+   * Reads see the PREVIOUS frame's contributions (this tick's bindings
+   * haven't been applied yet while nodes run), so param→param patches
+   * get a clean one-frame delay — same semantics as a graph feedback
+   * loop's cycle edges.
+   */
+  paramLive?: (key: string) => number;
 }
 
 // Minimal duck-typed interfaces so the engine stays decoupled from the

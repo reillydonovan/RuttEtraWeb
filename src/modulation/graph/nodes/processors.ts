@@ -517,3 +517,29 @@ register<SvfState>({
     outputs.out = type === 'highpass' ? high : type === 'bandpass' ? state.band : state.low;
   },
 });
+
+// ---------- Scope (passthrough oscilloscope) ----------
+//
+// Signal-transparent: `out` is exactly `in`, so a scope can be spliced
+// into any cable run without changing the sound of the patch — the
+// point is the VISUAL. The Patch Bay draws a live trace on the scope's
+// module (sampling the engine via `probe()` each frame, the same
+// mechanism as the graph editor's Probe overlay); in the graph editor
+// use Probe on its `out` port. Chosen over per-LFO waveform icons
+// because it shows the ACTUAL signal — post-mix, post-filter, mid-
+// feedback — for anything you patch through it, not an idealized
+// picture of one node type.
+
+register<{}>({
+  type: 'scope',
+  category: 'Processors',
+  label: 'Scope',
+  description: 'Passthrough oscilloscope: out = in, unchanged. Splice into any cable to SEE the signal — the Patch Bay renders a live trace on the module.',
+  inputs: [{ name: 'in', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control' }],
+  params: {},
+  init: () => ({}),
+  tick(_ctx, _s, ins, _p, outputs) {
+    outputs.out = ins.in ?? 0;
+  },
+});

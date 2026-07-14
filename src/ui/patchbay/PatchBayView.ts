@@ -47,6 +47,9 @@ import { getDef } from '../../modulation/graph/registry';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
 import { PARAM_DOCS } from '../help/paramDocs';
+import { whenLiveValues } from '../liveValueBus';
+import type { LiveValuesStore } from '../../modulation/LiveValues';
+import { createMiniKnob, type MiniKnob } from './miniKnob';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
@@ -63,6 +66,27 @@ const SOURCE_COLOR    = '#b9ffd0';
 const GRAPH_COLOR     = '#5fffd0';
 const NODE_WIRE_COLOR = '#ffb347';
 const SNAP_PX = 26;
+
+/** Classic waveform sources ↔ graph enum options (LFO `shape`). Lets
+ *  the SOURCES bus jacks plug into a node's shape param — drag TRI onto
+ *  an LFO's shape jack to get a triangle wave (owner ask). The Classic
+ *  source names and LFO shape option names already coincide (`sine`,
+ *  `triangle`, `square`, `saw`, `pulse`); `ramp` additionally maps to
+ *  `saw` (a ramp IS a rising saw). */
+const WAVE_SOURCE_TO_OPTION: Partial<Record<ModSource, string>> = {
+  sine: 'sine', triangle: 'triangle', square: 'square', saw: 'saw', ramp: 'saw', pulse: 'pulse',
+};
+const OPTION_TO_WAVE_SOURCE: Partial<Record<string, ModSource>> = {
+  sine: 'sine', triangle: 'triangle', square: 'square', saw: 'saw', pulse: 'pulse',
+};
+/** An enum param earns a shape jack only when it's genuinely a waveform
+ *  picker (≥2 of its options are mappable) — keeps e.g. Ramp's
+ *  up/down/triangle/one-shot `mode` from sprouting a misleading jack
+ *  just because 'triangle' happens to appear in it. */
+function waveShapeMatches(options: readonly string[]): number {
+  const mapped = new Set(Object.values(WAVE_SOURCE_TO_OPTION));
+  return options.filter((o) => mapped.has(o)).length;
+}
 
 /** Parse a `${nodeId}#${port}` jack-registry key (`port` is always a
  *  real declared port name in this registry — see `defaultOutputPort`
@@ -127,6 +151,20 @@ export function createPatchBayView(
    *  always a plain number input. `cv:N` virtual CV-out targets aren't
    *  real Settings keys and don't get one (see addParamCell). */
   const paramValueInputs = new Map<string, HTMLInputElement>();
+  /** Rotary knob + amber live readout per faceplate param — the same
+   *  base value as the input, RE-4-style (owner reference photo). */
+  const paramKnobs = new Map<string, MiniKnob>();
+  const paramLiveSpans = new Map<string, HTMLElement>();
+  /** Per-param OUT jack (hardware reference: every param row has an
+   *  input AND an output) — dragging one onto another param or a node
+   *  IN port creates/reuses a `param-out` graph node reading this
+   *  param's live value as a signal. */
+  const paramOutJacks = new Map<string, HTMLElement>();
+  /** Waveform-shape jacks on graph node enum params (`${nodeId}#${param}`). */
+  const shapeJacks = new Map<string, HTMLElement>();
+  /** Lazily-wired LiveValuesStore handle (display only — never written). */
+  let live: LiveValuesStore | null = null;
+  whenLiveValues((lv) => { live = lv; });
   /** Graph node IN jacks, keyed `${nodeId}#${port}` (`port` a real
    *  declared input port name) — populated in rebuildGraphModules
    *  alongside the OUT-jack `graphNodeJacks` (declared closer to it). */
@@ -142,13 +180,18 @@ export function createPatchBayView(
   type Pending =
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
     | { kind: 'to-slotout'; paramKey: string; pos: Pt; hover: number | null }
-    | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: number | null }
+    | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: SlotSrcHover }
     | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null }
     | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: string | null }
-    | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: GraphOutHover };
+    | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: GraphOutHover }
+    | { kind: 'to-paramout'; paramKey: string; pos: Pt; hover: GraphOutHover }
+    | { kind: 'to-shapesrc'; nodeId: string; param: string; pos: Pt; hover: ModSource | null };
   /** An OUT jack can land on another node's IN jack (wire) OR a faceplate
-   *  param jack (binding) — see dragGraphOut. */
+   *  param jack (binding) — see dragGraphOut / dragParamOut. */
   type GraphOutHover = { kind: 'in'; key: string } | { kind: 'param'; key: string } | null;
+  /** A SOURCES bus jack can land on a Classic slot's SRC IN OR a graph
+   *  node's waveform-shape jack — see dragSource. */
+  type SlotSrcHover = { kind: 'slot'; index: number } | { kind: 'shape'; key: string } | null;
   let pending: Pending | null = null;
 
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
@@ -280,10 +323,12 @@ export function createPatchBayView(
    *  up; every node should be able to feed a param directly from here,
    *  same as a Classic slot's OUT). Whichever jack is CLOSER wins when
    *  both are in snap range. */
-  function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
-    const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
-    const setGraphOutHover = (next: GraphOutHover): void => {
+  /** Shared hover machinery for gestures whose drop target can be a
+   *  graph node IN jack OR a faceplate param jack (dragGraphOut,
+   *  dragParamOut): transitions highlight state between the two jack
+   *  maps, and picks whichever candidate is genuinely closer. */
+  function graphOutHoverSetter(p: { hover: GraphOutHover }): (next: GraphOutHover) => void {
+    return (next) => {
       const prev = p.hover;
       if (prev?.kind === next?.kind && prev?.key === next?.key) return;
       if (prev?.kind === 'in') setHover(graphInputJacks, prev.key, null);
@@ -292,22 +337,31 @@ export function createPatchBayView(
       if (next?.kind === 'param') setHover(paramJacks, null, next.key);
       p.hover = next;
     };
+  }
+  function nearestGraphOutTarget(pos: Pt, excludeParam?: string): GraphOutHover {
+    const inHit = nearestJack(centersOf(graphInputJacks), pos, SNAP_PX);
+    const paramCandidates = excludeParam
+      ? centersOf(paramJacks).filter((c) => c.id !== excludeParam)
+      : centersOf(paramJacks);
+    const paramHit = nearestJack(paramCandidates, pos, SNAP_PX);
+    if (inHit && paramHit) {
+      const dIn = Math.hypot(inHit.x - pos.x, inHit.y - pos.y);
+      const dParam = Math.hypot(paramHit.x - pos.x, paramHit.y - pos.y);
+      return dIn <= dParam ? { kind: 'in', key: inHit.id } : { kind: 'param', key: paramHit.id };
+    }
+    if (inHit) return { kind: 'in', key: inHit.id };
+    if (paramHit) return { kind: 'param', key: paramHit.id };
+    return null;
+  }
+
+  function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const setGraphOutHover = graphOutHoverSetter(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const inHit = nearestJack(centersOf(graphInputJacks), pos, SNAP_PX);
-        const paramHit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
-        if (inHit && paramHit) {
-          const dIn = Math.hypot(inHit.x - pos.x, inHit.y - pos.y);
-          const dParam = Math.hypot(paramHit.x - pos.x, paramHit.y - pos.y);
-          setGraphOutHover(dIn <= dParam ? { kind: 'in', key: inHit.id } : { kind: 'param', key: paramHit.id });
-        } else if (inHit) {
-          setGraphOutHover({ kind: 'in', key: inHit.id });
-        } else if (paramHit) {
-          setGraphOutHover({ kind: 'param', key: paramHit.id });
-        } else {
-          setGraphOutHover(null);
-        }
+        setGraphOutHover(nearestGraphOutTarget(pos));
       },
       () => {
         const hover = p.hover;
@@ -358,6 +412,47 @@ export function createPatchBayView(
     return port === defaultOutputPort(nodeId) ? nodeId : `${nodeId}#${port}`;
   }
 
+  /** Drag a faceplate param's OUT jack (hardware reference: every param
+   *  row has an input AND an output) onto another param jack or a node
+   *  IN port. Creates — or reuses, so repeated drags from the same
+   *  param don't pile up duplicates — a `param-out` graph node reading
+   *  this param's live value, then binds/wires it to the drop target. */
+  function dragParamOut(ev: PointerEvent, paramKey: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-paramout', paramKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const setPOHover = graphOutHoverSetter(p);
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        // A param feeding itself is a degenerate loop — exclude self.
+        setPOHover(nearestGraphOutTarget(pos, paramKey));
+      },
+      () => {
+        const hover = p.hover;
+        setPOHover(null);
+        pending = null;
+        if (!hover) return;
+        let patch: GraphPatch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
+        let node = patch.nodes.find((n) => n.type === 'param-out' && String(n.params.key) === paramKey);
+        if (!node) {
+          node = { id: genId('n'), type: 'param-out', params: { key: paramKey }, inputs: {} };
+          patch = { ...patch, nodes: [...patch.nodes, node] };
+        }
+        const updated: GraphPatch = hover.kind === 'in'
+          ? applyNodeInputRef(patch, splitJackKey(hover.key).nodeId, splitJackKey(hover.key).port, node.id)
+          : {
+            ...patch,
+            bindings: [...patch.bindings, {
+              id: genId('b'), paramKey: hover.key, sourceNodeId: node.id,
+              amount: 0.25, mode: 'additive',
+            }],
+          };
+        if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+        settings.set('modGraph', updated);
+        void getEngine().then((e) => e.setPatch(updated));
+      });
+  }
+
   function dragParam(ev: PointerEvent, key: string, jack: HTMLElement): void {
     const i = slotForParam(settings.get('modSlots'), key);
     if (i >= 0) { dragSlotOut(ev, i, jack); return; }
@@ -382,23 +477,91 @@ export function createPatchBayView(
       });
   }
 
+  /** Drag a SOURCES bus jack toward a Classic slot's SRC IN (sets that
+   *  slot's source, as before) OR a graph node's waveform-shape jack
+   *  (sets that node's shape param — drag TRI onto an LFO's shape jack
+   *  to get a triangle wave). Closest candidate wins. */
   function dragSource(ev: PointerEvent, source: ModSource, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-slotsrc', source, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const mappedOption = WAVE_SOURCE_TO_OPTION[source];
+    const setSrcHover = (next: SlotSrcHover): void => {
+      const prev = p.hover;
+      if (prev?.kind === next?.kind
+        && (prev?.kind === 'slot' ? prev.index === (next as { index: number }).index : prev?.key === (next as { key: string })?.key)) return;
+      if (prev?.kind === 'slot') setHover(slotSrcJacks, prev.index, null);
+      if (prev?.kind === 'shape') setHover(shapeJacks, prev.key, null);
+      if (next?.kind === 'slot') setHover(slotSrcJacks, null, next.index);
+      if (next?.kind === 'shape') setHover(shapeJacks, null, next.key);
+      p.hover = next;
+    };
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const slotHit = nearestJack(centersOf(slotSrcJacks), pos, SNAP_PX);
+        // Only waveform sources can land on a shape jack — AUDIO ENV
+        // dropped on an LFO's shape has no meaning.
+        const shapeHit = mappedOption ? nearestJack(centersOf(shapeJacks), pos, SNAP_PX) : null;
+        if (slotHit && shapeHit) {
+          const dSlot = Math.hypot(slotHit.x - pos.x, slotHit.y - pos.y);
+          const dShape = Math.hypot(shapeHit.x - pos.x, shapeHit.y - pos.y);
+          setSrcHover(dSlot <= dShape ? { kind: 'slot', index: slotHit.id } : { kind: 'shape', key: shapeHit.id });
+        } else if (slotHit) {
+          setSrcHover({ kind: 'slot', index: slotHit.id });
+        } else if (shapeHit) {
+          setSrcHover({ kind: 'shape', key: shapeHit.id });
+        } else {
+          setSrcHover(null);
+        }
+      },
+      () => {
+        const hover = p.hover;
+        setSrcHover(null);
+        pending = null;
+        if (!hover) return;
+        if (hover.kind === 'slot') {
+          const slots = settings.get('modSlots');
+          if (slots[hover.index] && slots[hover.index].source !== source) {
+            settings.set('modSlots', applyCableSource(slots, hover.index, source));
+          }
+          return;
+        }
+        applyShapeFromSource(hover.key, source);
+      });
+  }
+
+  /** Set a node's waveform-shape enum param from a Classic waveform
+   *  source, if the mapping lands on one of the param's real options. */
+  function applyShapeFromSource(shapeKey: string, source: ModSource): void {
+    const option = WAVE_SOURCE_TO_OPTION[source];
+    if (!option) return;
+    const { nodeId, port: param } = splitJackKey(shapeKey);
+    const patch = settings.get('modGraph');
+    const node = patch?.nodes.find((n) => n.id === nodeId);
+    const spec = node ? getDef(node.type)?.params[param] : undefined;
+    if (!spec || spec.kind !== 'enum' || !spec.options.includes(option)) return;
+    if (node!.params[param] === option) return;
+    writeGraphNodeParam(nodeId, param, option);
+  }
+
+  /** Reverse gesture: drag a node's shape jack toward a SOURCES bus
+   *  waveform jack to pick that waveform. */
+  function dragShapeJack(ev: PointerEvent, nodeId: string, param: string, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-shapesrc', nodeId, param, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(centersOf(slotSrcJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(slotSrcJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        const hit = nearestJack(
+          centersOf(srcJacks).filter((c) => WAVE_SOURCE_TO_OPTION[c.id] !== undefined),
+          pos, SNAP_PX,
+        );
+        if ((hit?.id ?? null) !== p.hover) { setHover(srcJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
       },
       () => {
-        setHover(slotSrcJacks, p.hover, null);
+        setHover(srcJacks, p.hover, null);
         pending = null;
-        if (p.hover == null) return;
-        const slots = settings.get('modSlots');
-        if (slots[p.hover] && slots[p.hover].source !== source) {
-          settings.set('modSlots', applyCableSource(slots, p.hover, source));
-        }
+        if (p.hover) applyShapeFromSource(`${nodeId}#${param}`, p.hover);
       });
   }
 
@@ -612,43 +775,76 @@ export function createPatchBayView(
     jack.addEventListener('pointerdown', (ev) => dragParam(ev, key, jack));
     attachTooltip(jack, () => {
       const i = slotForParam(settings.get('modSlots'), key);
-      if (i >= 0) return `${label} — patched from Function Gen ${i + 1}. Drag to move, drop in space to unplug.`;
+      if (i >= 0) return `${label} IN — patched from Function Gen ${i + 1}. Drag to move, drop in space to unplug.`;
       const patch = settings.get('modGraph');
       const bindingId = graphBindingForParam(patch, key);
       if (bindingId) {
         const b = patch?.bindings.find((x) => x.id === bindingId);
         const node = b ? patch?.nodes.find((n) => n.id === b.sourceNodeId) : null;
         const nodeLabel = node ? getDef(node.type)?.label ?? node.type : 'a graph node';
-        return `${label} — patched from ${nodeLabel} (graph). Drag to move, drop in space to unplug.`;
+        return `${label} IN — patched from ${nodeLabel} (graph). Drag to move, drop in space to unplug.`;
       }
-      return `${label} — drag to a generator OUT (or from one to here) to patch.`;
+      return `${label} IN — drag to a generator OUT (or from one to here) to patch.`;
     });
     const l = document.createElement('span');
     l.textContent = label;
     topRow.append(jack, l);
     cell.appendChild(topRow);
+    paramJacks.set(key, jack);
 
-    // Direct base-value edit — `cv:N` virtual CV-out targets aren't
-    // real Settings keys, so they don't get one.
-    if (!key.startsWith('cv:')) {
-      const range = paramRangeFor(key);
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.className = 'rw-pb-cell-value';
-      input.step = String(range.step);
-      input.min = String(range.min);
-      input.max = String(range.max);
-      input.addEventListener('input', () => {
-        const v = parseFloat(input.value);
-        if (Number.isFinite(v)) writeParamValue(key, v);
-      });
-      attachTooltip(input, `${label} — base value (${range.min}..${range.max}). Any modulation on this param adds/multiplies on top, live.`);
-      cell.appendChild(input);
-      paramValueInputs.set(key, input);
+    // `cv:N` virtual CV-out targets aren't real Settings keys — they
+    // get the IN jack only (no OUT jack, knob, or value field).
+    if (key.startsWith('cv:')) {
+      grid.appendChild(cell);
+      return;
     }
 
+    // OUT jack — the param's live value as a patchable signal
+    // (hardware reference: every RE-4 param row has an input AND an
+    // output jack). Dragging it creates/reuses a `param-out` node.
+    const outJack = makeJack('rw-rack-jack--out rw-pb-jack--paramout');
+    outJack.addEventListener('pointerdown', (ev) => dragParamOut(ev, key, outJack));
+    attachTooltip(outJack, `${label} OUT — this param's live value as a signal. Drag onto another param (or a node's IN jack) to patch it there.`);
+    topRow.appendChild(outJack);
+    paramOutJacks.set(key, outJack);
+
+    // Rotary knob + backlit value field (base value; the amber needle /
+    // ▸ readout show the live value when modulation rides on top).
+    const range = paramRangeFor(key);
+    const ctl = document.createElement('div');
+    ctl.className = 'rw-pb-cell-ctl';
+    const knob = createMiniKnob({
+      min: range.min, max: range.max, step: range.step,
+      label,
+      get: () => {
+        const v = settings.get(key as keyof Settings);
+        return typeof v === 'number' ? v : 0;
+      },
+      set: (v) => writeParamValue(key, v),
+    });
+    attachTooltip(knob.el, `${label} — drag vertically to adjust (Shift = fine). Amber needle = live value with modulation.`);
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'rw-pb-cell-value';
+    input.step = String(range.step);
+    input.min = String(range.min);
+    input.max = String(range.max);
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value);
+      if (Number.isFinite(v)) writeParamValue(key, v);
+    });
+    attachTooltip(input, `${label} — base value (${range.min}..${range.max}). Any modulation on this param adds/multiplies on top, live.`);
+    ctl.append(knob.el, input);
+    cell.appendChild(ctl);
+    const liveSpan = document.createElement('span');
+    liveSpan.className = 'rw-pb-cell-live';
+    liveSpan.hidden = true;
+    cell.appendChild(liveSpan);
+    paramValueInputs.set(key, input);
+    paramKnobs.set(key, knob);
+    paramLiveSpans.set(key, liveSpan);
+
     grid.appendChild(cell);
-    paramJacks.set(key, jack);
   }
 
   for (const field of buildFaceplate()) {
@@ -893,6 +1089,49 @@ export function createPatchBayView(
     syncSurfaceSize();
   }
 
+  /** Free-layout collision resolution (owner: "patch nodes can't
+   *  overlap each other"): after a drop, push the dropped unit out of
+   *  any unit it intersects, along whichever axis needs the smaller
+   *  shove, re-scanning until clean. Runs on RELEASE, not per-move —
+   *  mid-drag overlap is allowed (it's how you pass over the board),
+   *  the resting layout is what stays collision-free. Iteration-capped:
+   *  a pathological packing degrades to "some overlap remains" rather
+   *  than a livelock. */
+  function resolveOverlap(unit: HTMLElement): void {
+    const GAP = 10;
+    for (let iter = 0; iter < 24; iter++) {
+      const l = parseFloat(unit.style.left) || 0;
+      const t = parseFloat(unit.style.top) || 0;
+      const w = unit.offsetWidth, h = unit.offsetHeight;
+      let pushed = false;
+      for (const other of Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free'))) {
+        if (other === unit) continue;
+        const ol = parseFloat(other.style.left) || 0;
+        const ot = parseFloat(other.style.top) || 0;
+        const ow = other.offsetWidth, oh = other.offsetHeight;
+        const overlapX = Math.min(l + w, ol + ow) - Math.max(l, ol);
+        const overlapY = Math.min(t + h, ot + oh) - Math.max(t, ot);
+        if (overlapX <= 0 || overlapY <= 0) continue;
+        if (overlapX < overlapY) {
+          const nl = l + w / 2 < ol + ow / 2 ? ol - w - GAP : ol + ow + GAP;
+          unit.style.left = `${Math.max(0, nl)}px`;
+        } else {
+          const nt = t + h / 2 < ot + oh / 2 ? ot - h - GAP : ot + oh + GAP;
+          unit.style.top = `${Math.max(0, nt)}px`;
+        }
+        pushed = true;
+        break; // positions changed — re-scan from the top
+      }
+      if (!pushed) break;
+    }
+    // Grow the board if the push landed past its current edge.
+    const need = (parseFloat(unit.style.left) || 0) + unit.offsetWidth + 24;
+    if (need > board.offsetWidth) board.style.minWidth = `${need}px`;
+    const needH = (parseFloat(unit.style.top) || 0) + unit.offsetHeight + 24;
+    if (needH > board.offsetHeight) board.style.minHeight = `${needH}px`;
+    syncSurfaceSize();
+  }
+
   // Stack containers a dragged unit can reorder within (owner request:
   // drag-and-drop node ORDER inside the default vertical stacks, with
   // an insertion line; dragging away from every stack breaks the board
@@ -1025,8 +1264,11 @@ export function createPatchBayView(
             const bRect = board.getBoundingClientRect();
             unit.style.left = `${Math.max(0, (e.clientX - bRect.left) / zoom - unit.offsetWidth / 2)}px`;
             unit.style.top = `${Math.max(0, (e.clientY - bRect.top) / zoom - 10)}px`;
-            syncSurfaceSize();
+            resolveOverlap(unit);
           }
+        } else {
+          // Free-mode drag released: settle into a non-overlapping spot.
+          resolveOverlap(unit);
         }
       };
       doc.addEventListener('pointermove', onMove, { passive: false });
@@ -1102,6 +1344,15 @@ export function createPatchBayView(
    *  place); VALUES refreshed separately via `refreshGraphControls()`
    *  so typing into one doesn't require a structural rebuild. */
   const graphParamInputs = new Map<string, { el: HTMLInputElement | HTMLSelectElement; kind: 'number' | 'enum' | 'boolean' }>();
+  /** Rotary knobs for graph node NUMBER params (`${nodeId}#${param}`). */
+  const graphKnobs = new Map<string, MiniKnob>();
+  /** Live trace surfaces for `scope` nodes (nodeId → canvas + ring
+   *  buffer). Fed each frame from `engine.probe()` — the same sampling
+   *  mechanism as the graph editor's Probe overlay. */
+  const scopeCanvases = new Map<string, { canvas: HTMLCanvasElement; buf: number[] }>();
+  /** Engine handle, resolved lazily the first time a scope module needs
+   *  probing (never forces engine construction for scope-less patches). */
+  let engineRef: GraphEngine | null = null;
   // null (not '') so the very first call — an empty graph's signature
   // is also '' — doesn't collide with "unchanged" and skip building
   // the empty-state message.
@@ -1148,6 +1399,13 @@ export function createPatchBayView(
       for (const key of Array.from(graphParamInputs.keys())) {
         if (key.startsWith(`${nodeId}#`)) graphParamInputs.delete(key);
       }
+      for (const key of Array.from(graphKnobs.keys())) {
+        if (key.startsWith(`${nodeId}#`)) graphKnobs.delete(key);
+      }
+      for (const key of Array.from(shapeJacks.keys())) {
+        if (key.startsWith(`${nodeId}#`)) shapeJacks.delete(key);
+      }
+      scopeCanvases.delete(nodeId);
       const homeIdx = unitHomes.findIndex((h) => h.unit === el);
       if (homeIdx >= 0) unitHomes.splice(homeIdx, 1);
     }
@@ -1197,6 +1455,27 @@ export function createPatchBayView(
       }
       const titleEl = head.querySelector('.rw-pb-graphnode-title')!;
       if (titleEl.textContent !== label) titleEl.textContent = label;
+
+      // Scope trace — present iff the node's CURRENT type is 'scope'
+      // (same reconcile-every-rebuild rule as the port/param rows: a
+      // node's type can mutate in place under the same id).
+      const wantScope = node.type === 'scope';
+      if (scopeCanvases.has(nodeId) && !wantScope) {
+        scopeCanvases.get(nodeId)!.canvas.closest('.rw-pb-scoperow')?.remove();
+        scopeCanvases.delete(nodeId);
+      } else if (!scopeCanvases.has(nodeId) && wantScope) {
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row rw-pb-scoperow';
+        const cv = document.createElement('canvas');
+        cv.className = 'rw-pb-scope-canvas';
+        cv.width = 180;
+        cv.height = 44;
+        attachTooltip(cv, 'Live trace of the signal passing through this scope (out = in, unchanged).');
+        row.appendChild(cv);
+        mod.insertBefore(row, mod.querySelector('.rw-pb-row--out'));
+        scopeCanvases.set(nodeId, { canvas: cv, buf: [] });
+        if (!engineRef) void getEngine().then((e) => { engineRef = e; });
+      }
 
       // Reconcile IN rows against the node's CURRENT type's input
       // ports — NOT "built once at creation": Beginner view mutates an
@@ -1262,6 +1541,8 @@ export function createPatchBayView(
         if (wantedParams.has(name)) continue;
         graphParamInputs.get(`${nodeId}#${name}`)?.el.closest('.rw-pb-row')?.remove();
         graphParamInputs.delete(`${nodeId}#${name}`);
+        graphKnobs.delete(`${nodeId}#${name}`);
+        shapeJacks.delete(`${nodeId}#${name}`);
       }
       for (const [paramName, spec] of wantedParams) {
         if (graphParamInputs.has(`${nodeId}#${paramName}`)) continue;
@@ -1271,8 +1552,23 @@ export function createPatchBayView(
         rowLabel.textContent = paramName;
         let ctl: HTMLInputElement | HTMLSelectElement;
         let kind: 'number' | 'enum' | 'boolean';
+        let knob: MiniKnob | null = null;
         if (spec.kind === 'number') {
           kind = 'number';
+          // Rotary knob beside the LCD field — same pot-above-legend
+          // pairing as the Classic modules / faceplate cells (owner:
+          // adjust values with GUI knobs, eurorack style).
+          knob = createMiniKnob({
+            min: spec.min, max: spec.max, step: spec.step,
+            label: `${label} ${paramName}`,
+            defaultValue: spec.default,
+            get: () => {
+              const cur = settings.get('modGraph')?.nodes.find((n) => n.id === nodeId);
+              const v = cur?.params[paramName] ?? spec.default;
+              return typeof v === 'number' ? v : spec.default;
+            },
+            set: (v) => writeGraphNodeParam(nodeId, paramName, v),
+          });
           const input = document.createElement('input');
           input.type = 'number';
           input.step = String(spec.step);
@@ -1294,6 +1590,17 @@ export function createPatchBayView(
           }
           sel.addEventListener('change', () => writeGraphNodeParam(nodeId, paramName, sel.value));
           ctl = sel;
+          // Waveform picker (LFO shape): a jack the SOURCES bus
+          // waveform jacks can plug into — drag TRI here for a
+          // triangle wave (owner ask). Threshold in waveShapeMatches
+          // keeps non-waveform enums (Noise kind, Ramp mode) jack-free.
+          if (waveShapeMatches(spec.options) >= 2) {
+            const sj = makeJack('rw-rack-jack--in rw-pb-jack--shape');
+            sj.addEventListener('pointerdown', (ev) => dragShapeJack(ev, nodeId, paramName, sj));
+            attachTooltip(sj, `${label} · ${paramName} — plug a SOURCES waveform jack in here (or drag this to one) to pick the wave.`);
+            row.appendChild(sj);
+            shapeJacks.set(`${nodeId}#${paramName}`, sj);
+          }
         } else {
           kind = 'boolean';
           const cb = document.createElement('input');
@@ -1302,7 +1609,12 @@ export function createPatchBayView(
           ctl = cb;
         }
         attachTooltip(row, `${label} · ${paramName}`);
-        row.append(rowLabel, ctl);
+        row.append(rowLabel);
+        if (knob) {
+          row.appendChild(knob.el);
+          graphKnobs.set(`${nodeId}#${paramName}`, knob);
+        }
+        row.appendChild(ctl);
         mod.insertBefore(row, mod.querySelector('.rw-pb-row--out'));
         graphParamInputs.set(`${nodeId}#${paramName}`, { el: ctl, kind });
       }
@@ -1373,6 +1685,7 @@ export function createPatchBayView(
       if (entry.kind === 'boolean') (entry.el as HTMLInputElement).checked = !!val;
       else entry.el.value = String(val);
     }
+    for (const knob of graphKnobs.values()) knob.refresh();
   }
 
   rebuildGraphModules();
@@ -1611,15 +1924,28 @@ export function createPatchBayView(
       });
     }
 
+    // Cables sourced from a `param-out` node anchor at that param's own
+    // faceplate OUT jack (the hardware picture: Height OUT feeding Depth
+    // IN runs jack-to-jack), falling back to the node's module jack when
+    // the faceplate jack isn't in view (e.g. a cv:-target-only board).
+    const graphPatchForWires = settings.get('modGraph');
+    const graphOutAnchor = (sourceNodeId: string, sourcePort: string | undefined): HTMLElement | undefined => {
+      const node = graphPatchForWires?.nodes.find((n) => n.id === sourceNodeId);
+      if (node?.type === 'param-out') {
+        const fp = paramOutJacks.get(String(node.params.key));
+        if (fp) return fp;
+      }
+      return graphNodeJacks.get(`${sourceNodeId}#${sourcePort || defaultOutputPort(sourceNodeId)}`);
+    };
+
     // Graph binding cables — one per binding, from that binding's OWN
     // source node's jack (rebuilt above whenever the set of active graph
     // sources changes), not one shared point. Draggable from the param
     // end (dragGraphParam); skip the static draw for whichever binding is
     // currently being dragged so only its rubber-band shows.
-    for (const gc of graphCables(settings.get('modGraph'))) {
+    for (const gc of graphCables(graphPatchForWires)) {
       if (pending?.kind === 'to-param-graph' && pending.bindingId === gc.bindingId) continue;
-      const srcJack = graphNodeJacks.get(`${gc.sourceNodeId}#${gc.sourcePort || defaultOutputPort(gc.sourceNodeId)}`);
-      const g = anchor(srcJack);
+      const g = anchor(graphOutAnchor(gc.sourceNodeId, gc.sourcePort));
       const b = anchor(paramJacks.get(gc.paramKey));
       if (!g || !b) continue;
       plugged.add(gc.paramKey);
@@ -1635,13 +1961,33 @@ export function createPatchBayView(
     // whichever IN port is currently being dragged so only its
     // rubber-band shows (OUT-side drags only ever create a new wire, so
     // there's no existing one to hide while dragging from that end).
-    const graphPatchForWires = settings.get('modGraph');
     for (const w of nodeWires(graphPatchForWires)) {
       if (pending?.kind === 'to-graphin' && pending.nodeId === w.targetNodeId && pending.port === w.targetPort) continue;
-      const a = anchor(graphNodeJacks.get(`${w.sourceNodeId}#${w.sourcePort || defaultOutputPort(w.sourceNodeId)}`));
+      const a = anchor(graphOutAnchor(w.sourceNodeId, w.sourcePort));
       const b = anchor(graphInputJacks.get(`${w.targetNodeId}#${w.targetPort}`));
       if (!a || !b) continue;
       drawPatchCable(ctx, local(a), local(b), NODE_WIRE_COLOR, { style: 'sag', dashed: false });
+    }
+
+    // Waveform-shape cables — a picture of each shape param's current
+    // value: SOURCES bus waveform jack → the node's shape jack (drag
+    // either end to re-pick; there's no unplugged state since a shape
+    // always has a value).
+    for (const [key, sj] of shapeJacks) {
+      if (pending?.kind === 'to-shapesrc' && `${pending.nodeId}#${pending.param}` === key) continue;
+      const { nodeId, port: param } = splitJackKey(key);
+      const node = graphPatchForWires?.nodes.find((n) => n.id === nodeId);
+      const spec = node ? getDef(node.type)?.params[param] : undefined;
+      const val = String(node?.params[param] ?? (spec?.kind === 'enum' ? spec.default : ''));
+      const src = OPTION_TO_WAVE_SOURCE[val];
+      if (!src) { sj.classList.remove('rw-rack-jack--plugged'); continue; }
+      const a = anchor(srcJacks.get(src));
+      const b = anchor(sj);
+      if (!a || !b) continue;
+      sj.classList.add('rw-rack-jack--plugged');
+      drawPatchCable(ctx, local(a), local(b), SOURCE_COLOR, {
+        style: 'sag', dim: node?.enabled === false, dashed: false,
+      });
     }
 
     if (pending) {
@@ -1663,6 +2009,12 @@ export function createPatchBayView(
       } else if (pending.kind === 'to-graphin') {
         fixed = graphInputJacks.get(`${pending.nodeId}#${pending.port}`);
         color = NODE_WIRE_COLOR;
+      } else if (pending.kind === 'to-paramout') {
+        fixed = paramOutJacks.get(pending.paramKey);
+        color = GRAPH_COLOR;
+      } else if (pending.kind === 'to-shapesrc') {
+        fixed = shapeJacks.get(`${pending.nodeId}#${pending.param}`);
+        color = SOURCE_COLOR;
       } else {
         fixed = graphNodeJacks.get(pending.sourceKey);
         color = NODE_WIRE_COLOR;
@@ -1702,19 +2054,76 @@ export function createPatchBayView(
       mod.classList.toggle('rw-pb-graphnode--inert', !connectedNodes.has(nodeId));
     }
 
-    // Refresh faceplate value inputs from the live base (another
-    // surface — a Classic slider, a preset load, keyframe playback —
-    // may have changed it); skip whichever one the user is actively
-    // typing into, same rule every other live-refresh loop here uses.
+    // Scope traces — sample each scope node's passthrough output via
+    // the engine's probe (same mechanism as the graph editor's Probe
+    // overlay) into a ring buffer and draw the phosphor line.
+    if (engineRef) {
+      for (const [nodeId, s] of scopeCanvases) {
+        s.buf.push(engineRef.probe(nodeId, 'out'));
+        if (s.buf.length > s.canvas.width) s.buf.shift();
+        const c = s.canvas.getContext('2d');
+        if (!c) continue;
+        const { width: cw, height: ch } = s.canvas;
+        c.clearRect(0, 0, cw, ch);
+        c.strokeStyle = 'rgba(95, 255, 133, 0.25)';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(0, ch / 2);
+        c.lineTo(cw, ch / 2);
+        c.stroke();
+        // Symmetric autoscale: ±1 minimum so control signals read at a
+        // steady height, expanding for raw param-out values beyond ±1.
+        let maxAbs = 1;
+        for (const v of s.buf) maxAbs = Math.max(maxAbs, Math.abs(v));
+        c.strokeStyle = '#5fff85';
+        c.lineWidth = 1.5;
+        c.shadowColor = 'rgba(95, 255, 133, 0.6)';
+        c.shadowBlur = 3;
+        c.beginPath();
+        for (let i = 0; i < s.buf.length; i++) {
+          const x = cw - s.buf.length + i;
+          const y = ch / 2 - (s.buf[i] / maxAbs) * (ch / 2 - 3);
+          if (i === 0) c.moveTo(x, y);
+          else c.lineTo(x, y);
+        }
+        c.stroke();
+        c.shadowBlur = 0;
+      }
+    }
+
+    // Refresh faceplate controls from the current base + live values
+    // (another surface — a Classic slider, a preset load, keyframe
+    // playback, an LFO — may be driving them); skip whichever input the
+    // user is actively typing into, same rule every other live-refresh
+    // loop here uses. Knob/live updates are change-guarded internally,
+    // so this is cheap per frame.
     for (const [key, input] of paramValueInputs) {
-      if (document.activeElement === input) continue;
       const v = settings.get(key as keyof Settings);
       if (typeof v !== 'number') continue;
-      // Round for DISPLAY only (e.g. a 4:3 aspect ratio is
-      // 1.3333333333333333 as a raw float) — writes still use the
-      // input's own exact typed value, untouched by this.
-      const rounded = Number(v.toFixed(4));
-      if (parseFloat(input.value) !== rounded) input.value = String(rounded);
+      if (document.activeElement !== input) {
+        // Round for DISPLAY only (e.g. a 4:3 aspect ratio is
+        // 1.3333333333333333 as a raw float) — writes still use the
+        // input's own exact typed value, untouched by this.
+        const rounded = Number(v.toFixed(4));
+        if (parseFloat(input.value) !== rounded) input.value = String(rounded);
+      }
+      const knob = paramKnobs.get(key);
+      knob?.refresh();
+      // Live (modulated) display: amber needle on the knob + ▸ readout,
+      // same language as Controls' orange live badge. Display only.
+      const liveV = live ? live.getLive(key) : v;
+      const modded = Math.abs(liveV - v) > 1e-6;
+      knob?.setLive(modded ? liveV : null);
+      const span = paramLiveSpans.get(key);
+      if (span) {
+        if (modded) {
+          const txt = `▸ ${Number(liveV.toFixed(4))}`;
+          if (span.textContent !== txt) span.textContent = txt;
+          if (span.hidden) span.hidden = false;
+        } else if (!span.hidden) {
+          span.hidden = true;
+        }
+      }
     }
   }
   requestAnimationFrame(frame);

@@ -59,6 +59,15 @@ Run these in order; stop and report on the first failure:
   lowercase type strings that never self-correct. Known gap, not yet
   fixed (found 2026-07-14 while verifying node-to-node wiring); if you
   touch project restore, this is the place to fix it.
+- **`NodeDeps.paramLive` is the ONE sanctioned window from graph nodes
+  into `LiveValuesStore`, and it is read-only by contract.** GraphEngine
+  wires it to `liveValues.getLive` for the `param-out` node (the Patch
+  Bay's per-param OUT jacks). Never extend it into a write path, and
+  never hand nodes the store itself — the constructor deliberately
+  strips `liveValues` out of NodeDeps. Reads see the previous frame's
+  contributions (bindings apply after nodes tick), so param→param
+  patches are one-frame-delayed by design — document that in any node
+  that reads it, don't "fix" it.
 - **A graph node's `type` can change in place, same id** — Beginner
   view's source dropdown (`BeginnerView.ts`, `adapter.source.set`)
   mutates an EXISTING node's `type` rather than creating a new node

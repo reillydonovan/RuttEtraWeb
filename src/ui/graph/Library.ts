@@ -28,7 +28,17 @@ export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
   header.textContent = 'STARTER PATCHES';
   root.appendChild(header);
 
-  async function loadPatch(patch: GraphPatch): Promise<void> {
+  async function loadPatch(name: string, patch: GraphPatch): Promise<void> {
+    // Loading REPLACES the whole graph patch — warn when one exists
+    // (owner: prompt to keep or erase; same guard as File → Load
+    // Sample Patch in main.ts). OK = replace, Cancel = keep.
+    const cur = deps.settings.get('modGraph');
+    if (cur && cur.nodes.length > 0 && !confirm(
+      `Load “${name}”?\n\nThis replaces your current graph patch `
+      + `(${cur.nodes.length} node${cur.nodes.length === 1 ? '' : 's'}). `
+      + 'OK to replace it — Cancel to keep what you have.\n\n'
+      + 'Tip: Save Current below keeps a copy first.',
+    )) return;
     const clone = clonePatch(patch);
     deps.settings.set('modGraph', clone);
     const e = await deps.getEngine();
@@ -46,7 +56,7 @@ export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
     desc.className = 'rw-graph-library-desc';
     desc.textContent = sp.description;
     card.append(title, desc);
-    card.addEventListener('click', () => void loadPatch(sp.patch));
+    card.addEventListener('click', () => void loadPatch(sp.name, sp.patch));
     root.appendChild(card);
   }
 
@@ -87,7 +97,7 @@ export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
       desc.className = 'rw-graph-library-desc';
       desc.textContent = `${up.patch.nodes.length} nodes · ${up.patch.bindings.length} bindings`;
       card.append(title, desc);
-      card.addEventListener('click', () => void loadPatch(up.patch));
+      card.addEventListener('click', () => void loadPatch(up.name, up.patch));
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'rw-graph-library-del';

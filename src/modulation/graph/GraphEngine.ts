@@ -56,10 +56,14 @@ export class GraphEngine {
 
   constructor(private settings: SettingsStore, deps: GraphEngineDeps) {
     // Strip the LiveValuesStore out of `deps` before passing as NodeDeps —
-    // graph nodes don't need it, only the engine does.
+    // graph nodes don't get the store itself, only the engine does. The
+    // one sanctioned window into it is the read-only `paramLive` hook
+    // (see NodeDeps docs): the `param-out` node reads a param's live
+    // value as a signal, one frame behind, never writes.
     const { liveValues, ...nodeDeps } = deps;
     this.deps = { ...nodeDeps };
     this.liveValues = liveValues;
+    this.deps.paramLive = (key) => liveValues.getLive(key);
   }
 
   // -------------------- public API --------------------

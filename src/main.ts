@@ -298,6 +298,16 @@ async function bootSynth(): Promise<void> {
   // visible — 'both' rather than 'graph' because Classic slots keep
   // working too (coexistence, not replacement).
   const loadSamplePatch = async (sp: StarterPatch): Promise<void> => {
+    // Loading REPLACES the whole graph patch — warn when one exists
+    // (owner: prompt to keep or erase, never silently blow a patch
+    // away). OK = replace, Cancel = keep what's there.
+    const cur = settings.get('modGraph');
+    if (cur && cur.nodes.length > 0 && !confirm(
+      `Load “${sp.name}”?\n\nThis replaces your current graph patch `
+      + `(${cur.nodes.length} node${cur.nodes.length === 1 ? '' : 's'}). `
+      + 'OK to replace it — Cancel to keep what you have.\n\n'
+      + 'Tip: Graph editor → Library → Save Current keeps a copy first.',
+    )) return;
     const clone = JSON.parse(JSON.stringify(sp.patch)) as GraphPatch;
     if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
     settings.set('modGraph', clone);
