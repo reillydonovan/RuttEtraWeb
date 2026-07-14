@@ -303,3 +303,21 @@ body.viewer-mode #rw-center-shell {
   opacity: 0.75;
 }
 #rw-center-shell.rw-center-passthrough .rw-region-bar:hover { opacity: 1; }
+
+/* ============================================================
+   View popout (ViewPopout.ts) — a fresh view instance living alone
+   in a popup window for multi-display rigs. The instance fills the
+   popup; the bay/timeline manage their own internal scrolling.
+   ============================================================ */
+.rw-view-popout-body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--re-bg, #0b100b);
+  overflow: hidden;
+}
+.rw-view-popout-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}

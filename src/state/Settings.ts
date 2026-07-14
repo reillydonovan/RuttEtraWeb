@@ -983,6 +983,14 @@ export interface Settings {
   oscAutoConnect: boolean;
   oscBindings: OscBinding[];
 
+  // ---------- MCP remote control (v32) ----------
+  /** WebSocket URL of the local MCP bridge (tools/mcp-server). The
+   *  browser CONNECTS OUT to it, same topology as the OSC bridge. */
+  mcpBridgeUrl: string;
+  /** Reconnect to the bridge automatically on startup. Default false —
+   *  remote control of the whole app is opt-in, like every I/O route. */
+  mcpAutoConnect: boolean;
+
   // ---------- Audio / FFT (v2) ----------
   audioInputKind: AudioInputKind;
   audioFftSize: FftSize;
@@ -1421,6 +1429,9 @@ export const DEFAULTS: Settings = {
   oscAutoConnect: false,
   oscBindings: [],
 
+  mcpBridgeUrl: 'ws://localhost:57132',
+  mcpAutoConnect: false,
+
   audioInputKind: 'none',
   audioFftSize: 2048,
   audioBandCount: 32,
@@ -1475,7 +1486,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 31;
+const CURRENT_VERSION = 32;
 
 interface Versioned { _v?: number }
 
@@ -2086,6 +2097,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     delete (s as Record<string, unknown>).panelRegionView;
     delete (s as Record<string, unknown>).dockRegionView;
     s._v = 31;
+  }
+
+  // v31 -> v32: MCP remote-control bridge config (URL + auto-connect).
+  // Plain defaults, idempotent. Auto-connect defaults OFF — remote
+  // control of the whole app is opt-in, same posture as every other
+  // I/O route (and unlike outputs, it is NOT forced off on every load:
+  // it's an input, mirroring oscAutoConnect exactly).
+  if ((s._v ?? 1) < 32) {
+    s.mcpBridgeUrl = (s.mcpBridgeUrl as string | undefined) ?? 'ws://localhost:57132';
+    s.mcpAutoConnect = (s.mcpAutoConnect as boolean | undefined) ?? false;
+    s._v = 32;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

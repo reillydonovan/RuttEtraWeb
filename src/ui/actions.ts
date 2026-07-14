@@ -46,6 +46,18 @@ export function runAction(id: string): boolean {
   return true;
 }
 
+/** Enumerate every registered action (id/label/shortcut + current
+ *  enabled state) — the MCP remote's `list_actions` surface, so an
+ *  external agent can discover exactly what the menu bar can do. */
+export function listActions(): Array<{ id: string; label: string; shortcut?: string; enabled: boolean }> {
+  return [...actions.values()].map((a) => ({
+    id: a.id,
+    label: a.label,
+    shortcut: a.shortcut,
+    enabled: a.enabled ? a.enabled() : true,
+  }));
+}
+
 /** Test/debug helper. */
 export function clearActions(): void {
   actions.clear();

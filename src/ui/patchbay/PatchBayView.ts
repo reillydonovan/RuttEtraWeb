@@ -305,24 +305,24 @@ export function createPatchBayView(
         const node = patch.nodes.find((n) => n.id === nodeId);
         if (node && (node.inputs[port] ?? null) !== ref) {
           const updated = applyNodeInputRef(patch, nodeId, port, ref);
+          ensureGraphLive();
           settings.set('modGraph', updated);
           void getEngine().then((e) => e.setPatch(updated));
         }
       });
   }
 
-  /** Drag a graph node's OUT jack toward an IN jack to wire it. Dropping
-   *  in empty space does nothing — an OUT can fan out to several
-   *  bindings/inputs at once, so unlike an IN jack there's no single
-   *  "the" connection a drop-in-space could unambiguously remove. */
-  /** Drag a graph node's OUT jack toward either another node's IN jack
-   *  (wires them — see applyNodeInputRef) or a faceplate param jack
-   *  (creates/retargets a TargetBinding for this node -> that param —
-   *  owner: dragging an LFO's OUT onto e.g. H Position did nothing but
-   *  show a dead rubber-band, since only node-to-node wiring was wired
-   *  up; every node should be able to feed a param directly from here,
-   *  same as a Classic slot's OUT). Whichever jack is CLOSER wins when
-   *  both are in snap range. */
+  /** Every bay gesture that creates/edits a graph connection calls this
+   *  so the patch is actually LIVE: `GraphEngine.tick()` no-ops entirely
+   *  while modMode is 'classic', so a wire made in classic mode would
+   *  read as dead — every node output stuck at 0 (owner bug report: the
+   *  Scope drew a flat line after wiring an LFO in). Same guard
+   *  `loadSamplePatch()` and `addGraphNode()` already applied; this
+   *  closes the remaining gestures (node wires, binding creation). */
+  function ensureGraphLive(): void {
+    if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+  }
+
   /** Shared hover machinery for gestures whose drop target can be a
    *  graph node IN jack OR a faceplate param jack (dragGraphOut,
    *  dragParamOut): transitions highlight state between the two jack
@@ -354,6 +354,13 @@ export function createPatchBayView(
     return null;
   }
 
+  /** Drag a graph node's OUT jack toward either another node's IN jack
+   *  (wires them — see applyNodeInputRef) or a faceplate param jack
+   *  (creates/retargets a TargetBinding, reusing the node's own 'none'
+   *  placeholder if it has one). Whichever jack is CLOSER wins when
+   *  both are in snap range; dropping in empty space does nothing —
+   *  an OUT can fan out to several connections, so there's no single
+   *  "the" connection a drop-in-space could unambiguously remove. */
   function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
@@ -374,6 +381,7 @@ export function createPatchBayView(
           const { nodeId: targetId, port: targetPort } = splitJackKey(hover.key);
           const ref = refFromJackKey(sourceKey);
           const updated = applyNodeInputRef(patch, targetId, targetPort, ref);
+          ensureGraphLive();
           settings.set('modGraph', updated);
           void getEngine().then((e) => e.setPatch(updated));
           return;
@@ -398,6 +406,7 @@ export function createPatchBayView(
               amount: 0.25, mode: 'additive',
             }],
           };
+        ensureGraphLive();
         settings.set('modGraph', updated);
         void getEngine().then((e) => e.setPatch(updated));
       });
@@ -447,7 +456,7 @@ export function createPatchBayView(
               amount: 0.25, mode: 'additive',
             }],
           };
-        if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+        ensureGraphLive();
         settings.set('modGraph', updated);
         void getEngine().then((e) => e.setPatch(updated));
       });
@@ -569,6 +578,40 @@ export function createPatchBayView(
   const rail = document.createElement('div');
   rail.className = 'rw-pb-rail';
 
+  // Expandable preview monitors (TouchDesigner-style): a collapsed
+  // PREVIEW row on a module that, when expanded, drawImage()s a live
+  // source (the shared video element / the render canvas) into a small
+  // canvas each frame from the existing rAF loop. Collapsed previews
+  // cost nothing — frame() skips them entirely.
+  interface BayPreview { canvas: HTMLCanvasElement; expanded: () => boolean; src: () => CanvasImageSource | null }
+  const bayPreviews: BayPreview[] = [];
+  function addPreviewRow(mod: HTMLElement, tooltip: string, src: () => CanvasImageSource | null): void {
+    let open = false;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'rw-pb-tidy rw-pb-preview-toggle';
+    toggleBtn.textContent = '▸ PREVIEW';
+    attachTooltip(toggleBtn, tooltip);
+    const row = document.createElement('div');
+    row.className = 'rw-pb-row rw-pb-previewrow';
+    row.hidden = true;
+    const cv = document.createElement('canvas');
+    cv.className = 'rw-pb-preview-canvas';
+    cv.width = 180;
+    cv.height = 101; // 16:9-ish inside the rail column
+    row.appendChild(cv);
+    toggleBtn.addEventListener('click', () => {
+      open = !open;
+      row.hidden = !open;
+      toggleBtn.textContent = open ? '▾ PREVIEW' : '▸ PREVIEW';
+    });
+    const btnRow = document.createElement('div');
+    btnRow.className = 'rw-pb-row';
+    btnRow.appendChild(toggleBtn);
+    mod.append(btnRow, row);
+    bayPreviews.push({ canvas: cv, expanded: () => open, src });
+  }
+
   // VIDEO SOURCE module — the same `VideoSourceManager` instance Controls
   // uses, so switching here (or there) is the SAME state, not a mirror:
   // no separate "patch bay video source" concept to fall out of sync.
@@ -613,10 +656,38 @@ export function createPatchBayView(
     });
     mkBtn('FILE', 'Load a local video file.', () => fileInput.click());
     mod.append(head, lcdRow, btnRow, fileInput);
+    // Live monitor of the actual source feed — the SAME shared video
+    // element the renderer's texture reads, drawn (not re-streamed), so
+    // it works identically for webcam/screen/file/HLS.
+    addPreviewRow(mod, 'Expand a live monitor of the incoming video signal.',
+      () => (source.video.readyState >= 2 ? source.video : null));
     rail.appendChild(mod);
     source.subscribe((state) => {
       lcd.textContent = state.kind === 'none' ? 'NONE' : `${state.kind.toUpperCase()}: ${state.label || '—'}`;
     });
+  }
+
+  // RENDER PREVIEW module — output monitor for the bay (owner: "think
+  // TouchDesigner"). Draws the one real render canvas (#stage) into a
+  // small preview each frame while expanded; a picture of the output,
+  // never a second renderer (same one-real-canvas rule as the
+  // workspace's OUTPUT mirror views, just drawImage instead of
+  // captureStream since we already have a rAF loop here).
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const title = document.createElement('span');
+    title.textContent = 'RENDER PREVIEW';
+    head.append(title);
+    mod.appendChild(head);
+    addPreviewRow(mod, 'Expand a live monitor of the final rendered output.',
+      () => {
+        const stage = document.getElementById('stage') as HTMLCanvasElement | null;
+        return stage && stage.width > 0 ? stage : null;
+      });
+    rail.appendChild(mod);
   }
 
   const writeSlot = (index: number, patch: Partial<ModSlot>): void => {
@@ -1099,13 +1170,25 @@ export function createPatchBayView(
    *  than a livelock. */
   function resolveOverlap(unit: HTMLElement): void {
     const GAP = 10;
+    const others = (): HTMLElement[] =>
+      Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free')).filter((u) => u !== unit);
+    const overlapsAny = (): boolean => {
+      const l = parseFloat(unit.style.left) || 0;
+      const t = parseFloat(unit.style.top) || 0;
+      const w = unit.offsetWidth, h = unit.offsetHeight;
+      return others().some((other) => {
+        const ol = parseFloat(other.style.left) || 0;
+        const ot = parseFloat(other.style.top) || 0;
+        return Math.min(l + w, ol + other.offsetWidth) - Math.max(l, ol) > 0
+          && Math.min(t + h, ot + other.offsetHeight) - Math.max(t, ot) > 0;
+      });
+    };
     for (let iter = 0; iter < 24; iter++) {
       const l = parseFloat(unit.style.left) || 0;
       const t = parseFloat(unit.style.top) || 0;
       const w = unit.offsetWidth, h = unit.offsetHeight;
       let pushed = false;
-      for (const other of Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free'))) {
-        if (other === unit) continue;
+      for (const other of others()) {
         const ol = parseFloat(other.style.left) || 0;
         const ot = parseFloat(other.style.top) || 0;
         const ow = other.offsetWidth, oh = other.offsetHeight;
@@ -1123,6 +1206,17 @@ export function createPatchBayView(
         break; // positions changed — re-scan from the top
       }
       if (!pushed) break;
+    }
+    // Guaranteed fallback: a dense column can exhaust the push cascade
+    // (each push lands on the next unit down). If ANY overlap survives,
+    // park the unit below the lowest one — always collision-free.
+    if (overlapsAny()) {
+      let maxBottom = 0;
+      for (const other of others()) {
+        const b = (parseFloat(other.style.top) || 0) + other.offsetHeight;
+        if (b > maxBottom) maxBottom = b;
+      }
+      unit.style.top = `${maxBottom + GAP}px`;
     }
     // Grow the board if the push landed past its current edge.
     const need = (parseFloat(unit.style.left) || 0) + unit.offsetWidth + 24;
@@ -1417,6 +1511,10 @@ export function createPatchBayView(
     }
     graphEmpty.remove();
 
+    /** Free-mode-created modules this pass; collision-resolved at the
+     *  bottom of the function once their rows exist (real height). */
+    const spawnedFreeThisPass: HTMLElement[] = [];
+
     for (const node of nodes) {
       const nodeId = node.id;
       const def = getDef(node.type);
@@ -1450,6 +1548,26 @@ export function createPatchBayView(
         makeUnitDraggable(mod, head);
         rail.appendChild(mod);
         graphModuleEls.set(nodeId, mod);
+        if (freeMode) {
+          // Free mode: the rail is an empty flow container — a module
+          // left there renders statically at the board's top-left OVER
+          // the free units (a real reported bug: spawned nodes
+          // overlapping). Promote every module created during free
+          // mode to a free unit immediately, whatever created it
+          // (right-click menu, tutorial action button, MCP
+          // add_graph_node, Graph editor); cursor-positioned spawns
+          // then just move it (placeSpawnedModule). Collision
+          // resolution happens at the END of this rebuild — the
+          // module has no rows yet here, so its height would read
+          // head-only and the push math would under-shoot.
+          mod.classList.add('rw-pb-unit-free');
+          mod.style.width = '200px';
+          mod.style.left = '20px';
+          mod.style.top = '20px';
+          unitHomes.push({ unit: mod, parent: rail, next: null });
+          board.appendChild(mod);
+          spawnedFreeThisPass.push(mod);
+        }
       } else {
         head = mod.querySelector('.rw-pb-module-head')!;
       }
@@ -1648,6 +1766,10 @@ export function createPatchBayView(
         graphNodeJacks.set(`${nodeId}#${portName}`, jack);
       }
     }
+
+    // Now that every new module has its full row set (real height),
+    // settle free-mode spawns into non-overlapping spots.
+    for (const mod of spawnedFreeThisPass) resolveOverlap(mod);
   }
 
   /** Write one graph node's param — same two-write pattern (Settings +
@@ -1717,7 +1839,7 @@ export function createPatchBayView(
     closeAddNodeMenu();
     const menu = createPalette({
       onAdd: (type) => {
-        addGraphNode(type);
+        addGraphNode(type, clientX, clientY);
         closeAddNodeMenu();
       },
     });
@@ -1737,7 +1859,35 @@ export function createPatchBayView(
       document.addEventListener('keydown', onAddNodeMenuKeydown, true);
     }, 0);
   }
-  function addGraphNode(type: NodeType): void {
+  /** Place a just-created graph module free-floating at the spawn point
+   *  (owner: nodes "should appear free floating around where I spawned
+   *  them, they shouldn't be stuck to the grid on the left"). Entering
+   *  free layout if needed (freeze() records every unit's home, the new
+   *  module included, so TIDY still restores the full stacked layout);
+   *  when ALREADY in free mode this also fixes a real spawn bug: the
+   *  rebuild appends new modules to the rail, which in free mode is an
+   *  empty flow container — the module rendered statically at the
+   *  board's top-left, visually overlapping whatever free units sat
+   *  there. resolveOverlap() keeps the spawn point collision-free. */
+  function placeSpawnedModule(nodeId: string, clientX: number, clientY: number): void {
+    const mod = graphModuleEls.get(nodeId);
+    // No narrow-mode guard here, deliberately: drag-breakout has none
+    // either — free layout works in a narrow window until a RESIZE
+    // suspends it (the ResizeObserver round-trip below), and spawning
+    // should behave exactly like dragging out.
+    if (!mod) return;
+    // Entering free mode captures the new module (already in the rail)
+    // with a home; if free mode was already on, rebuildGraphModules
+    // promoted the module to a free unit at a fallback position — either
+    // way it's a free unit now, just move it to the cursor.
+    if (!freeMode) freeze();
+    const bRect = board.getBoundingClientRect();
+    mod.style.left = `${Math.max(0, (clientX - bRect.left) / zoom - mod.offsetWidth / 2)}px`;
+    mod.style.top = `${Math.max(0, (clientY - bRect.top) / zoom - 10)}px`;
+    resolveOverlap(mod);
+  }
+
+  function addGraphNode(type: NodeType, clientX?: number, clientY?: number): void {
     const patch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
     const def = getDef(type);
     const inputs: Record<string, string | null> = {};
@@ -1766,9 +1916,12 @@ export function createPatchBayView(
     // Settings doing nothing (and Beginner view's graph rows are gated
     // behind the GRAPH/BOTH mode tabs too) until the user happened to
     // flip modes themselves.
-    if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
-    settings.set('modGraph', next);
+    ensureGraphLive();
+    settings.set('modGraph', next); // synchronous notify → module exists now
     void getEngine().then((e) => e.setPatch(next));
+    if (clientX !== undefined && clientY !== undefined) {
+      placeSpawnedModule(nodeId, clientX, clientY);
+    }
   }
   root.addEventListener('contextmenu', (e) => {
     const t = e.target as HTMLElement;
@@ -2052,6 +2205,25 @@ export function createPatchBayView(
     }
     for (const [nodeId, mod] of graphModuleEls) {
       mod.classList.toggle('rw-pb-graphnode--inert', !connectedNodes.has(nodeId));
+    }
+
+    // Preview monitors (VIDEO SOURCE / RENDER PREVIEW) — cover-fit
+    // drawImage while expanded; skipped entirely while collapsed.
+    for (const pv of bayPreviews) {
+      if (!pv.expanded()) continue;
+      const img = pv.src();
+      const c2 = pv.canvas.getContext('2d');
+      if (!c2) continue;
+      const { width: pw, height: ph } = pv.canvas;
+      if (!img) { c2.clearRect(0, 0, pw, ph); continue; }
+      const iw = (img as HTMLVideoElement).videoWidth ?? (img as HTMLCanvasElement).width;
+      const ih = (img as HTMLVideoElement).videoHeight ?? (img as HTMLCanvasElement).height;
+      if (!iw || !ih) { c2.clearRect(0, 0, pw, ph); continue; }
+      const s = Math.max(pw / iw, ph / ih);
+      const dw = iw * s, dh = ih * s;
+      try {
+        c2.drawImage(img, (pw - dw) / 2, (ph - dh) / 2, dw, dh);
+      } catch { /* source mid-teardown; next frame recovers */ }
     }
 
     // Scope traces — sample each scope node's passthrough output via

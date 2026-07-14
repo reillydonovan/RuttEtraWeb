@@ -403,6 +403,18 @@
   filter: drop-shadow(0 0 2px rgba(255, 179, 71, 0.55));
 }
 
+/* Expandable preview monitors (VIDEO SOURCE / RENDER PREVIEW). */
+.rw-pb-previewrow { display: block; }
+.rw-pb-preview-canvas {
+  display: block;
+  width: 100%;
+  background: #000;
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.rw-pb-preview-toggle { letter-spacing: 0.12em; }
+
 /* Scope node's live phosphor trace (drawn per-frame in frame()). */
 .rw-pb-scoperow { display: block; }
 .rw-pb-scope-canvas {

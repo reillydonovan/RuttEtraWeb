@@ -95,10 +95,20 @@ const MD_QUICKSTART = `
 > any cable to see the live waveform on its module. Dropped modules
 > never overlap in free layout, and loading a sample/library patch asks
 > before replacing a patch in progress.
-> **Right-click empty board space** for a categorized Add Node menu — a
-> new node also appears as a normal row in Controls ▸ Modulation's
-> Beginner view, switching modes automatically if needed.
-> Try **Window ▸ Layout ▸ Patch Bay**.
+> **Right-click empty board space** for a categorized Add Node menu —
+> the module spawns free-floating at the cursor, and also appears as a
+> normal row in Controls ▸ Modulation's Beginner view (switching modes
+> automatically so a fresh wire is always live). The VIDEO SOURCE
+> module and the new RENDER PREVIEW module both have expandable live
+> monitors. New to the bay? **Help ▸ Patch Bay Tutorial** walks it all
+> with try-it buttons. Try **Window ▸ Layout ▸ Patch Bay**.
+>
+> **⧉ on any window bar** pops that window's view out to its own OS
+> window for multi-display rigs (Patch Bay/Timeline get a live
+> duplicate; Controls/Renderer use their dedicated popouts). And the
+> whole synth is remote-controllable over **MCP** — params, menu
+> commands, the graph patch, screenshots — via **I/O ▸ MCP** plus the
+> bridge in tools/mcp-server (opt-in; see its README).
 
 1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.

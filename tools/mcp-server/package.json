@@ -1,0 +1,16 @@
+{
+  "name": "ruttetra-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP (Model Context Protocol) server for RUTT/ETRA Web — lets an MCP client (Claude Desktop, Claude Code, ...) remote-control the synth running in a browser via a local WebSocket relay.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.0"
+  }
+}

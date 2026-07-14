@@ -29,6 +29,8 @@ import './workspace.css';
 import { attachTooltip } from '../tooltip';
 import type { SettingsStore } from '../../state/Settings';
 import { layoutManager } from '../layout/LayoutManager';
+import { runAction } from '../actions';
+import { popoutView } from './ViewPopout';
 import {
   TabsState, ViewId, WindowId,
   normalizeTabsState, moveView, addTab, activateTab, closeTab, getPreset, WINDOW_IDS,
@@ -184,6 +186,29 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     const spacer = document.createElement('span');
     spacer.className = 'rw-region-bar-spacer';
     bar.append(strip, addBtn, spacer);
+
+    // Pop the window's ACTIVE view out into a standalone OS window
+    // (multi-display rigs) — sits with maximize/collapse per the owner's
+    // spec. CONTROLS/RENDERER dispatch to their specialized popouts;
+    // everything else gets a fresh live instance via its view factory
+    // (ViewPopout.ts — duplicates sync through the shared stores).
+    const popBtn = document.createElement('button');
+    popBtn.type = 'button';
+    popBtn.className = 'rw-region-btn';
+    popBtn.textContent = '⧉';
+    attachTooltip(popBtn, () => {
+      const v = currentState().active[id];
+      return v ? `Pop ${VIEW_LABELS[v] ?? v} out into its own window (multi-display).` : 'Pop this window\'s view out into its own window.';
+    });
+    popBtn.addEventListener('click', () => {
+      const v = currentState().active[id];
+      if (!v) return;
+      if (v === 'panel') { runAction('window.panelPopout'); return; }
+      if (v === 'renderer') { runAction('window.renderPopout'); return; }
+      const factory = factories.get(v);
+      if (factory) popoutView({ view: v, label: VIEW_LABELS[v] ?? v, build: factory });
+    });
+    bar.appendChild(popBtn);
 
     if (id === 'right' || id === 'bottom') {
       const maxBtn = document.createElement('button');

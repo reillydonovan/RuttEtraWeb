@@ -25,6 +25,15 @@ npm run build
 
 ---
 
+## Recent changes (v1.17.0, July 2026 — MCP remote control, popout windows, patch tutorial, bay previews)
+
+- **MCP remote control** — drive the entire synth from any MCP client (Claude Desktop, Claude Code, ...): `tools/mcp-server/` hosts a local stdio↔WebSocket bridge; the browser connects out to it from the new **I/O → MCP** section (opt-in, like every I/O route). Tools cover every modulatable parameter (`list/get/set_param` with ranges from the param docs), every registered app command (`list/run_action` — save, load sample patches, layout presets, tutorials...), the whole modulation graph (`get/set_graph_patch`, `add_graph_node`, `list_node_types`), arbitrary settings reads, and PNG **screenshots** of the output. The surface rides the app's own registries, so it grows automatically as params/actions/nodes are added. Settings schema v32.
+- **Pop any window out to a separate display** — every workspace window bar now has a ⧉ button beside maximize/collapse that opens the window's active view as a standalone OS window: Patch Bay and Timeline get a fresh fully-live instance (duplicates sync through the shared stores, so closing the popup loses nothing); Controls and the Renderer route to their existing specialized popouts.
+- **Patch Bay tutorial** — Help ▸ **Patch Bay Tutorial**: a second opt-in guided walkthrough teaching the modular surface — param stations, right-click node spawning (with try-it buttons that add an LFO and a Scope for you), wiring, live values, free layout and TIDY.
+- **Nodes spawn where you right-click** — Add Node now drops the new module free-floating at the cursor (entering free layout if needed) instead of appending it to the left stack, and spawned modules can never overlap existing ones (collision resolution got a guaranteed park-below fallback for dense boards). Also fixes nodes added while already in free layout landing statically at the board's top-left over other modules.
+- **Preview monitors in the bay** (think TouchDesigner): VIDEO SOURCE gains an expandable live monitor of the incoming feed, and a new **RENDER PREVIEW** module shows the final output — both draw the one real source/canvas, collapsed by default and free when collapsed.
+- **Scope flat-line fixed** — wiring nodes together while the Modulation section was still in Classic mode silently left the graph engine asleep (every output read 0, so the Scope drew a dead line). Any patching gesture in the bay now wakes the graph engine automatically, same as loading a sample patch always has.
+
 ## Recent changes (v1.16.0, July 2026 — sample patches, Notes node, interactive tutorial)
 
 - **Notes node** — a free-text annotation node for the Graph editor (ComfyUI-style): drop one from the Meta category in the palette, type directly into its on-canvas textarea to document a patch. No signal effect, no inputs/outputs.
@@ -670,6 +679,10 @@ tools/
 │   ├── package.json
 │   ├── server.ts               UDP <-> WebSocket OSC bridge
 │   └── README.md
+├── mcp-server/                 v1.17: MCP (Model Context Protocol) remote control
+│   ├── package.json
+│   ├── server.mjs              MCP stdio <-> WebSocket relay to the browser
+│   └── README.md               tool list + Claude Desktop/Code setup
 └── cv-bridge/                  v9: reference scripts for ADC → OSC CV bridges
     ├── README.md
     ├── mcp3008_to_osc.py       Raspberry Pi + MCP3008 (8-ch, 10-bit, SPI)

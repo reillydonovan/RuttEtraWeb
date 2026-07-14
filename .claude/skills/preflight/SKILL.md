@@ -17,9 +17,9 @@ Run these in order; stop and report on the first failure:
 ## Invariant checklist (verify for the diff being committed)
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts`) and adds an idempotent
-  `migrateSettings()` step. Migration tests assert `_v >= N`, never
-  `=== N`.
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 32 as of v1.17.0) and
+  adds an idempotent `migrateSettings()` step. Migration tests assert
+  `_v >= N`, never `=== N`.
 - **Timeline schema**: same rule via `Timeline._v` (`src/sequencer/types.ts`)
   and the store's normalize path.
 - **Base/live split**: no modulation/automation code path may call
@@ -40,6 +40,20 @@ Run these in order; stop and report on the first failure:
   deliberately EXCLUDE any target whose consumer does something
   expensive on every write (mesh rebuild, GPU resolution resize) —
   continuous modulation would hammer that operation every frame.
+- **Bay gestures that create/edit graph connections must call
+  `ensureGraphLive()`** (PatchBayView.ts): `GraphEngine.tick()` no-ops
+  entirely while `modMode` is `'classic'`, so a wire/binding made in
+  classic mode is silently dead — every node output reads 0 (the
+  "Scope draws a flat line" owner bug, v1.17.0). Any NEW gesture or
+  remote surface that writes graph connections needs the same guard
+  (MCP's set_graph_patch/add_graph_node already apply it).
+- **MCP remote control** (`src/io/McpRemote.ts` + `tools/mcp-server/`):
+  the command surface deliberately rides the app's own registries
+  (TARGETS, action registry via `listActions()`, node registry) — when
+  adding remote capabilities, extend those registries rather than
+  hand-adding MCP-only commands, or the surface forks. The browser
+  connects OUT to the bridge; keep it opt-in (I/O → MCP), and never
+  let a remote write path reach the audio/CV arming flags.
 - **Editing `modGraph` from a new surface needs TWO writes, not one**:
   `settings.set('modGraph', next)` persists the patch, but
   `GraphEngine` "never mutates the graph itself — `setPatch()` is the

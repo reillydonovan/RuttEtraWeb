@@ -32,6 +32,7 @@ import { describeSummary } from './project/Project';
 import { ModMatrix } from './modulation/ModMatrix';
 import { activeTargetsBus } from './modulation/ActiveTargetsBus';
 import { LiveValuesStore } from './modulation/LiveValues';
+import { getDef } from './modulation/graph/registry';
 import { attachModDebugOverlayIfRequested } from './modulation/ModDebugOverlay';
 import type { GraphEngine } from './modulation/graph/GraphEngine';
 import { STARTER_PATCHES, StarterPatch } from './modulation/graph/library';
@@ -930,6 +931,46 @@ async function bootSynth(): Promise<void> {
         },
       },
       {
+        id: 'help.startPatchTutorial', label: 'Patch Bay Tutorial',
+        run: async () => {
+          const [{ startTutorial }, { buildPatchBayTutorialSteps }] = await Promise.all([
+            import('./ui/tutorial/Tutorial'),
+            import('./ui/tutorial/tutorialStepsPatchBay'),
+          ]);
+          startTutorial(buildPatchBayTutorialSteps({
+            showPatchBay: () => {
+              // The default 4-up layout docks the bay in the LEFT window;
+              // re-applying it guarantees a bay instance is on-screen in
+              // THIS document (a popped-out bay can't host the spotlight).
+              const state = workspace.getState();
+              const bayVisible = Object.values(state.active).includes('patchbay');
+              if (!bayVisible) workspace.applyPreset('default');
+            },
+            // Same node+companion-binding+mode-guard+two-write sequence
+            // the bay's own right-click Add Node uses (and Beginner's
+            // "+ Add patch") — a tutorial-sized copy so the step works
+            // regardless of which bay instance is showing.
+            addNode: (type) => {
+              const patch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
+              const def = getDef(type);
+              const inputs: Record<string, string | null> = {};
+              for (const p of def?.inputs ?? []) inputs[p.name] = null;
+              const nodeId = `n${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+              const next: GraphPatch = {
+                nodes: [...patch.nodes, { id: nodeId, type, params: {}, inputs }],
+                bindings: [...patch.bindings, {
+                  id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`,
+                  paramKey: 'none', sourceNodeId: nodeId, amount: 0.25, mode: 'additive',
+                }],
+              };
+              if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+              settings.set('modGraph', next);
+              void ensureGraphEngine().then((e) => e.setPatch(next));
+            },
+          }));
+        },
+      },
+      {
         id: 'help.about', label: 'About RUTT/ETRA…',
         run: () => {
           const overlay = document.createElement('div');
@@ -1083,6 +1124,7 @@ async function bootSynth(): Promise<void> {
           helpTab('shortcuts', 'Keyboard Shortcuts'),
           { sep: true },
           { actionId: 'help.startTutorial' },
+          { actionId: 'help.startPatchTutorial' },
           { actionId: 'help.manual' },
           { actionId: 'help.about' },
         ],
@@ -1186,10 +1228,14 @@ async function bootSynth(): Promise<void> {
     },
   });
 
+  // Shared MCP remote instance (set once by the lazy I/O-sections block
+  // below; extra CONTROLS panels reuse it so there's one WS connection).
+  let mcpRemoteShared: import('./io/McpRemote').McpRemote | null = null;
+
   // Lazy-load Record + Share + I/O sections + Help so they don't ship in
   // the initial chunk. UI shows a placeholder until the modules resolve.
   void (async () => {
-    const [rs, ss, ms, as, os, cvs, cvos, sons] = await Promise.all([
+    const [rs, ss, ms, as, os, cvs, cvos, sons, mcps, mcpMod] = await Promise.all([
       import('./ui/sections/RecordSection'),
       import('./ui/sections/ShareSection'),
       import('./ui/sections/MidiSection'),
@@ -1198,7 +1244,17 @@ async function bootSynth(): Promise<void> {
       import('./ui/sections/CVSection'),
       import('./ui/sections/CVOutputSection'),
       import('./ui/sections/SonificationSection'),
+      import('./ui/sections/McpSection'),
+      import('./io/McpRemote'),
     ]);
+    // MCP remote control — the browser half of tools/mcp-server. Opt-in
+    // (Connect button / auto-connect toggle in I/O → MCP); the command
+    // surface rides the app's own registries (params, actions, graph).
+    // ONE instance app-wide (one WS connection) — extra CONTROLS panels
+    // render their MCP section against this same object.
+    const mcpRemote = new mcpMod.McpRemote({ settings, getEngine: ensureGraphEngine });
+    mcpRemoteShared = mcpRemote;
+    if (settings.get('mcpAutoConnect')) mcpRemote.connect();
     panel.addSection({ tab: 'synth', title: 'Record', body: rs.createRecordSection(settings, {
       recorder,
       sequencer,
@@ -1212,6 +1268,7 @@ async function bootSynth(): Promise<void> {
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
     panel.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
     panel.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
+    panel.addSection({ tab: 'io',    title: 'MCP',   body: mcps.createMcpSection(settings, mcpRemote) });
     panel.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
   })();
 
@@ -1316,6 +1373,10 @@ async function bootSynth(): Promise<void> {
       extra.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
       extra.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
       extra.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
+      if (mcpRemoteShared) {
+        const mcpsEx = await import('./ui/sections/McpSection');
+        extra.addSection({ tab: 'io', title: 'MCP', body: mcpsEx.createMcpSection(settings, mcpRemoteShared) });
+      }
       extra.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
       const helpMod = await import('./ui/sections/HelpSection');
       extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });
