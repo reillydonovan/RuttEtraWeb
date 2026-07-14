@@ -160,6 +160,24 @@
   padding: 2px 0;
 }
 .rw-pb-graphnode .rw-pb-module-head { color: #5fffd0; }
+/* Every graph node gets a module now (owner: "show all nodes, active or
+   not"); dim ones with no connection anywhere (freshly added via the
+   right-click menu, or just never wired) so a glance still tells live
+   signal-carrying nodes apart from placeholders. Toggled live in
+   frame() alongside the other jack-state classes. */
+.rw-pb-graphnode--inert { opacity: 0.5; }
+.rw-pb-graphnode--inert .rw-pb-module-head { color: var(--re-text-dim); }
+
+/* Right-click "Add Node" popover — reuses the Graph editor's own
+   createPalette() (rw-graph-palette/-cat/-item, styled in graph.css)
+   inside a floating, cursor-positioned wrapper. */
+.rw-pb-addnode-menu {
+  position: fixed;
+  z-index: 200;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(95, 255, 133, 0.2);
+}
 
 .rw-pb-module-head {
   display: flex;
