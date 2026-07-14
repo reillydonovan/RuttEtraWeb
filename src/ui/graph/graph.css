@@ -360,6 +360,9 @@
 .rw-graph-node--inputs     .rw-graph-node-head { color: #cce6ff; }
 .rw-graph-node--processors .rw-graph-node-head { color: var(--re-accent); }
 .rw-graph-node--logic      .rw-graph-node-head { color: #5fff85; }
+.rw-graph-node--meta      .rw-graph-node-head { color: #ffe066; background-color: rgba(255,224,102,0.10); }
+/* Notes need room for a real paragraph, unlike the ~130px signal nodes. */
+.rw-graph-node--meta { min-width: 200px; }
 
 .rw-graph-node-body {
   display: grid;
@@ -367,6 +370,24 @@
   padding: 4px 0;
   gap: 4px;
 }
+.rw-graph-node-body--note {
+  display: block;
+  padding: 4px;
+}
+.rw-graph-note-text {
+  width: 100%;
+  min-height: 80px;
+  box-sizing: border-box;
+  resize: vertical;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 6px;
+}
+.rw-graph-note-text:focus { outline: none; border-color: #ffe066; }
 .rw-graph-node-ports { display: flex; flex-direction: column; gap: 2px; }
 .rw-graph-node-ins   { align-items: flex-start; }
 .rw-graph-node-outs  { align-items: flex-end;   }
@@ -419,6 +440,18 @@
   color: var(--re-text-dim);
   font-size: 11px;
   margin-bottom: 4px;
+}
+.rw-graph-inspector-text {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+  resize: vertical;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  font-size: 11px;
+  padding: 4px 6px;
 }
 .rw-graph-inspector-subtitle {
   color: var(--re-text-dim);

@@ -134,4 +134,17 @@ describe('cableControlPoints', () => {
     // a smooth, single-direction curve rather than a lopsided kink.
     expect(c1.x - 40).toBeCloseTo(c2.x - 33, 5);
   });
+  it('sag never overshoots past a mostly-vertical cable\'s own endpoint — a naive "+sag on both ends" hooks the curve well past whichever end sits lower, which reads as "the cable doesn\'t connect to its jack" even though the true endpoint is mathematically exact', () => {
+    const a = { x: 40, y: 0 }, b = { x: 33, y: 600 }; // b well below a, nearly vertical
+    const [c1, c2] = cableControlPoints(a, b, 'sag');
+    expect(c1.y).toBeLessThanOrEqual(b.y); // c1's droop must not reach past b
+    expect(c2.y).toBeLessThanOrEqual(b.y); // c2 must approach b from ABOVE, not overshoot below it
+    expect(c1.y).toBeGreaterThanOrEqual(a.y); // and never above a, the other direction
+  });
+  it('sag keeps the original hammock shape for a level (non-vertical) cable regardless of length', () => {
+    const [c1, c2] = cableControlPoints({ x: 0, y: 100 }, { x: 300, y: 100 }, 'sag');
+    expect(c1.y).toBeGreaterThan(100);
+    expect(c2.y).toBeGreaterThan(100);
+    expect(c1.y).toBe(c2.y); // symmetric hang, unaffected by the vertical-case fix
+  });
 });

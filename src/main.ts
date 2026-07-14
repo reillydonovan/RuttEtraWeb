@@ -34,6 +34,8 @@ import { activeTargetsBus } from './modulation/ActiveTargetsBus';
 import { LiveValuesStore } from './modulation/LiveValues';
 import { attachModDebugOverlayIfRequested } from './modulation/ModDebugOverlay';
 import type { GraphEngine } from './modulation/graph/GraphEngine';
+import { STARTER_PATCHES, StarterPatch } from './modulation/graph/library';
+import type { GraphPatch } from './modulation/graph/types';
 import { ControlPanel } from './ui/ControlPanel';
 import { createSourceSection } from './ui/sections/SourceSection';
 import { createDcuSection } from './ui/sections/DcuSection';
@@ -288,6 +290,23 @@ async function bootSynth(): Promise<void> {
       if (graphEngine) graphEngine.setPatch(next);
     });
     return graphEngine;
+  };
+  // File → Load Sample Patch: same "clone, set modGraph, tell the engine"
+  // sequence as the Graph-view Library sidebar's loadPatch() (no separate
+  // codepath for the top-bar entry point). Classic-only users get bumped
+  // to 'both' so the patch they just asked to load is actually audible/
+  // visible — 'both' rather than 'graph' because Classic slots keep
+  // working too (coexistence, not replacement).
+  const loadSamplePatch = async (sp: StarterPatch): Promise<void> => {
+    const clone = JSON.parse(JSON.stringify(sp.patch)) as GraphPatch;
+    if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+    settings.set('modGraph', clone);
+    const e = await ensureGraphEngine();
+    e.setPatch(clone);
+    settings.set('panelTab', 'synth');
+    const modSection = panel.getSection('Modulation');
+    modSection?.classList.remove('collapsed');
+    modSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   // Pre-warm if persisted state requires it.
   if (settings.get('modMode') !== 'classic') void ensureGraphEngine();
@@ -891,6 +910,16 @@ async function bootSynth(): Promise<void> {
         run: () => { window.open('./about.html', '_blank'); },
       },
       {
+        id: 'help.startTutorial', label: 'Start Tutorial',
+        run: async () => {
+          const [{ startTutorial }, { buildTutorialSteps }] = await Promise.all([
+            import('./ui/tutorial/Tutorial'),
+            import('./ui/tutorial/tutorialSteps'),
+          ]);
+          startTutorial(buildTutorialSteps({ settings, panel, loadSamplePatch }));
+        },
+      },
+      {
         id: 'help.about', label: 'About RUTT/ETRA…',
         run: () => {
           const overlay = document.createElement('div');
@@ -948,6 +977,14 @@ async function bootSynth(): Promise<void> {
                 { label: 'Clear Recent', run: () => projectStore.clearRecent() },
               ];
             },
+          },
+          { sep: true },
+          {
+            label: 'Load Sample Patch',
+            submenu: () => STARTER_PATCHES.map((sp) => ({
+              label: sp.name,
+              run: () => void loadSamplePatch(sp),
+            })),
           },
           { sep: true },
           { actionId: 'file.save' },
@@ -1035,6 +1072,7 @@ async function bootSynth(): Promise<void> {
           helpTab('controls', 'Controls Reference'),
           helpTab('shortcuts', 'Keyboard Shortcuts'),
           { sep: true },
+          { actionId: 'help.startTutorial' },
           { actionId: 'help.manual' },
           { actionId: 'help.about' },
         ],

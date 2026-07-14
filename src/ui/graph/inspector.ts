@@ -32,6 +32,9 @@ const REGION_NODE_TYPES = new Set<string>([
   'video-luma', 'video-motion', 'video-color', 'video-edge',
 ]);
 
+/** Node types edited inline on the canvas, not through param rows here. */
+const NOTE_NODE_TYPES = new Set<string>(['note']);
+
 export function createInspector(opts: InspectorOptions): {
   el: HTMLElement;
   setSelected(node: GraphNode | null): void;
@@ -96,11 +99,15 @@ export function createInspector(opts: InspectorOptions): {
       }));
     }
 
-    for (const [paramName, spec] of Object.entries(def.params)) {
-      // Region params are exposed via the picker above; hide them here
-      // to avoid double-controls competing for the same value.
-      if (REGION_NODE_TYPES.has(node.type) && (paramName === 'rx' || paramName === 'ry' || paramName === 'rw' || paramName === 'rh')) continue;
-      root.appendChild(createParamRow(node, paramName, spec));
+    // Note nodes are edited inline on the canvas (AdvancedView's 'note'
+    // branch) — no param rows here, just the enabled toggle above.
+    if (!NOTE_NODE_TYPES.has(node.type)) {
+      for (const [paramName, spec] of Object.entries(def.params)) {
+        // Region params are exposed via the picker above; hide them here
+        // to avoid double-controls competing for the same value.
+        if (REGION_NODE_TYPES.has(node.type) && (paramName === 'rx' || paramName === 'ry' || paramName === 'rw' || paramName === 'rh')) continue;
+        root.appendChild(createParamRow(node, paramName, spec));
+      }
     }
 
     // Bindings affecting this node's outputs.
@@ -196,6 +203,17 @@ export function createInspector(opts: InspectorOptions): {
         opts.setPatch(p);
       });
       row.appendChild(sel);
+    } else if (spec.kind === 'text') {
+      const ta = document.createElement('textarea');
+      ta.className = 'rw-graph-inspector-text';
+      ta.value = String(getParam(node, paramName, spec.default));
+      ta.addEventListener('input', () => {
+        const p = opts.getPatch();
+        const n = p.nodes.find((x) => x.id === node.id);
+        if (n) n.params[paramName] = ta.value;
+        opts.setPatch(p, { skipRerender: true });
+      });
+      row.appendChild(ta);
     } else {
       const cb = document.createElement('input');
       cb.type = 'checkbox';

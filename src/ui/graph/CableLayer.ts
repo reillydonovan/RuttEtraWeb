@@ -16,7 +16,7 @@
 
 import { GraphPatch, splitInputRef } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
-import { drawPatchCable } from '../cableDraw';
+import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 
 export interface CableAnchorResolver {
   /** Returns canvas-relative {x,y} for a node's input port, or null if unknown. */
@@ -70,13 +70,12 @@ export function createCableLayer(): CableLayer {
     : false;
 
   function resize(w: number, h: number): void {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
-    widthCss = w; heightCss = h;
-    el.width  = Math.max(1, Math.floor(w * dpr));
-    el.height = Math.max(1, Math.floor(h * dpr));
-    el.style.width  = w + 'px';
-    el.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Zoom-aware sizing (Global Text Size): w/h arrive as VISUAL pixels
+    // (the host's getBoundingClientRect), and anchors from the resolver
+    // are visual too — fitCableCanvas keeps the canvas's on-screen size
+    // equal to the host so the two spaces coincide. See its docs.
+    const size = fitCableCanvas(el, ctx, { width: w, height: h });
+    widthCss = size.w; heightCss = size.h;
     if (lastPatch && lastResolver) draw(lastPatch, lastResolver);
   }
 

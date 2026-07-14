@@ -4,6 +4,19 @@ Hands-on lessons, each a few minutes long. Screenshots land here as the
 collection grows — for now, every step names the exact control so you
 can follow along in the app.
 
+### The interactive walkthrough (Help ▸ Start Tutorial)
+
+The written lessons below are one way in. There's also a guided,
+in-app version: **Help ▸ Start Tutorial** dims the interface, spotlights
+the control being discussed, and floats a callout with Back / Next /
+Exit — 8 steps from picking a source through Z Push, the camera,
+modulation, a one-click sample patch, and saving your look. It's opt-in
+only; nothing runs it automatically, and the highlighted control stays
+fully interactive the whole time (the dim is visual, not a click-guard),
+so a step that says "try dragging this" means you actually can, live,
+without dismissing anything first. Press Esc or **Exit** anytime.
+Re-runnable as many times as you like.
+
 ### Tutorial 1 — Make the image breathe with your microphone
 
 Goal: your mic's loudness drives **Z Push** (the depth of the scanline

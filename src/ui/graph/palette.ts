@@ -15,7 +15,7 @@ export interface PaletteOptions {
 }
 
 const CATEGORY_ORDER: NodeDef<unknown>['category'][] = [
-  'Sources', 'Audio', 'Video', 'Inputs', 'Processors', 'Logic',
+  'Sources', 'Audio', 'Video', 'Inputs', 'Processors', 'Logic', 'Meta',
 ];
 
 export function createPalette(opts: PaletteOptions): HTMLElement {

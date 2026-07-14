@@ -18,3 +18,4 @@ import './nodes/inputs';
 import './nodes/outputs';
 import './nodes/processors';
 import './nodes/logic';
+import './nodes/meta';

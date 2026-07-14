@@ -230,18 +230,41 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
 
     const body = document.createElement('div');
     body.className = 'rw-graph-node-body';
-    const ins = document.createElement('div');
-    ins.className = 'rw-graph-node-ports rw-graph-node-ins';
-    for (const p of def.inputs) ins.appendChild(portDot(node.id, p.name, 'in', p.kind));
-    const outs = document.createElement('div');
-    outs.className = 'rw-graph-node-ports rw-graph-node-outs';
-    for (const p of def.outputs) outs.appendChild(portDot(node.id, p.name, 'out', p.kind));
-    body.append(ins, outs);
+    if (node.type === 'note') {
+      // Notes have no ports; edit their one param inline, on-canvas,
+      // ComfyUI-style — not through the side inspector (see inspector.ts's
+      // NOTE_NODE_TYPES skip).
+      body.classList.add('rw-graph-node-body--note');
+      const ta = document.createElement('textarea');
+      ta.className = 'rw-graph-note-text';
+      ta.placeholder = 'Notes…';
+      ta.spellcheck = false;
+      ta.value = String(node.params.text ?? '');
+      ta.addEventListener('input', () => {
+        const p = currentPatch();
+        const n = p.nodes.find((x) => x.id === node.id);
+        if (n) n.params.text = ta.value;
+        writePatch(p, { skipRerender: true });
+      });
+      body.appendChild(ta);
+    } else {
+      const ins = document.createElement('div');
+      ins.className = 'rw-graph-node-ports rw-graph-node-ins';
+      for (const p of def.inputs) ins.appendChild(portDot(node.id, p.name, 'in', p.kind));
+      const outs = document.createElement('div');
+      outs.className = 'rw-graph-node-ports rw-graph-node-outs';
+      for (const p of def.outputs) outs.appendChild(portDot(node.id, p.name, 'out', p.kind));
+      body.append(ins, outs);
+    }
     el.appendChild(body);
 
     // Selection / focus
     el.addEventListener('mousedown', (e) => {
       if ((e.target as HTMLElement).closest('.rw-graph-port-dot')) return;
+      // Let the note's textarea handle its own click-to-focus/caret
+      // placement — re-rendering on mousedown (below) would tear it
+      // down mid-click and lose the caret position.
+      if ((e.target as HTMLElement).closest('.rw-graph-note-text')) return;
       selectedId = node.id;
       render();
       // Header-only drag.
@@ -256,6 +279,9 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       }
     });
     el.addEventListener('keydown', (e) => {
+      // Typing in the note's textarea must never move/delete the node —
+      // Backspace and arrow keys are ordinary text editing there.
+      if ((e.target as HTMLElement).closest('.rw-graph-note-text')) return;
       const step = e.shiftKey ? 20 : 6;
       const cur = currentPatch();
       const target = cur.nodes.find((n) => n.id === node.id);
@@ -270,6 +296,8 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       }
     });
     el.addEventListener('contextmenu', (e) => {
+      // Let the note's textarea show its native context menu (paste, etc.)
+      if ((e.target as HTMLElement).closest('.rw-graph-note-text')) return;
       e.preventDefault();
       if (confirm(`Delete node "${def.label}"?`)) deleteNode(node.id);
     });

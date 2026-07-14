@@ -42,7 +42,12 @@ export type NodeType =
   // v22: true ADSR envelope generator + control-rate resonant filter
   | 'envelope' | 'filter'
   // Logic / utility
-  | 'trigger-to-gate' | 'gate-to-trigger' | 'clock-divider' | 'sequencer';
+  | 'trigger-to-gate' | 'gate-to-trigger' | 'clock-divider' | 'sequencer'
+  // Free-text annotation (ComfyUI-style "Note") — no signal inputs or
+  // outputs, documents a patch for whoever opens it next. A new node
+  // type needs no schema bump: unrecognized types already round-trip
+  // fine (GraphEngine skips defs it can't find).
+  | 'note';
 
 export type CurveType = 'linear' | 'exp' | 'log' | 'sCurve';
 export type BindingMode = 'additive' | 'multiplicative';
@@ -132,7 +137,9 @@ export function splitInputRef(ref: string): { nodeId: string; port: string | nul
 export type ParamSpec =
   | { kind: 'number'; min: number; max: number; step: number; default: number }
   | { kind: 'enum';   options: string[]; default: string }
-  | { kind: 'boolean'; default: boolean };
+  | { kind: 'boolean'; default: boolean }
+  /** Free multi-line text — currently only the 'note' node uses this. */
+  | { kind: 'text'; default: string };
 
 export interface PortSpec {
   name: string;
@@ -272,7 +279,7 @@ export interface Rect { x: number; y: number; w: number; h: number; }
 export interface NodeDef<S = unknown> {
   type: NodeType;
   /** Top-level palette category. */
-  category: 'Sources' | 'Audio' | 'Video' | 'Inputs' | 'Processors' | 'Logic';
+  category: 'Sources' | 'Audio' | 'Video' | 'Inputs' | 'Processors' | 'Logic' | 'Meta';
   /** Short label for palette / inspector. */
   label: string;
   /** One-sentence plain-language description for help / tooltip. */

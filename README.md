@@ -25,6 +25,12 @@ npm run build
 
 ---
 
+## Recent changes (v1.16.0, July 2026 — sample patches, Notes node, interactive tutorial)
+
+- **Notes node** — a free-text annotation node for the Graph editor (ComfyUI-style): drop one from the Meta category in the palette, type directly into its on-canvas textarea to document a patch. No signal effect, no inputs/outputs.
+- **Sample patches from the top bar** — File ▸ **Load Sample Patch** lists the same starter patches the Graph editor's Library sidebar has, now reachable without opening the panel first. Two new ones (*Getting Started — Breathing Z Push*, *Annotated: Audio-Reactive Bloom*) ship with a Notes node explaining themselves.
+- **Interactive tutorial** — Help ▸ **Start Tutorial** (opt-in only, never shown automatically): an 8-step guided walkthrough that dims the app, spotlights the control being discussed, and floats an interactive callout with Back/Next/Exit — source → Z Push → camera → modulation → try a sample patch → save. The highlighted control stays fully interactive the whole time (the dim is a visual overlay, not a click-blocker), so a step can say "try dragging this" and you actually can.
+
 ## Recent changes (v1.15.0, July 2026 — timeline pan/zoom, format-aware length field, keyframe verification)
 
 - **Timeline track: scroll and zoom like Premiere/Blender/Resolve** once a zoomed-in track extends past the dock's width — plain wheel still scrolls lane rows vertically as before; **Shift+wheel pans horizontally**; **Ctrl/Cmd+wheel zooms**, anchored to the bar under the cursor so that point stays put (the same cursor-anchored recipe the Patch Bay's board zoom already uses). The `−`/`+` transport buttons still work exactly as before.

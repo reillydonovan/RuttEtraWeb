@@ -24,7 +24,7 @@
 
 import './patchbay.css';
 import type { SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/Settings';
-import { drawPatchCable } from '../cableDraw';
+import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
@@ -872,16 +872,24 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
       ctx = canvas.getContext('2d');
       if (!ctx) return;
     }
-    const win = root.ownerDocument.defaultView ?? window;
-    const dpr = Math.min(2, win.devicePixelRatio || 1);
-    const w = Math.floor(rect.width), h = Math.floor(rect.height);
-    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
+    // Coverage: the surface's box PLUS everything laid out inside it —
+    // the board can be far taller than the surface's own box (the bay
+    // root scrolls it), and a box-sized canvas only covered the top
+    // scrollport-slice: cables to jacks below the fold drew into
+    // clipped space and silently vanished. Children rects also include
+    // the board's zoom transform and free-mode breakout units. The
+    // canvas itself is deliberately excluded (see fitCableCanvas docs).
+    let covW = rect.width, covH = rect.height;
+    for (const child of Array.from(surface.children)) {
+      if (child === canvas || !(child instanceof HTMLElement)) continue;
+      const cr = child.getBoundingClientRect();
+      covW = Math.max(covW, cr.right - rect.left);
+      covH = Math.max(covH, cr.bottom - rect.top);
     }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Zoom-aware sizing (Global Text Size): keeps the canvas's VISUAL
+    // size equal to the coverage so anchors measured in screen pixels
+    // land exactly where drawn — see fitCableCanvas's docs.
+    const { w, h } = fitCableCanvas(canvas, ctx, { width: covW, height: covH });
     ctx.clearRect(0, 0, w, h);
     const local = (p: Pt): Pt => ({ x: p.x - rect.left, y: p.y - rect.top });
     const anchor = (el: HTMLElement | undefined): Pt | null => {

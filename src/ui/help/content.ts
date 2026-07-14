@@ -69,7 +69,9 @@ const MD_QUICKSTART = `
 >
 > New to patching? The About page's **Tutorials** section walks through
 > wiring your microphone to Z Push in about two minutes — the same
-> patch in cables (Patch Bay) and dropdowns (Modulation panel).
+> patch in cables (Patch Bay) and dropdowns (Modulation panel). Or try
+> **Help ▸ Start Tutorial** for a guided, in-app walkthrough that
+> spotlights each control as you go (opt-in — never runs on its own).
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate and a
 > node editor: scroll to zoom, click-drag empty background to pan, drag
@@ -574,9 +576,18 @@ Use a **Delay** node to make the latency explicit and tunable.
 
 ## Built-in starter patches
 
-Open **Library** in the Graph view to load any of: Audio Ring Mod, Video
-Brightness Tracking, Beat-Synced Step Sequencer, Motion-Triggered Glitch,
-Slewed Pitch Follow, Reactive Crossfade, Edge-Driven Focus.
+Open **Library** in the Graph view, or **File ▸ Load Sample Patch** in the
+top menu bar, to load any of: Getting Started — Breathing Z Push, Annotated:
+Audio-Reactive Bloom, Audio Ring Mod, Video Brightness Tracking, Beat-Synced
+Step Sequencer, Motion-Triggered Glitch, Slewed Pitch Follow, Reactive
+Crossfade, Edge-Driven Focus. The first two ship with a **Note** node
+explaining themselves.
+
+## Notes
+
+A Meta-category node with no inputs, outputs, or signal effect — just a
+free-text box you type into directly on the canvas, for documenting what a
+patch does. Add one from the palette any time; it never affects playback.
 `;
 
 const MD_TIMELINE = `

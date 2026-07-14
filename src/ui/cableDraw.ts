@@ -14,6 +14,87 @@
 
 export interface CablePoint { x: number; y: number }
 
+/** Last-applied sizing per canvas so per-frame calls don't churn style. */
+const fitCache = new WeakMap<HTMLCanvasElement, { w: number; h: number; z: number; dpr: number }>();
+
+/** Backing-store axis cap — beyond this a canvas risks failing to
+ *  allocate entirely (which Chromium paints as an opaque white rect,
+ *  far worse than a slightly soft cable). */
+const MAX_BACKING_PX = 8192;
+
+/**
+ * The canvas's accumulated CSS `zoom` factor (its own × every
+ * ancestor's). Global Text Size applies `zoom` to each workspace
+ * window's direct children, and WHERE that boundary sits relative to
+ * the canvas varies by surface — the rack overlay's canvas is itself a
+ * zoomed direct child of the shell, while the bay's sits deeper. So the
+ * factor must be read from the canvas's own chain, not inferred from
+ * some host element's box ratio (measuring the SHELL's ratio reads 1.0
+ * even though the canvas inside it is zoomed — that mismatch once fed a
+ * runaway resize loop, see fitCableCanvas).
+ */
+function accumulatedZoom(el: Element): number {
+  const win = el.ownerDocument.defaultView;
+  if (!win) return 1;
+  let z = 1;
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const zv = parseFloat((win.getComputedStyle(n) as CSSStyleDeclaration & { zoom?: string }).zoom || '1');
+    if (Number.isFinite(zv) && zv > 0 && zv !== 1) z *= zv;
+  }
+  return z;
+}
+
+/**
+ * Size a cable canvas so its VISUAL (on-screen) size exactly matches
+ * `coverage`, and set the context transform so one drawing unit = one
+ * visual pixel.
+ *
+ * Why this exists: every cable surface measures jack/port anchors in
+ * visual screen pixels (`getBoundingClientRect`/`clientX`) and maps
+ * them canvas-local by subtracting the reference rect's origin. That's
+ * only correct if the canvas's visual size (and therefore its drawing-
+ * unit-to-screen mapping) matches. The naive `canvas.style.width =
+ * rect.width + 'px'` breaks under Global Text Size: that style is CSS
+ * pixels INSIDE the ancestor's CSS `zoom`, so the canvas renders
+ * `zoom×` bigger and every drawn coordinate lands scaled by `zoom`
+ * from the top-left — cables drift progressively further off their
+ * jacks the further down/right they are (confirmed live at text scale
+ * 110%: drawn endpoints matched the jacks' visual coordinates exactly
+ * but appeared at 1.1× them). Dividing the CSS size by the canvas's
+ * accumulated zoom makes the visual size come out right; callers'
+ * anchor math needs no change.
+ *
+ * `coverage` is VISUAL pixels and must be computed WITHOUT consulting
+ * the canvas itself (e.g. never from a parent's scrollWidth while the
+ * canvas is inside that parent): the canvas's own zoomed box feeding
+ * back into its next size grows it ~zoom× per FRAME until allocation
+ * fails and the canvas paints solid white (a 35,000×92,000px canvas
+ * was reached within seconds when this rule was broken).
+ */
+export function fitCableCanvas(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  coverage: { width: number; height: number },
+): { w: number; h: number } {
+  const win = canvas.ownerDocument.defaultView ?? window;
+  const dpr = Math.min(2, win.devicePixelRatio || 1);
+  const w = Math.max(1, Math.floor(coverage.width));
+  const h = Math.max(1, Math.floor(coverage.height));
+  const z = accumulatedZoom(canvas);
+  const prev = fitCache.get(canvas);
+  if (!prev || prev.w !== w || prev.h !== h || Math.abs(prev.z - z) > 1e-3 || prev.dpr !== dpr) {
+    canvas.width = Math.min(MAX_BACKING_PX, Math.floor(w * dpr));
+    canvas.height = Math.min(MAX_BACKING_PX, Math.floor(h * dpr));
+    canvas.style.width = `${w / z}px`;
+    canvas.style.height = `${h / z}px`;
+    fitCache.set(canvas, { w, h, z, dpr });
+  }
+  // One drawing unit = one visual pixel, even when the backing store
+  // was capped (the cable just renders softer there, never misplaced).
+  ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
+  return { w, h };
+}
+
 export type CableStyle = 'flow' | 'sag';
 
 /**
@@ -32,7 +113,8 @@ export function cableControlPoints(a: CablePoint, b: CablePoint, style: CableSty
     return [{ x: a.x + dx, y: a.y }, { x: b.x - dx, y: b.y }];
   }
   const dx = b.x - a.x;
-  const dist = Math.hypot(dx, b.y - a.y);
+  const dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy);
   const sag = Math.min(140, dist * 0.25 + 24);
   // A physical cable billows sideways under its own slack — most
   // noticeably when both ends sit at nearly the same x, where a purely
@@ -46,7 +128,21 @@ export function cableControlPoints(a: CablePoint, b: CablePoint, style: CableSty
   // an already-diagonal curve reads fine without it.
   const straightness = Math.max(0, 1 - Math.abs(dx) / 60);
   const bow = straightness * Math.min(60, dist * 0.15);
-  return [{ x: a.x + bow, y: a.y + sag }, { x: b.x + bow, y: b.y + sag }];
+  // A uniform "+sag downward from both ends" (the classic hammock hang)
+  // only looks right when the endpoints are roughly level. For a mostly
+  // VERTICAL cable, pushing the control point nearest whichever end is
+  // physically LOWER even further down sends it PAST that endpoint —
+  // the curve has to loop back on itself to reach it (confirmed live:
+  // the billowed SOURCES-bus-to-module-jack cables in the Patch Bay drew
+  // a visible hook well past their true jack, reading as "doesn't line
+  // up with the input"). Blend each control point's sag toward "lean
+  // inward, toward the other endpoint" as the cable gets more vertical;
+  // a level cable (verticalness 0) keeps the original, unchanged shape.
+  const verticalness = dist > 0 ? Math.abs(dy) / dist : 0;
+  const dySign = dy === 0 ? 1 : Math.sign(dy);
+  const c1Sag = sag * (1 - verticalness * (1 - dySign));
+  const c2Sag = sag * (1 - verticalness * (1 + dySign));
+  return [{ x: a.x + bow, y: a.y + c1Sag }, { x: b.x + bow, y: b.y + c2Sag }];
 }
 
 export interface CableDrawOpts {

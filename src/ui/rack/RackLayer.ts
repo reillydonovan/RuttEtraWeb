@@ -28,7 +28,7 @@
 import { subscribeSkin, getSkin } from '../skin';
 import { TARGETS } from '../targets';
 import type { SettingsStore, ModTarget } from '../../state/Settings';
-import { drawPatchCable } from '../cableDraw';
+import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import {
   classicCables, graphCables, applyCableTarget, slotForParam,
@@ -278,17 +278,10 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
     }
 
     const panelRect = panelRoot.getBoundingClientRect();
-    const win = panelRoot.ownerDocument.defaultView ?? window;
-    const dpr = Math.min(2, win.devicePixelRatio || 1);
-    const w = Math.max(1, Math.floor(panelRect.width));
-    const h = Math.max(1, Math.floor(panelRect.height));
-    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Zoom-aware sizing (Global Text Size) — see fitCableCanvas's docs.
+    // Coverage is the panel's own box (its content scrolls inside a
+    // contained scroller, so nothing legitimately overflows it).
+    const { w, h } = fitCableCanvas(canvas, ctx, { width: panelRect.width, height: panelRect.height });
     ctx.clearRect(0, 0, w, h);
 
     const local = (p: Pt): Pt => ({ x: p.x - panelRect.left, y: p.y - panelRect.top });

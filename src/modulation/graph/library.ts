@@ -18,6 +18,63 @@ export interface StarterPatch {
 
 export const STARTER_PATCHES: StarterPatch[] = [
   {
+    id: 'getting-started',
+    name: 'Getting Started — Breathing Z Push',
+    description: 'The simplest possible patch: one LFO gently pushes Z Push back and forth. A Note node explains what to try next.',
+    patch: {
+      nodes: [
+        {
+          id: 'note1', type: 'note', inputs: {}, position: { x: 40, y: 20 },
+          params: {
+            text:
+              'This is your first patch.\n\n' +
+              'The LFO below outputs a slow -1..+1 wave. It is bound to ' +
+              'Z Push, so the mesh gently breathes in and out on its own.\n\n' +
+              'Try this:\n' +
+              '- Click the LFO node and drag its RATE slider in the ' +
+              'inspector (right) to speed it up.\n' +
+              '- Change AMT on the Z Push binding below to push harder.\n' +
+              '- Add another node from the palette (left) and wire it in.\n\n' +
+              'Notes like this one never affect the signal — they are free ' +
+              'text for documenting a patch. Add your own from the Meta ' +
+              'category any time.',
+          },
+        },
+        { id: 'lfo1', type: 'lfo', params: { shape: 'sine', rate: 0.25, bipolar: true }, inputs: {}, position: { x: 40, y: 260 } },
+      ],
+      bindings: [
+        { id: 'b1', paramKey: 'zPush', sourceNodeId: 'lfo1', amount: 0.8, mode: 'additive' },
+      ],
+    },
+  },
+  {
+    id: 'documented-audio-bloom',
+    name: 'Annotated: Audio-Reactive Bloom',
+    description: 'A slightly bigger patch with a Note node documenting the signal path — one source feeding two targets at different depths.',
+    patch: {
+      nodes: [
+        {
+          id: 'note1', type: 'note', inputs: {}, position: { x: 40, y: 20 },
+          params: {
+            text:
+              'One AUDIO ENVELOPE feeds two targets:\n' +
+              '- Bloom Intensity (small amount) — a subtle glow on beats\n' +
+              '- Chroma Amount (tiny amount) — a faint color fringe\n\n' +
+              'This is the pattern for "one signal, many destinations": ' +
+              'add a binding per target from the same source node, each ' +
+              'with its own AMOUNT. Enable your mic in Modulation → ' +
+              'Audio Interface to hear it react.',
+          },
+        },
+        { id: 'env1', type: 'audio-envelope', params: { bipolar: false, gain: 1.2 }, inputs: {}, position: { x: 40, y: 300 } },
+      ],
+      bindings: [
+        { id: 'b1', paramKey: 'bloomIntensity', sourceNodeId: 'env1', amount: 0.5, mode: 'additive' },
+        { id: 'b2', paramKey: 'chromaAmount',   sourceNodeId: 'env1', amount: 0.015, mode: 'additive' },
+      ],
+    },
+  },
+  {
     id: 'audio-ring-mod',
     name: 'Audio Ring Mod',
     description: 'Audio envelope multiplied by an LFO drives Z-push for a tremolo-style modulation.',

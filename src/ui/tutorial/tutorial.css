@@ -1,0 +1,77 @@
+/* ================================================================
+   Interactive tutorial — spotlight + callout.
+   z-index 150/151: above the About dialog (130), below the CV pitch-
+   calibration modal (9999, an unrelated hardware-safety flow).
+   ================================================================ */
+
+.rw-tut-root { pointer-events: none; }
+
+.rw-tut-spotlight {
+  position: fixed;
+  z-index: 150;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65);
+  border: 2px solid var(--re-accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.rw-tut-callout {
+  position: fixed;
+  z-index: 151;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  box-shadow: 0 0 16px rgba(95, 255, 133, 0.35);
+  color: var(--re-text);
+  font-family: var(--re-mono);
+  padding: 10px 12px;
+  pointer-events: auto;
+}
+
+.rw-tut-step-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--re-text-dim);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.rw-tut-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--re-accent);
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.rw-tut-body {
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-line;
+  margin-bottom: 8px;
+}
+
+.rw-tut-action-row { margin-bottom: 8px; }
+.rw-tut-action-row[hidden] { display: none; }
+
+.rw-tut-nav-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.rw-tut-btn {
+  font-family: var(--re-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--re-line);
+  color: var(--re-text);
+  cursor: pointer;
+}
+.rw-tut-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
+.rw-tut-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rw-tut-btn--primary { color: var(--re-accent); border-color: var(--re-accent); }
+.rw-tut-btn--ghost { color: var(--re-text-dim); margin-right: auto; }
+.rw-tut-btn--action { width: 100%; color: var(--re-accent); border-color: var(--re-accent); }
