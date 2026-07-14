@@ -134,7 +134,8 @@
 }
 
 .rw-pb-module,
-.rw-pb-field {
+.rw-pb-field,
+.rw-pb-graphnode {
   border: 1px solid var(--re-line-hi);
   border-radius: 3px;
   background: linear-gradient(180deg, rgba(30, 40, 30, 0.6), rgba(12, 18, 12, 0.5));
@@ -144,6 +145,28 @@
   padding: 8px;
   font-family: var(--re-mono);
 }
+
+/* GRAPH ENGINE — dynamic per-node modules (see PatchBayView.ts's
+   rebuildGraphModules). Not a drag/free-mode unit, so it lives outside
+   the `.rw-pb-module, .rw-pb-field` selector `allUnits()` scans. */
+.rw-pb-graph-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rw-pb-graph-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rw-pb-graph-empty {
+  font-family: var(--re-mono);
+  font-size: 10px;
+  color: var(--re-text-dim);
+  letter-spacing: 0.04em;
+  padding: 2px 0;
+}
+.rw-pb-graphnode .rw-pb-module-head { color: #5fffd0; }
 
 .rw-pb-module-head {
   display: flex;
@@ -252,14 +275,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.rw-pb-graph-chip {
-  text-align: center;
-  color: #5fffd0;
-  letter-spacing: 0.18em;
-  font-size: 11px;
-  cursor: help;
 }
 
 /* ---------- narrow mode (bay hosted in a side window) ---------- */

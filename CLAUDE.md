@@ -195,6 +195,18 @@ Fix: `fitCableCanvas()` in `src/ui/cableDraw.ts` (shared by all three surfaces):
 
 Verified at text scales 0.8/1.0/1.1/1.3 (endpoint-vs-jack rect instrumentation + screenshots), through window resize drags, bay scroll, bay board-zoom 144%, the rack panel overlay, and the graph editor's port cables — plus a 4s soak per scale asserting the rack canvas backing store stays byte-identical (feedback-loop regression guard). **Meta-lesson recorded**: when a bug report says "still broken" after a pass that verified clean, suspect the ENVIRONMENT DELTA between the owner's setup and the test setup first (here: text scale ≠ 100%) — not another iteration of the same theory.
 
+### State of the graph-engine node visibility in the Patch Bay (2026-07-14, branch `skeuomorphic`)
+
+Owner feedback looking at the rebuilt Patch Bay: a single generic "GRAPH ENGINE" chip collapsed every graph-sourced cable into one anchor, so a cable landing on a target param gave no clue which node (LFO? Audio Envelope? Sync?) actually drove it — "I imagine we would want a node for anything in the graph engine... that is actively in use so we can see the patch reflected accurately."
+
+`src/ui/patchbay/PatchBayView.ts`'s static `graphChip` is replaced with `rebuildGraphModules()`: groups the current `modGraph` patch's bindings by `sourceNodeId`, renders one `.rw-pb-graphnode` module per distinct active source node (labeled from the node registry's `getDef(type).label`, one output jack per distinct `sourcePort` actually bound), and shows a "No active graph outputs yet" empty state when nothing is bound. A node feeding two different params (e.g. one Audio Envelope bound to both `bloomIntensity` and `chromaAmount`) correctly renders as ONE module with cables fanning out to both targets, not two modules. Rebuilds are gated on a signature string diffed against the previous call so unrelated `modGraph` writes (e.g. a param tweak on an unrelated node) don't tear down and rebuild the DOM every frame.
+
+Required threading `sourceNodeId`/`sourcePort` (already present on `TargetBinding`, previously discarded) through `GraphCable` in `src/ui/rack/rackGeometry.ts`'s `graphCables()` so the Patch Bay's cable-draw loop can look up each cable's source jack by node instead of one shared anchor. `RackLayer.ts`'s overlay (draws cables ON TOP of the real control panel, not a synthetic faceplate) keeps its single shared graph anchor — there's no natural place to inject a per-node module into that surface, so it's intentionally out of scope here.
+
+Two bugs caught and fixed before this shipped: a brace-matching slip while flattening the cable-draw loop (an unclosed `for`, caught by re-reading the diff before typecheck); and a `graphSig` sentinel initialized to `''`, which collided with the legitimate signature of an empty graph and made the "skip rebuild if unchanged" check misfire on the very first call, silently swallowing the empty-state message on a fresh session (caught via a live check that `.rw-pb-graph-empty` was `null` on load; fixed by sentineling on `null` instead).
+
+Verified: full suite (532/532, `rackGeometry.test.ts` grew to 17 cases), typecheck, build, and the about-bundle guard all clean; live-session checks of the empty state, a single-node/single-target patch ("Getting Started"), and a single-node/two-target patch ("Annotated: Audio-Reactive Bloom") all rendered the expected module count, label, and jack count with zero console errors.
+
 ### Known drift
 
 The README was reconciled to the v12+ state on 2026-07-05 (recent-changes section, structure tree, tech list). If README and source disagree, trust the source and fix the README in the same change.

@@ -28,6 +28,14 @@ export interface GraphCable {
   bindingId: string;
   paramKey: string;
   enabled: boolean;
+  /** Which graph node (and optionally which of its output ports)
+   *  actually produces this binding's value — the Patch Bay uses this
+   *  to draw the cable from that node's own jack instead of one
+   *  generic "GRAPH ENGINE" point (owner feedback: a single shared
+   *  anchor made every graph-sourced cable look identical regardless
+   *  of which node — LFO, Audio Band, etc. — was really driving it). */
+  sourceNodeId: string;
+  sourcePort?: string;
 }
 
 /** Cables implied by the Classic matrix: one per slot with a real target. */
@@ -49,6 +57,8 @@ export function graphCables(patch: GraphPatch | null | undefined): GraphCable[] 
     bindingId: b.id,
     paramKey: b.paramKey,
     enabled: b.enabled !== false,
+    sourceNodeId: b.sourceNodeId,
+    sourcePort: b.sourcePort,
   }));
 }
 

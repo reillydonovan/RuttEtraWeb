@@ -41,9 +41,18 @@ describe('graphCables', () => {
       ],
     } as unknown as GraphPatch;
     expect(graphCables(patch)).toEqual([
-      { bindingId: 'b1', paramKey: 'zPush', enabled: true },
-      { bindingId: 'b2', paramKey: 'focus', enabled: false },
+      { bindingId: 'b1', paramKey: 'zPush', enabled: true, sourceNodeId: 'n1', sourcePort: undefined },
+      { bindingId: 'b2', paramKey: 'focus', enabled: false, sourceNodeId: 'n1', sourcePort: undefined },
     ]);
+  });
+  it('passes through sourcePort for multi-output nodes (e.g. Sync phase/pulse)', () => {
+    const patch = {
+      nodes: [],
+      bindings: [
+        { id: 'b1', paramKey: 'hSpin', sourceNodeId: 'sync1', sourcePort: 'phase', amount: 1, mode: 'additive' },
+      ],
+    } as unknown as GraphPatch;
+    expect(graphCables(patch)[0]).toMatchObject({ sourceNodeId: 'sync1', sourcePort: 'phase' });
   });
 });
 

@@ -26,6 +26,7 @@ import './patchbay.css';
 import type { SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
+import { getDef } from '../../modulation/graph/registry';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
@@ -355,12 +356,91 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     bus.appendChild(strip);
   }
 
-  // GRAPH ENGINE chip — the read-only source end of graph-binding cables.
-  const graphChip = document.createElement('div');
-  graphChip.className = 'rw-pb-field rw-pb-graph-chip';
-  graphChip.textContent = 'GRAPH ENGINE';
-  attachTooltip(graphChip, 'Graph-engine bindings render as cyan cables (read-only here — edit them in the graph editor).');
-  rail.appendChild(graphChip);
+  // GRAPH ENGINE — one small read-only module per graph node that is
+  // currently the source of a live binding (owner feedback: a single
+  // generic "GRAPH ENGINE" chip collapsed every graph source into one
+  // undifferentiated point, so a cyan cable told you THAT something in
+  // the graph fed a param, never WHICH node — LFO, Audio Band, etc. —
+  // was doing it). Read-only here, same as before — edit the actual
+  // graph in the Graph editor's Advanced view. Deliberately NOT
+  // `.rw-pb-module`/`.rw-pb-field` (which `allUnits()` picks up for
+  // free-mode dragging): these come and go as the graph changes, and
+  // the free-mode position-freeze/restore machinery only expects
+  // stable, user-placed units.
+  const graphSection = document.createElement('div');
+  graphSection.className = 'rw-pb-graph-section';
+  const graphTitle = document.createElement('div');
+  graphTitle.className = 'rw-pb-field-title';
+  graphTitle.textContent = 'GRAPH ENGINE';
+  attachTooltip(graphTitle, 'Graph nodes that are the source of a live binding. Read-only here — edit them in the Graph editor.');
+  graphSection.appendChild(graphTitle);
+  const graphList = document.createElement('div');
+  graphList.className = 'rw-pb-graph-list';
+  graphSection.appendChild(graphList);
+  rail.appendChild(graphSection);
+
+  /** Keyed `${nodeId}#${port}` (port '' = the node's default output). */
+  const graphNodeJacks = new Map<string, HTMLElement>();
+  // null (not '') so the very first call — an empty graph's signature
+  // is also '' — doesn't collide with "unchanged" and skip building
+  // the empty-state message.
+  let graphSig: string | null = null;
+
+  function rebuildGraphModules(): void {
+    const patch = settings.get('modGraph');
+    const nodes = patch?.nodes ?? [];
+    const bindings = patch?.bindings ?? [];
+    // Group the ports actually in use by node, preserving first-seen
+    // order so the list doesn't reshuffle every time a binding changes.
+    const byNode = new Map<string, Set<string>>();
+    for (const b of bindings) {
+      const port = b.sourcePort ?? '';
+      if (!byNode.has(b.sourceNodeId)) byNode.set(b.sourceNodeId, new Set());
+      byNode.get(b.sourceNodeId)!.add(port);
+    }
+    const sig = [...byNode.entries()]
+      .map(([id, ports]) => `${id}:${nodes.find((n) => n.id === id)?.type ?? '?'}:${[...ports].sort().join(',')}`)
+      .join('|');
+    if (sig === graphSig) return;
+    graphSig = sig;
+
+    graphList.innerHTML = '';
+    graphNodeJacks.clear();
+    if (byNode.size === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'rw-pb-graph-empty';
+      empty.textContent = 'No active graph outputs yet — bindings you add in the Graph editor appear here.';
+      graphList.appendChild(empty);
+      return;
+    }
+    for (const [nodeId, ports] of byNode) {
+      const node = nodes.find((n) => n.id === nodeId);
+      const def = node ? getDef(node.type) : null;
+      const label = def?.label ?? node?.type ?? 'Unknown node';
+      const mod = document.createElement('div');
+      mod.className = 'rw-pb-graphnode';
+      const head = document.createElement('div');
+      head.className = 'rw-pb-module-head';
+      const title = document.createElement('span');
+      title.textContent = label;
+      head.appendChild(title);
+      mod.appendChild(head);
+      for (const port of ports) {
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row rw-pb-row--out';
+        const rowLabel = document.createElement('label');
+        rowLabel.textContent = port || 'OUT';
+        const jack = makeJack('rw-rack-jack--out rw-pb-jack--graphout');
+        attachTooltip(jack, `${label}${port ? ' · ' + port : ''} — read-only here, edit in the Graph editor.`);
+        row.append(rowLabel, jack);
+        mod.appendChild(row);
+        graphNodeJacks.set(`${nodeId}#${port}`, jack);
+      }
+      graphList.appendChild(mod);
+    }
+  }
+  rebuildGraphModules();
+  settings.subscribe('modGraph', () => rebuildGraphModules());
 
   // ---------------- faceplate columns ---------------------------------
   const col1 = document.createElement('div');
@@ -576,7 +656,7 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
   function allUnits(): HTMLElement[] {
     return [
       bus,
-      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graph-chip')),
+      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field')),
     ];
   }
 
@@ -776,7 +856,8 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
     const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
     if (busTitle) makeUnitDraggable(bus, busTitle);
   }
-  makeUnitDraggable(graphChip, graphChip);
+  // graphSection is deliberately not draggable/free-mode — see its own
+  // comment above (dynamic membership doesn't mix with position-freeze).
 
   // Narrow mode and free mode don't mix (narrow stacks the columns) —
   // but a custom node arrangement must SURVIVE the round-trip (owner
@@ -925,17 +1006,18 @@ export function createPatchBayView(settings: SettingsStore, source: VideoSourceM
       });
     }
 
-    // Graph binding cables, read-only from the GRAPH ENGINE chip.
-    const g = anchor(graphChip.querySelector('.rw-pb-jack--graph') as HTMLElement ?? graphChip);
-    if (g) {
-      for (const gc of graphCables(settings.get('modGraph'))) {
-        const b = anchor(paramJacks.get(gc.paramKey));
-        if (!b) continue;
-        plugged.add(gc.paramKey);
-        drawPatchCable(ctx, local(g), local(b), GRAPH_COLOR, {
-          style: 'sag', dim: !gc.enabled, dashed: false,
-        });
-      }
+    // Graph binding cables, read-only — one per binding, from that
+    // binding's OWN source node's jack (rebuilt above whenever the set
+    // of active graph sources changes), not one shared point.
+    for (const gc of graphCables(settings.get('modGraph'))) {
+      const srcJack = graphNodeJacks.get(`${gc.sourceNodeId}#${gc.sourcePort ?? ''}`);
+      const g = anchor(srcJack);
+      const b = anchor(paramJacks.get(gc.paramKey));
+      if (!g || !b) continue;
+      plugged.add(gc.paramKey);
+      drawPatchCable(ctx, local(g), local(b), GRAPH_COLOR, {
+        style: 'sag', dim: !gc.enabled, dashed: false,
+      });
     }
 
     if (pending) {
