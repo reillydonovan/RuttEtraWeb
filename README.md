@@ -25,6 +25,11 @@ npm run build
 
 ---
 
+## Recent changes (v1.20.0, July 2026 — Dual Raster node, About-page documentation pass)
+
+- **Dual Raster node in the Patch Bay** — a new DUAL RASTER module gives raster A and raster B genuinely independent video feeds instead of the shared signal they mirror by default: wire Video Source A/B (or the Composite node's output) onto its two inputs, then its OUT onto the RENDERER module's IN. Wiring that connection turns on Dual Raster mode for you automatically. Closes a gap the Dual Raster feature's own design doc had flagged as explicitly out of scope when it first shipped. Settings schema v34.
+- **About page documentation pass** — MCP now has full coverage (a dedicated I/O section with the complete tool list, plus the wire protocol in Reference), two missing keyboard shortcuts were added to the Reference table (`H` for HUD toggle, `Ctrl+=`/`Ctrl+-`/`Ctrl+0` for Text Size), and Quick Start's window-management and Patch Bay content — previously a handful of giant paragraphs — was restructured into real headed subsections so the manual's own sidebar table of contents can actually navigate it.
+
 ## Recent changes (v1.19.0, July 2026 — Pattern Generator in the Patch Bay, popout tab bar, Note node fix)
 
 - **Pattern Generator controls in the Patch Bay** — a new PATTERN GENERATOR module: an enable LED, a kind picker (grouped by category, same list as Controls), a blend-mode dropdown, a mix field, and a **dynamic supporting-properties section** that shows only the parameters relevant to whichever pattern kind is currently selected — Solid shows just Brightness; Lissajous shows Brightness/Frequency/Freq Ratio/Phase Offset/Thickness; Oscilloscope shows its own scope-specific set. Switching kind applies that pattern's defaults immediately, exactly like the Controls tab.

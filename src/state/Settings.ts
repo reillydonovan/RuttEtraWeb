@@ -638,8 +638,10 @@ export interface Settings {
    *  'sourceA' is the pre-existing single-source behavior, byte for
    *  byte — nothing about rendering changes until this is patched
    *  to something else. An unplugged cable "normals" back to
-   *  'sourceA', same convention as a real Eurorack jack. */
-  videoRendererIn: 'sourceA' | 'sourceB' | 'composite';
+   *  'sourceA', same convention as a real Eurorack jack. 'dualRaster'
+   *  (v34) hands BOTH rasters over to the Dual Raster node's own two
+   *  inputs instead of a single texture. */
+  videoRendererIn: 'sourceA' | 'sourceB' | 'composite' | 'dualRaster';
   /** The Composite node's two inputs — which source (or none) feeds
    *  each side of the blend. Order matters for asymmetric modes
    *  (subtract, mask). */
@@ -651,6 +653,15 @@ export interface Settings {
   /** 0..1, modulatable — wet/dry between input A alone and the full
    *  blend, same convention as `patternMix`. */
   videoCompositeMix: number;
+  /** The Dual Raster node's two inputs (v34) — which source feeds
+   *  raster A vs. raster B independently (closing the "per-raster
+   *  video sources" gap `docs/design/dual-raster.md` flagged as
+   *  explicitly out of v1). Either side can ALSO reference 'composite'
+   *  (the Composite node's own blended output), same three choices
+   *  Composite's own inputs get, plus 'none' to leave that raster
+   *  mirroring raster A (today's default dual-raster behavior). */
+  videoDualRasterInA: 'sourceA' | 'sourceB' | 'composite' | 'none';
+  videoDualRasterInB: 'sourceA' | 'sourceB' | 'composite' | 'none';
   mirrorH: boolean;
   mirrorV: boolean;
   requestedWidth: number;
@@ -1255,6 +1266,8 @@ export const DEFAULTS: Settings = {
   videoRendererIn: 'sourceA',
   videoCompositeInA: 'sourceA',
   videoCompositeInB: 'sourceB',
+  videoDualRasterInA: 'sourceA',
+  videoDualRasterInB: 'sourceB',
   videoCompositeBlendMode: 'crossfade',
   videoCompositeMix: 0.5,
   mirrorH: true,
@@ -1516,7 +1529,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 33;
+const CURRENT_VERSION = 34;
 
 interface Versioned { _v?: number }
 
@@ -2152,6 +2165,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.videoCompositeBlendMode = (s.videoCompositeBlendMode as PatternBlendMode | undefined) ?? 'crossfade';
     s.videoCompositeMix = (s.videoCompositeMix as number | undefined) ?? 0.5;
     s._v = 33;
+  }
+
+  // v33 -> v34: Dual Raster node (Patch Bay) — per-raster video sources,
+  // closing the "explicitly out of v1" gap in docs/design/dual-raster.md.
+  // Plain defaults, idempotent; `videoRendererIn` isn't touched here (its
+  // v33 default/migrated value is untouched — 'dualRaster' is purely an
+  // ADDITIONAL option on the same key, nothing to backfill).
+  if ((s._v ?? 1) < 34) {
+    s.videoDualRasterInA = (s.videoDualRasterInA as Settings['videoDualRasterInA'] | undefined) ?? 'sourceA';
+    s.videoDualRasterInB = (s.videoDualRasterInB as Settings['videoDualRasterInB'] | undefined) ?? 'sourceB';
+    s._v = 34;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

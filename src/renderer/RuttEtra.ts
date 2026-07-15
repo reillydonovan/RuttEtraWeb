@@ -115,6 +115,28 @@ export class RuttEtraScene {
     (this.uniformsB.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
   }
 
+  /**
+   * Bind a texture as raster B's OWN video input, independent of raster
+   * A's (`uniforms.uVideo`, owned by `attachVideo()`/
+   * `setExternalVideoTexture()` above — both of those still touch
+   * `uniformsB` too, so the pre-existing default of "both rasters
+   * mirror one source" is unaffected). Used by the Patch Bay's Dual
+   * Raster node so the two rasters can display two DIFFERENT feeds —
+   * the one case `docs/design/dual-raster.md` flagged as "explicitly
+   * out of v1: per-raster video sources."
+   *
+   * Call this AFTER `attachVideo()`/`setExternalVideoTexture()` in the
+   * same frame if raster A also needs updating that frame — those
+   * methods always resync B to A, so this must run last to make B's
+   * override stick.
+   */
+  setExternalVideoTextureB(tex: THREE.Texture, width: number, height: number): void {
+    this.uniformsB.uVideo.value = tex;
+    const w = Math.max(1, width | 0);
+    const h = Math.max(1, height | 0);
+    (this.uniformsB.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
+  }
+
   setSize(_width: number, _height: number): void {
     /* placeholder for future thick-line resolution updates */
   }

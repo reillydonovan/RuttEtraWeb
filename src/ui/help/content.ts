@@ -82,9 +82,12 @@ const MD_QUICKSTART = `
 > drag both onto a COMPOSITE module's two inputs (Add/Subtract/
 > Multiply/Screen/Difference/Mask/Crossfade/B-only + mix) and its OUT
 > onto RENDERER's IN to blend two sources into the mesh's video input.
-> RENDERER IN shows no cable while unplugged — it silently normals to
-> Source A, exactly the pre-existing single-source behavior. And every
-> parameter is a labeled jack in
+> A **DUAL RASTER** module instead gives raster A and raster B two
+> genuinely independent feeds (drag Source A/B or Composite's OUT onto
+> its two inputs, its OUT onto RENDERER IN — wiring it also switches
+> Dual Raster on). RENDERER IN shows no cable while unplugged — it
+> silently normals to Source A, exactly the pre-existing single-source
+> behavior. And every parameter is a labeled jack in
 > the original console's engraved groups with a **rotary knob** and an
 > editable value field under it (drag vertically, Shift = fine) — run
 > the whole synth from the bay without Controls open. While modulation

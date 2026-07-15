@@ -1,6 +1,7 @@
 /**
- * Video Source A/B compositor — the Patch Bay's Composite node made
- * real. Reuses the Pattern Generator's existing two-texture blend pass
+ * Video Source A/B compositor — the Patch Bay's Composite AND Dual
+ * Raster nodes made real. Reuses the Pattern Generator's existing
+ * two-texture blend pass
  * (`compositor.frag.glsl` is already video-agnostic: `uPattern`/`uVideo`/
  * `uBlendMode`/`uMix`/`uHasVideo`) rather than shipping a second copy of
  * the shader — see `PatternRenderer.tick()`'s identical recipe.
@@ -33,6 +34,9 @@ export interface VideoCompositeResult {
   width: number;
   height: number;
 }
+
+/** The three sources a routing input can reference (`'none'` = unplugged). */
+export type VideoSourceRef = 'sourceA' | 'sourceB' | 'composite' | 'none';
 
 export class VideoCompositor {
   private rt: THREE.WebGLRenderTarget;
@@ -86,31 +90,18 @@ export class VideoCompositor {
     this.rt.setSize(this.width, this.height);
   }
 
-  /**
-   * Resolves this frame's DCU video input per the Patch Bay's RENDERER
-   * IN wiring. `texA`/`texB` are the two sources' live `THREE.
-   * VideoTexture`s (or null before either has ever loaded metadata);
-   * `aActive`/`bActive` mirror `sourceKind !== 'none'` for each.
-   *
-   * Returns `null` for the default `videoRendererIn: 'sourceA'` — the
-   * caller should leave RuttEtra's existing binding untouched in that
-   * case (zero cost). Non-null means the caller must bind the returned
-   * texture (`RuttEtraScene.setExternalVideoTexture`).
-   */
-  resolveVideoInput(
+  /** Runs the A/B blend pass (Composite node) and returns its result.
+   *  Shared by `resolveVideoInput('composite')` and any Dual Raster
+   *  input set to 'composite' — both read the SAME Composite-node
+   *  settings (`videoCompositeInA/InB/BlendMode/Mix`), so there's only
+   *  ever one "the composite" image in a given frame regardless of how
+   *  many routing slots reference it. */
+  private renderComposite(
     texA: THREE.Texture | null, aActive: boolean,
     texB: THREE.Texture | null, bActive: boolean,
     aWidth: number, aHeight: number, bWidth: number, bHeight: number,
-  ): VideoCompositeResult | null {
-    const routeIn = this.settings.get('videoRendererIn');
-    if (routeIn === 'sourceA') return null;
-    if (routeIn === 'sourceB') {
-      if (!texB) return null; // B has never loaded metadata — normal to sourceA
-      return { texture: texB, width: bWidth || 640, height: bHeight || 480 };
-    }
-
-    // 'composite'
-    const pick = (which: 'sourceA' | 'sourceB' | 'none'): { tex: THREE.Texture; active: boolean } => {
+  ): VideoCompositeResult {
+    const pick = (which: VideoSourceRef): { tex: THREE.Texture; active: boolean } => {
       if (which === 'sourceA') return { tex: texA ?? this.blackTex, active: aActive };
       if (which === 'sourceB') return { tex: texB ?? this.blackTex, active: bActive };
       return { tex: this.blackTex, active: false };
@@ -133,5 +124,71 @@ export class VideoCompositor {
     this.renderer.setRenderTarget(oldRT);
 
     return { texture: this.rt.texture, width: this.width, height: this.height };
+  }
+
+  /** Resolve a single named source ref to a texture, running the
+   *  Composite pass on demand for `'composite'`. `'none'` (an unplugged
+   *  Dual Raster input) resolves to null — the caller decides what "no
+   *  signal" means for its slot (Renderer IN never sees 'none': it
+   *  normals to 'sourceA' before reaching here). */
+  private resolveRef(
+    ref: VideoSourceRef,
+    texA: THREE.Texture | null, aActive: boolean,
+    texB: THREE.Texture | null, bActive: boolean,
+    aWidth: number, aHeight: number, bWidth: number, bHeight: number,
+  ): VideoCompositeResult | null {
+    if (ref === 'sourceA') return texA ? { texture: texA, width: aWidth || 640, height: aHeight || 480 } : null;
+    if (ref === 'sourceB') return texB ? { texture: texB, width: bWidth || 640, height: bHeight || 480 } : null;
+    if (ref === 'composite') return this.renderComposite(texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight);
+    return null; // 'none'
+  }
+
+  /**
+   * Resolves this frame's DCU video input per the Patch Bay's RENDERER
+   * IN wiring. `texA`/`texB` are the two sources' live `THREE.
+   * VideoTexture`s (or null before either has ever loaded metadata);
+   * `aActive`/`bActive` mirror `sourceKind !== 'none'` for each.
+   *
+   * Returns `null` for the default `videoRendererIn: 'sourceA'` (or
+   * `'dualRaster'`, handled separately by `resolveDualRaster` — this
+   * method only owns the single-texture routing choices) — the caller
+   * should leave RuttEtra's existing binding untouched in that case
+   * (zero cost). Non-null means the caller must bind the returned
+   * texture (`RuttEtraScene.setExternalVideoTexture`).
+   */
+  resolveVideoInput(
+    texA: THREE.Texture | null, aActive: boolean,
+    texB: THREE.Texture | null, bActive: boolean,
+    aWidth: number, aHeight: number, bWidth: number, bHeight: number,
+  ): VideoCompositeResult | null {
+    const routeIn = this.settings.get('videoRendererIn');
+    if (routeIn === 'sourceA' || routeIn === 'dualRaster') return null;
+    if (routeIn === 'sourceB') {
+      if (!texB) return null; // B has never loaded metadata — normal to sourceA
+      return { texture: texB, width: bWidth || 640, height: bHeight || 480 };
+    }
+    return this.renderComposite(texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight);
+  }
+
+  /**
+   * Resolves raster A's and raster B's independent video inputs for
+   * the Dual Raster node (`videoRendererIn === 'dualRaster'`). Returns
+   * null when Dual Raster isn't the active routing choice. An unwired
+   * side (`videoDualRasterInA/InB === 'none'`) resolves to null within
+   * the result — the caller decides the fallback (mirroring raster A,
+   * same as the pre-existing "both rasters share one source" default).
+   */
+  resolveDualRaster(
+    texA: THREE.Texture | null, aActive: boolean,
+    texB: THREE.Texture | null, bActive: boolean,
+    aWidth: number, aHeight: number, bWidth: number, bHeight: number,
+  ): { a: VideoCompositeResult | null; b: VideoCompositeResult | null } | null {
+    if (this.settings.get('videoRendererIn') !== 'dualRaster') return null;
+    const refA = this.settings.get('videoDualRasterInA');
+    const refB = this.settings.get('videoDualRasterInB');
+    return {
+      a: this.resolveRef(refA, texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight),
+      b: this.resolveRef(refB, texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight),
+    };
   }
 }

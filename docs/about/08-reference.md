@@ -22,6 +22,10 @@ The dry reference material that doesn't flow in prose but needs to be available.
 | Global | `Ctrl+Z` | Undo last timeline edit (scenes and lane edits — works anywhere, not just over the dock) |
 | Global | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | Global | `F` | Toggle fullscreen on the main window |
+| Global | `H` | Toggle the HUD |
+| Global | `Ctrl+=` | Increase global text size |
+| Global | `Ctrl+-` | Decrease global text size |
+| Global | `Ctrl+0` | Reset global text size |
 | Output popup | `F` | Toggle fullscreen on the output popup window (independent of the main window's `F`) |
 | Output popup | `Esc` | Exit fullscreen (native browser behavior) |
 | Project | `Ctrl+N` | New Project (prompts on unsaved changes) |
@@ -139,6 +143,10 @@ The format is **self-contained** — no external references, no relative paths, 
 #### OSC bridge protocol
 
 WebSocket messages are JSON: `{ "addr": "/cv/0", "args": [0.42] }`. Outgoing CV values are floats in `[-1, 1]`; the bridge multiplies by your hardware's voltage scale before sending OSC. Inbound messages from the bridge follow the same shape.
+
+#### MCP bridge protocol
+
+Same topology as the OSC bridge — `tools/mcp-server/` runs locally, speaks MCP over stdio to your MCP client, and relays each tool call to the browser over a WebSocket the browser connects out to (`ws://localhost:57132` by default). WebSocket messages are JSON request/response pairs: the bridge sends `{ "id": 7, "cmd": "set_param", "args": { "key": "zPush", "value": 2.5 } }`; the browser answers `{ "id": 7, "ok": true, "result": 2.5 }` (or `{ "id": 7, "ok": false, "error": "..." }`). See `tools/mcp-server/README.md` for the full command list and a Claude Desktop / Claude Code config example.
 
 ### Build stamp
 

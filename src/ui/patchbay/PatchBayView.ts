@@ -79,10 +79,10 @@ const SNAP_PX = 26;
  *  two INs and one OUT, and the Renderer's one IN. Unlike the
  *  modulation graph's per-node jacks this set never grows, so it's a
  *  literal union rather than a dynamic key scheme. */
-type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out';
-type VideoInKey = 'composite-inA' | 'composite-inB' | 'renderer-in';
+type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out' | 'dualraster-out';
+type VideoInKey = 'composite-inA' | 'composite-inB' | 'dualraster-inA' | 'dualraster-inB' | 'renderer-in';
 type VideoJackKey = VideoOutKey | VideoInKey;
-type VideoSourceId = 'sourceA' | 'sourceB' | 'composite';
+type VideoSourceId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster';
 
 /** Classic waveform sources ↔ graph enum options (LFO `shape`). Lets
  *  the SOURCES bus jacks plug into a node's shape param — drag TRI onto
@@ -266,23 +266,29 @@ export function createPatchBayView(
     if (next !== null && next !== undefined) m.get(next)?.classList.add('rw-rack-jack--hover');
   }
 
-  // ---------------- video routing (Source A/B → Composite → Renderer) --
-  // A small closed patch, not the dynamic modulation graph: exactly 3
-  // OUT endpoints (Source A, Source B, Composite) and 3 IN endpoints
-  // (Composite's two inputs, Renderer). `videoOutSourceFor`/
-  // `validInTargetsFor` encode the only two structural rules — a
-  // source can feed either Composite input or go straight to Renderer,
-  // but Composite's own output can only reach Renderer (no self-loop).
+  // ---------------- video routing (Source A/B → Composite/Dual Raster
+  // → Renderer) — a small closed patch, not the dynamic modulation
+  // graph: 4 OUT endpoints (Source A, Source B, Composite, Dual
+  // Raster) and 5 IN endpoints (Composite's two inputs, Dual Raster's
+  // two inputs, Renderer). `videoOutSourceFor`/`validInTargetsFor`
+  // encode the structural rules: a raw source (A/B) can feed anything;
+  // Composite's output can feed Renderer OR either side of Dual
+  // Raster (blend one raster, leave the other a raw feed); Dual
+  // Raster's own output can ONLY reach Renderer (no self-loop, and a
+  // raster split isn't itself a blendable single image).
   function videoOutSourceFor(key: VideoOutKey): VideoSourceId {
-    return key === 'sourceA-out' ? 'sourceA' : key === 'sourceB-out' ? 'sourceB' : 'composite';
+    if (key === 'sourceA-out') return 'sourceA';
+    if (key === 'sourceB-out') return 'sourceB';
+    if (key === 'composite-out') return 'composite';
+    return 'dualRaster';
   }
   function validInTargetsFor(outKey: VideoOutKey): VideoInKey[] {
-    return outKey === 'composite-out'
-      ? ['renderer-in']
-      : ['composite-inA', 'composite-inB', 'renderer-in'];
+    if (outKey === 'dualraster-out') return ['renderer-in'];
+    if (outKey === 'composite-out') return ['renderer-in', 'dualraster-inA', 'dualraster-inB'];
+    return ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
   }
   function validOutSourcesFor(inKey: VideoInKey): VideoOutKey[] {
-    return (['sourceA-out', 'sourceB-out', 'composite-out'] as VideoOutKey[])
+    return (['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[])
       .filter((ok) => validInTargetsFor(ok).includes(inKey));
   }
   /** Current source feeding an IN endpoint, read from Settings.
@@ -292,19 +298,40 @@ export function createPatchBayView(
   function currentVideoSourceFor(inKey: VideoInKey): VideoSourceId | 'none' {
     if (inKey === 'renderer-in') return settings.get('videoRendererIn');
     if (inKey === 'composite-inA') return settings.get('videoCompositeInA');
-    return settings.get('videoCompositeInB');
+    if (inKey === 'composite-inB') return settings.get('videoCompositeInB');
+    if (inKey === 'dualraster-inA') return settings.get('videoDualRasterInA');
+    return settings.get('videoDualRasterInB');
   }
-  /** Write an IN endpoint's source. `null` = unplug: Composite inputs
-   *  go to 'none' (silent/black, matching `uHasVideo`'s existing
-   *  "no source" convention); Renderer IN normals back to 'sourceA'
-   *  (the pre-existing default — never a silent NEW behavior). */
+  /** Write an IN endpoint's source. `null` = unplug: Composite/Dual
+   *  Raster inputs go to 'none' (silent/black or "mirror the other
+   *  raster", each node's own documented no-signal convention);
+   *  Renderer IN normals back to 'sourceA' (the pre-existing default —
+   *  never a silent NEW behavior). Wiring Renderer IN to Dual Raster
+   *  wakes `dualRasterEnabled` — same "a patching gesture activates
+   *  the mode" precedent as `ensureGraphLive()` for the graph engine;
+   *  never forced back off by unwiring, since it's also a real,
+   *  independently user-toggleable Controls-tab preference. */
   function applyVideoWire(inKey: VideoInKey, source: VideoSourceId | null): void {
     if (inKey === 'renderer-in') {
       settings.set('videoRendererIn', source ?? 'sourceA');
-    } else if (inKey === 'composite-inA') {
-      settings.set('videoCompositeInA', source === 'composite' ? 'none' : source ?? 'none');
+      if (source === 'dualRaster') settings.set('dualRasterEnabled', true);
+      return;
+    }
+    // A dual-raster split isn't itself a source another routing input
+    // can consume (its OUT can only ever target renderer-in, enforced
+    // above by validInTargetsFor/validOutSourcesFor) — the 'dualRaster'
+    // fallback below is pure type-safety, never actually reachable at
+    // runtime. Composite's own inputs additionally can't reference
+    // 'composite' itself (no self-loop, enforced by Settings' own
+    // narrower type for those two keys); Dual Raster's inputs CAN.
+    if (inKey === 'composite-inA' || inKey === 'composite-inB') {
+      const norm: 'sourceA' | 'sourceB' | 'none' =
+        (source === 'sourceA' || source === 'sourceB') ? source : 'none';
+      settings.set(inKey === 'composite-inA' ? 'videoCompositeInA' : 'videoCompositeInB', norm);
     } else {
-      settings.set('videoCompositeInB', source === 'composite' ? 'none' : source ?? 'none');
+      const norm: 'sourceA' | 'sourceB' | 'composite' | 'none' =
+        (source && source !== 'dualRaster') ? source : 'none';
+      settings.set(inKey === 'dualraster-inA' ? 'videoDualRasterInA' : 'videoDualRasterInB', norm);
     }
   }
 
@@ -898,6 +925,60 @@ export function createPatchBayView(
     rail.appendChild(mod);
   }
 
+  // DUAL RASTER module (owner: "there should also be a dual raster node
+  // ... where you can input two video sources ... wire up two videos to
+  // a dual raster then wire the dual raster into the render node").
+  // Unlike Composite, this doesn't blend into one image — it hands
+  // BOTH scan rasters over to two INDEPENDENT sources (closing the
+  // "per-raster video sources" gap docs/design/dual-raster.md flagged
+  // as explicitly out of v1). Two video INs (order isn't asymmetric
+  // here — A always means raster A, B always raster B — labeled to
+  // match), one video OUT that can only ever reach RENDERER IN.
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const title = document.createElement('span');
+    title.textContent = 'DUAL RASTER';
+    head.append(title);
+    mod.appendChild(head);
+
+    const mkInRow = (label: string, inKey: VideoInKey): void => {
+      const row = document.createElement('div');
+      row.className = 'rw-pb-row';
+      const jack = makeJack('rw-rack-jack--in');
+      jack.addEventListener('pointerdown', (ev) => dragVideoIn(ev, inKey, jack));
+      attachTooltip(jack, () => {
+        const cur = currentVideoSourceFor(inKey);
+        const name = cur === 'sourceA' ? 'Video Source A' : cur === 'sourceB' ? 'Video Source B' : cur === 'composite' ? 'the Composite node' : null;
+        return name
+          ? `Raster ${label} — patched from ${name}. Drag to move, drop in space to unplug (unplugged mirrors raster A, same as before this node existed).`
+          : `Raster ${label} — drag a Source A/B or Composite OUT here to patch it.`;
+      });
+      const l = document.createElement('label');
+      l.textContent = label;
+      row.append(jack, l);
+      mod.appendChild(row);
+      videoJacks.set(inKey, jack);
+    };
+    mkInRow('A', 'dualraster-inA');
+    mkInRow('B', 'dualraster-inB');
+
+    const outRow = document.createElement('div');
+    outRow.className = 'rw-pb-row rw-pb-row--out';
+    const outLabel = document.createElement('label');
+    outLabel.textContent = 'OUT';
+    const outJack = makeJack('rw-rack-jack--out');
+    outJack.addEventListener('pointerdown', (ev) => dragVideoOut(ev, 'dualraster-out', outJack));
+    attachTooltip(outJack, 'Dual Raster OUT — drag onto RENDERER IN to activate dual-raster mode with these two feeds.');
+    outRow.append(outLabel, outJack);
+    videoJacks.set('dualraster-out', outJack);
+    mod.appendChild(outRow);
+
+    rail.appendChild(mod);
+  }
+
   // RENDERER module — the sink (owner: "the renderer [should have] an
   // input node"). Unplugged normals to Video Source A: the pre-existing
   // single-source behavior, exactly, until this jack is actually
@@ -917,8 +998,9 @@ export function createPatchBayView(
     jack.addEventListener('pointerdown', (ev) => dragVideoIn(ev, 'renderer-in', jack));
     attachTooltip(jack, () => {
       const cur = settings.get('videoRendererIn');
-      const name = cur === 'sourceA' ? 'Video Source A (default)' : cur === 'sourceB' ? 'Video Source B' : 'the Composite node';
-      return `RENDERER IN — feeding from ${name}. Drag a Source/Composite OUT here to change it; drop in space to normal back to Source A.`;
+      const name = cur === 'sourceA' ? 'Video Source A (default)' : cur === 'sourceB' ? 'Video Source B'
+        : cur === 'composite' ? 'the Composite node' : 'the Dual Raster node';
+      return `RENDERER IN — feeding from ${name}. Drag a Source/Composite/Dual Raster OUT here to change it; drop in space to normal back to Source A.`;
     });
     const l = document.createElement('label');
     l.textContent = 'IN';
@@ -2632,22 +2714,25 @@ export function createPatchBayView(
       });
     }
 
-    // Video routing cables (Source A/B → Composite → Renderer) — a
-    // fixed 3-endpoint patch, drawn straight from Settings rather than
-    // a graph structure. `renderer-in` always resolves to something
-    // (never unplugged, per the "normals to Source A" convention).
-    const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'renderer-in'];
+    // Video routing cables (Source A/B → Composite/Dual Raster →
+    // Renderer) — a fixed 5-endpoint patch, drawn straight from
+    // Settings rather than a graph structure. `renderer-in` always
+    // resolves to something (never unplugged, per the "normals to
+    // Source A" convention).
+    const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
+    const VIDEO_SRC_TO_OUT: Record<VideoSourceId, VideoOutKey> = {
+      sourceA: 'sourceA-out', sourceB: 'sourceB-out', composite: 'composite-out', dualRaster: 'dualraster-out',
+    };
     const usedVideoOuts = new Set<VideoOutKey>();
     for (const inKey of VIDEO_IN_KEYS) {
       if (pending?.kind === 'to-videoout' && pending.inKey === inKey) continue;
       const src = currentVideoSourceFor(inKey);
       // RENDERER IN's normal (sourceA, the default) draws no cable at
       // all — a real Eurorack normal connection is invisible until you
-      // actually patch something else in; only a genuine choice (B or
-      // Composite) earns a visible cable.
+      // actually patch something else in; only a genuine choice earns
+      // a visible cable.
       const isNormalled = inKey === 'renderer-in' && src === 'sourceA';
-      const outKey: VideoOutKey | null = isNormalled ? null
-        : src === 'sourceA' ? 'sourceA-out' : src === 'sourceB' ? 'sourceB-out' : src === 'composite' ? 'composite-out' : null;
+      const outKey: VideoOutKey | null = isNormalled || src === 'none' ? null : VIDEO_SRC_TO_OUT[src];
       const inJack = videoJacks.get(inKey);
       if (inJack) inJack.classList.toggle('rw-rack-jack--plugged', outKey !== null);
       if (!outKey) continue;
@@ -2657,7 +2742,7 @@ export function createPatchBayView(
       if (!a || !b) continue;
       drawPatchCable(ctx, local(a), local(b), VIDEO_COLOR, { style: 'sag', dashed: false });
     }
-    for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out'] as VideoOutKey[]) {
+    for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[]) {
       videoJacks.get(outKey)?.classList.toggle('rw-rack-jack--plugged', usedVideoOuts.has(outKey));
     }
 

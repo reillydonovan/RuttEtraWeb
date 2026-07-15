@@ -1768,6 +1768,44 @@ async function bootSynth(): Promise<void> {
       videoCompositeBoundExternal = false;
     }
 
+    // Dual Raster node (v1.20): when wired (videoRendererIn ===
+    // 'dualRaster'), BOTH rasters come from the Dual Raster node's own
+    // two inputs instead of whatever the single-texture routing above
+    // resolved (which returns null in this mode, so the block above is
+    // a no-op here — raster A gets InA explicitly below, not silently
+    // whatever attachVideo() last bound). Runs LAST and unconditionally
+    // overrides both uniform sets: Pattern Generator's own compositing
+    // (above) always uses `RuttEtraScene.setExternalVideoTexture`,
+    // which re-syncs raster B to raster A every time it runs — so if
+    // this ran BEFORE Pattern Generator's block, Pattern would silently
+    // clobber raster B's independent source right back. Combining
+    // Pattern Generator with per-raster Dual Raster sources isn't
+    // attempted here (out of scope) — when both are active, Dual
+    // Raster's wiring wins for what's actually displayed.
+    const dualRaster = videoCompositor.resolveDualRaster(
+      ruttEtra.videoTexture, video.readyState >= 2,
+      videoBTexture, videoB.readyState >= 2,
+      video.videoWidth, video.videoHeight, videoB.videoWidth, videoB.videoHeight,
+    );
+    if (dualRaster) {
+      // Deliberately does NOT call `attachVideo()` when a side resolves
+      // to null (InA/InB unwired) — that would recreate raster A's
+      // THREE.VideoTexture every single frame this persists (a real
+      // per-frame perf bug caught before shipping: VideoTexture already
+      // auto-updates from the `<video>` element on its own, it never
+      // needed re-creating just to "stay current"). Skipping just
+      // leaves whichever binding the block above already established
+      // (the live source, or Pattern Generator's own composite) — a
+      // sane fallback with zero extra cost.
+      if (dualRaster.a) {
+        ruttEtra.setExternalVideoTexture(dualRaster.a.texture, dualRaster.a.width, dualRaster.a.height);
+      }
+      if (dualRaster.b) {
+        ruttEtra.setExternalVideoTextureB(dualRaster.b.texture, dualRaster.b.width, dualRaster.b.height);
+      } // else: InB unwired — leave raster B mirroring whatever raster A was just set to above
+      videoCompositeBoundExternal = true;
+    }
+
     // Stereo recording: the offscreen compositor runs its own
     // side-by-side render each frame regardless of what the visible
     // canvas is showing. Driven here so the per-frame ordering

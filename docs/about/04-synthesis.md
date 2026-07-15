@@ -144,7 +144,8 @@ The **Dual Raster** section adds a second, independently modulated raster (B) fe
 
 - **Wipe mode** — the **Trace** slider splits the frame: fully down = all raster A, fully up = all raster B, anywhere between = B on top, A below, both at full resolution with independent controls. Trace position is modulatable (`Dual: Trace Position` in any Target dropdown) — sweep it with an LFO or CV for a live wipe.
 - **Alternate lines** — rasters interleave row-by-row (half vertical resolution each); the slider doesn't apply.
-- Raster B has its own position, size, Z push/bias, intensity, rotation/spin, linearity, and luminance shaping — every one a `B: …` modulation target. Scan rate/columns, the video source, mirrors, and color mode are shared with A in this version.
+- Raster B has its own position, size, Z push/bias, intensity, rotation/spin, linearity, and luminance shaping — every one a `B: …` modulation target. Scan rate/columns, mirrors, and color mode are shared with A.
+- **Two independent video sources, via the Patch Bay** — by default both rasters display the same video signal (this toggle just adds a second independently-modulated *geometry*). To feed them genuinely different footage, patch it in the Patch Bay: a **DUAL RASTER** node takes two video inputs (drag Video Source A/B or the Composite node's output onto its A/B jacks) and its OUT feeds the **RENDERER** module — wiring that connection enables this toggle for you automatically, the same way patching a graph cable wakes the modulation engine.
 
 When the toggle is off, nothing about the classic single-raster path changes — no extra draw call, no shader work.
 

@@ -1,7 +1,7 @@
 {
   "name": "rutt-etra-web",
   "private": true,
-  "version": "1.19.0",
+  "version": "1.20.0",
   "type": "module",
   "description": "Web-based Rutt/Etra video synthesizer with full native controls, free-flight 3D camera, recording, and WebRTC peer-to-peer share links",
   "scripts": {

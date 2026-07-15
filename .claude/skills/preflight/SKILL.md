@@ -17,7 +17,7 @@ Run these in order; stop and report on the first failure:
 ## Invariant checklist (verify for the diff being committed)
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 33 as of v1.18.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.20.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
 - **`VideoSourceManager` has NO Settings connection of its own** — it's
@@ -33,6 +33,18 @@ Run these in order; stop and report on the first failure:
   video source, check it records the kind; if you need to know whether
   a source is REALLY active, prefer `video.readyState >= 2` over
   trusting the `sourceKind` label (same reasoning, defense in depth).
+- **`RuttEtraScene.attachVideo()` (and `setExternalVideoTexture()`)
+  unconditionally dispose and recreate the video texture — never call
+  either from a per-frame branch that can stay "active" for more than
+  one frame**, only from a genuine one-time transition (a `settings.
+  subscribe` firing, a real state change detected this frame). A
+  `THREE.VideoTexture` already auto-updates from its `<video>` element
+  on its own; it never needs re-creating just to "stay current." Found
+  live 2026-07-14 building the Dual Raster node's per-frame routing
+  resolution: an unwired input's fallback branch called `attachVideo()`
+  every frame it persisted, which would have churned a new texture
+  every frame — fixed by doing nothing in that branch and trusting
+  whatever an earlier step in the same frame had already bound.
 - **Timeline schema**: same rule via `Timeline._v` (`src/sequencer/types.ts`)
   and the store's normalize path.
 - **Never use the `hidden` attribute/property to hide a mounted VIEW
