@@ -44,8 +44,8 @@ import type {
   Settings, SettingsStore, ModSlot, ModTarget, ModSource, PatternBlendMode,
   PatternKind, PatternAxis, PatternGradientShape, PatternScopeSourceKind,
 } from '../../state/Settings';
-import { drawPatchCable, fitCableCanvas } from '../cableDraw';
-import { attachTooltip } from '../tooltip';
+import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
+import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
 import { getDef } from '../../modulation/graph/registry';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
@@ -60,6 +60,7 @@ import {
   nodeWires, applyNodeInputRef, deleteGraphNode,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
+import { computeDefaultLayout, graphNodeColumns, FIXED_MODULE_COLUMNS, type LayoutColumn, type LayoutUnitSpec } from './autoLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
@@ -222,6 +223,32 @@ export function createPatchBayView(
    *  node's waveform-shape jack — see dragSource. */
   type SlotSrcHover = { kind: 'slot'; index: number } | { kind: 'shape'; key: string } | null;
   let pending: Pending | null = null;
+  /** Click-selected cable (owner: "various states to the patch cables,
+   *  such as hover, select..."). One at a time, mirroring `pending`'s own
+   *  single-in-flight-gesture pattern. See the cable-id scheme near
+   *  `frame()`'s draw loops for how each cable kind derives its id. */
+  let selectedCableId: string | null = null;
+  /** Idle mouse-hover over a resting cable (no drag, no click) — see the
+   *  `root` pointermove listener near the pan handler. */
+  let hoveredCableId: string | null = null;
+  /** Every cable actually drawn THIS frame (id + screen-space endpoints +
+   *  style), refreshed at the top of every `frame()` call — the click-
+   *  select and idle-hover hit-tests always test against exactly what's
+   *  on screen right now, never a separately-computed/stale geometry. */
+  let drawnThisFrame: Array<{ id: string; a: Pt; b: Pt; style: CableStyle }> = [];
+
+  /** Start a new drag gesture — clears any click-selection so it doesn't
+   *  visually compete with the active drag. */
+  function startDrag(p: Pending): void {
+    pending = p;
+    selectedCableId = null;
+  }
+  /** End the current drag gesture and cancel any drag-time tooltip that
+   *  might still be scheduled/shown for it. */
+  function endDrag(): void {
+    pending = null;
+    cancelTooltip(root.ownerDocument);
+  }
 
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
     const out: Array<Pt & { id: K }> = [];
@@ -263,9 +290,32 @@ export function createPatchBayView(
     doc.addEventListener('pointercancel', up);
   }
 
-  function setHover<K>(m: Map<K, HTMLElement>, prev: K | null, next: K | null): void {
-    if (prev !== null && prev !== undefined) m.get(prev)?.classList.remove('rw-rack-jack--hover');
-    if (next !== null && next !== undefined) m.get(next)?.classList.add('rw-rack-jack--hover');
+  /**
+   * Toggle the drag-hover state on a jack Map. `color` tints the hover
+   * glow to match the cable kind THIS drop would actually create
+   * (CLASSIC_COLOR/SOURCE_COLOR/GRAPH_COLOR/etc.) instead of a flat
+   * green for every kind — a live preview of what connection would form
+   * (owner: "dragging and hovering over an input or output that accepts
+   * the cable run should be visually indicative"). `text` schedules a
+   * delayed tooltip (same 550ms delay as idle hover) near the candidate
+   * jack — cancelled the instant the candidate changes or the drag ends.
+   */
+  function setHover<K>(
+    m: Map<K, HTMLElement>, prev: K | null, next: K | null,
+    color?: string, text?: string | (() => string | null | undefined),
+  ): void {
+    if (prev !== null && prev !== undefined) {
+      const el = m.get(prev);
+      el?.classList.remove('rw-rack-jack--hover');
+      el?.style.removeProperty('--rw-hover-color');
+    }
+    cancelTooltip(root.ownerDocument);
+    if (next !== null && next !== undefined) {
+      const el = m.get(next);
+      el?.classList.add('rw-rack-jack--hover');
+      if (color) el?.style.setProperty('--rw-hover-color', color);
+      if (el && text) scheduleTooltip(root.ownerDocument, text, el);
+    }
   }
 
   // ---------------- video routing (Source A/B → Composite/Dual Raster
@@ -342,18 +392,18 @@ export function createPatchBayView(
    *  bidirectional convention as every other cable in this app. */
   function dragVideoOut(ev: PointerEvent, outKey: VideoOutKey, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-videoin', outKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     const candidates = validInTargetsFor(outKey);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const cand = new Map(candidates.map((k) => [k, videoJacks.get(k)!] as const));
         const hit = nearestJack(centersOf(cand), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null, VIDEO_COLOR, 'Drop to route this video signal here.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(videoJacks, p.hover, null);
-        pending = null;
+        endDrag();
         if (p.hover) applyVideoWire(p.hover, videoOutSourceFor(outKey));
       });
   }
@@ -363,34 +413,34 @@ export function createPatchBayView(
    *  → 'none'; Renderer IN normals back to Source A). */
   function dragVideoIn(ev: PointerEvent, inKey: VideoInKey, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-videoout', inKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     const candidates = validOutSourcesFor(inKey);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const cand = new Map(candidates.map((k) => [k, videoJacks.get(k)!] as const));
         const hit = nearestJack(centersOf(cand), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null, VIDEO_COLOR, 'Drop to route this video signal here.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(videoJacks, p.hover, null);
-        pending = null;
+        endDrag();
         applyVideoWire(inKey, p.hover ? videoOutSourceFor(p.hover) : null);
       });
   }
 
   function dragSlotOut(ev: PointerEvent, slotIndex: number, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-param', slotIndex, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const hit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null, CLASSIC_COLOR, 'Drop to route this Function Generator into this parameter.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(paramJacks, p.hover, null);
-        pending = null;
+        endDrag();
         const slots = settings.get('modSlots');
         const next = p.hover ?? 'none';
         if (slots[slotIndex] && slots[slotIndex].target !== next) {
@@ -401,16 +451,16 @@ export function createPatchBayView(
 
   function dragGraphParam(ev: PointerEvent, bindingId: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-param-graph', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const hit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null, GRAPH_COLOR, 'Drop to re-target this graph binding to this parameter.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(paramJacks, p.hover, null);
-        pending = null;
+        endDrag();
         const patch = settings.get('modGraph');
         if (!patch) return;
         const binding = patch.bindings.find((b) => b.id === bindingId);
@@ -429,16 +479,16 @@ export function createPatchBayView(
    *  target end" pattern. */
   function dragGraphIn(ev: PointerEvent, nodeId: string, port: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-graphin', nodeId, port, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const hit = nearestJack(centersOf(graphNodeJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(graphNodeJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(graphNodeJacks, p.hover, hit?.id ?? null, NODE_WIRE_COLOR, "Drop to wire this node's output into this input."); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(graphNodeJacks, p.hover, null);
-        pending = null;
+        endDrag();
         const patch = settings.get('modGraph');
         if (!patch) return;
         const ref = p.hover ? refFromJackKey(p.hover) : null;
@@ -473,8 +523,8 @@ export function createPatchBayView(
       if (prev?.kind === next?.kind && prev?.key === next?.key) return;
       if (prev?.kind === 'in') setHover(graphInputJacks, prev.key, null);
       if (prev?.kind === 'param') setHover(paramJacks, prev.key, null);
-      if (next?.kind === 'in') setHover(graphInputJacks, null, next.key);
-      if (next?.kind === 'param') setHover(paramJacks, null, next.key);
+      if (next?.kind === 'in') setHover(graphInputJacks, null, next.key, NODE_WIRE_COLOR, "Drop to wire this output into this node's input.");
+      if (next?.kind === 'param') setHover(paramJacks, null, next.key, GRAPH_COLOR, 'Drop to bind this output to this parameter.');
       p.hover = next;
     };
   }
@@ -503,7 +553,7 @@ export function createPatchBayView(
    *  "the" connection a drop-in-space could unambiguously remove. */
   function dragGraphOut(ev: PointerEvent, sourceKey: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-graphout', sourceKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     const setGraphOutHover = graphOutHoverSetter(p);
     runGesture(ev, jack,
       (pos) => {
@@ -513,7 +563,7 @@ export function createPatchBayView(
       () => {
         const hover = p.hover;
         setGraphOutHover(null);
-        pending = null;
+        endDrag();
         if (!hover) return;
         const patch = settings.get('modGraph');
         if (!patch) return;
@@ -568,7 +618,7 @@ export function createPatchBayView(
    *  this param's live value, then binds/wires it to the drop target. */
   function dragParamOut(ev: PointerEvent, paramKey: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-paramout', paramKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     const setPOHover = graphOutHoverSetter(p);
     runGesture(ev, jack,
       (pos) => {
@@ -579,7 +629,7 @@ export function createPatchBayView(
       () => {
         const hover = p.hover;
         setPOHover(null);
-        pending = null;
+        endDrag();
         if (!hover) return;
         let patch: GraphPatch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
         let node = patch.nodes.find((n) => n.type === 'param-out' && String(n.params.key) === paramKey);
@@ -608,16 +658,16 @@ export function createPatchBayView(
     const bindingId = graphBindingForParam(settings.get('modGraph'), key);
     if (bindingId) { dragGraphParam(ev, bindingId, jack); return; }
     const p: Pending = { kind: 'to-slotout', paramKey: key, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
         const hit = nearestJack(centersOf(slotOutJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(slotOutJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(slotOutJacks, p.hover, hit?.id ?? null, CLASSIC_COLOR, 'Drop to route this Function Generator into this parameter.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(slotOutJacks, p.hover, null);
-        pending = null;
+        endDrag();
         if (p.hover == null) return;
         const slots = settings.get('modSlots');
         if (slots[p.hover] && slots[p.hover].target !== key) {
@@ -632,7 +682,7 @@ export function createPatchBayView(
    *  to get a triangle wave). Closest candidate wins. */
   function dragSource(ev: PointerEvent, source: ModSource, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-slotsrc', source, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     const mappedOption = WAVE_SOURCE_TO_OPTION[source];
     const setSrcHover = (next: SlotSrcHover): void => {
       const prev = p.hover;
@@ -640,8 +690,8 @@ export function createPatchBayView(
         && (prev?.kind === 'slot' ? prev.index === (next as { index: number }).index : prev?.key === (next as { key: string })?.key)) return;
       if (prev?.kind === 'slot') setHover(slotSrcJacks, prev.index, null);
       if (prev?.kind === 'shape') setHover(shapeJacks, prev.key, null);
-      if (next?.kind === 'slot') setHover(slotSrcJacks, null, next.index);
-      if (next?.kind === 'shape') setHover(shapeJacks, null, next.key);
+      if (next?.kind === 'slot') setHover(slotSrcJacks, null, next.index, SOURCE_COLOR, "Drop to set this generator's source.");
+      if (next?.kind === 'shape') setHover(shapeJacks, null, next.key, SOURCE_COLOR, "Drop to set this node's waveform shape.");
       p.hover = next;
     };
     runGesture(ev, jack,
@@ -666,7 +716,7 @@ export function createPatchBayView(
       () => {
         const hover = p.hover;
         setSrcHover(null);
-        pending = null;
+        endDrag();
         if (!hover) return;
         if (hover.kind === 'slot') {
           const slots = settings.get('modSlots');
@@ -697,7 +747,7 @@ export function createPatchBayView(
    *  waveform jack to pick that waveform. */
   function dragShapeJack(ev: PointerEvent, nodeId: string, param: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-shapesrc', nodeId, param, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
-    pending = p;
+    startDrag(p);
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
@@ -705,11 +755,11 @@ export function createPatchBayView(
           centersOf(srcJacks).filter((c) => WAVE_SOURCE_TO_OPTION[c.id] !== undefined),
           pos, SNAP_PX,
         );
-        if ((hit?.id ?? null) !== p.hover) { setHover(srcJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+        if ((hit?.id ?? null) !== p.hover) { setHover(srcJacks, p.hover, hit?.id ?? null, SOURCE_COLOR, "Drop to set this node's waveform shape."); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(srcJacks, p.hover, null);
-        pending = null;
+        endDrag();
         if (p.hover) applyShapeFromSource(`${nodeId}#${param}`, p.hover);
       });
   }
@@ -764,6 +814,7 @@ export function createPatchBayView(
   function mkVideoSourceModule(title: string, mgr: VideoSourceManager, outKey: VideoOutKey, kindKey: 'sourceKind' | 'sourceBKind'): void {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
+    mod.dataset.pbUnitId = title;
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const titleEl = document.createElement('span');
@@ -854,6 +905,7 @@ export function createPatchBayView(
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
     title.textContent = 'COMPOSITE';
+    mod.dataset.pbUnitId = 'COMPOSITE';
     head.append(title);
     mod.appendChild(head);
 
@@ -947,6 +999,7 @@ export function createPatchBayView(
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
     title.textContent = 'DUAL RASTER';
+    mod.dataset.pbUnitId = 'DUAL RASTER';
     head.append(title);
     mod.appendChild(head);
 
@@ -999,6 +1052,7 @@ export function createPatchBayView(
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
+    mod.dataset.pbUnitId = 'RENDERER';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
@@ -1054,6 +1108,7 @@ export function createPatchBayView(
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
+    mod.dataset.pbUnitId = 'PATTERN GENERATOR';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const en = document.createElement('input');
@@ -1294,6 +1349,7 @@ export function createPatchBayView(
     attachTooltip(en, 'Enable this function generator (plugging a cable also enables it).');
     const title = document.createElement('span');
     title.textContent = `FUNCTION GEN ${i + 1}`;
+    mod.dataset.pbUnitId = `FUNCTION GEN ${i + 1}`;
     head.append(en, title);
 
     const srcRow = document.createElement('div');
@@ -1502,6 +1558,7 @@ export function createPatchBayView(
   for (const field of buildFaceplate()) {
     const el = document.createElement('div');
     el.className = 'rw-pb-field';
+    el.dataset.pbUnitId = field.title;
     const t = document.createElement('div');
     t.className = 'rw-pb-field-title';
     t.textContent = field.title;
@@ -1517,6 +1574,7 @@ export function createPatchBayView(
   // change in I/O → CV Out.
   const cvField = document.createElement('div');
   cvField.className = 'rw-pb-field';
+  cvField.dataset.pbUnitId = 'CV OUT';
   col2.appendChild(cvField);
   function rebuildCvField(): void {
     for (const [key] of paramJacks) {
@@ -1628,10 +1686,50 @@ export function createPatchBayView(
       root.removeEventListener('pointerup', onUp);
       root.removeEventListener('pointercancel', onUp);
       root.classList.remove('rw-pb-panning');
+      // A plain click (never crossed the pan threshold) on empty
+      // background selects the nearest cable under the cursor, or
+      // clears selection if none is close enough (owner: "select"
+      // state — click a cable to highlight it, click empty space to
+      // deselect). The `.rw-pb-cables` canvas is pointer-events:none,
+      // so clicks here already fall through from it — no separate
+      // canvas listener needed.
+      if (!started) {
+        const sRect = surface.getBoundingClientRect();
+        const p: Pt = { x: ev.clientX - sRect.left, y: ev.clientY - sRect.top };
+        let bestId: string | null = null;
+        let bestDist = 12;
+        for (const c of drawnThisFrame) {
+          const d = distanceToCable(p, c.a, c.b, c.style);
+          if (d < bestDist) { bestDist = d; bestId = c.id; }
+        }
+        selectedCableId = bestId;
+      }
     };
     root.addEventListener('pointermove', onMove);
     root.addEventListener('pointerup', onUp);
     root.addEventListener('pointercancel', onUp);
+  });
+
+  // Idle cable hover (owner: "hover" state distinct from a drag) — only
+  // while nothing is being dragged/panned, so it never fights the
+  // drag-time snap-candidate highlight. Cheap pre-check against the
+  // cable canvas's own box before scanning every drawn cable.
+  root.addEventListener('pointermove', (e) => {
+    if (pending || root.classList.contains('rw-pb-panning')) return;
+    const cRect = canvas.getBoundingClientRect();
+    if (e.clientX < cRect.left || e.clientX > cRect.right || e.clientY < cRect.top || e.clientY > cRect.bottom) {
+      if (hoveredCableId !== null) hoveredCableId = null;
+      return;
+    }
+    const sRect = surface.getBoundingClientRect();
+    const p: Pt = { x: e.clientX - sRect.left, y: e.clientY - sRect.top };
+    let bestId: string | null = null;
+    let bestDist = 10;
+    for (const c of drawnThisFrame) {
+      const d = distanceToCable(p, c.a, c.b, c.style);
+      if (d < bestDist) { bestDist = d; bestId = c.id; if (d < 2) break; }
+    }
+    hoveredCableId = bestId;
   });
 
   const zoomBar = document.createElement('span');
@@ -1665,6 +1763,9 @@ export function createPatchBayView(
   // Free positions are session-local by design (the tidy layout is the
   // document; free layout is a workbench arrangement).
   let freeMode = false;
+  /** Guards the one-shot default-layout bootstrap in `frame()` — see
+   *  `applyDefaultLayoutIfFresh()`. */
+  let defaultLayoutApplied = false;
   // Baseline root width the current free-layout positions/widths were
   // measured against — lets the resize observer below rescale every
   // unit's left/width by the ratio of new/old width so a custom
@@ -1692,26 +1793,60 @@ export function createPatchBayView(
   tidyBtn.addEventListener('click', () => {
     if (freeMode) { suspendedFree = null; tidy(); } else { freeze(); }
   });
+  // Re-run the default left-to-right layout on demand (owner: the bay
+  // should have an intuitive default flow to fall back to, not just a
+  // one-time bootstrap) — recovers a clean view after manually
+  // rearranging things, or jumps straight from TIDY into it. Works
+  // whether currently in TIDY or FREE mode: `applyDefaultLayoutIfFresh`
+  // just calls `freeze(computed)`, which re-seeds positions in place
+  // when already free (no need to `tidy()` first — the computed layout
+  // is collision-free by construction).
+  const arrangeBtn = document.createElement('button');
+  arrangeBtn.type = 'button';
+  arrangeBtn.className = 'rw-pb-tidy';
+  arrangeBtn.textContent = 'ARRANGE';
+  attachTooltip(arrangeBtn, 'Re-arrange every module into the default left-to-right signal-flow layout.');
+  arrangeBtn.addEventListener('click', () => applyDefaultLayoutIfFresh());
+
   const pbTools = document.createElement('span');
   pbTools.className = 'rw-pb-tools';
-  pbTools.append(zoomBar, tidyBtn);
+  pbTools.append(zoomBar, tidyBtn, arrangeBtn);
   bus.appendChild(pbTools);
 
+  /** `bus` (the SOURCES strip) is deliberately excluded from the free-
+   *  layout unit set — it's a utility legend strip feeding every
+   *  generator's SRC IN, not a flow node with its own inputs/outputs,
+   *  so it plays no part in a left-to-right signal-flow reading. It was
+   *  never part of the TIDY-mode reorder-stack set either (see
+   *  `stacks()` below, which only returns `[rail, col1, col2]`), so
+   *  this only changes `freeze()`'s free-unit set — `bus`'s own CSS
+   *  already pins it above `deck` regardless of `freeMode`. */
   function allUnits(): HTMLElement[] {
-    return [
-      bus,
-      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode')),
-    ];
+    return Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode'));
   }
 
-  function freeze(): void {
-    if (freeMode) return;
+  /**
+   * Freeze every unit into free (absolute) layout. With no `computed`
+   * map, behavior is exactly as before this feature: capture wherever
+   * the stacked flow currently rendered each unit (the manual TIDY→FREE
+   * click and the drag-header-breakout path both call it this way).
+   * With `computed` (the default-layout bootstrap, or Auto-Arrange),
+   * seed left/top from it instead — everything downstream (`tidy()`,
+   * `unitHomes`, `resolveOverlap`, narrow-mode suspend/restore) only
+   * ever touches the RESULT (units already in `.rw-pb-unit-free` with
+   * left/top/width set), never how those values were derived, so none
+   * of it needed to change for this.
+   */
+  function freeze(computed?: Map<string, { left: number; top: number }>): void {
+    const alreadyFree = freeMode;
     freeMode = true;
     const bRect = board.getBoundingClientRect();
     const placed = allUnits().map((unit) => ({ unit, r: unit.getBoundingClientRect() }));
-    unitHomes.length = 0;
-    for (const { unit } of placed) {
-      unitHomes.push({ unit, parent: unit.parentElement!, next: unit.nextSibling });
+    if (!alreadyFree) {
+      unitHomes.length = 0;
+      for (const { unit } of placed) {
+        unitHomes.push({ unit, parent: unit.parentElement!, next: unit.nextSibling });
+      }
     }
     // Two passes: measure everything first, THEN re-parent/absolutize
     // (in BOARD coordinates, dividing out the zoom).
@@ -1719,8 +1854,9 @@ export function createPatchBayView(
     board.style.minWidth = `${board.scrollWidth}px`;
     for (const { unit, r } of placed) {
       unit.classList.add('rw-pb-unit-free');
-      unit.style.left = `${(r.left - bRect.left) / zoom}px`;
-      unit.style.top = `${(r.top - bRect.top) / zoom}px`;
+      const c = computed?.get(unit.dataset.pbUnitId ?? '');
+      unit.style.left = c ? `${c.left}px` : `${(r.left - bRect.left) / zoom}px`;
+      unit.style.top = c ? `${c.top}px` : `${(r.top - bRect.top) / zoom}px`;
       unit.style.width = `${r.width / zoom}px`;
       board.appendChild(unit);
     }
@@ -1752,6 +1888,75 @@ export function createPatchBayView(
     board.style.minWidth = '';
     root.classList.remove('rw-pb-freemode');
     syncSurfaceSize();
+  }
+
+  /**
+   * Bootstrap the bay's DEFAULT starting layout — freeform, arranged
+   * left to right by signal flow (owner: "a default layout for the
+   * patch that is freeform, not tidy... a really intuitive left to
+   * right patch system... Think touch designer, comfy ui, the blender
+   * node system"). TIDY stays fully available afterward (owner
+   * decision — not removed); this only changes what a FRESH bay opens
+   * into. Deterministic and session-local, same philosophy as free
+   * positions generally: a reload re-runs this exact algorithm and
+   * lands on the exact same arrangement — no persisted layout state,
+   * no Settings schema involvement.
+   */
+  function applyDefaultLayoutIfFresh(): boolean {
+    const patch = settings.get('modGraph');
+    const graphIds = patch?.nodes.map((n) => n.id) ?? [];
+    const graphIdSet = new Set(graphIds);
+    const graphCols = graphNodeColumns(graphIds, nodeWires(patch));
+
+    const units = allUnits();
+    const specs: LayoutUnitSpec[] = [];
+    for (const unit of units) {
+      const id = unit.dataset.pbUnitId;
+      if (!id) continue;
+      const width = unit.offsetWidth;
+      const height = unit.offsetHeight;
+      if (!width || !height) continue; // not yet laid out — skip this pass
+      let column: LayoutColumn;
+      let graphColumn: number | undefined;
+      if (id in FIXED_MODULE_COLUMNS) {
+        column = FIXED_MODULE_COLUMNS[id];
+      } else if (graphIdSet.has(id)) {
+        // Graph nodes share the 'generators' x-band, offset by wire
+        // depth (a pure generator sits alongside Function Gen/Video
+        // Source; a node fed by another shifts one column right).
+        column = 'generators';
+        graphColumn = graphCols.get(id) ?? 0;
+      } else {
+        column = 'fields';
+      }
+      specs.push({ id, column, graphColumn, width, height });
+    }
+    // Only a genuine "nothing exists yet" (units.length === 0) or "not
+    // laid out yet" (every unit measured zero) counts as failure worth
+    // retrying next frame — require every discovered unit to have
+    // measured successfully, not just "at least one."
+    if (!units.length || specs.length !== units.length) return false;
+    const raw = computeDefaultLayout(specs, { columnGap: 36, rowGap: 16 });
+    // `computeDefaultLayout` packs from (0,0) — but free units are
+    // absolutely positioned relative to `board`, which ALSO contains
+    // `bus` (the pinned SOURCES strip) stacked above `deck` in normal
+    // flow. A raw top:0 would land right under/behind `bus` instead of
+    // below it. Offset every column's vertical origin by bus's real
+    // height plus the board's own flex gap between bus and deck.
+    // Absolute positioning's `top:0` aligns with `board`'s BORDER-box
+    // top (padding included), while `bus` — an ordinary flow child —
+    // starts at the CONTENT-box top (padding already consumed). Offset
+    // by all three: board's own top padding, bus's real height, and the
+    // flex gap between bus and deck, so a free unit's top edge lands
+    // just below bus instead of underneath/behind it.
+    const boardCs = getComputedStyle(board);
+    const boardGap = parseFloat(boardCs.rowGap || boardCs.gap || '0') || 0;
+    const boardPaddingTop = parseFloat(boardCs.paddingTop || '0') || 0;
+    const yOffset = boardPaddingTop + bus.offsetHeight + boardGap;
+    const computed = new Map<string, { left: number; top: number }>();
+    for (const [id, pos] of raw) computed.set(id, { left: pos.left, top: pos.top + yOffset });
+    freeze(computed);
+    return true;
   }
 
   /** Free-layout collision resolution (owner: "patch nodes can't
@@ -1976,10 +2181,9 @@ export function createPatchBayView(
     const title = f.querySelector<HTMLElement>('.rw-pb-field-title');
     if (title) makeUnitDraggable(f, title);
   }
-  {
-    const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
-    if (busTitle) makeUnitDraggable(bus, busTitle);
-  }
+  // `bus` (the SOURCES strip) is deliberately NOT made draggable/
+  // breakout-able here — it's a pinned utility strip above the flow,
+  // not a signal-flow node (see `allUnits()`'s own doc comment).
   // GRAPH ENGINE — one module per graph node in the patch, full stop
   // (owner: "show all nodes, active or not" — a real node-editor
   // surface, not a filtered activity view). A node with no connections
@@ -2119,6 +2323,7 @@ export function createPatchBayView(
       if (!mod) {
         mod = document.createElement('div');
         mod.className = 'rw-pb-graphnode';
+        mod.dataset.pbUnitId = nodeId;
         head = document.createElement('div');
         head.className = 'rw-pb-module-head';
         // Mute LED, same convention as a FUNCTION GENERATOR module's own
@@ -2653,6 +2858,24 @@ export function createPatchBayView(
   function frame(t: number): void {
     requestAnimationFrame(frame);
     if (!root.isConnected || !ctx) return;
+    // One-shot default-layout bootstrap: `computeDefaultLayout` needs
+    // real measured {width,height}, which read 0 before `root` is
+    // connected to the document — the constructor builds everything
+    // synchronously before the workspace shell appends it. The first
+    // rAF tick where `root.isConnected` is true is guaranteed to be
+    // after a real layout pass, so this is the same "wait for connected"
+    // idiom the isConnected guard above already uses for the same class
+    // of problem — no new observer/callback needed.
+    if (!defaultLayoutApplied) {
+      // Only latch the flag on an actual success — the very first
+      // connected frame can still measure zero-sized units (e.g. this
+      // view isn't the active workspace tab yet), and bailing out
+      // permanently on that transient moment would mean the bay never
+      // gets its default layout for the rest of the session. Retry
+      // every frame (cheap — a handful of offsetWidth reads) until
+      // `applyDefaultLayoutIfFresh` actually measures real geometry.
+      defaultLayoutApplied = applyDefaultLayoutIfFresh();
+    }
     const dt = (t - lastT) / 1000;
     lastT = t;
     if (!reduceMotion) dashOffset += dt * 24;
@@ -2697,6 +2920,7 @@ export function createPatchBayView(
 
     const slots = settings.get('modSlots');
     const plugged = new Set<string>();
+    drawnThisFrame = [];
 
     for (const c of classicCables(slots)) {
       if (pending?.kind === 'to-param' && pending.slotIndex === c.slotIndex) continue;
@@ -2704,9 +2928,13 @@ export function createPatchBayView(
       const b = anchor(paramJacks.get(c.target));
       if (!a || !b) continue;
       plugged.add(c.target);
-      drawPatchCable(ctx, local(a), local(b), CLASSIC_COLOR, {
+      const id = `classic:${c.slotIndex}`;
+      const la = local(a), lb = local(b);
+      drawPatchCable(ctx, la, lb, CLASSIC_COLOR, {
         style: 'sag', dim: !c.enabled, dashed: !reduceMotion && c.enabled, dashOffset,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
       });
+      drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
 
     // Source cables: SOURCES jack → SRC IN, for jackable sources.
@@ -2717,9 +2945,13 @@ export function createPatchBayView(
       const a = anchor(srcJack);
       const b = anchor(slotSrcJacks.get(i));
       if (!a || !b) continue;
-      drawPatchCable(ctx, local(a), local(b), SOURCE_COLOR, {
+      const id = `source:${i}`;
+      const la = local(a), lb = local(b);
+      drawPatchCable(ctx, la, lb, SOURCE_COLOR, {
         style: 'sag', dim: !s.enabled, dashed: false,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
       });
+      drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
 
     // Cables sourced from a `param-out` node anchor at that param's own
@@ -2747,9 +2979,13 @@ export function createPatchBayView(
       const b = anchor(paramJacks.get(gc.paramKey));
       if (!g || !b) continue;
       plugged.add(gc.paramKey);
-      drawPatchCable(ctx, local(g), local(b), GRAPH_COLOR, {
+      const id = `graphbind:${gc.bindingId}`;
+      const lg = local(g), lb = local(b);
+      drawPatchCable(ctx, lg, lb, GRAPH_COLOR, {
         style: 'sag', dim: !gc.enabled, dashed: false,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
       });
+      drawnThisFrame.push({ id, a: lg, b: lb, style: 'sag' });
     }
 
     // Node-to-node input wiring (a graph node's OUT feeding ANOTHER
@@ -2764,7 +3000,13 @@ export function createPatchBayView(
       const a = anchor(graphOutAnchor(w.sourceNodeId, w.sourcePort));
       const b = anchor(graphInputJacks.get(`${w.targetNodeId}#${w.targetPort}`));
       if (!a || !b) continue;
-      drawPatchCable(ctx, local(a), local(b), NODE_WIRE_COLOR, { style: 'sag', dashed: false });
+      const id = `nodewire:${w.targetNodeId}#${w.targetPort}`;
+      const la = local(a), lb = local(b);
+      drawPatchCable(ctx, la, lb, NODE_WIRE_COLOR, {
+        style: 'sag', dashed: false,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
+      });
+      drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
 
     // Waveform-shape cables — a picture of each shape param's current
@@ -2783,9 +3025,13 @@ export function createPatchBayView(
       const b = anchor(sj);
       if (!a || !b) continue;
       sj.classList.add('rw-rack-jack--plugged');
-      drawPatchCable(ctx, local(a), local(b), SOURCE_COLOR, {
+      const id = `shape:${key}`;
+      const la = local(a), lb = local(b);
+      drawPatchCable(ctx, la, lb, SOURCE_COLOR, {
         style: 'sag', dim: node?.enabled === false, dashed: false,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
       });
+      drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
 
     // Video routing cables (Source A/B → Composite/Dual Raster →
@@ -2814,7 +3060,13 @@ export function createPatchBayView(
       const a = anchor(videoJacks.get(outKey));
       const b = anchor(inJack);
       if (!a || !b) continue;
-      drawPatchCable(ctx, local(a), local(b), VIDEO_COLOR, { style: 'sag', dashed: false });
+      const id = `video:${inKey}`;
+      const la = local(a), lb = local(b);
+      drawPatchCable(ctx, la, lb, VIDEO_COLOR, {
+        style: 'sag', dashed: false,
+        selected: selectedCableId === id, hovered: hoveredCableId === id,
+      });
+      drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
     for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[]) {
       videoJacks.get(outKey)?.classList.toggle('rw-rack-jack--plugged', usedVideoOuts.has(outKey));
@@ -2841,7 +3093,11 @@ export function createPatchBayView(
         color = NODE_WIRE_COLOR;
       } else if (pending.kind === 'to-paramout') {
         fixed = paramOutJacks.get(pending.paramKey);
-        color = GRAPH_COLOR;
+        // Candidate pool spans two kinds (another node's IN, or a param
+        // jack) — preview the color the drop would ACTUALLY create,
+        // not a fixed guess (owner: hover feedback should be
+        // "indicative" of what accepting the drop means).
+        color = pending.hover?.kind === 'in' ? NODE_WIRE_COLOR : GRAPH_COLOR;
       } else if (pending.kind === 'to-shapesrc') {
         fixed = shapeJacks.get(`${pending.nodeId}#${pending.param}`);
         color = SOURCE_COLOR;
@@ -2852,8 +3108,9 @@ export function createPatchBayView(
         fixed = videoJacks.get(pending.inKey);
         color = VIDEO_COLOR;
       } else {
+        // to-graphout — same two-kind candidate pool as to-paramout above.
         fixed = graphNodeJacks.get(pending.sourceKey);
-        color = NODE_WIRE_COLOR;
+        color = pending.hover?.kind === 'param' ? GRAPH_COLOR : NODE_WIRE_COLOR;
       }
       const a = anchor(fixed);
       if (a) {

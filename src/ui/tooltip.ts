@@ -41,6 +41,67 @@ function position(tip: HTMLElement, target: HTMLElement): void {
   tip.style.top = `${top}px`;
 }
 
+/** Position above a raw point (cursor-following variant), same
+ *  clamping/flip rules as the element-anchored `position()` above. */
+function positionAtPoint(tip: HTMLElement, doc: Document, x: number, y: number): void {
+  const win = doc.defaultView ?? window;
+  const tr = tip.getBoundingClientRect();
+  let left = x - tr.width / 2;
+  left = Math.max(4, Math.min(win.innerWidth - tr.width - 4, left));
+  let top = y - tr.height - 14;
+  if (top < 4) top = y + 14;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+/** Per-document pending schedule timer for `scheduleTooltip`/`cancelTooltip`
+ *  — separate from `attachTooltip`'s own per-element closures, since a
+ *  drag-time tooltip is driven programmatically (candidate changes during
+ *  an active gesture), not by native pointerenter/leave on one element. */
+const dragTooltipTimers = new WeakMap<Document, { timer: number | null }>();
+
+function dragTooltipState(doc: Document): { timer: number | null } {
+  let s = dragTooltipTimers.get(doc);
+  if (!s) { s = { timer: null }; dragTooltipTimers.set(doc, s); }
+  return s;
+}
+
+/**
+ * Schedule a drag-time tooltip near `anchor` (a live point, e.g. the
+ * current pointer position, or an element to anchor above) after the
+ * same delay as `attachTooltip`. Call again with a new anchor/text to
+ * reset the timer (e.g. the drag's snap candidate changed) — this is
+ * the intended "restart on change" usage, not a one-shot schedule.
+ */
+export function scheduleTooltip(
+  doc: Document,
+  text: string | (() => string | null | undefined),
+  anchor: { x: number; y: number } | HTMLElement,
+): void {
+  const s = dragTooltipState(doc);
+  if (s.timer != null) { clearTimeout(s.timer); s.timer = null; }
+  s.timer = window.setTimeout(() => {
+    s.timer = null;
+    const content = typeof text === 'function' ? text() : text;
+    if (!content) return;
+    const tip = tooltipFor(doc);
+    tip.textContent = content;
+    tip.hidden = false;
+    if (anchor instanceof HTMLElement) position(tip, anchor);
+    else positionAtPoint(tip, doc, anchor.x, anchor.y);
+  }, SHOW_DELAY_MS);
+}
+
+/** Cancel any pending/shown drag-time tooltip for `doc`. Safe to call
+ *  unconditionally (e.g. on every drag-drop, whether or not one was
+ *  ever scheduled). */
+export function cancelTooltip(doc: Document): void {
+  const s = dragTooltipTimers.get(doc);
+  if (s?.timer != null) { clearTimeout(s.timer); s.timer = null; }
+  const tip = tooltipsByDoc.get(doc);
+  if (tip) tip.hidden = true;
+}
+
 /**
  * Attach a delayed hover tooltip to `el`. `text` may be a plain string
  * or a lazy function (evaluated on each show) for callers whose copy

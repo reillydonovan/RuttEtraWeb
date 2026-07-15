@@ -89,6 +89,14 @@ body[data-skin="rack"] .rw-rack-jack--plugged {
   border-color: var(--re-accent);
   box-shadow: 0 0 6px rgba(95, 255, 133, 0.55);
 }
+/* Idle mouse-hover — same convention as the Patch Bay's own rule
+ * (patchbay.css); pure CSS, no JS. Per-kind hover color (--rw-hover-
+ * color) is a Patch Bay-only feature for now — see patchbay.css. */
+body[data-skin="rack"] .rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--grab) {
+  border-color: var(--re-line-hi);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
+}
 body[data-skin="rack"] .rw-rack-jack--hover {
   border-color: var(--re-accent);
   box-shadow: 0 0 10px rgba(95, 255, 133, 0.9);

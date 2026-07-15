@@ -147,6 +147,12 @@ export function cableControlPoints(a: CablePoint, b: CablePoint, style: CableSty
 
 export interface CableDrawOpts {
   highlight?: boolean;
+  /** Click-selected cable (Patch Bay: distinct from the drag rubber-band's
+   *  `highlight` — a resting cable a user has clicked on to trace it). */
+  selected?: boolean;
+  /** Idle mouse-hover over a resting cable (no drag, no click) — subtler
+   *  than `selected`. */
+  hovered?: boolean;
   style?: CableStyle;
   /** Animated dash phase; pass undefined (or reduceMotion) for solid/static. */
   dashOffset?: number;
@@ -154,6 +160,42 @@ export interface CableDrawOpts {
   dashed?: boolean;
   /** Extra alpha dim for disabled routings (rack: muted slot). */
   dim?: boolean;
+}
+
+/**
+ * Approximate min distance from `point` to the cable curve `a`->`b`
+ * (given `style`), for click/hover hit-testing. Sampled along the cubic
+ * bezier at a fixed step count — plenty of precision for a mouse-click
+ * tolerance check, not a physics-grade nearest-point solve.
+ */
+export function distanceToCable(point: CablePoint, a: CablePoint, b: CablePoint, style: CableStyle): number {
+  const [c1, c2] = cableControlPoints(a, b, style);
+  const STEPS = 20;
+  let prev = a;
+  let min = Infinity;
+  for (let i = 1; i <= STEPS; i++) {
+    const t = i / STEPS;
+    const mt = 1 - t;
+    const x = mt * mt * mt * a.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * b.x;
+    const y = mt * mt * mt * a.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * b.y;
+    const cur = { x, y };
+    const d = distanceToSegment(point, prev, cur);
+    if (d < min) min = d;
+    prev = cur;
+  }
+  return min;
+}
+
+function distanceToSegment(p: CablePoint, a: CablePoint, b: CablePoint): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const projX = a.x + t * dx;
+  const projY = a.y + t * dy;
+  return Math.hypot(p.x - projX, p.y - projY);
 }
 
 export function drawPatchCable(
@@ -166,10 +208,6 @@ export function drawPatchCable(
   const [c1, c2] = cableControlPoints(a, b, opts.style ?? 'flow');
   ctx.save();
   if (opts.dim) ctx.globalAlpha = 0.35;
-  ctx.strokeStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = opts.highlight ? 14 : 6;
-  ctx.lineWidth = opts.highlight ? 3 : 2;
   ctx.lineCap = 'round';
   if (opts.dashed) {
     ctx.setLineDash([10, 6]);
@@ -177,9 +215,28 @@ export function drawPatchCable(
   } else {
     ctx.setLineDash([]);
   }
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y);
+  const tracePath = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y);
+  };
+  // A selected cable gets a bright outline pass UNDER the color stroke —
+  // same color/width recipe as `highlight` (the drag rubber-band) would
+  // look otherwise identical to a merely-hovered cable, so `selected`
+  // needs a shape cue independent of glow color, not just a bigger glow.
+  if (opts.selected) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 5;
+    tracePath();
+    ctx.stroke();
+  }
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = opts.highlight ? 14 : opts.selected ? 12 : opts.hovered ? 9 : 6;
+  ctx.lineWidth = opts.highlight ? 3 : opts.selected ? 3 : opts.hovered ? 2.5 : 2;
+  tracePath();
   ctx.stroke();
   // Physical cables get plug dots so start/end points read at a glance
   // even where several cables overlap (owner feedback on the bay's

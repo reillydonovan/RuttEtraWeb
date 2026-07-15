@@ -16,8 +16,23 @@ Run these in order; stop and report on the first failure:
 
 ## Invariant checklist (verify for the diff being committed)
 
+- **A `replace_all` edit can clobber the very helper it's converting call
+  sites to use.** When introducing a wrapper (e.g. `startDrag(p) { pending
+  = p; ...extra... }`) to replace a dozen scattered `pending = p;` call
+  sites, a `replace_all` for the string `pending = p;` also matches that
+  exact text INSIDE the new helper's own body if it's phrased the same
+  way — turning `pending = p;` inside `startDrag` into `startDrag(p);`
+  and making it call itself. Found live 2026-07-15 building Patch Bay
+  cable-selection state: infinite recursion (`RangeError: Maximum call
+  stack size exceeded`) the instant any drag started, invisible to
+  `tsc`/tests since JS doesn't flag self-recursive assignments. After
+  any multi-site `replace_all` that introduces a new function whose body
+  contains the literal old pattern, re-read that function's body
+  specifically (not just spot-check a few call sites) before trusting
+  the change.
+
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.21.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.22.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
 - **`VideoSourceManager` has NO Settings connection of its own** — it's

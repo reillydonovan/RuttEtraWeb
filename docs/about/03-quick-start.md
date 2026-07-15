@@ -51,7 +51,9 @@ Every popup carries its **own tab bar with a `+`**, so it's not stuck with just 
 
 A view that turns the whole instrument into a hardware faceplate — and a node editor.
 
-**Navigating the board.** Scroll-wheel to zoom (or the −/100%/+ buttons in the SOURCES bar); click-drag any empty background to pan around the board; drag any module by its header to reorder it within the stacks (an insertion line shows where it lands) or drop it out past them to arrange modules freely, Max/MSP style, with magnetic edge-snapping — dropped modules push themselves apart so they never end up overlapping. The **TIDY / FREE** button is a toggle: **FREE** breaks every module out into free layout in one click (same as dragging one out by hand); **TIDY** snaps everything back into the default stacked layout. Switch back and forth as often as you like. A free arrangement survives being squeezed into a narrow window, and gets extra room around its edges so the outermost module's far side is always reachable while panning.
+**A fresh bay opens already arranged left to right by signal flow** — generators (Function Generators, Video Source A/B, and any graph node with no wired input) on the left, the compositing/shaping stage (Composite, Dual Raster, Pattern Generator) next, the Renderer as the sink, then every faceplate field group on the right — a real path to follow, TouchDesigner/ComfyUI/Blender-node-editor style, not a junk drawer. The **TIDY / FREE** button is a toggle: **FREE** breaks every module out into free layout (same as dragging one out by hand, and where a fresh bay already starts); **TIDY** snaps everything back into the classic stacked list if you prefer that instead. **ARRANGE** re-runs the default left-to-right layout on demand — the fastest way back to a clean read after you've made a mess patching things live.
+
+**Navigating the board.** Scroll-wheel to zoom (or the −/100%/+ buttons in the SOURCES bar); click-drag any empty background to pan around the board; drag any module by its header to move it around freely (in FREE layout) or reorder it within the stacks (in TIDY layout, an insertion line shows where it lands) — magnetic edge-snapping means dropped modules push themselves apart so they never end up overlapping. A free arrangement survives being squeezed into a narrow window, and gets extra room around its edges so the outermost module's far side is always reachable while panning.
 
 #### The faceplate
 
@@ -95,6 +97,15 @@ Every graph module has a small **✕** in its header — click it to remove that
 Loading a sample or library patch while you have a patch going asks before replacing it (Cancel keeps yours).
 
 New to the bay? **Help ▸ Patch Bay Tutorial** is a second guided walkthrough teaching spawning, knobs, wiring, and the Scope, with try-it buttons. Open the bay from a region dropdown or `Window ▸ Layout ▸ Patch Bay`.
+
+#### Cable and jack states
+
+Cables and jacks carry real visual states, not just one static look:
+
+- **Idle hover** — rest the mouse over a jack (no drag) and it glows softly; hold it a beat longer and a tooltip explains what it does. Rest over a cable itself and it gets the same subtle glow.
+- **Select** — click a cable to highlight it with a bright white outline, useful for tracing one connection through a busy patch. Click empty background, or another cable, to clear the selection.
+- **Drag and drop** — grab any jack and the candidate jacks it could snap to light up in the color the resulting cable would actually be (green for a Function Generator cable, cyan for a graph binding, amber for a node-to-node wire, purple for video routing, pale mint for a SOURCES cable) — a live preview of what connecting there would create, not a flat highlight. A delayed tooltip names what dropping there will do.
+- **Untether** — drop a plugged cable in empty space to unplug it; drop an OUT jack's cable in empty space and nothing happens, since an output can feed several connections at once and there's no single "the" cable to remove from there.
 
 ### Remote control via MCP
 

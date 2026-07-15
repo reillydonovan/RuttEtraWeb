@@ -111,9 +111,22 @@
   border-color: var(--re-accent);
   box-shadow: 0 0 6px rgba(95, 255, 133, 0.55);
 }
+/* Idle mouse-hover (no drag/click active) — a subtle glow distinct from
+ * both --plugged and the drag states below, pure CSS (native :hover),
+ * no JS involved. Never fights an active drag/grab visual. */
+.rw-patchbay .rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--grab) {
+  border-color: var(--re-line-hi);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
+}
 .rw-patchbay .rw-rack-jack--hover {
-  border-color: var(--re-accent);
-  box-shadow: 0 0 10px rgba(95, 255, 133, 0.9);
+  /* --rw-hover-color is set inline per drag (the color the resulting
+   * cable would actually have — CLASSIC/SOURCE/GRAPH/NODE_WIRE/VIDEO —
+   * so the preview reads as "this kind of connection", not a flat
+   * green regardless of what's being dragged); falls back to the
+   * original green when no per-kind color was set. */
+  border-color: var(--rw-hover-color, var(--re-accent));
+  box-shadow: 0 0 10px var(--rw-hover-color, rgba(95, 255, 133, 0.9));
   transform: scale(1.25);
 }
 .rw-patchbay .rw-rack-jack--grab {

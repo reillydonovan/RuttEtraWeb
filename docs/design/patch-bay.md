@@ -111,10 +111,33 @@ Owner-directed follow-up round two:
 - ~~No mid-drag auto-scroll~~ — pan is now click-drag on empty
   background at any time (v1.14); a true auto-scroll-while-dragging-a-
   cable is still unbuilt if that turns out to not be enough.
-- **Param cells are jack + label**, not mini-knobs — value editing
-  lives in the Controls view; the bay is the patching surface. Mini
-  knobs (same slider-face machinery) are the obvious v2.
+- ~~Param cells are jack + label, not mini-knobs~~ — stale: mini-knobs
+  shipped in a later round (`createMiniKnob`, `miniKnob.ts`) — every
+  faceplate param cell has a real rotary knob + editable value field,
+  not just a jack.
 - **Slot fields are RATE/AMT only** — the full slot editor (sync,
   output stage, slew…) stays in the Modulation section. More faceplate
   controls per module are v2 candidates via the `SlotRowAdapter` field
   builders.
+
+## v1.22: cable/jack visual states + default left-to-right layout (branch `cableruns`)
+
+Two owner-directed features, live-performance/real-time-mixing focused ("a manageable mess with an intuitive layout for plugging shit in, mixing, and checking it out").
+
+**Cable states** — six states, most genuinely new (`--plugged`/`--hover`/`--grab` already existed, flat one-color):
+- `distanceToCable` (new, `cableDraw.ts`, pure): samples the cubic bezier at 20 steps for a click/hover hit-test against a drawn cable — no such hit-test existed before (cables were draw-only, no persistent identity). Each cable kind gets a stable id string (`classic:${slotIndex}`, `graphbind:${bindingId}`, `nodewire:${targetNodeId}#${targetPort}`, etc.) so state can attach to "this cable" across frames despite everything being redrawn from scratch every frame.
+- `CableDrawOpts` gained `selected`/`hovered` (a white outline pass under the color stroke for `selected`, a smaller glow bump for `hovered` — visually distinct from `highlight`, which stays the drag rubber-band's own look).
+- Click-to-select reuses the EXISTING pan-handler's pointerdown/up pair (checking `!started`, i.e. the gesture never crossed the pan threshold) rather than a new listener — the cable canvas is `pointer-events:none` by design, so clicks always fall through to `root` anyway.
+- Per-kind drag-hover color: the two `Pending` kinds whose candidate pool spans two jack kinds (`dragGraphOut`/`dragParamOut`, via `graphOutHoverSetter`) now preview the color the drop would ACTUALLY create (`NODE_WIRE_COLOR` for a node wire, `GRAPH_COLOR` for a param binding) via an inline `--rw-hover-color` custom property, instead of one flat green for every kind — applied to every other single-kind drag too, for consistency. The rubber-band cable itself got the same fix (`to-graphout`/`to-paramout` previously hardcoded ONE color regardless of which kind was actually hovered — a real pre-existing inconsistency, fixed in the same pass).
+- `tooltip.ts` gained `scheduleTooltip`/`cancelTooltip` — a programmatic, cursor/candidate-anchored sibling to the existing native-hover-driven `attachTooltip`, since a drag's snap candidate changes without a fresh `pointerenter` on the newly-snapped jack.
+- Idle hover (mouse resting, no drag) is pure CSS `:hover` for jacks (no JS at all) and a lightweight `pointermove` hit-test (early-exits the moment it finds a hit under threshold) for cables.
+- **A real bug found while wiring this in**: the very first version made `startDrag(p)`'s helper body literally `startDrag(p);` — a `replace_all` edit meant for the ~10 `dragXxx` call sites also rewrote the helper's OWN definition (since the text matched), producing infinite recursion the instant any drag started (`RangeError: Maximum call stack size exceeded`). Caught live via Playwright (not by typecheck — TS doesn't flag self-recursive calls), fixed by re-editing just the helper body back to the real assignment.
+
+**Default freeform left-to-right layout** (`src/ui/patchbay/autoLayout.ts`, new, pure/tested) — TIDY stays fully available as a fallback (owner decision, not removed):
+- `graphNodeColumns` — pure topological layering over `NodeWire[]` (BFS from root/no-input nodes; a diamond's child takes `1 + max(parents' columns)`, not the sum).
+- `computeDefaultLayout` — pure packing: fixed x-bands (`generators → processors → output → fields`) plus graph-node layers folded into the `generators` band by wire depth; collision-free by construction (no `resolveOverlap` needed for a fresh computed layout).
+- Wired via a small `freeze(computed?)` extension (accepts optional seeded positions; with none, behavior is byte-identical to the existing "freeze wherever flex rendered it" path) and a one-shot bootstrap inside `frame()`'s existing `isConnected` guard, since real `offsetWidth`/`offsetHeight` measurements aren't available until the view is actually connected and laid out.
+- `bus` (the SOURCES strip) is excluded from the free-layout unit set entirely — it's a pinned utility strip, not a signal-flow node (it was never part of the TIDY-mode reorder-stack set either). Its own header-drag-to-free-layout affordance was removed to match (it has no default position of its own to return to).
+- New **ARRANGE** button (next to TIDY/FREE) re-runs the layout on demand — recovers a clean read after a hand-made mess, works whether currently TIDY or FREE.
+- **Two real bugs found while wiring this in, both live-only (Playwright), not caught by unit tests or typecheck**: (1) the one-shot bootstrap flag was latched to `true` unconditionally before the layout attempt ran — if the very first connected frame measured zero-sized units (e.g. the bay isn't the active workspace tab at boot, which is the actual default: the stock 4-up preset's left window is ~400px, well under the narrow threshold), the bootstrap permanently gave up for the rest of the session. Fixed by only latching on an actual success (every discovered unit measured real geometry), retrying every frame otherwise. (2) freshly computed free units landed with `top:0` measured from `board`'s own border-box (where CSS absolute positioning's containing block sits) — but `bus`, an ordinary flow child, visually starts BELOW `board`'s padding-top, so a naive `top:0` placed every free unit under/behind the `bus` row instead of below it. Fixed by offsetting every computed top by `board`'s padding-top + `bus`'s real height + the flex gap between them.
+- Verified live (Playwright): fresh load in the stock (narrow) left window correctly falls back to stacked/TIDY (narrow-mode always wins, unchanged pre-existing rule); widened past 900px shows the full LTR arrangement (22 units, zero overlaps, correct column order verified by measured `left` values); TIDY/FREE/ARRANGE all toggle correctly; the narrow→wide→narrow→wide round-trip (the ORIGINAL owner bug report this suspend/restore system was built for) still restores correctly; a freshly-added graph node (LFO, no wired input) correctly lands in the same column as the Function Generators when ARRANGE is clicked.
