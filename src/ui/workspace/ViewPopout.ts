@@ -182,7 +182,22 @@ export function popoutView(opts: {
     }
     w.document.body.appendChild(ul);
     const close = (e: Event): void => {
-      if (e.target instanceof Node && ul.contains(e.target)) return;
+      // `e.target` belongs to the POPUP window's realm (`w`), not the
+      // main window's — a bare `instanceof Node` here checks against
+      // the MAIN window's `Node` constructor, which a cross-realm node
+      // never satisfies (the classic cross-window `instanceof` gotcha,
+      // same reason `Array.isArray` exists instead of `instanceof
+      // Array`). That silently made EVERY click evaluate as "outside,"
+      // including clicks on the menu's own items — found live: an
+      // owner report that selecting Timeline/Renderer from a popup's
+      // add-menu "did nothing" (the menu closed instead, before the
+      // item's own click listener ever got a chance to fire, since the
+      // menu was already removed at pointerdown, one event ahead of
+      // click). `Node.prototype.contains` doesn't care which realm's
+      // constructor you reference it through, so dropping the
+      // `instanceof` guard entirely (target is always a Node here, or
+      // null) is the fix.
+      if (e.target && ul.contains(e.target as Node)) return;
       ul.remove();
       w.document.removeEventListener('pointerdown', close, true);
     };

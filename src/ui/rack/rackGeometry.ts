@@ -122,6 +122,35 @@ export function nodeWires(patch: GraphPatch | null | undefined): NodeWire[] {
 }
 
 /**
+ * Remove a node and everything that referenced it: any other node's
+ * input port wired to it (`inputs[port]` refs, matched via
+ * `splitInputRef` the same way `nodeWires` reads them) gets unplugged
+ * to `null`, and any binding it sourced is dropped outright (a binding
+ * with no source node is meaningless, unlike a param jack unplugging
+ * to `'none'` — that keeps the binding for later re-use, this doesn't
+ * since the node itself is gone). Shared by the Graph editor
+ * (AdvancedView.ts) and the Patch Bay's own delete-node gesture — one
+ * authoritative deletion so both surfaces stay consistent.
+ */
+export function deleteGraphNode(patch: GraphPatch, nodeId: string): GraphPatch {
+  const nodes = patch.nodes
+    .filter((n) => n.id !== nodeId)
+    .map((n) => {
+      let changed = false;
+      const inputs = { ...n.inputs };
+      for (const [port, ref] of Object.entries(inputs)) {
+        if (ref && splitInputRef(ref).nodeId === nodeId) { inputs[port] = null; changed = true; }
+      }
+      return changed ? { ...n, inputs } : n;
+    });
+  return {
+    ...patch,
+    nodes,
+    bindings: patch.bindings.filter((b) => b.sourceNodeId !== nodeId),
+  };
+}
+
+/**
  * Wire (or unplug, `ref: null`) one node's input port. `ref` follows the
  * engine's own convention (`splitInputRef`): a plain node id reads that
  * node's default/first output; `nodeId#port` names a specific output on

@@ -51,7 +51,7 @@ Every popup carries its **own tab bar with a `+`**, so it's not stuck with just 
 
 A view that turns the whole instrument into a hardware faceplate — and a node editor.
 
-**Navigating the board.** Scroll-wheel to zoom (or the −/100%/+ buttons in the SOURCES bar); click-drag any empty background to pan around the board; drag any module by its header to reorder it within the stacks (an insertion line shows where it lands) or drop it out past them to arrange modules freely, Max/MSP style, with magnetic edge-snapping — dropped modules push themselves apart so they never end up overlapping. **TIDY** snaps everything back into the default stacked layout. A free arrangement survives being squeezed into a narrow window, and gets extra room around its edges so the outermost module's far side is always reachable while panning.
+**Navigating the board.** Scroll-wheel to zoom (or the −/100%/+ buttons in the SOURCES bar); click-drag any empty background to pan around the board; drag any module by its header to reorder it within the stacks (an insertion line shows where it lands) or drop it out past them to arrange modules freely, Max/MSP style, with magnetic edge-snapping — dropped modules push themselves apart so they never end up overlapping. The **TIDY / FREE** button is a toggle: **FREE** breaks every module out into free layout in one click (same as dragging one out by hand); **TIDY** snaps everything back into the default stacked layout. Switch back and forth as often as you like. A free arrangement survives being squeezed into a narrow window, and gets extra room around its edges so the outermost module's far side is always reachable while panning.
 
 #### The faceplate
 
@@ -65,13 +65,13 @@ Drag a generator's OUT to any param jack to route it (or drag from the param jac
 
 A **VIDEO SOURCE A** module switches webcam/screen/file (the same switch as the Source panel), and an independent **VIDEO SOURCE B** module does the same for a second feed — each with an expandable **live preview** of the incoming signal and an OUT jack. A **COMPOSITE** module takes two video inputs plus the same 8 blend modes the Pattern Generator uses (Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade, B-only) and a mix control. Drag Source A's OUT jack and Source B's OUT jack onto Composite's A/B inputs, then Composite's OUT onto the **RENDERER** module's IN jack, and the blend becomes what the mesh actually displaces — a file layered over a webcam, a screen-share crossfaded with a camera.
 
-RENDERER IN's unplugged state shows no cable at all (like a real Eurorack normalled jack) because it silently defaults straight to Source A — nothing about existing sessions changes until you actually drag a connection there. A **RENDER PREVIEW** module monitors the final rendered output the same way the source modules preview their feeds.
+RENDERER IN's unplugged state shows no cable at all (like a real Eurorack normalled jack) because it silently defaults straight to Source A — nothing about existing sessions changes until you actually drag a connection there. The **RENDERER** module's own expandable **live preview** monitors the final rendered output — it lives on the sink itself, not a separate module.
 
 A **DUAL RASTER** module gives raster A and raster B (Synth ▸ Dual Raster) two genuinely different feeds instead of the shared signal they mirror by default: drag Video Source A/B (or the Composite node's output) onto its A/B inputs, then its OUT onto RENDERER's IN — wiring that connection turns Dual Raster on for you, same as patching a graph cable wakes the modulation engine.
 
 #### Pattern Generator
 
-A **PATTERN GENERATOR** module puts the whole synthesized-pattern layer in the bay too: an enable LED, a kind picker (Calibration/Waveform/Noise/Oscilloscope, same grouping as Controls), a blend-mode dropdown, a mix field, and — the useful part — a set of supporting-property knobs that changes to match whatever kind is currently selected (Solid shows just Brightness; Lissajous shows Brightness/Frequency/Freq Ratio/Phase Offset/Thickness; Oscilloscope shows its own scope-specific set), instead of showing every pattern param at once regardless of relevance.
+A **PATTERN GENERATOR** module puts the whole synthesized-pattern layer in the bay too: a corner LED plus a clearly labeled **enable** checkbox, a kind picker (Calibration/Waveform/Noise/Oscilloscope, same grouping as Controls), a blend-mode dropdown, a mix field, and — the useful part — a set of supporting-property cells that changes to match whatever kind is currently selected (Solid shows just Brightness; Lissajous shows Brightness/Frequency/Freq Ratio/Phase Offset/Thickness; Oscilloscope shows its own scope-specific set), instead of showing every pattern param at once regardless of relevance. Each of those cells is a full IN/OUT jack pair, same as any faceplate param — patch a Function Generator straight into Brightness, or drag Frequency's own OUT elsewhere. This is the ONE home for these params: the general faceplate deliberately has no separate "Pattern" field group, so there's never two competing jacks for the same signal. An expandable **live preview** on the module itself shows the raw pattern actually being generated (before it's composited with video), the same monitor style as the Video Source and Renderer modules.
 
 #### The Graph Engine section
 
@@ -89,6 +89,8 @@ Two node types are worth calling out:
 #### Adding and arranging nodes
 
 **Right-click any empty board background** for a categorized Add Node menu (the same node list the Graph editor's palette has, Blender/Max-MSP style) — the new module **spawns free-floating right where you clicked**, never overlapping another module, ready to wire up without leaving the bay; it also shows up as a normal row in Controls ▸ Modulation's Beginner view (switching out of Classic mode automatically if needed), so the two surfaces always agree on what the patch is — and any patching gesture wakes the graph engine automatically, so a fresh wire is always live, never silent.
+
+Every graph module has a small **✕** in its header — click it to remove that node, with a confirmation ("Delete node 'X'? This also removes any of its connections.") before anything is actually deleted; Cancel leaves it untouched. Deleting a node unplugs any other node's input wired from it and drops any binding it was driving, same cleanup the Graph editor's own right-click delete does (one shared removal, so both surfaces stay consistent).
 
 Loading a sample or library patch while you have a patch going asks before replacing it (Cancel keeps yours).
 

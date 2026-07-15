@@ -228,6 +228,20 @@
   box-shadow: var(--re-glow);
 }
 
+/* Delete-node button, graph modules only (owner: "close / remove any
+ * node from the patch bay with a delete confirmation window"). */
+.rw-pb-graphnode-del {
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--re-text-dim);
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.rw-pb-graphnode-del:hover {
+  color: var(--re-red, #ff6a6a);
+}
+
 .rw-pb-row {
   display: flex;
   align-items: center;

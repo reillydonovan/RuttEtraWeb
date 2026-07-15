@@ -8,7 +8,7 @@ import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter,
   graphBindingForParam, applyGraphBindingTarget,
-  nodeWires, applyNodeInputRef,
+  nodeWires, applyNodeInputRef, deleteGraphNode,
 } from '../rackGeometry';
 import { cableControlPoints } from '../../cableDraw';
 import type { ModSlot } from '../../../state/Settings';
@@ -154,6 +154,53 @@ describe('applyNodeInputRef', () => {
     } as unknown as GraphPatch;
     const next = applyNodeInputRef(patch, 'b', 'clock', null);
     expect(next.nodes[0].inputs).toEqual({ clock: null });
+  });
+});
+
+describe('deleteGraphNode', () => {
+  it('removes the node, unwires other nodes\' inputs from it, and drops its bindings', () => {
+    const patch = {
+      nodes: [
+        { id: 'a', type: 'sync', inputs: {}, params: {} },
+        { id: 'b', type: 'noise', inputs: { clock: 'a#pulse' }, params: {} },
+        { id: 'c', type: 'ramp', inputs: { trigger: 'a' }, params: {} },
+      ],
+      bindings: [
+        { id: 'bind1', paramKey: 'zPush', sourceNodeId: 'a', amount: 1, mode: 'additive' },
+        { id: 'bind2', paramKey: 'focus', sourceNodeId: 'b', amount: 1, mode: 'additive' },
+      ],
+    } as unknown as GraphPatch;
+    const next = deleteGraphNode(patch, 'a');
+    expect(next.nodes.map((n) => n.id)).toEqual(['b', 'c']);
+    expect(next.nodes[0].inputs).toEqual({ clock: null }); // was wired to a#pulse
+    expect(next.nodes[1].inputs).toEqual({ trigger: null }); // was wired to a
+    expect(next.bindings).toEqual([{ id: 'bind2', paramKey: 'focus', sourceNodeId: 'b', amount: 1, mode: 'additive' }]);
+  });
+
+  it('leaves nodes with no reference to the deleted node untouched (same object)', () => {
+    const patch = {
+      nodes: [
+        { id: 'a', type: 'sync', inputs: {}, params: {} },
+        { id: 'b', type: 'noise', inputs: {}, params: {} },
+      ],
+      bindings: [],
+    } as unknown as GraphPatch;
+    const next = deleteGraphNode(patch, 'a');
+    expect(next.nodes).toEqual([patch.nodes[1]]);
+    expect(next.nodes[0]).toBe(patch.nodes[1]); // untouched node is the same object
+  });
+
+  it('deleting an unrelated node leaves bindings/wires untouched', () => {
+    const patch = {
+      nodes: [
+        { id: 'a', type: 'sync', inputs: {}, params: {} },
+        { id: 'b', type: 'noise', inputs: { clock: 'a#pulse' }, params: {} },
+      ],
+      bindings: [{ id: 'bind1', paramKey: 'zPush', sourceNodeId: 'a', amount: 1, mode: 'additive' }],
+    } as unknown as GraphPatch;
+    const next = deleteGraphNode(patch, 'b');
+    expect(next.nodes).toEqual([patch.nodes[0]]);
+    expect(next.bindings).toEqual(patch.bindings);
   });
 });
 

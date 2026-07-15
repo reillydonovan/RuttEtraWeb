@@ -3,6 +3,11 @@
  * target has a home on the patch bay. If someone adds a TARGETS entry
  * without a faceplate field, it must land in the visible AUXILIARY
  * catch-all rather than silently vanishing — and this test tells them.
+ *
+ * `patternXxx` keys are the one deliberate exception: they're homed on
+ * the PATTERN GENERATOR rail module instead (see the
+ * `PATTERN_OWNED_PREFIX` comment in patchbayLayout.ts) — a second copy
+ * here would silently steal their `paramJacks` Map registration.
  */
 import { describe, it, expect } from 'vitest';
 import { buildFaceplate, SOURCE_JACKS } from '../patchbayLayout';
@@ -12,10 +17,16 @@ describe('buildFaceplate', () => {
   const fields = buildFaceplate();
   const allKeys = fields.flatMap((f) => f.params.map((p) => p.key));
 
-  it('covers every static TARGETS entry exactly once', () => {
-    const expected = TARGETS.filter((t) => t.v !== 'none').map((t) => String(t.v));
+  it('covers every static TARGETS entry exactly once, except pattern-owned keys', () => {
+    const expected = TARGETS.filter((t) => t.v !== 'none' && !String(t.v).startsWith('pattern')).map((t) => String(t.v));
     expect(new Set(allKeys).size).toBe(allKeys.length); // no duplicates
     expect([...allKeys].sort()).toEqual([...expected].sort());
+  });
+
+  it('excludes every pattern-owned key (homed on the rail module instead)', () => {
+    const patternTargets = TARGETS.filter((t) => t.v !== 'none' && String(t.v).startsWith('pattern')).map((t) => String(t.v));
+    expect(patternTargets.length).toBeGreaterThan(0); // sanity: the exclusion is exercised
+    for (const key of patternTargets) expect(allKeys).not.toContain(key);
   });
 
   it('leads with the brochure DCU sub-groups in order', () => {

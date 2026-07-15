@@ -76,11 +76,36 @@ export type ScopeSampler = (
 
 const SCOPE_BUFFER_LENGTH = 1024;
 
+/** Patch Bay preview monitor size — matches `addPreviewRow`'s canvas
+ *  (180x101, 16:9-ish) closely enough; deliberately fixed and small,
+ *  independent of the real pattern render resolution. */
+const PREVIEW_W = 176;
+const PREVIEW_H = 99;
+
 export class PatternRenderer {
   private patternRT: THREE.WebGLRenderTarget;
   private compositRT: THREE.WebGLRenderTarget;
   private trailRT: THREE.WebGLRenderTarget;
   private trailPrevRT: THREE.WebGLRenderTarget;
+
+  /**
+   * Fixed-size low-res copy of `patternRT` (the raw generated pattern,
+   * pre-composite with video) for the Patch Bay's live preview monitor
+   * (owner: "a preview viewer of the pattern being generated just like
+   * the video source and renderer"). `patternRT`/`compositRT` are
+   * GPU-only render targets — unlike `#stage` (a real on-screen
+   * canvas), there's no `<canvas>` to `drawImage()` from directly, so
+   * this does a `readRenderTargetPixels` readback into a 2D canvas.
+   * That readback stalls the GPU pipeline, so it only runs while
+   * `previewActive` is true (the caller sets this from its own
+   * expand/collapse toggle) — collapsed costs nothing, matching every
+   * other bay preview.
+   */
+  private previewRT: THREE.WebGLRenderTarget;
+  private previewCanvas: HTMLCanvasElement;
+  private previewCtx: CanvasRenderingContext2D;
+  private previewBuf: Uint8ClampedArray;
+  private previewActive = false;
 
   private fsScene = new THREE.Scene();
   private fsCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -144,6 +169,13 @@ export class PatternRenderer {
     this.trailRT    = new THREE.WebGLRenderTarget(this.width, this.height, rtOpts);
     this.trailPrevRT= new THREE.WebGLRenderTarget(this.width, this.height, rtOpts);
 
+    this.previewRT = new THREE.WebGLRenderTarget(PREVIEW_W, PREVIEW_H, rtOpts);
+    this.previewCanvas = document.createElement('canvas');
+    this.previewCanvas.width = PREVIEW_W;
+    this.previewCanvas.height = PREVIEW_H;
+    this.previewCtx = this.previewCanvas.getContext('2d')!;
+    this.previewBuf = new Uint8ClampedArray(PREVIEW_W * PREVIEW_H * 4);
+
     this.fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial());
     this.fsScene.add(this.fsQuad);
 
@@ -181,6 +213,18 @@ export class PatternRenderer {
   /** Configure the source-sampler callback. See `ScopeSampler`. */
   setScopeSampler(fn: ScopeSampler | null): void {
     this.scopeSampler = fn;
+  }
+
+  /** Enable/disable the preview readback (see `previewRT` doc above). */
+  setPreviewActive(active: boolean): void {
+    this.previewActive = active;
+  }
+
+  /** The current preview frame, or null while inactive / before the
+   *  first tick. A real `<canvas>`, drawable via `drawImage()` like
+   *  every other Patch Bay preview monitor. */
+  getPreviewCanvas(): HTMLCanvasElement | null {
+    return this.previewActive ? this.previewCanvas : null;
   }
 
   /** Resize all render targets to `(w, h)`. */
@@ -258,6 +302,26 @@ export class PatternRenderer {
       this.renderer.render(this.fsScene, this.fsCamera);
     }
 
+    // 1b. Preview readback (only while the Patch Bay monitor is open —
+    // `readRenderTargetPixels` stalls the GPU pipeline).
+    if (this.previewActive) {
+      const patternTextureForPreview = isScope ? this.trailRT.texture : this.patternRT.texture;
+      this.copyMaterial.uniforms.tDiffuse.value = patternTextureForPreview;
+      this.fsQuad.material = this.copyMaterial;
+      this.renderer.setRenderTarget(this.previewRT);
+      this.renderer.clear();
+      this.renderer.render(this.fsScene, this.fsCamera);
+      this.renderer.readRenderTargetPixels(this.previewRT, 0, 0, PREVIEW_W, PREVIEW_H, this.previewBuf);
+      // WebGL read-back is bottom-up; ImageData is top-down — flip rows.
+      const imgData = this.previewCtx.createImageData(PREVIEW_W, PREVIEW_H);
+      const rowBytes = PREVIEW_W * 4;
+      for (let y = 0; y < PREVIEW_H; y++) {
+        const srcStart = (PREVIEW_H - 1 - y) * rowBytes;
+        imgData.data.set(this.previewBuf.subarray(srcStart, srcStart + rowBytes), y * rowBytes);
+      }
+      this.previewCtx.putImageData(imgData, 0, 0);
+    }
+
     // 2. Render compositor -> compositRT
     const patternTexture = isScope ? this.trailRT.texture : this.patternRT.texture;
     this.compositor.uniforms.uPattern.value = patternTexture;
@@ -300,6 +364,7 @@ export class PatternRenderer {
     this.compositRT.dispose();
     this.trailRT.dispose();
     this.trailPrevRT.dispose();
+    this.previewRT.dispose();
     for (const m of this.materials.values()) m.dispose();
     this.compositor.dispose();
     this.trailMaterial.dispose();

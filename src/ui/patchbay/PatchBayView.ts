@@ -57,7 +57,7 @@ import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
   graphBindingForParam, applyGraphBindingTarget,
-  nodeWires, applyNodeInputRef,
+  nodeWires, applyNodeInputRef, deleteGraphNode,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
@@ -67,6 +67,7 @@ import {
   PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL, type PatternParamKey,
   AXIS_OPTIONS, GRAD_SHAPE_OPTIONS, SCOPE_SOURCE_OPTIONS, prettyParamLabel,
 } from '../../renderer/patterns/PatternRegistry';
+import type { PatternRenderer } from '../../renderer/patterns/PatternRenderer';
 
 const CLASSIC_COLOR   = '#5fff85';
 const SOURCE_COLOR    = '#b9ffd0';
@@ -133,6 +134,7 @@ export function createPatchBayView(
   source: VideoSourceManager,
   getEngine: () => Promise<GraphEngine>,
   sourceB: VideoSourceManager,
+  patternRenderer: PatternRenderer,
 ): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
@@ -723,7 +725,10 @@ export function createPatchBayView(
   // cost nothing — frame() skips them entirely.
   interface BayPreview { canvas: HTMLCanvasElement; expanded: () => boolean; src: () => CanvasImageSource | null }
   const bayPreviews: BayPreview[] = [];
-  function addPreviewRow(mod: HTMLElement, tooltip: string, src: () => CanvasImageSource | null): void {
+  function addPreviewRow(
+    mod: HTMLElement, tooltip: string, src: () => CanvasImageSource | null,
+    onToggle?: (open: boolean) => void,
+  ): void {
     let open = false;
     const toggleBtn = document.createElement('button');
     toggleBtn.type = 'button';
@@ -742,6 +747,7 @@ export function createPatchBayView(
       open = !open;
       row.hidden = !open;
       toggleBtn.textContent = open ? '▾ PREVIEW' : '▸ PREVIEW';
+      onToggle?.(open);
     });
     const btnRow = document.createElement('div');
     btnRow.className = 'rw-pb-row';
@@ -982,7 +988,14 @@ export function createPatchBayView(
   // RENDERER module — the sink (owner: "the renderer [should have] an
   // input node"). Unplugged normals to Video Source A: the pre-existing
   // single-source behavior, exactly, until this jack is actually
-  // patched (principle 5, coexistence — see VideoCompositor.ts).
+  // patched (principle 5, coexistence — see VideoCompositor.ts). Its
+  // live output preview lives HERE now, not as a separate module
+  // (owner: "the render preview window should be a part of the render
+  // in node they shouldn't be separate") — draws the one real render
+  // canvas (#stage) into a small preview while expanded; a picture of
+  // the output, never a second renderer (same one-real-canvas rule as
+  // the workspace's OUTPUT mirror views, just drawImage instead of
+  // captureStream since we already have a rAF loop here).
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
@@ -1007,24 +1020,6 @@ export function createPatchBayView(
     row.append(jack, l);
     mod.appendChild(row);
     videoJacks.set('renderer-in', jack);
-    rail.appendChild(mod);
-  }
-
-  // RENDER PREVIEW module — output monitor for the bay (owner: "think
-  // TouchDesigner"). Draws the one real render canvas (#stage) into a
-  // small preview each frame while expanded; a picture of the output,
-  // never a second renderer (same one-real-canvas rule as the
-  // workspace's OUTPUT mirror views, just drawImage instead of
-  // captureStream since we already have a rAF loop here).
-  {
-    const mod = document.createElement('div');
-    mod.className = 'rw-pb-module';
-    const head = document.createElement('div');
-    head.className = 'rw-pb-module-head';
-    const title = document.createElement('span');
-    title.textContent = 'RENDER PREVIEW';
-    head.append(title);
-    mod.appendChild(head);
     addPreviewRow(mod, 'Expand a live monitor of the final rendered output.',
       () => {
         const stage = document.getElementById('stage') as HTMLCanvasElement | null;
@@ -1051,10 +1046,11 @@ export function createPatchBayView(
   // unconditionally, active kind or not — this module instead shows
   // ONLY the params `PATTERN_REGISTRY[kind].paramKeys` actually declares
   // for the CURRENT kind, same as Controls' dynamic `rebuildParams`.
-  // Base-value knobs only (no jacks/live-badges, matching the Composite
-  // module's own Mix field) — full patchability for these same keys
-  // already lives on the general faceplate; duplicating jacks here
-  // would just be two competing patch points for one signal.
+  // Full addParamCell treatment (IN jack + knob + value + OUT jack) —
+  // this is now the ONE authoritative jack per pattern param; the
+  // general faceplate deliberately excludes every `patternXxx` TARGETS
+  // key (see `PATTERN_OWNED_PREFIX` in patchbayLayout.ts) so there's no
+  // second, competing physical jack for the same signal.
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
@@ -1065,12 +1061,32 @@ export function createPatchBayView(
     en.className = 'rw-pb-led-toggle';
     en.checked = settings.get('patternEnabled');
     en.addEventListener('change', () => settings.set('patternEnabled', en.checked));
-    settings.subscribe('patternEnabled', (v) => { if (document.activeElement !== en) en.checked = v; });
     attachTooltip(en, 'Enable the Pattern Generator layer. When off, the live video texture feeds the DCU directly (no extra GPU cost).');
     const title = document.createElement('span');
     title.textContent = 'PATTERN GENERATOR';
     head.append(en, title);
     mod.appendChild(head);
+
+    // A labeled ENABLE row alongside the corner LED, not instead of it
+    // — the corner LED alone (12px, dim when off, matching every graph
+    // node's own mute LED) is easy to miss precisely because it's OFF
+    // by default here (an owner report: "doesn't seem to have the
+    // toggle"). Both controls write the SAME `patternEnabled` value.
+    const enableRow = document.createElement('div');
+    enableRow.className = 'rw-pb-row';
+    const enableLabel = document.createElement('label');
+    enableLabel.textContent = 'enable';
+    const enableCb = document.createElement('input');
+    enableCb.type = 'checkbox';
+    enableCb.checked = settings.get('patternEnabled');
+    enableCb.addEventListener('change', () => settings.set('patternEnabled', enableCb.checked));
+    settings.subscribe('patternEnabled', (v) => {
+      enableCb.checked = v;
+      en.checked = v;
+    });
+    attachTooltip(enableRow, 'Enable the Pattern Generator layer. When off, the live video texture feeds the DCU directly (no extra GPU cost).');
+    enableRow.append(enableLabel, enableCb);
+    mod.appendChild(enableRow);
 
     const kindRow = document.createElement('div');
     kindRow.className = 'rw-pb-row';
@@ -1141,7 +1157,7 @@ export function createPatchBayView(
       const v = parseFloat(mixInput.value);
       if (Number.isFinite(v)) writeParamValue('patternMix', v);
     });
-    attachTooltip(mixInput, 'Wet/dry between the unmodified video and the blended result. Also on the general faceplate (Pattern Generator group) with a live-value knob.');
+    attachTooltip(mixInput, 'Wet/dry between the unmodified video and the blended result.');
     mixRow.append(mixLabel, mixInput);
     mod.appendChild(mixRow);
     settings.subscribe('patternMix', (v) => { if (document.activeElement !== mixInput) mixInput.value = String(v); });
@@ -1150,64 +1166,73 @@ export function createPatchBayView(
     // patternKind changes, same trigger Controls' own rebuildParams uses.
     const paramsHost = document.createElement('div');
     mod.appendChild(paramsHost);
+    /** The previously-rendered kind's numeric paramKeys — read back
+     *  BEFORE each rebuild (not re-derived from `settings.get
+     *  ('patternKind')`, which has already moved on to the new kind by
+     *  the time this subscriber fires) so a key dropped by the new
+     *  kind gets cleaned out of the shared jack Maps instead of
+     *  leaving a stale reference to a just-removed DOM node. */
+    let lastRenderedParamKeys: string[] = [];
 
     function rebuildPatternParams(kind: PatternKind): void {
+      // Numeric params get the FULL addParamCell treatment (IN jack +
+      // knob + value + OUT jack) — owner: "all of the pattern generator
+      // nodes['] various kinds of patterns variables (brightness,
+      // contrast, etc) should have input and output ports." This is
+      // the SAME construction the general faceplate's cells use
+      // (paramJacks/paramOutJacks are shared Maps keyed by Settings
+      // key), which is exactly why the faceplate's own static "PATTERN
+      // GEN TARGETS" field group was removed in the same change — one
+      // authoritative jack per param, not two competing physical
+      // instances for the same signal. Rebuilding wipes and recreates
+      // every cell on each kind switch (`addParamCell` always creates
+      // fresh jacks and overwrites the shared Maps), which is fine
+      // here: kind switches are a rare user action, not a per-frame
+      // operation, so the small churn cost doesn't matter the way it
+      // would for the graph-node param reconciliation this file does
+      // elsewhere for on-going per-frame stability.
+      const nextKeys = new Set<string>(PATTERN_REGISTRY[kind]?.paramKeys ?? []);
+      for (const key of lastRenderedParamKeys) {
+        if (nextKeys.has(key)) continue; // re-registered fresh below either way
+        paramJacks.delete(key);
+        paramOutJacks.delete(key);
+        paramValueInputs.delete(key);
+        paramKnobs.delete(key);
+        paramLiveSpans.delete(key);
+      }
+      lastRenderedParamKeys = [...nextKeys];
       paramsHost.innerHTML = '';
       const def = PATTERN_REGISTRY[kind];
       if (!def) return;
       for (const key of def.paramKeys) {
-        const row = document.createElement('div');
-        row.className = 'rw-pb-row';
-        const label = document.createElement('label');
-        label.textContent = prettyParamLabel(key);
-        let ctl: HTMLElement;
-        if (key === 'patternAxis') {
-          ctl = enumSelect(key, AXIS_OPTIONS, () => settings.get('patternAxis'), (v) => settings.set('patternAxis', v as PatternAxis));
-        } else if (key === 'patternGradientShape') {
-          ctl = enumSelect(key, GRAD_SHAPE_OPTIONS, () => settings.get('patternGradientShape'), (v) => settings.set('patternGradientShape', v as PatternGradientShape));
-        } else if (key === 'patternScopeSourceKind') {
-          ctl = enumSelect(key, SCOPE_SOURCE_OPTIONS, () => settings.get('patternScopeSourceKind'), (v) => settings.set('patternScopeSourceKind', v as PatternScopeSourceKind));
-        } else if (key === 'patternScopeSourceRef') {
-          const inp = document.createElement('input');
-          inp.type = 'text';
-          inp.placeholder = 'e.g. 1, lfo-1:out, zPush';
-          inp.value = settings.get('patternScopeSourceRef');
-          inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
-          settings.subscribe('patternScopeSourceRef', (v) => { if (document.activeElement !== inp) inp.value = v; });
-          ctl = inp;
+        if (key === 'patternAxis' || key === 'patternGradientShape' || key === 'patternScopeSourceKind' || key === 'patternScopeSourceRef') {
+          const row = document.createElement('div');
+          row.className = 'rw-pb-row';
+          const label = document.createElement('label');
+          label.textContent = prettyParamLabel(key);
+          let ctl: HTMLElement;
+          if (key === 'patternAxis') {
+            ctl = enumSelect(key, AXIS_OPTIONS, () => settings.get('patternAxis'), (v) => settings.set('patternAxis', v as PatternAxis));
+          } else if (key === 'patternGradientShape') {
+            ctl = enumSelect(key, GRAD_SHAPE_OPTIONS, () => settings.get('patternGradientShape'), (v) => settings.set('patternGradientShape', v as PatternGradientShape));
+          } else if (key === 'patternScopeSourceKind') {
+            ctl = enumSelect(key, SCOPE_SOURCE_OPTIONS, () => settings.get('patternScopeSourceKind'), (v) => settings.set('patternScopeSourceKind', v as PatternScopeSourceKind));
+          } else {
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.placeholder = 'e.g. 1, lfo-1:out, zPush';
+            inp.value = settings.get('patternScopeSourceRef');
+            inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
+            settings.subscribe('patternScopeSourceRef', (v) => { if (document.activeElement !== inp) inp.value = v; });
+            ctl = inp;
+          }
+          attachTooltip(row, `${label.textContent} (${key})`);
+          row.append(label, ctl);
+          paramsHost.appendChild(row);
         } else {
-          // Every remaining paramKey is a numeric ModTarget — same
-          // knob+field recipe as every other base-value convenience
-          // control in the bay (paramRangeFor reads the SAME PARAM_DOCS
-          // ranges the general faceplate's full jack cells use).
-          const numKey = key as PatternParamKey & keyof Settings;
-          const range = paramRangeFor(numKey);
-          const wrap = document.createElement('div');
-          wrap.className = 'rw-pb-cell-ctl';
-          const knob = createMiniKnob({
-            min: range.min, max: range.max, step: range.step,
-            label: prettyParamLabel(key),
-            get: () => { const v = settings.get(numKey); return typeof v === 'number' ? v : 0; },
-            set: (v) => writeParamValue(numKey, v),
-          });
-          const inp = document.createElement('input');
-          inp.type = 'number';
-          inp.step = String(range.step); inp.min = String(range.min); inp.max = String(range.max);
-          inp.addEventListener('input', () => {
-            const v = parseFloat(inp.value);
-            if (Number.isFinite(v)) writeParamValue(numKey, v);
-          });
-          settings.subscribe(numKey, (v) => {
-            if (document.activeElement === inp || typeof v !== 'number') return;
-            inp.value = String(v);
-            knob.refresh();
-          });
-          wrap.append(knob.el, inp);
-          ctl = wrap;
+          // Every remaining paramKey is a numeric ModTarget.
+          addParamCell(paramsHost, key, prettyParamLabel(key));
         }
-        attachTooltip(row, `${label.textContent} (${key})`);
-        row.append(label, ctl);
-        paramsHost.appendChild(row);
       }
     }
 
@@ -1229,6 +1254,19 @@ export function createPatchBayView(
 
     rebuildPatternParams(settings.get('patternKind'));
     settings.subscribe('patternKind', rebuildPatternParams);
+
+    // Live preview of the pattern actually being generated (owner: "it
+    // should have a preview viewer of the pattern being generated just
+    // like the video source and renderer") — the RAW pattern output
+    // (pre-composite with video), so switching kind/params here is
+    // visibly reflected regardless of blend mode or mix. Unlike the
+    // VIDEO SOURCE/RENDERER previews (which drawImage() a real on-screen
+    // element), the pattern only exists as a GPU render target, so
+    // `PatternRenderer` does a readback into its own small canvas —
+    // gated on `previewActive` so it costs nothing while collapsed.
+    addPreviewRow(mod, 'Expand a live monitor of the raw pattern being generated (before compositing with video).',
+      () => patternRenderer.getPreviewCanvas(),
+      (open) => patternRenderer.setPreviewActive(open));
 
     rail.appendChild(mod);
   }
@@ -1640,9 +1678,20 @@ export function createPatchBayView(
   const tidyBtn = document.createElement('button');
   tidyBtn.type = 'button';
   tidyBtn.className = 'rw-pb-tidy';
-  tidyBtn.textContent = 'TIDY';
-  attachTooltip(tidyBtn, 'Snap all modules back into the stacked layout (drag any module header to arrange freely, Max/MSP style).');
-  tidyBtn.addEventListener('click', () => { suspendedFree = null; tidy(); });
+  tidyBtn.textContent = 'FREE';
+  // A toggle, not a one-shot "snap back" action (owner: "the tidy
+  // button should toggle between tidy and freeform so a user can just
+  // switch to the freeform layout... if they prefer and toggle back if
+  // they prefer") — label/tooltip reflect the CURRENT mode and the
+  // action a click will take, refreshed from `freeze()`/`tidy()`
+  // themselves so it stays correct regardless of what triggered the
+  // mode change (a button click OR dragging a module header out).
+  attachTooltip(tidyBtn, () => (freeMode
+    ? 'Snap all modules back into the stacked layout.'
+    : 'Break every module out into free layout, Max/MSP style (dragging any module header does this too).'));
+  tidyBtn.addEventListener('click', () => {
+    if (freeMode) { suspendedFree = null; tidy(); } else { freeze(); }
+  });
   const pbTools = document.createElement('span');
   pbTools.className = 'rw-pb-tools';
   pbTools.append(zoomBar, tidyBtn);
@@ -1678,12 +1727,14 @@ export function createPatchBayView(
     root.classList.add('rw-pb-freemode');
     freeRefWidth = root.getBoundingClientRect().width;
     syncSurfaceSize();
+    tidyBtn.textContent = 'TIDY';
   }
 
   function tidy(): void {
     if (!freeMode) return;
     freeMode = false;
     freeRefWidth = null;
+    tidyBtn.textContent = 'FREE';
     for (const h of unitHomes) {
       h.unit.classList.remove('rw-pb-unit-free');
       h.unit.style.left = '';
@@ -2087,6 +2138,29 @@ export function createPatchBayView(
         const titleEl = document.createElement('span');
         titleEl.className = 'rw-pb-graphnode-title';
         head.append(en, titleEl);
+        // Delete (owner: "I should also be able to close / remove any
+        // node from the patch bay with a delete confirmation window
+        // before removing it") — same `confirm()` gate the Graph
+        // editor's own right-click delete already uses
+        // (AdvancedView.ts), same shared `deleteGraphNode` removal
+        // logic so both surfaces stay consistent (principle 1).
+        const delBtn = document.createElement('span');
+        delBtn.className = 'rw-pb-graphnode-del';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+        delBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const cur = settings.get('modGraph');
+          const n = cur?.nodes.find((x) => x.id === nodeId);
+          if (!cur || !n) return;
+          const nDef = getDef(n.type);
+          if (!confirm(`Delete node "${nDef?.label ?? n.type}"? This also removes any of its connections.`)) return;
+          const updated = deleteGraphNode(cur, nodeId);
+          settings.set('modGraph', updated);
+          void getEngine().then((e) => e.setPatch(updated));
+        });
+        attachTooltip(delBtn, 'Delete this node (with confirmation).');
+        head.appendChild(delBtn);
         mod.appendChild(head);
         makeUnitDraggable(mod, head);
         rail.appendChild(mod);

@@ -17,7 +17,7 @@ Run these in order; stop and report on the first failure:
 ## Invariant checklist (verify for the diff being committed)
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.20.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.21.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
 - **`VideoSourceManager` has NO Settings connection of its own** — it's
@@ -70,6 +70,22 @@ Run these in order; stop and report on the first failure:
   view's root element to its container ONCE; every later "show/hide"
   update should only toggle a property (see the `hidden`-vs-`style.
   display` note above), never rebuild the DOM around it.
+- **Patch Bay jack registries are shared `Map<string, HTMLElement>`s
+  keyed by plain Settings-key string** (`paramJacks`, `paramOutJacks`,
+  etc. in `PatchBayView.ts`). Calling `addParamCell` for the SAME key
+  from two different call sites doesn't error — it silently steals the
+  jack registration for whichever call ran last, so the OTHER call's
+  jack is visibly present and looks identical but is permanently
+  unwireable (drags never snap to it; nothing shows as an error). A
+  real bug found 2026-07-14: the general faceplate's AUXILIARY
+  catch-all still listed every `patternXxx` TARGETS key (leftover from
+  before the Pattern Generator module grew its own dedicated jacks),
+  so dragging a cable onto the Pattern Generator's visible Brightness
+  jack silently failed — the faceplate's later-built copy owned the
+  map entry. Before giving a param a SECOND jack anywhere, grep for
+  existing `addParamCell(...)`/`paramJacks.set(...)` call sites for
+  that key; if one already exists, exclude the key from the new
+  location entirely rather than building a competing jack.
 - **Base/live split**: no modulation/automation code path may call
   `settings.set(key, liveValue)` — engines write ONLY through
   `LiveValuesStore.setContributions()`.

@@ -22,7 +22,8 @@
  * Enter / Backspace) for accessibility and touch parity.
  */
 
-import { GraphNode, GraphPatch, NodeType, splitInputRef } from '../../modulation/graph/types';
+import { GraphNode, GraphPatch, NodeType } from '../../modulation/graph/types';
+import { deleteGraphNode } from '../rack/rackGeometry';
 import { getDef } from '../../modulation/graph/registry';
 import { createPalette } from './palette';
 import { createInspector } from './inspector';
@@ -396,16 +397,9 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   }
 
   function deleteNode(id: string): void {
-    const cur = currentPatch();
-    cur.nodes = cur.nodes.filter((n) => n.id !== id);
-    for (const n of cur.nodes) for (const k of Object.keys(n.inputs)) {
-      const ref = n.inputs[k];
-      // v25: refs may be `nodeId#port` — match on the node id.
-      if (ref && splitInputRef(ref).nodeId === id) n.inputs[k] = null;
-    }
-    cur.bindings = cur.bindings.filter((b) => b.sourceNodeId !== id);
+    const next = deleteGraphNode(currentPatch(), id);
     if (selectedId === id) selectedId = null;
-    writePatch(cur);
+    writePatch(next);
   }
 
   function addNodeOfType(type: NodeType): void {

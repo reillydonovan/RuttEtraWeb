@@ -25,6 +25,14 @@ npm run build
 
 ---
 
+## Recent changes (v1.21.0, July 2026 — Patch Bay bug-fix round: pattern jacks, node delete, popout add-menu)
+
+- **Fixed a real Pattern Generator wiring bug** — dragging a Function Generator's cable onto a Pattern Generator param (Brightness, Frequency, etc.) silently did nothing. Root cause: the general faceplate still had a leftover AUXILIARY catch-all copy of every `patternXxx` param (from before those params got their own dedicated jacks on the Pattern Generator module), and two `addParamCell` calls for the same key silently steal each other's jack registration — the faceplate's copy was winning, so the Pattern Generator's own visible jack wasn't actually the one being dragged onto. The faceplate now excludes pattern-owned keys entirely; one authoritative jack per param.
+- **Pattern Generator live preview** — the module's own expandable monitor now shows the raw pattern actually being generated (before compositing with video), the same style as the Video Source/Renderer previews. `PatternRenderer` reads back a small offscreen copy only while the preview is expanded, so it costs nothing collapsed.
+- **TIDY is now a toggle** — the button reads **FREE** in stacked layout (one click breaks every module out into free layout) and **TIDY** in free layout (one click snaps back), instead of only ever restoring.
+- **Delete a node from the Patch Bay** — every graph module gets a small ✕ with a confirmation dialog ("Delete node 'X'? This also removes any of its connections.") before removing it; Cancel keeps it. Shares one removal implementation with the Graph editor's own right-click delete (`deleteGraphNode` in `rackGeometry.ts`) so both surfaces agree on cleanup (unwiring other nodes' inputs from it, dropping its bindings).
+- **Fixed popped-out windows' add-tab menu** — selecting Timeline/Renderer/etc. from a popup's own `+` menu did nothing; a cross-window `instanceof Node` check always evaluated false against a node from the popup's own JS realm (the classic reason `Array.isArray` exists instead of `instanceof Array`), so the menu's own click was read as "outside" and closed itself one event before the item's handler could fire.
+
 ## Recent changes (v1.20.0, July 2026 — Dual Raster node, About-page documentation pass)
 
 - **Dual Raster node in the Patch Bay** — a new DUAL RASTER module gives raster A and raster B genuinely independent video feeds instead of the shared signal they mirror by default: wire Video Source A/B (or the Composite node's output) onto its two inputs, then its OUT onto the RENDERER module's IN. Wiring that connection turns on Dual Raster mode for you automatically. Closes a gap the Dual Raster feature's own design doc had flagged as explicitly out of scope when it first shipped. Settings schema v34.

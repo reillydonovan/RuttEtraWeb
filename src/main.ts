@@ -766,7 +766,7 @@ async function bootSynth(): Promise<void> {
     const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
     // Factory: the bay is multi-instance — every window that tabs it
     // gets its own independent instance (all reading the same Settings).
-    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB));
+    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB, patternRenderer));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own

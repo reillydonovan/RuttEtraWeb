@@ -47,10 +47,36 @@ const DCU_SUBGROUPS: ReadonlyArray<{ title: string; keys: readonly string[] }> =
 const PANEL_FIELDS: ReadonlyArray<{ title: string; panels: readonly string[] }> = [
   { title: 'COLORIZER / POST-FX', panels: ['Color/PostFX'] },
   { title: 'CAMERA',              panels: ['Camera'] },
-  { title: 'PATTERN GENERATOR',   panels: ['Pattern', 'Source'] },
+  // No 'Pattern'/'Source' field group here (there used to be one,
+  // "PATTERN GENERATOR" — confused an owner report next to the rail's
+  // own dedicated PATTERN GENERATOR module, "it is unclear what the
+  // difference is"). Every Pattern Generator param now gets its ONE
+  // authoritative IN/OUT jack pair directly on that module instead
+  // (`addParamCell`, kind-filtered) — a second static copy here would
+  // be two competing jacks for the same signal. `videoCompositeMix`
+  // (the only OTHER 'Source'-tagged key) falls to AUXILIARY, same as
+  // any target with no dedicated field.
   { title: 'GEOMETRY',            panels: ['Geometry'] },
   { title: 'AUDIO ANALYZER',      panels: ['Audio'] },
 ];
+
+/**
+ * Every `patternXxx` TARGETS entry (the per-kind pattern params, plus
+ * `patternMix`) is deliberately excluded from the general faceplate —
+ * these get their ONE authoritative IN/OUT jack pair (or, for
+ * `patternMix`, its one control) directly on the rail's own PATTERN
+ * GENERATOR module (`addParamCell`/hand-built row in
+ * `PatchBayView.ts`, kind-filtered). A second copy here would be a
+ * silent `paramJacks` Map-key collision — two `addParamCell` calls for
+ * the same key overwrite each other's jack registration, so whichever
+ * builds second "wins" the wireable instance and the other's jack
+ * becomes visually present but permanently unwireable (found live:
+ * an owner-reported "brightness IN wired from Classic slot" drag
+ * silently no-opped because the general faceplate's AUXILIARY catch-all
+ * had re-registered `patternBrightness` after the Pattern Generator
+ * module built its own copy first).
+ */
+const PATTERN_OWNED_PREFIX = 'pattern';
 
 /**
  * Build the faceplate fields from the live TARGETS × PARAM_DOCS join.
@@ -60,7 +86,7 @@ const PANEL_FIELDS: ReadonlyArray<{ title: string; panels: readonly string[] }> 
 export function buildFaceplate(): FieldSpec[] {
   const labelOf = new Map<string, string>();
   for (const t of TARGETS) {
-    if (t.v !== 'none') labelOf.set(String(t.v), t.l);
+    if (t.v !== 'none' && !String(t.v).startsWith(PATTERN_OWNED_PREFIX)) labelOf.set(String(t.v), t.l);
   }
 
   const fields: FieldSpec[] = [];
