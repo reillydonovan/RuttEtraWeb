@@ -508,3 +508,26 @@
   opacity: 0.55;
   outline: 1px dashed var(--re-line-hi);
 }
+
+/* Note node's free-text textarea (owner bug report: a Note added via
+   the bay had nothing to type into). Full-width, unlike the compact
+   label+control rows every other param uses. */
+.rw-pb-row--note { display: block; }
+.rw-pb-note-text {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--re-fg, #cfffe0);
+  border: 1px solid var(--re-line);
+  border-radius: 2px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.rw-pb-note-text:focus {
+  outline: 1px solid var(--re-accent);
+  border-color: var(--re-accent);
+}

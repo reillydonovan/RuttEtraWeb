@@ -25,6 +25,12 @@ npm run build
 
 ---
 
+## Recent changes (v1.19.0, July 2026 — Pattern Generator in the Patch Bay, popout tab bar, Note node fix)
+
+- **Pattern Generator controls in the Patch Bay** — a new PATTERN GENERATOR module: an enable LED, a kind picker (grouped by category, same list as Controls), a blend-mode dropdown, a mix field, and a **dynamic supporting-properties section** that shows only the parameters relevant to whichever pattern kind is currently selected — Solid shows just Brightness; Lissajous shows Brightness/Frequency/Freq Ratio/Phase Offset/Thickness; Oscilloscope shows its own scope-specific set. Switching kind applies that pattern's defaults immediately, exactly like the Controls tab.
+- **Popped-out windows now have a real tab bar** — every popup opened via a window's ⧉ button gets its own local tab strip with a `+` to add more views (Renderer/Controls/Timeline/Patch Bay), matching the in-document window chrome. Found and fixed two real bugs while building this: switching tabs was silently breaking the Patch Bay's cable canvas (a DOM re-parent was interrupting whatever sizes it), and closing a tab could leave its content still rendering underneath the active one (the `hidden` attribute loses to any ordinary CSS class that sets `display`).
+- **Note node fixed** — adding a Note via the Patch Bay's right-click menu produced a module with nothing to type into. It now has a real text area, same as the Graph editor's own inline note editing.
+
 ## Recent changes (v1.18.0, July 2026 — Video Source A/B Composite)
 
 - **Composite two video sources into the render output** — a second, fully independent **Video Source B** (webcam/screen/file, its own picker and live preview) joins the existing source, plus a **Composite** node in the Patch Bay with two video inputs and the same 8 blend modes the Pattern Generator already uses (Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade, B-only) and a wet/dry mix. Drag Video Source A's OUT jack and Video Source B's OUT jack onto Composite's two inputs, then Composite's OUT onto the new **Renderer** module's IN jack, and the blended feed becomes the mesh's video input — a file layered over a webcam, screen-share crossfaded with a camera, whatever two feeds you want to combine. Nothing changes for existing sessions until you actually drag a cable: the Renderer's IN jack defaults ("normals," in Eurorack terms) straight to Video Source A, byte-for-byte the same as before. Settings schema v33.

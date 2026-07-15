@@ -305,9 +305,12 @@ body.viewer-mode #rw-center-shell {
 #rw-center-shell.rw-center-passthrough .rw-region-bar:hover { opacity: 1; }
 
 /* ============================================================
-   View popout (ViewPopout.ts) — a fresh view instance living alone
-   in a popup window for multi-display rigs. The instance fills the
-   popup; the bay/timeline manage their own internal scrolling.
+   View popout (ViewPopout.ts) — one or more fresh view instances in
+   a popup window for multi-display rigs, behind their own local tab
+   bar (reuses the same .rw-region-bar/.rw-wtab markup + CSS every
+   in-document window uses). The active tab's instance fills the
+   remaining space; the bay/timeline manage their own internal
+   scrolling.
    ============================================================ */
 .rw-view-popout-body {
   margin: 0;
@@ -317,7 +320,17 @@ body.viewer-mode #rw-center-shell {
   background: var(--re-bg, #0b100b);
   overflow: hidden;
 }
-.rw-view-popout-body > * {
+/* The popup's own tab bar — fixed height, never stretches. */
+.rw-popout-bar {
+  flex: 0 0 auto;
+}
+.rw-view-popout-body > .rw-popout-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rw-view-popout-body > .rw-popout-content > * {
   flex: 1 1 auto;
   min-height: 0;
 }

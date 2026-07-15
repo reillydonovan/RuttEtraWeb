@@ -98,21 +98,26 @@ const MD_QUICKSTART = `
 > knobs/dropdowns for its params, a mute LED, and IN jacks for ports
 > like Ramp's trigger; waveform pickers (LFO shape) take a SOURCES bus
 > jack — drag TRI on for a triangle wave. Splice a **Scope** node into
-> any cable to see the live waveform on its module. Dropped modules
+> any cable to see the live waveform on its module; add a **Note** node
+> for a real on-canvas text area to annotate the patch. Dropped modules
 > never overlap in free layout, and loading a sample/library patch asks
 > before replacing a patch in progress.
 > **Right-click empty board space** for a categorized Add Node menu —
 > the module spawns free-floating at the cursor, and also appears as a
 > normal row in Controls ▸ Modulation's Beginner view (switching modes
 > automatically so a fresh wire is always live). The VIDEO SOURCE
-> module and the new RENDER PREVIEW module both have expandable live
-> monitors. New to the bay? **Help ▸ Patch Bay Tutorial** walks it all
-> with try-it buttons. Try **Window ▸ Layout ▸ Patch Bay**.
+> module and the RENDER PREVIEW module both have expandable live
+> monitors. A **PATTERN GENERATOR** module puts enable/kind/blend/mix
+> in the bay too, with supporting-property knobs that change to match
+> whichever kind is selected. New to the bay? **Help ▸ Patch Bay
+> Tutorial** walks it all with try-it buttons. Try
+> **Window ▸ Layout ▸ Patch Bay**.
 >
 > **⧉ on any window bar** pops that window's view out to its own OS
-> window for multi-display rigs (Patch Bay/Timeline get a live
-> duplicate; Controls/Renderer use their dedicated popouts). And the
-> whole synth is remote-controllable over **MCP** — params, menu
+> window for multi-display rigs, with its OWN tab bar and `+` so a
+> popup isn't stuck with just the one view it opened with (Patch Bay/
+> Timeline get a live duplicate; Controls/Renderer use their dedicated
+> popouts). And the whole synth is remote-controllable over **MCP** — params, menu
 > commands, the graph patch, screenshots — via **I/O ▸ MCP** plus the
 > bridge in tools/mcp-server (opt-in; see its README).
 

@@ -35,6 +35,29 @@ Run these in order; stop and report on the first failure:
   trusting the `sourceKind` label (same reasoning, defense in depth).
 - **Timeline schema**: same rule via `Timeline._v` (`src/sequencer/types.ts`)
   and the store's normalize path.
+- **Never use the `hidden` attribute/property to hide a mounted VIEW
+  (a whole `ControlPanel`/`TimelineDock`/Patch Bay instance, or
+  anything else with its own opinionated CSS)** — `hidden` only takes
+  effect through the UA stylesheet's `[hidden] { display: none }`
+  rule, which is the LOWEST-priority cascade origin; any ordinary
+  author-stylesheet class rule that sets `display` on the same element
+  wins and the "hidden" content keeps rendering underneath whatever's
+  actually visible (found live 2026-07-14: closing a popup's Timeline
+  tab revealed its transport bar had been painting the whole time,
+  squeezing the Patch Bay tab's height). Use inline `style.display =
+  'none'` / `''` instead — an inline style always outranks a class
+  rule. Plain leaf DOM (a single label, a jack span) is fine with
+  `hidden`; anything with its own CSS module is not.
+- **Don't detach-and-reappend a mounted view on every UI update** —
+  `ViewPopout.ts`'s popup tab switcher originally did
+  `content.innerHTML = ''` + re-append on every tab click; for the
+  Patch Bay this silently broke its cable canvas after a switch-away-
+  and-back (DOM intact, sizes read correctly, nothing painted — a
+  re-parent mid-session doesn't reliably re-trigger whatever
+  ResizeObserver/rAF setup originally sized it). Append each live
+  view's root element to its container ONCE; every later "show/hide"
+  update should only toggle a property (see the `hidden`-vs-`style.
+  display` note above), never rebuild the DOM around it.
 - **Base/live split**: no modulation/automation code path may call
   `settings.set(key, liveValue)` — engines write ONLY through
   `LiveValuesStore.setContributions()`.
@@ -119,6 +142,17 @@ Run these in order; stop and report on the first failure:
   `src/ui/help/paramDocs.ts`; new graph node → complete `NodeDef` in the
   registry; user-facing behavior change → `src/ui/help/content.ts` +
   the relevant `docs/about/*.md`.
+- **Pure pattern data belongs in `PatternRegistry.ts`, not a Controls-tab
+  section file.** Enum option lists, label-prettifiers, range tables for
+  `pattern*` Settings keys — put them in `PatternRegistry.ts` (already
+  the "no three.js, no DOM" pure-data home for pattern info, explicitly
+  designed to be importable from the about-page's Pattern Catalog
+  without dragging in renderer runtime) even if the only current
+  consumer is `SourceSection.ts`. A second UI surface (the Patch Bay's
+  own Pattern Generator module, v1.19.0) needing the SAME option lists
+  is exactly why this matters — importing them out of a Controls-only
+  section file would've pulled that file's webcam/HLS/UI code into the
+  Patch Bay's lazy chunk for no reason.
 - **No service worker**: never reintroduce one; `public/sw.js` is a
   kill-switch for old installs.
 - **Multi-surface commands go through the action registry**

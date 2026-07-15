@@ -9,8 +9,7 @@
  */
 
 import {
-  SettingsStore, PatternKind, PatternBlendMode, PatternAxis,
-  PatternGradientShape, PatternScopeSourceKind, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
+  SettingsStore, PatternKind, PatternBlendMode, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
 import { row, group, toggle, button, readout, slider, dropdown, markParamKey } from '../widgets';
@@ -26,6 +25,7 @@ const SAMPLE_VIDEO_URL: string =
   '/samples/sample.mp4';
 import {
   PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL,
+  AXIS_OPTIONS, GRAD_SHAPE_OPTIONS, SCOPE_SOURCE_OPTIONS, prettyParamLabel,
 } from '../../renderer/patterns/PatternRegistry';
 import type { PatternParamKey } from '../../renderer/patterns/PatternRegistry';
 
@@ -374,25 +374,11 @@ const BLEND_OPTIONS: { value: PatternBlendMode; label: string }[] = [
   { value: 'crossfade',  label: 'Crossfade'  },
 ];
 
-const AXIS_OPTIONS: { value: PatternAxis; label: string }[] = [
-  { value: 'h',      label: 'Horizontal' },
-  { value: 'v',      label: 'Vertical'   },
-  { value: 'both',   label: 'Both (XOR)' },
-  { value: 'radial', label: 'Radial'     },
-];
-
-const GRAD_SHAPE_OPTIONS: { value: PatternGradientShape; label: string }[] = [
-  { value: 'linear', label: 'Linear' },
-  { value: 'radial', label: 'Radial' },
-];
-
-const SCOPE_SOURCE_OPTIONS: { value: PatternScopeSourceKind; label: string }[] = [
-  { value: 'audio',          label: 'Audio'           },
-  { value: 'classic-slot',   label: 'Classic Slot'    },
-  { value: 'graph-node',     label: 'Graph Node'      },
-  { value: 'settings-param', label: 'Settings Param'  },
-  { value: 'beat',           label: 'Beat Pulse'      },
-];
+// AXIS_OPTIONS / GRAD_SHAPE_OPTIONS / SCOPE_SOURCE_OPTIONS / prettyParamLabel
+// moved to PatternRegistry.ts (imported below) — pure pattern data belongs
+// in the pure-data module, not this Controls-tab-specific section file, so
+// the Patch Bay's own Pattern Generator module can reuse them without
+// pulling in SourceSection's Controls-only UI code.
 
 interface ParamRange { min: number; max: number; step: number }
 
@@ -533,13 +519,6 @@ function buildParamControl(settings: SettingsStore, key: PatternParamKey): Param
   };
 }
 
-function prettyParamLabel(key: string): string {
-  return key
-    .replace(/^pattern/, '')
-    .replace(/^Scope/, 'Scope ')
-    .replace(/([A-Z])/g, ' $1')
-    .trim();
-}
 
 /**
  * "+" button that pre-targets the first available Classic slot at this

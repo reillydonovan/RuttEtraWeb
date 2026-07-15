@@ -15,7 +15,9 @@
  * auto-generated Pattern Catalog without dragging in renderer runtime.
  */
 
-import { Settings, PatternKind } from '../../state/Settings';
+import {
+  Settings, PatternKind, PatternAxis, PatternGradientShape, PatternScopeSourceKind,
+} from '../../state/Settings';
 import { OscilloscopeBuffer } from './OscilloscopeBuffer';
 
 import quadVertSrc          from './shaders/quad.vert.glsl?raw';
@@ -581,6 +583,43 @@ export const PATTERN_CATEGORY_LABEL: Record<PatternCategory, string> = {
   noise:        'Noise',
   oscilloscope: 'Oscilloscope',
 };
+
+// Enum option lists for the four non-modulatable pattern params
+// (patternAxis/patternGradientShape/patternScopeSourceKind are picked
+// from these; patternScopeSourceRef is free text). Pure UI data, but
+// kept here rather than in a Controls-tab section file so every
+// surface that builds a Pattern Generator control (Controls'
+// SourceSection, the Patch Bay's own Pattern Generator module) reads
+// the SAME list — one concept, one source.
+export const AXIS_OPTIONS: { value: PatternAxis; label: string }[] = [
+  { value: 'h',      label: 'Horizontal' },
+  { value: 'v',      label: 'Vertical'   },
+  { value: 'both',   label: 'Both (XOR)' },
+  { value: 'radial', label: 'Radial'     },
+];
+
+export const GRAD_SHAPE_OPTIONS: { value: PatternGradientShape; label: string }[] = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'radial', label: 'Radial' },
+];
+
+export const SCOPE_SOURCE_OPTIONS: { value: PatternScopeSourceKind; label: string }[] = [
+  { value: 'audio',          label: 'Audio'           },
+  { value: 'classic-slot',   label: 'Classic Slot'    },
+  { value: 'graph-node',     label: 'Graph Node'      },
+  { value: 'settings-param', label: 'Settings Param'  },
+  { value: 'beat',           label: 'Beat Pulse'      },
+];
+
+/** "patternScopeThickness" -> "Scope Thickness". Shared label-prettifier
+ *  for any UI rendering a raw `PatternParamKey`. */
+export function prettyParamLabel(key: string): string {
+  return key
+    .replace(/^pattern/, '')
+    .replace(/^Scope/, 'Scope ')
+    .replace(/([A-Z])/g, ' $1')
+    .trim();
+}
 
 export function getPatternDef(kind: PatternKind): PatternDef {
   return PATTERN_REGISTRY[kind];

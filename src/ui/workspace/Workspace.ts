@@ -54,9 +54,16 @@ export interface WorkspaceController {
   applyPreset(id: string): void;
   getState(): TabsState;
   moveViewTo(view: ViewId, win: WindowId): void;
+  /** See the function of the same name near `elementFor` — exposed for
+   *  `ViewPopout.ts`'s own local per-popup tab bar. */
+  buildDetachedInstance(view: ViewId, tag: string): HTMLElement | null;
+  /** Which view kinds exist at all right now (same filter `openAddMenu`
+   *  applies to its own dropdown) — lets a popup's [+] only offer real
+   *  choices. */
+  listAvailableViews(): ViewId[];
 }
 
-const VIEW_LABELS: Record<ViewId, string> = {
+export const VIEW_LABELS: Record<ViewId, string> = {
   renderer: 'RENDERER',
   panel: 'CONTROLS',
   timeline: 'TIMELINE',
@@ -139,6 +146,41 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     return el;
   }
 
+  /** Build one fresh, fully-wired view instance for hosting OUTSIDE the
+   *  four core windows — used by `ViewPopout.ts`'s own local per-popup
+   *  tab bar so a popped-out window can host more than the one view it
+   *  opened with (owner: "when I pop out a window it should still have
+   *  the tab bar at the top so I can add more tabs"). Same construction
+   *  a window's own [+] uses (renderer gets a captureStream mirror, set
+   *  once and left on — a popup has no "not currently visible" state to
+   *  economize for the way an in-document window does; everything else
+   *  comes from its registered factory). `tag` must be a caller-unique
+   *  string that never collides with a real `WindowId` or another
+   *  popup's tag — reuses the SAME `instances`/`rendererInstances` maps
+   *  as the four core windows, just keyed under a non-WindowId string. */
+  /** Unique tag per detached instance (a popup's tabs, plural) — never
+   *  collides with a real `WindowId` or another popup/tab's tag. */
+  let popupTagSeq = 0;
+  function nextPopupTag(): string {
+    popupTagSeq += 1;
+    return `popup-${popupTagSeq}`;
+  }
+
+  function buildDetachedInstance(view: ViewId, tag: string): HTMLElement | null {
+    const key = `${view}:${tag}`;
+    const cached = instances.get(key);
+    if (cached) return cached;
+    let el: HTMLElement | null = null;
+    if (view === 'renderer') {
+      el = makeRendererInstance(key);
+      setRendererInstanceMode(key, 'mirror');
+    } else if (factories.has(view)) {
+      el = factories.get(view)!();
+    }
+    if (el) instances.set(key, el);
+    return el;
+  }
+
   // ------------------------- state ----------------------------------
   let transientDefaults = false;
   let popoutOpen = false;
@@ -205,8 +247,15 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       if (!v) return;
       if (v === 'panel') { runAction('window.panelPopout'); return; }
       if (v === 'renderer') { runAction('window.renderPopout'); return; }
-      const factory = factories.get(v);
-      if (factory) popoutView({ view: v, label: VIEW_LABELS[v] ?? v, build: factory });
+      const tag = nextPopupTag();
+      const el = buildDetachedInstance(v, tag);
+      if (!el) return;
+      popoutView({
+        view: v, tag, label: VIEW_LABELS[v] ?? v, el,
+        buildInstance: buildDetachedInstance, nextTag: nextPopupTag,
+        listAvailableViews: () => (['renderer', 'panel', 'timeline', 'patchbay'] as ViewId[]).filter(isAvailable),
+        viewLabels: VIEW_LABELS,
+      });
     });
     bar.appendChild(popBtn);
 
@@ -644,6 +693,10 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     getState: currentState,
     moveViewTo(view: ViewId, win: WindowId): void {
       writeState(moveView(currentState(), view, win));
+    },
+    buildDetachedInstance,
+    listAvailableViews(): ViewId[] {
+      return (['renderer', 'panel', 'timeline', 'patchbay'] as ViewId[]).filter(isAvailable);
     },
   };
 }

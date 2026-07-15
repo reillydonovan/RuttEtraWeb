@@ -40,7 +40,10 @@
 
 import './patchbay.css';
 import '../graph/graph.css';
-import type { Settings, SettingsStore, ModSlot, ModTarget, ModSource, PatternBlendMode } from '../../state/Settings';
+import type {
+  Settings, SettingsStore, ModSlot, ModTarget, ModSource, PatternBlendMode,
+  PatternKind, PatternAxis, PatternGradientShape, PatternScopeSourceKind,
+} from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import { getDef } from '../../modulation/graph/registry';
@@ -60,6 +63,10 @@ import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
+import {
+  PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL, type PatternParamKey,
+  AXIS_OPTIONS, GRAD_SHAPE_OPTIONS, SCOPE_SOURCE_OPTIONS, prettyParamLabel,
+} from '../../renderer/patterns/PatternRegistry';
 
 const CLASSIC_COLOR   = '#5fff85';
 const SOURCE_COLOR    = '#b9ffd0';
@@ -944,6 +951,206 @@ export function createPatchBayView(
     rail.appendChild(mod);
   }
 
+  // PATTERN GENERATOR module (owner: "I should be able to enable the
+  // pattern generator, adjust its kind, and blend mode in the patch bay
+  // as well as supporting properties for the kind of pattern generator
+  // selected") — mirrors Controls' own SourceSection.ts Pattern
+  // Generator group exactly (same defaults-before-kind-switch order,
+  // same enum option lists, imported from the shared PatternRegistry.ts
+  // home rather than duplicated). No jack: it always operates on
+  // whatever signal is already feeding the DCU (VIDEO SOURCE
+  // A/B/COMPOSITE, per RENDERER's own wiring above) — there's no
+  // separate "pattern's video input" to route.
+  //
+  // The dynamic "supporting properties" section is the actual reason
+  // this needs its OWN module rather than just relying on the general
+  // faceplate's static PATTERN GENERATOR field group: that group (like
+  // every faceplate field) shows all 17 modulatable pattern params
+  // unconditionally, active kind or not — this module instead shows
+  // ONLY the params `PATTERN_REGISTRY[kind].paramKeys` actually declares
+  // for the CURRENT kind, same as Controls' dynamic `rebuildParams`.
+  // Base-value knobs only (no jacks/live-badges, matching the Composite
+  // module's own Mix field) — full patchability for these same keys
+  // already lives on the general faceplate; duplicating jacks here
+  // would just be two competing patch points for one signal.
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const en = document.createElement('input');
+    en.type = 'checkbox';
+    en.className = 'rw-pb-led-toggle';
+    en.checked = settings.get('patternEnabled');
+    en.addEventListener('change', () => settings.set('patternEnabled', en.checked));
+    settings.subscribe('patternEnabled', (v) => { if (document.activeElement !== en) en.checked = v; });
+    attachTooltip(en, 'Enable the Pattern Generator layer. When off, the live video texture feeds the DCU directly (no extra GPU cost).');
+    const title = document.createElement('span');
+    title.textContent = 'PATTERN GENERATOR';
+    head.append(en, title);
+    mod.appendChild(head);
+
+    const kindRow = document.createElement('div');
+    kindRow.className = 'rw-pb-row';
+    const kindLabel = document.createElement('label');
+    kindLabel.textContent = 'kind';
+    const kindSel = document.createElement('select');
+    kindSel.className = 'rw-select';
+    let lastCategory = '';
+    let currentGroup: HTMLOptGroupElement | null = null;
+    for (const k of PATTERN_ORDER) {
+      const def = PATTERN_REGISTRY[k];
+      if (def.category !== lastCategory) {
+        currentGroup = document.createElement('optgroup');
+        currentGroup.label = PATTERN_CATEGORY_LABEL[def.category];
+        kindSel.appendChild(currentGroup);
+        lastCategory = def.category;
+      }
+      const o = document.createElement('option');
+      o.value = k; o.textContent = def.label;
+      currentGroup!.appendChild(o);
+    }
+    kindSel.value = settings.get('patternKind');
+    kindSel.addEventListener('change', () => {
+      const next = kindSel.value as PatternKind;
+      // Apply per-pattern defaults FIRST, same order as Controls'
+      // SourceSection — the dynamic params section below reads fresh
+      // values when it rebuilds off the patternKind subscriber.
+      const def = PATTERN_REGISTRY[next];
+      if (def) settings.patch(def.defaults);
+      settings.set('patternKind', next);
+    });
+    attachTooltip(kindSel, 'Which pattern generator to render — calibration, waveform, noise, or oscilloscope.');
+    kindRow.append(kindLabel, kindSel);
+    mod.appendChild(kindRow);
+    settings.subscribe('patternKind', (v) => { if (document.activeElement !== kindSel) kindSel.value = v; });
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'rw-pb-row';
+    const modeLabel = document.createElement('label');
+    modeLabel.textContent = 'blend';
+    const modeSel = document.createElement('select');
+    modeSel.className = 'rw-select';
+    const PATTERN_BLEND_LABELS: Record<PatternBlendMode, string> = {
+      replace: 'Replace', add: 'Add', subtract: 'Subtract', multiply: 'Multiply',
+      screen: 'Screen', difference: 'Difference', mask: 'Mask', crossfade: 'Crossfade',
+    };
+    for (const [val, lbl] of Object.entries(PATTERN_BLEND_LABELS)) {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = lbl;
+      modeSel.appendChild(o);
+    }
+    modeSel.value = settings.get('patternBlendMode');
+    modeSel.addEventListener('change', () => settings.set('patternBlendMode', modeSel.value as PatternBlendMode));
+    attachTooltip(modeSel, 'How the pattern composites with the video source: Replace (pattern only), Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade.');
+    modeRow.append(modeLabel, modeSel);
+    mod.appendChild(modeRow);
+    settings.subscribe('patternBlendMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+
+    const mixRow = document.createElement('div');
+    mixRow.className = 'rw-pb-row';
+    const mixLabel = document.createElement('label');
+    mixLabel.textContent = 'mix';
+    const mixInput = document.createElement('input');
+    mixInput.type = 'number';
+    mixInput.min = '0'; mixInput.max = '1'; mixInput.step = '0.01';
+    mixInput.value = String(settings.get('patternMix'));
+    mixInput.addEventListener('input', () => {
+      const v = parseFloat(mixInput.value);
+      if (Number.isFinite(v)) writeParamValue('patternMix', v);
+    });
+    attachTooltip(mixInput, 'Wet/dry between the unmodified video and the blended result. Also on the general faceplate (Pattern Generator group) with a live-value knob.');
+    mixRow.append(mixLabel, mixInput);
+    mod.appendChild(mixRow);
+    settings.subscribe('patternMix', (v) => { if (document.activeElement !== mixInput) mixInput.value = String(v); });
+
+    // Dynamic per-kind supporting properties — rebuilt whenever
+    // patternKind changes, same trigger Controls' own rebuildParams uses.
+    const paramsHost = document.createElement('div');
+    mod.appendChild(paramsHost);
+
+    function rebuildPatternParams(kind: PatternKind): void {
+      paramsHost.innerHTML = '';
+      const def = PATTERN_REGISTRY[kind];
+      if (!def) return;
+      for (const key of def.paramKeys) {
+        const row = document.createElement('div');
+        row.className = 'rw-pb-row';
+        const label = document.createElement('label');
+        label.textContent = prettyParamLabel(key);
+        let ctl: HTMLElement;
+        if (key === 'patternAxis') {
+          ctl = enumSelect(key, AXIS_OPTIONS, () => settings.get('patternAxis'), (v) => settings.set('patternAxis', v as PatternAxis));
+        } else if (key === 'patternGradientShape') {
+          ctl = enumSelect(key, GRAD_SHAPE_OPTIONS, () => settings.get('patternGradientShape'), (v) => settings.set('patternGradientShape', v as PatternGradientShape));
+        } else if (key === 'patternScopeSourceKind') {
+          ctl = enumSelect(key, SCOPE_SOURCE_OPTIONS, () => settings.get('patternScopeSourceKind'), (v) => settings.set('patternScopeSourceKind', v as PatternScopeSourceKind));
+        } else if (key === 'patternScopeSourceRef') {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.placeholder = 'e.g. 1, lfo-1:out, zPush';
+          inp.value = settings.get('patternScopeSourceRef');
+          inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
+          settings.subscribe('patternScopeSourceRef', (v) => { if (document.activeElement !== inp) inp.value = v; });
+          ctl = inp;
+        } else {
+          // Every remaining paramKey is a numeric ModTarget — same
+          // knob+field recipe as every other base-value convenience
+          // control in the bay (paramRangeFor reads the SAME PARAM_DOCS
+          // ranges the general faceplate's full jack cells use).
+          const numKey = key as PatternParamKey & keyof Settings;
+          const range = paramRangeFor(numKey);
+          const wrap = document.createElement('div');
+          wrap.className = 'rw-pb-cell-ctl';
+          const knob = createMiniKnob({
+            min: range.min, max: range.max, step: range.step,
+            label: prettyParamLabel(key),
+            get: () => { const v = settings.get(numKey); return typeof v === 'number' ? v : 0; },
+            set: (v) => writeParamValue(numKey, v),
+          });
+          const inp = document.createElement('input');
+          inp.type = 'number';
+          inp.step = String(range.step); inp.min = String(range.min); inp.max = String(range.max);
+          inp.addEventListener('input', () => {
+            const v = parseFloat(inp.value);
+            if (Number.isFinite(v)) writeParamValue(numKey, v);
+          });
+          settings.subscribe(numKey, (v) => {
+            if (document.activeElement === inp || typeof v !== 'number') return;
+            inp.value = String(v);
+            knob.refresh();
+          });
+          wrap.append(knob.el, inp);
+          ctl = wrap;
+        }
+        attachTooltip(row, `${label.textContent} (${key})`);
+        row.append(label, ctl);
+        paramsHost.appendChild(row);
+      }
+    }
+
+    function enumSelect<T extends string>(
+      key: string, options: { value: T; label: string }[], get: () => T, set: (v: T) => void,
+    ): HTMLSelectElement {
+      const sel = document.createElement('select');
+      sel.className = 'rw-select';
+      for (const o of options) {
+        const opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.label;
+        sel.appendChild(opt);
+      }
+      sel.value = get();
+      sel.addEventListener('change', () => set(sel.value as T));
+      settings.subscribe(key as keyof Settings, () => { if (document.activeElement !== sel) sel.value = get(); });
+      return sel;
+    }
+
+    rebuildPatternParams(settings.get('patternKind'));
+    settings.subscribe('patternKind', rebuildPatternParams);
+
+    rail.appendChild(mod);
+  }
+
   const writeSlot = (index: number, patch: Partial<ModSlot>): void => {
     const slots = settings.get('modSlots').slice();
     if (!slots[index]) return;
@@ -1691,7 +1898,7 @@ export function createPatchBayView(
    *  rows — a node's `type`, and therefore its param set, can mutate in
    *  place); VALUES refreshed separately via `refreshGraphControls()`
    *  so typing into one doesn't require a structural rebuild. */
-  const graphParamInputs = new Map<string, { el: HTMLInputElement | HTMLSelectElement; kind: 'number' | 'enum' | 'boolean' }>();
+  const graphParamInputs = new Map<string, { el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; kind: 'number' | 'enum' | 'boolean' | 'text' }>();
   /** Rotary knobs for graph node NUMBER params (`${nodeId}#${param}`). */
   const graphKnobs = new Map<string, MiniKnob>();
   /** Live trace surfaces for `scope` nodes (nodeId → canvas + ring
@@ -1898,12 +2105,11 @@ export function createPatchBayView(
 
       // Reconcile param controls (rate, shape, etc.) — the node's OWN
       // knobs, between its IN and OUT jacks, same signal-flow-order
-      // convention. Free-text params (only the Note node's `text`) are
-      // skipped — this view has no text-editing affordance and Note
-      // nodes have no ports anyway, so they'd render as a bare label.
-      const wantedParams = new Map(
-        Object.entries(def?.params ?? {}).filter(([, spec]) => spec.kind !== 'text'),
-      );
+      // convention. Free-text params (only the Note node's `text`) get
+      // a full-width textarea (owner bug report: a Note added via the
+      // bay had nothing to type into — Note has no ports, so its
+      // module was a bare title with no way to actually write a note).
+      const wantedParams = new Map(Object.entries(def?.params ?? {}));
       const haveParams = new Set(
         [...graphParamInputs.keys()]
           .filter((k) => k.startsWith(`${nodeId}#`))
@@ -1918,6 +2124,35 @@ export function createPatchBayView(
       }
       for (const [paramName, spec] of wantedParams) {
         if (graphParamInputs.has(`${nodeId}#${paramName}`)) continue;
+
+        // Free-text (only the Note node's `text`): a full-width
+        // textarea, ComfyUI-style like the Graph editor's own inline
+        // note-editing — a compact label+control row would squeeze a
+        // multi-line field into a sliver. No knob, no jack, no cable.
+        if (spec.kind === 'text') {
+          const row = document.createElement('div');
+          row.className = 'rw-pb-row rw-pb-row--note';
+          const ta = document.createElement('textarea');
+          ta.className = 'rw-pb-note-text';
+          ta.placeholder = 'Notes…';
+          ta.spellcheck = false;
+          ta.value = String(node.params[paramName] ?? spec.default);
+          ta.addEventListener('input', () => writeGraphNodeParam(nodeId, paramName, ta.value));
+          // Typing must never bubble into the module-header drag or the
+          // board's right-click Add Node menu. Header-drag is already
+          // scoped to `.rw-pb-module-head` (this row lives in the body,
+          // never inside it) and the board's contextmenu handler already
+          // excludes anything inside `.rw-pb-graphnode` wholesale, so no
+          // extra guards are needed here — unlike AdvancedView.ts's
+          // canvas-wide mousedown/keydown/contextmenu listeners, which
+          // DO need the `.rw-graph-note-text` closest-check bailouts
+          // this view's per-row-scoped listeners don't share.
+          row.appendChild(ta);
+          mod.insertBefore(row, mod.querySelector('.rw-pb-row--out'));
+          graphParamInputs.set(`${nodeId}#${paramName}`, { el: ta, kind: 'text' });
+          continue;
+        }
+
         const row = document.createElement('div');
         row.className = 'rw-pb-row';
         const rowLabel = document.createElement('label');
