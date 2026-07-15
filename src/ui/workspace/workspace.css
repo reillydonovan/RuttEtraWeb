@@ -56,7 +56,7 @@ body.viewer-mode .rw-region-bar {
   color: var(--re-text-dim);
   font-size: 10px;
   letter-spacing: 0.12em;
-  cursor: grab;
+  cursor: var(--rw-cur-grab);
   touch-action: none;
   user-select: none;
   height: 16px;
@@ -91,7 +91,7 @@ body.viewer-mode .rw-region-bar {
   border-radius: 2px;
   color: var(--re-text-dim);
   opacity: 0.35;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-wtab:hover .rw-wtab-close,
 .rw-wtab.active .rw-wtab-close { opacity: 0.8; }
@@ -168,11 +168,11 @@ body.viewer-mode #rw-left-shell { display: none; }
   top: 22px;
   bottom: 0;
   width: 8px;
-  cursor: ew-resize;
+  cursor: var(--rw-cur-resize-ew);
   z-index: 12;
 }
 .rw-left-resize:hover { background: rgba(95, 255, 133, 0.15); }
-body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important; }
+body.rw-region-dragging, body.rw-region-dragging * { cursor: var(--rw-cur-grabbing) !important; }
 .rw-region-bar-spacer { flex: 1 1 auto; }
 .rw-region-btn {
   background: transparent;
@@ -183,7 +183,7 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   padding: 0;
   font-size: 10px;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   font-family: var(--re-mono);
 }
 .rw-region-btn:hover { color: var(--re-accent); border-color: var(--re-accent); }
@@ -237,7 +237,7 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: grabbing !important
   font-size: 11px;
   height: 16px;
   padding: 0 2px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-region-select:hover { color: var(--re-accent); border-color: var(--re-accent); }
 .rw-region-select option { background: var(--re-bg); color: var(--re-text); }

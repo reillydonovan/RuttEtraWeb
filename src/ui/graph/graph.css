@@ -29,7 +29,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 4px 12px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   border-right: 1px solid var(--re-line);
 }
 .rw-graph-view-switch .rw-graph-view-btn:last-child { border-right: none; }
@@ -67,7 +67,7 @@
   border: 1px dashed var(--re-line);
   color: var(--re-text);
   font-family: var(--re-mono);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -98,7 +98,7 @@
   border: 1px dashed var(--re-line);
   color: var(--re-text-dim);
   font-family: var(--re-mono);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   padding: 0 8px;
 }
 .rw-graph-library-del:hover { color: #ff6b6b; border-color: #ff6b6b; }
@@ -275,7 +275,7 @@
   font-family: var(--re-mono);
   font-size: 13px;
   padding: 3px 6px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-graph-palette-item:hover {
   background: rgba(95,255,133,0.08);
@@ -291,8 +291,8 @@
   overflow: hidden;
   min-height: 360px;
 }
-.rw-graph-canvas.connecting { cursor: crosshair; }
-.rw-graph-canvas.probing    { cursor: help; }
+.rw-graph-canvas.connecting { cursor: var(--rw-cur-crosshair); }
+.rw-graph-canvas.probing    { cursor: var(--rw-cur-help); }
 .rw-graph-cable-layer {
   position: absolute;
   inset: 0;
@@ -345,7 +345,7 @@
   letter-spacing: 0.06em;
   background: rgba(95,255,133,0.10);
   color: var(--re-accent);
-  cursor: move;
+  cursor: var(--rw-cur-move);
   user-select: none;
   text-transform: uppercase;
   font-size: 11px;
@@ -403,7 +403,7 @@
   border: 1px solid var(--re-line);
   border-radius: 50%;
   background: rgba(0,0,0,0.7);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   display: inline-block;
 }
 .rw-graph-port-dot:hover { box-shadow: 0 0 6px var(--re-accent); }
@@ -515,7 +515,7 @@
 .rw-graph-region-canvas {
   width: 96px;
   height: 96px;
-  cursor: crosshair;
+  cursor: var(--rw-cur-crosshair);
   background: #000;
   border: 1px solid var(--re-line);
   image-rendering: pixelated;

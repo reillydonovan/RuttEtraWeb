@@ -7,25 +7,22 @@
    jacks are always visible (the rack skin's jacks are gated on
    body[data-skin="rack"]). */
 
-/* Custom cursor graphics (owner: "customize the various graphics for
- * the mouse cursor... so it doesn't look like browser native mouse
- * icons") — small inline SVG glyphs matching the CRT green/warning-red
- * palette, one per interaction state, with a native-cursor fallback
- * (comma-separated) in case an SVG data-URI cursor somehow fails to
- * load. Hotspot coordinates are the two numbers before the fallback
- * keyword. */
+/* Custom cursor graphics reference the shared `--rw-cur-*` tokens
+ * (`src/ui/cursors.css`, imported globally in main.ts) — this is where
+ * the Patch Bay's own cursor pass first shipped, later promoted to a
+ * global set covering every stylesheet in the app. */
 .rw-patchbay {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+  cursor: var(--rw-cur-grab);
   background:
     radial-gradient(circle at 30% 0%, rgba(95, 255, 133, 0.05), transparent 55%),
     linear-gradient(180deg, #131a13, #0b100b);
 }
 /* Click-drag-to-pan on empty background (node-editor convention). */
 .rw-patchbay.rw-pb-panning {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ccircle cx='14' cy='14' r='12' fill='%235fff85' fill-opacity='0.18'/%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
+  cursor: var(--rw-cur-grabbing);
 }
 
 .rw-pb-surface {
@@ -113,7 +110,7 @@
    * distinct cursor value exposed it). The Patch Bay's jacks are
    * always visible/authoritative "whatever the skin" per this file's
    * own header comment — this just makes that true for cursor too. */
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='11' r='8' fill='none' stroke='%235fff85' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='2.5' fill='%235fff85' fill-opacity='0.5'/%3E%3C/svg%3E") 11 11, grab !important;
+  cursor: var(--rw-cur-jack) !important;
   touch-action: none;
   background:
     radial-gradient(circle at 50% 50%,
@@ -156,7 +153,7 @@
   /* !important for the same reason as the idle jack cursor above —
    * this selector ties rack.css's specificity exactly, so without it
    * source-order alone would decide the winner. */
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='11' r='8' fill='none' stroke='%235fff85' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='5' fill='%235fff85'/%3E%3C/svg%3E") 11 11, grabbing !important;
+  cursor: var(--rw-cur-jack-active) !important;
 }
 /* Drag-time accept/reject (owner: same ask as the cable gradient —
  * layered feedback, not a replacement for the jack's own hover glow).
@@ -167,10 +164,10 @@
  * for the ENTIRE duration of every jack drag, so without later source
  * order it would always win and this would never actually show. */
 .rw-patchbay.rw-pb-cursor-accept {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23ffffff' stroke-width='2.5'/%3E%3Cpath d='M7 12.5 L10.5 16 L17 8.5' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, pointer;
+  cursor: var(--rw-cur-accept);
 }
 .rw-patchbay.rw-pb-cursor-reject {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23ff5566' stroke-width='2.5'/%3E%3Cpath d='M6.5 6.5 L17.5 17.5' stroke='%23ff5566' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, not-allowed;
+  cursor: var(--rw-cur-not-allowed);
 }
 
 /* ---------- left rail: modules ---------- */
@@ -270,7 +267,7 @@
   border-radius: 50%;
   border: 1px solid var(--re-line-hi);
   background: rgba(95, 255, 133, 0.1);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-pb-led-toggle:checked {
   background: var(--re-accent);
@@ -281,7 +278,7 @@
  * node from the patch bay with a delete confirmation window"). */
 .rw-pb-graphnode-del {
   margin-left: auto;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   color: var(--re-text-dim);
   font-size: 11px;
   line-height: 1;
@@ -425,7 +422,7 @@
   width: 26px;
   height: 26px;
   flex: 0 0 auto;
-  cursor: ns-resize;
+  cursor: var(--rw-cur-resize-ns);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -517,7 +514,7 @@
    with dead space scrolled into view). */
 .rw-pb-freemode:not(.rw-pb--narrow) .rw-pb-surface { padding: 150px; }
 .rw-pb-unit-handle {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+  cursor: var(--rw-cur-grab);
 }
 .rw-pb-freemode .rw-pb-deck { pointer-events: none; } /* empty flow containers */
 /* Static rail children (the GRAPH ENGINE divider label + empty-state
@@ -538,7 +535,7 @@
   z-index: 8;
   outline: 1px solid var(--re-accent);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(95, 255, 133, 0.25);
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ccircle cx='14' cy='14' r='12' fill='%235fff85' fill-opacity='0.18'/%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
+  cursor: var(--rw-cur-grabbing);
 }
 .rw-pb-tidy {
   float: right;
@@ -549,7 +546,7 @@
   font-size: 10px;
   letter-spacing: 0.15em;
   padding: 2px 8px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-pb-tidy:hover { color: var(--re-accent); border-color: var(--re-accent); }
 

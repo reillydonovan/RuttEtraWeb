@@ -68,10 +68,10 @@
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--re-line);
   color: var(--re-text);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-tut-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
-.rw-tut-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rw-tut-btn:disabled { opacity: 0.35; cursor: var(--rw-cur-not-allowed); }
 .rw-tut-btn--primary { color: var(--re-accent); border-color: var(--re-accent); }
 .rw-tut-btn--ghost { color: var(--re-text-dim); margin-right: auto; }
 .rw-tut-btn--action { width: 100%; color: var(--re-accent); border-color: var(--re-accent); }

@@ -37,7 +37,7 @@ body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"])
   /* DOM order appends the knob last (it's the newest face); visually it
      sits LEFT of the LCD readout, like a pot above its legend. */
   order: -1;
-  cursor: ns-resize;
+  cursor: var(--rw-cur-resize-ns);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -97,7 +97,7 @@ body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"])
   font-size: 14px;
   text-align: right;
   text-shadow: var(--re-glow);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 body:is([data-skin="hardware"], [data-skin="rack"]) .rw-slider--tl .rw-slider-readout {
   color: var(--re-accent-2);

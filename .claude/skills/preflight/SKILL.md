@@ -32,7 +32,7 @@ Run these in order; stop and report on the first failure:
   the change.
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.23.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 34 as of v1.24.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
 - **`VideoSourceManager` has NO Settings connection of its own** — it's

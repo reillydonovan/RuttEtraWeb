@@ -75,9 +75,9 @@
   color: var(--re-text);
   font-family: var(--re-mono);
 }
-.rw-tl-header .rw-btn { cursor: pointer; }
+.rw-tl-header .rw-btn { cursor: var(--rw-cur-pointer); }
 .rw-tl-header .rw-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
-.rw-tl-header .rw-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+.rw-tl-header .rw-btn[disabled] { opacity: 0.4; cursor: var(--rw-cur-not-allowed); }
 .rw-tl-header .rw-btn.primary { color: var(--re-accent); border-color: var(--re-accent); }
 .rw-tl-header .rw-btn.warn    { color: var(--re-warn);   border-color: var(--re-warn); }
 .rw-tl-header .rw-readout {
@@ -122,7 +122,7 @@
   top: 0; bottom: 0;
   right: calc(var(--tl-insp-w, 220px) - 3px);
   width: 7px;
-  cursor: ew-resize;
+  cursor: var(--rw-cur-resize-ew);
   z-index: 9;
 }
 .rw-tl-insp-resize:hover,
@@ -135,7 +135,7 @@
   position: absolute;
   left: 0; right: 0;
   height: 8px;
-  cursor: ns-resize;
+  cursor: var(--rw-cur-resize-ns);
   z-index: 10;
 }
 #timeline-dock[data-dock="bottom"] .rw-tl-height-resize { top: -4px; }
@@ -179,7 +179,7 @@
   flex: 0 0 22px;
   height: 22px;
   border-bottom: 1px solid var(--re-line);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   user-select: none;
   touch-action: none;
   background:
@@ -276,7 +276,7 @@
   background: linear-gradient(180deg, var(--re-accent), rgba(95,255,133,0.30));
   border: 1px solid var(--re-text);
   box-shadow: 0 0 6px rgba(95,255,133,0.6);
-  cursor: grab;
+  cursor: var(--rw-cur-grab);
   z-index: 3;
 }
 .rw-tl-kf:hover { box-shadow: 0 0 10px rgba(95,255,133,0.9); }
@@ -285,8 +285,8 @@
   outline-offset: 2px;
   z-index: 4;
 }
-.rw-tl-kf.locked { border-style: dashed; opacity: 0.7; cursor: not-allowed; }
-.rw-tl-kf:active { cursor: grabbing; }
+.rw-tl-kf.locked { border-style: dashed; opacity: 0.7; cursor: var(--rw-cur-not-allowed); }
+.rw-tl-kf:active { cursor: var(--rw-cur-grabbing); }
 
 /* Tooltip-on-hover */
 .rw-tl-kf-label {
@@ -321,11 +321,11 @@
 }
 .rw-tl-ctx li {
   padding: 6px 10px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-tl-ctx li:hover { background: rgba(95,255,133,0.1); color: var(--re-accent); }
-.rw-tl-ctx li.sep { padding: 0; height: 1px; background: var(--re-line); cursor: default; }
-.rw-tl-ctx li.disabled { color: var(--re-text-dim); cursor: not-allowed; }
+.rw-tl-ctx li.sep { padding: 0; height: 1px; background: var(--re-line); cursor: var(--rw-cur-default); }
+.rw-tl-ctx li.disabled { color: var(--re-text-dim); cursor: var(--rw-cur-not-allowed); }
 
 /* Inspector pane */
 .rw-tl-inspector {
@@ -387,7 +387,7 @@
   border: 1px solid var(--re-line);
   color: var(--re-text);
   font-family: var(--re-mono);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-tl-inspector .rw-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
 .rw-tl-inspector .rw-btn.warn { color: var(--re-warn); border-color: var(--re-warn); }
@@ -404,7 +404,7 @@
   color: var(--re-text-dim);
   letter-spacing: 0.08em;
   padding: 3px 8px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-tl-mini:hover { color: var(--re-accent); }
 
@@ -470,10 +470,10 @@
   background: var(--re-bg-2);
   border: 1px solid var(--re-accent);
   box-shadow: 0 0 4px rgba(95,255,133,0.5);
-  cursor: grab;
+  cursor: var(--rw-cur-grab);
 }
 .rw-tl-lane-pt:hover { background: var(--re-accent); }
-.rw-tl-lane-pt:active { cursor: grabbing; }
+.rw-tl-lane-pt:active { cursor: var(--rw-cur-grabbing); }
 .rw-tl-lane-pt.selected {
   background: var(--re-accent);
   outline: 2px solid var(--re-accent-2);
@@ -503,7 +503,7 @@
   background: transparent;
   border: 1px solid transparent;
   color: var(--re-text-dim);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   font-family: var(--re-mono);
 }
 .rw-tl-lane-chip .rw-btn:hover { color: var(--re-accent); border-color: var(--re-line); }
@@ -535,7 +535,7 @@
   color: var(--re-text);
   font-family: var(--re-mono);
 }
-.rw-tl-lane-add .rw-btn { cursor: pointer; }
+.rw-tl-lane-add .rw-btn { cursor: var(--rw-cur-pointer); }
 .rw-tl-lane-add .rw-btn:hover { border-color: var(--re-accent); color: var(--re-accent); }
 .rw-tl-lane-add .rw-select { max-width: 220px; }
 

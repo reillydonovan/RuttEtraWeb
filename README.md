@@ -25,6 +25,11 @@ npm run build
 
 ---
 
+## Recent changes (v1.24.0, July 2026 — custom cursor graphics app-wide)
+
+- **Every browser-default cursor in the app is now a custom on-theme glyph** — not just the Patch Bay. A shared `src/ui/cursors.css` defines one set of small SVG cursors (a subtle ring-and-dot for anything clickable, a move-cross for drag handles, a red slash-circle for disabled/blocked, a green "?" for help, a fine reticle for precise-pick tools, directional double-arrows for resize handles, a styled I-beam for text entry, and even the plain resting arrow) and every stylesheet in the app — panel, timeline, graph editor, workspace tabs, menu bar, layout, tutorial, rack skin — references the same tokens instead of hand-rolling its own. Native `<select>`/checkbox/radio controls and every text input get the treatment too via a couple of unscoped safety-net rules, and the browser's own middle-click autoscroll cursor is suppressed app-wide so it can never sneak in.
+- Found and fixed a real CSS specificity bug while wiring this up: the rack skin's own jack-cursor rule was silently outranking the Patch Bay's under the app's default skin — fixed with a scoped `!important`.
+
 ## Recent changes (v1.23.0, July 2026 — cable accept/reject gradient + custom cursors)
 
 - **Cable accept/reject gradient** — the cable being dragged now fades toward white as it nears a valid drop target, or toward red while floating over empty space with nothing to snap to, layered right on top of the jack's own per-kind hover glow (not a replacement for it).

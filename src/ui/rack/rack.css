@@ -63,7 +63,7 @@ body[data-skin="rack"]:not([data-layout="compact"]) .rw-rack-jack {
   height: 16px;
   flex: 0 0 auto;
   border-radius: 50%;
-  cursor: grab;
+  cursor: var(--rw-cur-jack);
   touch-action: none;
   /* 3.5mm jack: dark bore, metal ring. */
   background:
@@ -111,4 +111,4 @@ body[data-skin="rack"] .rw-rack-jack--grab {
 }
 
 .rw-rack-dragging,
-.rw-rack-dragging .rw-rack-jack { cursor: grabbing; }
+.rw-rack-dragging .rw-rack-jack { cursor: var(--rw-cur-jack-active); }

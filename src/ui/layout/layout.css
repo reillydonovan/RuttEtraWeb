@@ -66,7 +66,7 @@ body[data-layout="compact"] #top-strip { display: flex; }
   font-family: var(--re-mono);
   font-size: 13px;
   padding: 6px 10px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   min-height: 36px;
   text-align: left;
   overflow: hidden;
@@ -95,7 +95,7 @@ body[data-layout="compact"] #top-strip { display: flex; }
   font-family: var(--re-mono);
   font-size: 12px;
   letter-spacing: 0.06em;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-top-btn:hover, .rw-top-btn:focus-visible {
   border-color: var(--re-accent); color: var(--re-accent); outline: none;
@@ -141,7 +141,7 @@ body[data-layout="compact"] #tab-bar { display: flex; }
   border-top: 2px solid transparent;
   color: var(--re-text-dim);
   font-family: var(--re-mono);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   padding: 4px 2px;
   min-height: 44px;
   transition: color 100ms;
@@ -234,7 +234,7 @@ body[data-layout="compact"] #tab-bar { display: flex; }
   width: 32px; height: 32px;
   font-family: var(--re-mono);
   font-size: 18px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-sheet-close:hover, .rw-sheet-close:focus-visible {
   border-color: var(--re-accent); color: var(--re-accent); outline: none;
@@ -352,7 +352,7 @@ body[data-layout="compact"] .rw-help-body {
   color: var(--re-accent);
   font-family: var(--re-mono);
   padding: 4px 8px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-size: 12px;
@@ -361,7 +361,7 @@ body[data-layout="compact"] .rw-help-body {
   background: transparent; border: none;
   color: var(--re-text-dim);
   font-family: var(--re-mono);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   font-size: 16px;
   padding: 0 4px;
 }
@@ -399,7 +399,7 @@ body[data-layout="compact"] .rw-help-body {
   font-family: var(--re-mono);
   font-size: 16px;
   text-shadow: var(--re-glow);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   text-align: center;
   padding: 24px;
 }
@@ -435,7 +435,7 @@ body[data-layout="compact"] .rw-slider-scrub {
   height: 36px;
   background: rgba(0,0,0,0.4);
   border: 1px solid var(--re-line);
-  cursor: ew-resize;
+  cursor: var(--rw-cur-resize-ew);
   /* Critical: claim the gesture so the bottom-sheet scroller doesn't
      hijack horizontal drags on iOS / Android. */
   touch-action: none;
@@ -479,7 +479,7 @@ body[data-layout="compact"] .rw-slider-stop {
   color: var(--re-text);
   font-family: var(--re-mono);
   font-size: 13px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   touch-action: manipulation;
 }
 body[data-layout="compact"] .rw-slider-stop:hover,
@@ -505,7 +505,7 @@ body[data-layout="compact"] .rw-slider-readout {
   font-size: 16px;
   text-align: center;
   letter-spacing: 0.06em;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   touch-action: manipulation;
 }
 body[data-layout="compact"] .rw-slider-readout:hover,

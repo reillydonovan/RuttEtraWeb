@@ -1,0 +1,111 @@
+/**
+ * Global custom cursor glyphs — one shared, authoritative set (owner:
+ * "let's push the cursor design further... globally for all cursor
+ * states on any item in the gui... every state that is possible for
+ * the cursor to be substituted by a browser default, replace with
+ * something in the design aesthetic of the rutt etra"). Started as a
+ * Patch Bay-only set; promoted here so every stylesheet in the app
+ * references the SAME tokens instead of each hand-rolling its own SVG
+ * data URIs (principle 1 — one concept, one source).
+ *
+ * Every token is a full `cursor` value: `url("data:image/svg+xml,...")
+ * hotspotX hotspotY, <native-keyword>` — the native keyword is a real
+ * fallback (not decoration) if a browser ever rejects the data URI.
+ * Import this file EAGERLY (see main.ts) so `:root`'s custom properties
+ * exist before anything else's `var(--rw-cur-*)` needs to resolve.
+ *
+ * Covers every state, including the neutral resting arrow (`default`)
+ * and the text-editing caret (owner: "extend the cursor design as far
+ * as the arrow and the caret, cover the bases") — `html, body` sets the
+ * arrow globally near the bottom of this file, and a safety-net rule
+ * applies the caret glyph to every real text-entry element app-wide
+ * (same "global rule over hunting down every call site" convention
+ * already established for `input[type="range"]` etc. in panel.css).
+ */
+:root {
+  /* Ubiquitous "this is clickable" cursor — small and understated on
+   * purpose (buttons/links/chips/tabs are the single most common
+   * cursor state in the app; a loud glyph here would read as noise). */
+  --rw-cur-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='6' fill='none' stroke='%235fff85' stroke-width='1.5' stroke-opacity='0.85'/%3E%3Ccircle cx='9' cy='9' r='1.4' fill='%235fff85'/%3E%3C/svg%3E") 9 9, pointer;
+
+  /* Draggable (idle) / dragging (active) — a 4-way move-cross, used for
+   * anything you pick up and reposition: panel chips, timeline
+   * keyframes, workspace tabs, module headers, the Patch Bay board. */
+  --rw-cur-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+  --rw-cur-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ccircle cx='14' cy='14' r='12' fill='%235fff85' fill-opacity='0.18'/%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3 L14 25 M3 14 L25 14 M14 3 L10.5 7 M14 3 L17.5 7 M14 25 L10.5 21 M14 25 L17.5 21 M3 14 L7 10.5 M3 14 L7 17.5 M25 14 L21 10.5 M25 14 L21 17.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
+  /* `move` (native 4-arrow) means the same thing as `grab` in every use
+   * in this app (a node/handle you can reposition) — one glyph, not two. */
+  --rw-cur-move: var(--rw-cur-grab);
+
+  /* Blocked / rejects the current action — a red slash-circle, shared
+   * by disabled buttons AND the Patch Bay drag-reject state (same
+   * meaning: "not here"). */
+  --rw-cur-not-allowed: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23ff5566' stroke-width='2.5'/%3E%3Cpath d='M6.5 6.5 L17.5 17.5' stroke='%23ff5566' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, not-allowed;
+
+  /* Accepts the current action — a white checkmark-circle, the Patch
+   * Bay's drag-accept state; also available generally for any future
+   * "yes, this works here" indicator. */
+  --rw-cur-accept: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23ffffff' stroke-width='2.5'/%3E%3Cpath d='M7 12.5 L10.5 16 L17 8.5' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, pointer;
+
+  /* Contextual help available (delayed tooltip incoming) — a circled
+   * "?" drawn as strokes (SVG data-URI text rendering depends on the
+   * browser's default font being available, which isn't guaranteed —
+   * a path-drawn glyph always looks the same everywhere). */
+  --rw-cur-help: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='11' r='9' fill='none' stroke='%235fff85' stroke-width='2'/%3E%3Cpath d='M8 8.5 Q8 5.5 11 5.5 Q14 5.5 14 8.5 Q14 10.5 11.5 11.5 Q11 11.8 11 13' fill='none' stroke='%235fff85' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='16' r='1.1' fill='%235fff85'/%3E%3C/svg%3E") 11 11, help;
+
+  /* Precise pick/select point (marquee tools, graph wire-connect mode,
+   * shape-mask center pickers) — a fine reticle with an exact-center
+   * hotspot, distinct from the softer everyday `pointer` glyph. */
+  --rw-cur-crosshair: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cg stroke='%235fff85' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M11 1 L11 8 M11 14 L11 21 M1 11 L8 11 M14 11 L21 11'/%3E%3C/g%3E%3Ccircle cx='11' cy='11' r='1.3' fill='%235fff85'/%3E%3C/svg%3E") 11 11, crosshair;
+
+  /* Directional resize handles (dock/panel splitters, timeline lane
+   * height, num-scrubbable inputs) — thin double-headed arrows. */
+  --rw-cur-resize-ns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='26' viewBox='0 0 18 26'%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 2 L9 24 M9 2 L5 6 M9 2 L13 6 M9 24 L5 20 M9 24 L13 20'/%3E%3C/g%3E%3C/svg%3E") 9 13, ns-resize;
+  --rw-cur-resize-ew: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='18' viewBox='0 0 26 18'%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 9 L24 9 M2 9 L6 5 M2 9 L6 13 M24 9 L20 5 M24 9 L20 13'/%3E%3C/g%3E%3C/svg%3E") 13 9, ew-resize;
+
+  /* Patch cable jacks (Patch Bay + rack skin overlay) — a ring when
+   * idle/hoverable, a filled circle while actively grabbed. Distinct
+   * from the generic grab/grabbing glyphs since a jack is a specific,
+   * smaller physical target, not "drag this whole module." */
+  --rw-cur-jack: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='11' r='8' fill='none' stroke='%235fff85' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='2.5' fill='%235fff85' fill-opacity='0.5'/%3E%3C/svg%3E") 11 11, grab;
+  --rw-cur-jack-active: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='11' r='8' fill='none' stroke='%235fff85' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='5' fill='%235fff85'/%3E%3C/svg%3E") 11 11, grabbing;
+
+  /* The neutral resting arrow — a thin outline silhouette of a normal
+   * pointer (hotspot at the tip, same as a native arrow), so the
+   * FAMILIAR arrow shape survives but every pixel of it is drawn in
+   * the CRT line-art language instead of a solid OS-native glyph. */
+  --rw-cur-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 0.5 L1.5 12.5 L4.8 9.6 L7.1 14.6 L9 13.7 L6.7 8.8 L11 8.6 Z' fill='rgba(10,16,10,0.55)' stroke='%235fff85' stroke-width='1.1' stroke-linejoin='round'/%3E%3C/svg%3E") 1 1, default;
+
+  /* Text-entry caret — a classic serif'd I-beam, just drawn in thin
+   * green stroke instead of solid black, so it still reads instantly
+   * as "you can type here." */
+  --rw-cur-text: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='20' viewBox='0 0 10 20'%3E%3Cg stroke='%235fff85' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M2 2 L8 2 M2 18 L8 18 M5 2 L5 18'/%3E%3C/g%3E%3C/svg%3E") 5 10, text;
+}
+
+/* Neutral resting arrow, app-wide — every more specific element (every
+ * button/jack/handle above) already sets its OWN cursor, which always
+ * wins over an inherited value regardless of this rule's specificity,
+ * so this only ever shows where nothing else claims the pointer. */
+html, body { cursor: var(--rw-cur-default); }
+
+/* Text-entry safety net (same convention as panel.css's unscoped
+ * input[type="range"]/scrollbar/file-input rules) — covers every real
+ * text-editable element in one place instead of hunting down each
+ * `<input>`/`<textarea>` call site individually. */
+input[type="text"], input[type="number"], input[type="search"],
+input[type="url"], input[type="email"], input[type="password"],
+textarea, [contenteditable="true"] {
+  cursor: var(--rw-cur-text);
+}
+
+/* Clickable native form controls that render their OWN default cursor
+ * without any explicit `cursor` rule anywhere in the app today — most
+ * browsers show a plain arrow (not even the native hand/pointer) for
+ * `<select>`/checkboxes/radios, which is exactly the kind of unstyled
+ * "browser default" this pass is closing (owner: "the little finger
+ * pointer... make a custom one that doesn't follow the default from
+ * the browser"). Same safety-net convention as the text-entry rule
+ * above — one place, not a `.rw-select` hunt across every section file. */
+select, input[type="checkbox"], input[type="radio"] {
+  cursor: var(--rw-cur-pointer);
+}

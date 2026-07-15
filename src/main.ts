@@ -59,6 +59,7 @@ import { attachHaptics, haptic } from './platform/HapticFeedback';
 import * as keyframeAffordance from './ui/keyframeAffordance';
 import { registerLiveValues } from './ui/liveValueBus';
 import './ui/layout/layout.css';
+import './ui/cursors.css';
 
 const params = new URLSearchParams(window.location.search);
 const viewTarget = params.get('view');
@@ -735,6 +736,14 @@ async function bootSynth(): Promise<void> {
       runAction('file.new');
     }
   });
+
+  // Suppress the browser's native middle-click autoscroll gesture
+  // app-wide (owner: "third button mouse too") — without this, a
+  // middle-click anywhere the Patch Bay doesn't already
+  // `preventDefault()` its own pan handler would trigger the OS's own
+  // all-scroll cursor/mode, breaking the custom cursor design outside
+  // the one surface that already suppresses it locally.
+  window.addEventListener('mousedown', (ev) => { if (ev.button === 1) ev.preventDefault(); });
 
   // -------------------------- UI panel ---------------------------------
   const panel = new ControlPanel(panelHost, settings);

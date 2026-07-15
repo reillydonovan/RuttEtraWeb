@@ -43,7 +43,7 @@ body.viewer-mode #rw-menubar {
   font-size: 13px;
   letter-spacing: 0.06em;
   padding: 0 10px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
 }
 .rw-menubar-item:hover,
 .rw-menubar-item.open {
@@ -70,7 +70,7 @@ body.viewer-mode #rw-menubar {
   align-items: center;
   gap: 6px;
   padding: 4px 12px 4px 6px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer);
   position: relative;
   white-space: nowrap;
 }
@@ -81,14 +81,14 @@ body.viewer-mode #rw-menubar {
 .rw-menu > li.disabled {
   color: var(--re-text-dim);
   opacity: 0.5;
-  cursor: default;
+  cursor: var(--rw-cur-default);
 }
 .rw-menu-sep {
   height: 1px;
   margin: 4px 8px;
   padding: 0 !important;
   background: var(--re-line);
-  cursor: default !important;
+  cursor: var(--rw-cur-default) !important;
 }
 .rw-menu-mark {
   width: 14px;

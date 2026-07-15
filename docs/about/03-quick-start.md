@@ -105,6 +105,8 @@ Cables and jacks carry real visual states, not just one static look:
 - **Drag and drop** — grab any jack and the candidate jacks it could snap to light up in the color the resulting cable would actually be (green for a Function Generator cable, cyan for a graph binding, amber for a node-to-node wire, purple for video routing, pale mint for a SOURCES cable) — a live preview of what connecting there would create, not a flat highlight. The cable being dragged also fades toward white as it nears a valid target, or toward red while it's floating over empty space with nothing to snap to — a second, always-visible signal layered on top of the jack glow. The mouse cursor itself switches to match: a plug icon over jacks, a checkmark when the drag is over something it can connect to, a "no" glyph when it isn't. A delayed tooltip names what dropping there will do.
 - **Untether** — drop a plugged cable in empty space to unplug it; drop an OUT jack's cable in empty space and nothing happens, since an output can feed several connections at once and there's no single "the" cable to remove from there.
 
+The custom cursor treatment isn't limited to the Patch Bay — every clickable control, drag handle, resize edge, text field, and even the plain resting pointer across the whole app uses an on-theme glyph instead of the browser's native cursor, so the interface reads as one consistent instrument end to end.
+
 ### Remote control via MCP
 
 The whole synth is drivable from an MCP client (Claude Desktop, Claude Code, ...) — see I/O ▸ [MCP (remote control)](#mcp-remote-control) for the full tool list and setup.
