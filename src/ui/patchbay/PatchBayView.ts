@@ -60,7 +60,6 @@ import {
   nodeWires, applyNodeInputRef, deleteGraphNode,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
-import { computeDefaultLayout, graphNodeColumns, FIXED_MODULE_COLUMNS, type LayoutColumn, type LayoutUnitSpec } from './autoLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
@@ -75,6 +74,16 @@ const SOURCE_COLOR    = '#b9ffd0';
 const GRAPH_COLOR     = '#5fffd0';
 const NODE_WIRE_COLOR = '#ffb347';
 const VIDEO_COLOR     = '#c85fff';
+/** Drag rubber-band gradient ends (owner: "a gradient for the cable
+ *  run to indicate if it can be patched or not on top of the hover
+ *  state for the jack") — the cable itself fades toward one of these
+ *  at the cursor end, layered on top of (not instead of) the jack's
+ *  own per-kind hover glow. Bright white reads as "yes, connects here";
+ *  a muted red reads as "nothing droppable here" — this is exactly the
+ *  existing "is anything currently snapped" check (`pending.hover`),
+ *  not a new cross-kind validity scan. */
+const CABLE_ACCEPT_COLOR = '#ffffff';
+const CABLE_REJECT_COLOR = '#ff5566';
 const SNAP_PX = 26;
 
 /** Fixed set of video-routing endpoints — Source A/B OUT, Composite's
@@ -814,7 +823,6 @@ export function createPatchBayView(
   function mkVideoSourceModule(title: string, mgr: VideoSourceManager, outKey: VideoOutKey, kindKey: 'sourceKind' | 'sourceBKind'): void {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
-    mod.dataset.pbUnitId = title;
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const titleEl = document.createElement('span');
@@ -905,7 +913,6 @@ export function createPatchBayView(
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
     title.textContent = 'COMPOSITE';
-    mod.dataset.pbUnitId = 'COMPOSITE';
     head.append(title);
     mod.appendChild(head);
 
@@ -999,7 +1006,6 @@ export function createPatchBayView(
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
     title.textContent = 'DUAL RASTER';
-    mod.dataset.pbUnitId = 'DUAL RASTER';
     head.append(title);
     mod.appendChild(head);
 
@@ -1052,7 +1058,6 @@ export function createPatchBayView(
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
-    mod.dataset.pbUnitId = 'RENDERER';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const title = document.createElement('span');
@@ -1108,7 +1113,6 @@ export function createPatchBayView(
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
-    mod.dataset.pbUnitId = 'PATTERN GENERATOR';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
     const en = document.createElement('input');
@@ -1349,7 +1353,6 @@ export function createPatchBayView(
     attachTooltip(en, 'Enable this function generator (plugging a cable also enables it).');
     const title = document.createElement('span');
     title.textContent = `FUNCTION GEN ${i + 1}`;
-    mod.dataset.pbUnitId = `FUNCTION GEN ${i + 1}`;
     head.append(en, title);
 
     const srcRow = document.createElement('div');
@@ -1558,7 +1561,6 @@ export function createPatchBayView(
   for (const field of buildFaceplate()) {
     const el = document.createElement('div');
     el.className = 'rw-pb-field';
-    el.dataset.pbUnitId = field.title;
     const t = document.createElement('div');
     t.className = 'rw-pb-field-title';
     t.textContent = field.title;
@@ -1574,7 +1576,6 @@ export function createPatchBayView(
   // change in I/O → CV Out.
   const cvField = document.createElement('div');
   cvField.className = 'rw-pb-field';
-  cvField.dataset.pbUnitId = 'CV OUT';
   col2.appendChild(cvField);
   function rebuildCvField(): void {
     for (const [key] of paramJacks) {
@@ -1763,9 +1764,6 @@ export function createPatchBayView(
   // Free positions are session-local by design (the tidy layout is the
   // document; free layout is a workbench arrangement).
   let freeMode = false;
-  /** Guards the one-shot default-layout bootstrap in `frame()` — see
-   *  `applyDefaultLayoutIfFresh()`. */
-  let defaultLayoutApplied = false;
   // Baseline root width the current free-layout positions/widths were
   // measured against — lets the resize observer below rescale every
   // unit's left/width by the ratio of new/old width so a custom
@@ -1793,60 +1791,26 @@ export function createPatchBayView(
   tidyBtn.addEventListener('click', () => {
     if (freeMode) { suspendedFree = null; tidy(); } else { freeze(); }
   });
-  // Re-run the default left-to-right layout on demand (owner: the bay
-  // should have an intuitive default flow to fall back to, not just a
-  // one-time bootstrap) — recovers a clean view after manually
-  // rearranging things, or jumps straight from TIDY into it. Works
-  // whether currently in TIDY or FREE mode: `applyDefaultLayoutIfFresh`
-  // just calls `freeze(computed)`, which re-seeds positions in place
-  // when already free (no need to `tidy()` first — the computed layout
-  // is collision-free by construction).
-  const arrangeBtn = document.createElement('button');
-  arrangeBtn.type = 'button';
-  arrangeBtn.className = 'rw-pb-tidy';
-  arrangeBtn.textContent = 'ARRANGE';
-  attachTooltip(arrangeBtn, 'Re-arrange every module into the default left-to-right signal-flow layout.');
-  arrangeBtn.addEventListener('click', () => applyDefaultLayoutIfFresh());
-
   const pbTools = document.createElement('span');
   pbTools.className = 'rw-pb-tools';
-  pbTools.append(zoomBar, tidyBtn, arrangeBtn);
+  pbTools.append(zoomBar, tidyBtn);
   bus.appendChild(pbTools);
 
-  /** `bus` (the SOURCES strip) is deliberately excluded from the free-
-   *  layout unit set — it's a utility legend strip feeding every
-   *  generator's SRC IN, not a flow node with its own inputs/outputs,
-   *  so it plays no part in a left-to-right signal-flow reading. It was
-   *  never part of the TIDY-mode reorder-stack set either (see
-   *  `stacks()` below, which only returns `[rail, col1, col2]`), so
-   *  this only changes `freeze()`'s free-unit set — `bus`'s own CSS
-   *  already pins it above `deck` regardless of `freeMode`. */
   function allUnits(): HTMLElement[] {
-    return Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode'));
+    return [
+      bus,
+      ...Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode')),
+    ];
   }
 
-  /**
-   * Freeze every unit into free (absolute) layout. With no `computed`
-   * map, behavior is exactly as before this feature: capture wherever
-   * the stacked flow currently rendered each unit (the manual TIDY→FREE
-   * click and the drag-header-breakout path both call it this way).
-   * With `computed` (the default-layout bootstrap, or Auto-Arrange),
-   * seed left/top from it instead — everything downstream (`tidy()`,
-   * `unitHomes`, `resolveOverlap`, narrow-mode suspend/restore) only
-   * ever touches the RESULT (units already in `.rw-pb-unit-free` with
-   * left/top/width set), never how those values were derived, so none
-   * of it needed to change for this.
-   */
-  function freeze(computed?: Map<string, { left: number; top: number }>): void {
-    const alreadyFree = freeMode;
+  function freeze(): void {
+    if (freeMode) return;
     freeMode = true;
     const bRect = board.getBoundingClientRect();
     const placed = allUnits().map((unit) => ({ unit, r: unit.getBoundingClientRect() }));
-    if (!alreadyFree) {
-      unitHomes.length = 0;
-      for (const { unit } of placed) {
-        unitHomes.push({ unit, parent: unit.parentElement!, next: unit.nextSibling });
-      }
+    unitHomes.length = 0;
+    for (const { unit } of placed) {
+      unitHomes.push({ unit, parent: unit.parentElement!, next: unit.nextSibling });
     }
     // Two passes: measure everything first, THEN re-parent/absolutize
     // (in BOARD coordinates, dividing out the zoom).
@@ -1854,9 +1818,8 @@ export function createPatchBayView(
     board.style.minWidth = `${board.scrollWidth}px`;
     for (const { unit, r } of placed) {
       unit.classList.add('rw-pb-unit-free');
-      const c = computed?.get(unit.dataset.pbUnitId ?? '');
-      unit.style.left = c ? `${c.left}px` : `${(r.left - bRect.left) / zoom}px`;
-      unit.style.top = c ? `${c.top}px` : `${(r.top - bRect.top) / zoom}px`;
+      unit.style.left = `${(r.left - bRect.left) / zoom}px`;
+      unit.style.top = `${(r.top - bRect.top) / zoom}px`;
       unit.style.width = `${r.width / zoom}px`;
       board.appendChild(unit);
     }
@@ -1888,75 +1851,6 @@ export function createPatchBayView(
     board.style.minWidth = '';
     root.classList.remove('rw-pb-freemode');
     syncSurfaceSize();
-  }
-
-  /**
-   * Bootstrap the bay's DEFAULT starting layout — freeform, arranged
-   * left to right by signal flow (owner: "a default layout for the
-   * patch that is freeform, not tidy... a really intuitive left to
-   * right patch system... Think touch designer, comfy ui, the blender
-   * node system"). TIDY stays fully available afterward (owner
-   * decision — not removed); this only changes what a FRESH bay opens
-   * into. Deterministic and session-local, same philosophy as free
-   * positions generally: a reload re-runs this exact algorithm and
-   * lands on the exact same arrangement — no persisted layout state,
-   * no Settings schema involvement.
-   */
-  function applyDefaultLayoutIfFresh(): boolean {
-    const patch = settings.get('modGraph');
-    const graphIds = patch?.nodes.map((n) => n.id) ?? [];
-    const graphIdSet = new Set(graphIds);
-    const graphCols = graphNodeColumns(graphIds, nodeWires(patch));
-
-    const units = allUnits();
-    const specs: LayoutUnitSpec[] = [];
-    for (const unit of units) {
-      const id = unit.dataset.pbUnitId;
-      if (!id) continue;
-      const width = unit.offsetWidth;
-      const height = unit.offsetHeight;
-      if (!width || !height) continue; // not yet laid out — skip this pass
-      let column: LayoutColumn;
-      let graphColumn: number | undefined;
-      if (id in FIXED_MODULE_COLUMNS) {
-        column = FIXED_MODULE_COLUMNS[id];
-      } else if (graphIdSet.has(id)) {
-        // Graph nodes share the 'generators' x-band, offset by wire
-        // depth (a pure generator sits alongside Function Gen/Video
-        // Source; a node fed by another shifts one column right).
-        column = 'generators';
-        graphColumn = graphCols.get(id) ?? 0;
-      } else {
-        column = 'fields';
-      }
-      specs.push({ id, column, graphColumn, width, height });
-    }
-    // Only a genuine "nothing exists yet" (units.length === 0) or "not
-    // laid out yet" (every unit measured zero) counts as failure worth
-    // retrying next frame — require every discovered unit to have
-    // measured successfully, not just "at least one."
-    if (!units.length || specs.length !== units.length) return false;
-    const raw = computeDefaultLayout(specs, { columnGap: 36, rowGap: 16 });
-    // `computeDefaultLayout` packs from (0,0) — but free units are
-    // absolutely positioned relative to `board`, which ALSO contains
-    // `bus` (the pinned SOURCES strip) stacked above `deck` in normal
-    // flow. A raw top:0 would land right under/behind `bus` instead of
-    // below it. Offset every column's vertical origin by bus's real
-    // height plus the board's own flex gap between bus and deck.
-    // Absolute positioning's `top:0` aligns with `board`'s BORDER-box
-    // top (padding included), while `bus` — an ordinary flow child —
-    // starts at the CONTENT-box top (padding already consumed). Offset
-    // by all three: board's own top padding, bus's real height, and the
-    // flex gap between bus and deck, so a free unit's top edge lands
-    // just below bus instead of underneath/behind it.
-    const boardCs = getComputedStyle(board);
-    const boardGap = parseFloat(boardCs.rowGap || boardCs.gap || '0') || 0;
-    const boardPaddingTop = parseFloat(boardCs.paddingTop || '0') || 0;
-    const yOffset = boardPaddingTop + bus.offsetHeight + boardGap;
-    const computed = new Map<string, { left: number; top: number }>();
-    for (const [id, pos] of raw) computed.set(id, { left: pos.left, top: pos.top + yOffset });
-    freeze(computed);
-    return true;
   }
 
   /** Free-layout collision resolution (owner: "patch nodes can't
@@ -2181,9 +2075,10 @@ export function createPatchBayView(
     const title = f.querySelector<HTMLElement>('.rw-pb-field-title');
     if (title) makeUnitDraggable(f, title);
   }
-  // `bus` (the SOURCES strip) is deliberately NOT made draggable/
-  // breakout-able here — it's a pinned utility strip above the flow,
-  // not a signal-flow node (see `allUnits()`'s own doc comment).
+  {
+    const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
+    if (busTitle) makeUnitDraggable(bus, busTitle);
+  }
   // GRAPH ENGINE — one module per graph node in the patch, full stop
   // (owner: "show all nodes, active or not" — a real node-editor
   // surface, not a filtered activity view). A node with no connections
@@ -2323,7 +2218,6 @@ export function createPatchBayView(
       if (!mod) {
         mod = document.createElement('div');
         mod.className = 'rw-pb-graphnode';
-        mod.dataset.pbUnitId = nodeId;
         head = document.createElement('div');
         head.className = 'rw-pb-module-head';
         // Mute LED, same convention as a FUNCTION GENERATOR module's own
@@ -2858,24 +2752,6 @@ export function createPatchBayView(
   function frame(t: number): void {
     requestAnimationFrame(frame);
     if (!root.isConnected || !ctx) return;
-    // One-shot default-layout bootstrap: `computeDefaultLayout` needs
-    // real measured {width,height}, which read 0 before `root` is
-    // connected to the document — the constructor builds everything
-    // synchronously before the workspace shell appends it. The first
-    // rAF tick where `root.isConnected` is true is guaranteed to be
-    // after a real layout pass, so this is the same "wait for connected"
-    // idiom the isConnected guard above already uses for the same class
-    // of problem — no new observer/callback needed.
-    if (!defaultLayoutApplied) {
-      // Only latch the flag on an actual success — the very first
-      // connected frame can still measure zero-sized units (e.g. this
-      // view isn't the active workspace tab yet), and bailing out
-      // permanently on that transient moment would mean the bay never
-      // gets its default layout for the rest of the session. Retry
-      // every frame (cheap — a handful of offsetWidth reads) until
-      // `applyDefaultLayoutIfFresh` actually measures real geometry.
-      defaultLayoutApplied = applyDefaultLayoutIfFresh();
-    }
     const dt = (t - lastT) / 1000;
     lastT = t;
     if (!reduceMotion) dashOffset += dt * 24;
@@ -3112,12 +2988,24 @@ export function createPatchBayView(
         fixed = graphNodeJacks.get(pending.sourceKey);
         color = pending.hover?.kind === 'param' ? GRAPH_COLOR : NODE_WIRE_COLOR;
       }
+      // Every Pending variant has `.hover` — non-null means the cursor
+      // is currently snapped to a valid candidate (accepting); null
+      // means it's floating over empty space (nothing to drop on
+      // here). Same data `setHover`'s per-kind coloring already reads —
+      // no new detection, just two more visual channels for it (the
+      // cable's own gradient, and the cursor graphic).
+      const accepting = pending.hover != null;
+      root.classList.toggle('rw-pb-cursor-accept', accepting);
+      root.classList.toggle('rw-pb-cursor-reject', !accepting);
       const a = anchor(fixed);
       if (a) {
         drawPatchCable(ctx, local(a), local(pending.pos), color, {
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,
+          gradientEnd: accepting ? CABLE_ACCEPT_COLOR : CABLE_REJECT_COLOR,
         });
       }
+    } else {
+      root.classList.remove('rw-pb-cursor-accept', 'rw-pb-cursor-reject');
     }
 
     for (const [key, el] of paramJacks) {

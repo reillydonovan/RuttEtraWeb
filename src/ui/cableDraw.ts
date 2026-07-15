@@ -160,6 +160,16 @@ export interface CableDrawOpts {
   dashed?: boolean;
   /** Extra alpha dim for disabled routings (rack: muted slot). */
   dim?: boolean;
+  /**
+   * Fade the stroke toward this color at the `b` end (a linear gradient
+   * along the cable, `color` at `a` -> `gradientEnd` at `b`) — the
+   * in-progress drag rubber-band uses this to show, right on the cable
+   * itself, whether wherever the cursor currently is would accept the
+   * drop (fades toward an "accept" tint) or not (fades toward a
+   * "reject" tint), layered on top of the jack's own hover highlight
+   * rather than replacing it.
+   */
+  gradientEnd?: string;
 }
 
 /**
@@ -232,7 +242,18 @@ export function drawPatchCable(
     tracePath();
     ctx.stroke();
   }
-  ctx.strokeStyle = color;
+  // Gradient along the cable toward `gradientEnd` (the drag rubber-
+  // band's accept/reject tint) — the glow (`shadowColor`) stays the
+  // solid base `color` since a gradient shadow reads muddy at this
+  // size; only the stroke itself fades.
+  if (opts.gradientEnd) {
+    const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, opts.gradientEnd);
+    ctx.strokeStyle = grad;
+  } else {
+    ctx.strokeStyle = color;
+  }
   ctx.shadowColor = color;
   ctx.shadowBlur = opts.highlight ? 14 : opts.selected ? 12 : opts.hovered ? 9 : 6;
   ctx.lineWidth = opts.highlight ? 3 : opts.selected ? 3 : opts.hovered ? 2.5 : 2;

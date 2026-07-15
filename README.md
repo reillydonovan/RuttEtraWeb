@@ -25,10 +25,15 @@ npm run build
 
 ---
 
-## Recent changes (v1.22.0, July 2026 — Patch Bay cable states + default left-to-right layout)
+## Recent changes (v1.23.0, July 2026 — cable accept/reject gradient + custom cursors)
+
+- **Cable accept/reject gradient** — the cable being dragged now fades toward white as it nears a valid drop target, or toward red while floating over empty space with nothing to snap to, layered right on top of the jack's own per-kind hover glow (not a replacement for it).
+- **Custom cursor graphics throughout the Patch Bay** — every native browser `grab`/`grabbing` cursor is replaced with a small on-theme glyph: a move-cross for panning the board or dragging a module, a plug ring/filled-circle pair for idle/dragging jacks, and a checkmark/slash pair for whether a drag is currently over something it can connect to.
+- The default left-to-right layout experiment from the previous round was tried, then reverted per owner feedback — the Patch Bay's default layout is the classic stacked list again, with TIDY/FREE as the only toggle (no ARRANGE button).
+
+## Recent changes (v1.22.0, July 2026 — Patch Bay cable states)
 
 - **Cable and jack visual states** — resting cables/jacks now support idle hover (a soft glow, plus a delayed tooltip), click-to-select (a bright outline you can toggle by clicking elsewhere), and a drag-time preview: dragging a cable colors the candidate jacks it could snap to in the color the resulting connection would actually be (green for Function Generator cables, cyan for graph bindings, amber for node-to-node wires, purple for video routing) instead of one flat highlight, with a delayed tooltip naming what dropping there does. Dropping a plugged cable in empty space unplugs it (an OUT jack's cable does nothing, since one output can feed many connections).
-- **Default freeform left-to-right layout** — a fresh Patch Bay now opens already arranged by signal flow: generators (Function Generators, Video Source A/B, unwired graph nodes) on the left, the compositing/shaping stage next, the Renderer as the sink, then every faceplate field group on the right — TouchDesigner/ComfyUI/Blender-node-editor style. TIDY stays available as a fallback to the classic stacked list, and a new **ARRANGE** button re-runs the default layout on demand to recover a clean view after rearranging things by hand.
 
 - **Fixed a real Pattern Generator wiring bug** — dragging a Function Generator's cable onto a Pattern Generator param (Brightness, Frequency, etc.) silently did nothing. Root cause: the general faceplate still had a leftover AUXILIARY catch-all copy of every `patternXxx` param (from before those params got their own dedicated jacks on the Pattern Generator module), and two `addParamCell` calls for the same key silently steal each other's jack registration — the faceplate's copy was winning, so the Pattern Generator's own visible jack wasn't actually the one being dragged onto. The faceplate now excludes pattern-owned keys entirely; one authoritative jack per param.
 - **Pattern Generator live preview** — the module's own expandable monitor now shows the raw pattern actually being generated (before compositing with video), the same style as the Video Source/Renderer previews. `PatternRenderer` reads back a small offscreen copy only while the preview is expanded, so it costs nothing collapsed.
