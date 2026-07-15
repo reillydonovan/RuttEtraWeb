@@ -66,6 +66,9 @@ export const TARGETS: TargetOption[] = [
   // breathe, an audio envelope on `patternBrightness` flashes a checker,
   // a clock on `patternMix` chops the layer in/out at tempo.
   { v: 'patternMix',          l: 'Pattern: Mix' },
+  // Video Source A/B Composite node (Patch Bay) — same "wet/dry" role
+  // as patternMix, one layer earlier in the chain.
+  { v: 'videoCompositeMix',   l: 'Video Composite: Mix' },
   { v: 'patternBrightness',   l: 'Pattern: Brightness' },
   { v: 'patternContrast',     l: 'Pattern: Contrast' },
   { v: 'patternFrequency',    l: 'Pattern: Frequency' },

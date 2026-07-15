@@ -77,8 +77,14 @@ const MD_QUICKSTART = `
 > node editor: scroll to zoom, click-drag empty background to pan, drag
 > a module's header to reorder or break it into free layout. The four
 > Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
-> jacks, a VIDEO SOURCE module switches the same webcam/screen/file
-> source as the Source panel, and every parameter is a labeled jack in
+> jacks, VIDEO SOURCE A/B modules switch webcam/screen/file feeds (A
+> mirrors the Source panel; B is independent), each with an OUT jack —
+> drag both onto a COMPOSITE module's two inputs (Add/Subtract/
+> Multiply/Screen/Difference/Mask/Crossfade/B-only + mix) and its OUT
+> onto RENDERER's IN to blend two sources into the mesh's video input.
+> RENDERER IN shows no cable while unplugged — it silently normals to
+> Source A, exactly the pre-existing single-source behavior. And every
+> parameter is a labeled jack in
 > the original console's engraved groups with a **rotary knob** and an
 > editable value field under it (drag vertically, Shift = fine) — run
 > the whole synth from the bay without Controls open. While modulation

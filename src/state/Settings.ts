@@ -222,6 +222,7 @@ export type ModTarget =
   // (kind, blend mode, axis, scope source kind/ref) are NOT here — those
   // are categorical and don't sum sensibly.
   | 'patternMix'
+  | 'videoCompositeMix'
   | 'patternBrightness' | 'patternContrast'
   | 'patternFrequency'  | 'patternPhase'
   | 'patternScale'      | 'patternThickness'
@@ -627,6 +628,29 @@ export interface Settings {
   // ---------- Source ----------
   sourceKind: 'webcam' | 'file' | 'screen' | 'stream' | 'none';
   deviceId: string;
+  // ---------- Video Source B + Composite (v33) ----------
+  /** A second, independent video source (Patch Bay only) — lets the
+   *  Composite node blend two feeds (e.g. a file over a webcam). Same
+   *  shape as `sourceKind` minus 'stream' (matches what the Patch
+   *  Bay's VIDEO SOURCE module itself exposes: WEBCAM/SCREEN/FILE). */
+  sourceBKind: 'webcam' | 'file' | 'screen' | 'none';
+  /** The Patch Bay's RENDERER IN jack: which signal feeds the DCU.
+   *  'sourceA' is the pre-existing single-source behavior, byte for
+   *  byte — nothing about rendering changes until this is patched
+   *  to something else. An unplugged cable "normals" back to
+   *  'sourceA', same convention as a real Eurorack jack. */
+  videoRendererIn: 'sourceA' | 'sourceB' | 'composite';
+  /** The Composite node's two inputs — which source (or none) feeds
+   *  each side of the blend. Order matters for asymmetric modes
+   *  (subtract, mask). */
+  videoCompositeInA: 'sourceA' | 'sourceB' | 'none';
+  videoCompositeInB: 'sourceA' | 'sourceB' | 'none';
+  /** Reuses the Pattern Generator's 8 blend modes — the same math,
+   *  applied to two video signals instead of pattern+video. */
+  videoCompositeBlendMode: PatternBlendMode;
+  /** 0..1, modulatable — wet/dry between input A alone and the full
+   *  blend, same convention as `patternMix`. */
+  videoCompositeMix: number;
   mirrorH: boolean;
   mirrorV: boolean;
   requestedWidth: number;
@@ -1227,6 +1251,12 @@ export const DEFAULT_SPECTRUM: AudioSpectrumRouting = {
 export const DEFAULTS: Settings = {
   sourceKind: 'none',
   deviceId: '',
+  sourceBKind: 'none',
+  videoRendererIn: 'sourceA',
+  videoCompositeInA: 'sourceA',
+  videoCompositeInB: 'sourceB',
+  videoCompositeBlendMode: 'crossfade',
+  videoCompositeMix: 0.5,
   mirrorH: true,
   mirrorV: true,
   requestedWidth: 640,
@@ -1486,7 +1516,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 32;
+const CURRENT_VERSION = 33;
 
 interface Versioned { _v?: number }
 
@@ -2108,6 +2138,20 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.mcpBridgeUrl = (s.mcpBridgeUrl as string | undefined) ?? 'ws://localhost:57132';
     s.mcpAutoConnect = (s.mcpAutoConnect as boolean | undefined) ?? false;
     s._v = 32;
+  }
+
+  // v32 -> v33: Video Source B + Composite node (Patch Bay). Plain
+  // defaults, idempotent. `videoRendererIn` defaulting to 'sourceA' is
+  // the whole safety story here — every existing session renders
+  // byte-for-byte the same until a cable is dragged in the bay.
+  if ((s._v ?? 1) < 33) {
+    s.sourceBKind = (s.sourceBKind as Settings['sourceBKind'] | undefined) ?? 'none';
+    s.videoRendererIn = (s.videoRendererIn as Settings['videoRendererIn'] | undefined) ?? 'sourceA';
+    s.videoCompositeInA = (s.videoCompositeInA as Settings['videoCompositeInA'] | undefined) ?? 'sourceA';
+    s.videoCompositeInB = (s.videoCompositeInB as Settings['videoCompositeInB'] | undefined) ?? 'sourceB';
+    s.videoCompositeBlendMode = (s.videoCompositeBlendMode as PatternBlendMode | undefined) ?? 'crossfade';
+    s.videoCompositeMix = (s.videoCompositeMix as number | undefined) ?? 0.5;
+    s._v = 33;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

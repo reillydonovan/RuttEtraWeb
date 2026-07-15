@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.18.0, July 2026 — Video Source A/B Composite)
+
+- **Composite two video sources into the render output** — a second, fully independent **Video Source B** (webcam/screen/file, its own picker and live preview) joins the existing source, plus a **Composite** node in the Patch Bay with two video inputs and the same 8 blend modes the Pattern Generator already uses (Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade, B-only) and a wet/dry mix. Drag Video Source A's OUT jack and Video Source B's OUT jack onto Composite's two inputs, then Composite's OUT onto the new **Renderer** module's IN jack, and the blended feed becomes the mesh's video input — a file layered over a webcam, screen-share crossfaded with a camera, whatever two feeds you want to combine. Nothing changes for existing sessions until you actually drag a cable: the Renderer's IN jack defaults ("normals," in Eurorack terms) straight to Video Source A, byte-for-byte the same as before. Settings schema v33.
+
 ## Recent changes (v1.17.0, July 2026 — MCP remote control, popout windows, patch tutorial, bay previews)
 
 - **MCP remote control** — drive the entire synth from any MCP client (Claude Desktop, Claude Code, ...): `tools/mcp-server/` hosts a local stdio↔WebSocket bridge; the browser connects out to it from the new **I/O → MCP** section (opt-in, like every I/O route). Tools cover every modulatable parameter (`list/get/set_param` with ranges from the param docs), every registered app command (`list/run_action` — save, load sample patches, layout presets, tutorials...), the whole modulation graph (`get/set_graph_patch`, `add_graph_node`, `list_node_types`), arbitrary settings reads, and PNG **screenshots** of the output. The surface rides the app's own registries, so it grows automatically as params/actions/nodes are added. Settings schema v32.
@@ -532,6 +536,7 @@ src/
 ├── input/sources.ts            webcam / screen / file source manager
 ├── renderer/
 │   ├── RuttEtra.ts             scene, LineSegments grid, ShaderMaterial, spectrum DataTexture
+│   ├── VideoCompositor.ts      v1.18: Video Source A/B blend pass (reuses the pattern compositor shader)
 │   ├── CameraRig.ts            Orbit + Fly modes, FOV, reset/save view
 │   ├── Postfx.ts               EffectComposer: feedback, bloom, CRT pass
 │   ├── ResolutionManager.ts    centralizes renderer / postfx / pattern RT sizing + canvas fit

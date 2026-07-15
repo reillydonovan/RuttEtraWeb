@@ -20,6 +20,7 @@ import { CameraRig } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
 import { ResolutionManager } from './renderer/ResolutionManager';
 import { PatternRenderer } from './renderer/patterns/PatternRenderer';
+import { VideoCompositor } from './renderer/VideoCompositor';
 import { PatternSignalBus } from './renderer/patterns/PatternSignalBus';
 import type { OscilloscopeBuffer } from './renderer/patterns/OscilloscopeBuffer';
 import { VideoTap } from './modulation/graph/VideoTap';
@@ -119,6 +120,33 @@ async function bootSynth(): Promise<void> {
 
   const source = new VideoSourceManager(video);
 
+  // Video Source B (v1.18) — a second independent source for the Patch
+  // Bay's Composite node (owner: "like a file and a camera feed").
+  // `VideoSourceManager` is instance-based (own element, own state), so
+  // a second instance is a clean construction — no singleton to fight.
+  // Created off the DOM tree Vite renders from (no index.html change);
+  // hidden and appended so autoplay/getUserMedia behave the same as
+  // the primary `#src-video` element.
+  const videoB = document.createElement('video');
+  videoB.muted = true;
+  videoB.playsInline = true;
+  videoB.autoplay = true;
+  videoB.style.display = 'none';
+  document.body.appendChild(videoB);
+  const sourceB = new VideoSourceManager(videoB);
+  let videoBTexture: THREE.VideoTexture | null = null;
+  const attachVideoB = (): void => {
+    if (videoBTexture) { videoBTexture.dispose(); videoBTexture = null; }
+    const tex = new THREE.VideoTexture(videoB);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.format = THREE.RGBAFormat;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.generateMipmaps = false;
+    videoBTexture = tex;
+  };
+  videoB.addEventListener('loadedmetadata', attachVideoB);
+
   // Single shared "base + mod" router. Built before anything that
   // subscribes to modulatable params so renderer code can register
   // against `liveValues` from the very first frame. The store mirrors
@@ -157,6 +185,12 @@ async function bootSynth(): Promise<void> {
     renderer, settings, liveValues, ruttEtra, patternSignalBus,
     window.innerWidth, window.innerHeight,
   );
+
+  // Video Source A/B Composite (v1.18) — see VideoCompositor.ts. Sized
+  // from the sources' own native video dimensions, independent of
+  // render resolution, so it needs no ResolutionManager involvement.
+  const videoCompositor = new VideoCompositor(renderer, settings, liveValues);
+  let videoCompositeBoundExternal = false;
   // Restore the live video binding when the user disables the layer.
   settings.subscribe('patternEnabled', (enabled) => {
     if (!enabled) patternRenderer.bypass();
@@ -732,7 +766,7 @@ async function bootSynth(): Promise<void> {
     const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
     // Factory: the bay is multi-instance — every window that tabs it
     // gets its own independent instance (all reading the same Settings).
-    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine));
+    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own
@@ -1700,12 +1734,38 @@ async function bootSynth(): Promise<void> {
     }
     lastDraw = now;
 
+    // Video Source A/B Composite (v1.18): resolves this frame's DCU
+    // video input per the Patch Bay's RENDERER IN wiring. `null` means
+    // "use the live source A texture as-is" — the default, zero-cost,
+    // byte-for-byte unchanged behavior (videoRendererIn: 'sourceA').
+    // Runs BEFORE the Pattern Generator so pattern always layers on top
+    // of the composited feed, not the raw source — coexistence, not a
+    // second independent override fighting over the same uniform.
+    // "Active" is real video readiness (readyState >= HAVE_CURRENT_DATA),
+    // not the `sourceKind`/`sourceBKind` label — those are just the last
+    // switch a user made and can transiently (or, before this feature,
+    // permanently for a Patch-Bay-only pick — see mkVideoSourceModule's
+    // comment) disagree with whether the element actually has a frame.
+    // Same convention the bay's own preview monitors already use.
+    const composedVideo = videoCompositor.resolveVideoInput(
+      ruttEtra.videoTexture, video.readyState >= 2,
+      videoBTexture, videoB.readyState >= 2,
+      video.videoWidth, video.videoHeight, videoB.videoWidth, videoB.videoHeight,
+    );
+
     // Pattern Generator: render the synthesized layer + composite with
-    // the live video texture, then bind the result as the DCU's input.
-    // No-op when disabled — the live VideoTexture stays bound from
-    // RuttEtraScene.attachVideo().
+    // the (possibly A/B-composited) video texture, then bind the
+    // result as the DCU's input. No-op when disabled — whatever the
+    // composite step above bound (or the live VideoTexture from
+    // RuttEtraScene.attachVideo() when neither is active) stays bound.
     if (settings.get('patternEnabled')) {
-      patternRenderer.tick(t, dt, ruttEtra.videoTexture);
+      patternRenderer.tick(t, dt, composedVideo?.texture ?? ruttEtra.videoTexture);
+    } else if (composedVideo) {
+      ruttEtra.setExternalVideoTexture(composedVideo.texture, composedVideo.width, composedVideo.height);
+      videoCompositeBoundExternal = true;
+    } else if (videoCompositeBoundExternal) {
+      ruttEtra.attachVideo();
+      videoCompositeBoundExternal = false;
     }
 
     // Stereo recording: the offscreen compositor runs its own

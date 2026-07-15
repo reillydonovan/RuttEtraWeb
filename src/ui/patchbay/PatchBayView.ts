@@ -40,7 +40,7 @@
 
 import './patchbay.css';
 import '../graph/graph.css';
-import type { Settings, SettingsStore, ModSlot, ModTarget, ModSource } from '../../state/Settings';
+import type { Settings, SettingsStore, ModSlot, ModTarget, ModSource, PatternBlendMode } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import { getDef } from '../../modulation/graph/registry';
@@ -65,7 +65,17 @@ const CLASSIC_COLOR   = '#5fff85';
 const SOURCE_COLOR    = '#b9ffd0';
 const GRAPH_COLOR     = '#5fffd0';
 const NODE_WIRE_COLOR = '#ffb347';
+const VIDEO_COLOR     = '#c85fff';
 const SNAP_PX = 26;
+
+/** Fixed set of video-routing endpoints — Source A/B OUT, Composite's
+ *  two INs and one OUT, and the Renderer's one IN. Unlike the
+ *  modulation graph's per-node jacks this set never grows, so it's a
+ *  literal union rather than a dynamic key scheme. */
+type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out';
+type VideoInKey = 'composite-inA' | 'composite-inB' | 'renderer-in';
+type VideoJackKey = VideoOutKey | VideoInKey;
+type VideoSourceId = 'sourceA' | 'sourceB' | 'composite';
 
 /** Classic waveform sources ↔ graph enum options (LFO `shape`). Lets
  *  the SOURCES bus jacks plug into a node's shape param — drag TRI onto
@@ -115,6 +125,7 @@ export function createPatchBayView(
   settings: SettingsStore,
   source: VideoSourceManager,
   getEngine: () => Promise<GraphEngine>,
+  sourceB: VideoSourceManager,
 ): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
@@ -169,6 +180,13 @@ export function createPatchBayView(
    *  declared input port name) — populated in rebuildGraphModules
    *  alongside the OUT-jack `graphNodeJacks` (declared closer to it). */
   const graphInputJacks = new Map<string, HTMLElement>();
+  /** Video routing jacks (owner: "video source should have an output
+   *  node and the renderer an input node and there should be a
+   *  composite node"). Keyed by fixed endpoint id — only 6 exist, so
+   *  (unlike the modulation graph's dynamic node jacks) this is a
+   *  small closed set, wired through `videoRendererIn`/
+   *  `videoCompositeInA`/`videoCompositeInB` (see applyVideoWire). */
+  const videoJacks = new Map<VideoJackKey, HTMLElement>();
 
   function makeJack(cls: string): HTMLElement {
     const j = document.createElement('span');
@@ -185,7 +203,9 @@ export function createPatchBayView(
     | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: string | null }
     | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: GraphOutHover }
     | { kind: 'to-paramout'; paramKey: string; pos: Pt; hover: GraphOutHover }
-    | { kind: 'to-shapesrc'; nodeId: string; param: string; pos: Pt; hover: ModSource | null };
+    | { kind: 'to-shapesrc'; nodeId: string; param: string; pos: Pt; hover: ModSource | null }
+    | { kind: 'to-videoin'; outKey: VideoOutKey; pos: Pt; hover: VideoInKey | null }
+    | { kind: 'to-videoout'; inKey: VideoInKey; pos: Pt; hover: VideoOutKey | null };
   /** An OUT jack can land on another node's IN jack (wire) OR a faceplate
    *  param jack (binding) — see dragGraphOut / dragParamOut. */
   type GraphOutHover = { kind: 'in'; key: string } | { kind: 'param'; key: string } | null;
@@ -237,6 +257,90 @@ export function createPatchBayView(
   function setHover<K>(m: Map<K, HTMLElement>, prev: K | null, next: K | null): void {
     if (prev !== null && prev !== undefined) m.get(prev)?.classList.remove('rw-rack-jack--hover');
     if (next !== null && next !== undefined) m.get(next)?.classList.add('rw-rack-jack--hover');
+  }
+
+  // ---------------- video routing (Source A/B → Composite → Renderer) --
+  // A small closed patch, not the dynamic modulation graph: exactly 3
+  // OUT endpoints (Source A, Source B, Composite) and 3 IN endpoints
+  // (Composite's two inputs, Renderer). `videoOutSourceFor`/
+  // `validInTargetsFor` encode the only two structural rules — a
+  // source can feed either Composite input or go straight to Renderer,
+  // but Composite's own output can only reach Renderer (no self-loop).
+  function videoOutSourceFor(key: VideoOutKey): VideoSourceId {
+    return key === 'sourceA-out' ? 'sourceA' : key === 'sourceB-out' ? 'sourceB' : 'composite';
+  }
+  function validInTargetsFor(outKey: VideoOutKey): VideoInKey[] {
+    return outKey === 'composite-out'
+      ? ['renderer-in']
+      : ['composite-inA', 'composite-inB', 'renderer-in'];
+  }
+  function validOutSourcesFor(inKey: VideoInKey): VideoOutKey[] {
+    return (['sourceA-out', 'sourceB-out', 'composite-out'] as VideoOutKey[])
+      .filter((ok) => validInTargetsFor(ok).includes(inKey));
+  }
+  /** Current source feeding an IN endpoint, read from Settings.
+   *  `renderer-in` normals to 'sourceA' (never 'none' — the DCU always
+   *  needs SOME video input, same as an unplugged real Eurorack jack
+   *  falling back to its normal connection). */
+  function currentVideoSourceFor(inKey: VideoInKey): VideoSourceId | 'none' {
+    if (inKey === 'renderer-in') return settings.get('videoRendererIn');
+    if (inKey === 'composite-inA') return settings.get('videoCompositeInA');
+    return settings.get('videoCompositeInB');
+  }
+  /** Write an IN endpoint's source. `null` = unplug: Composite inputs
+   *  go to 'none' (silent/black, matching `uHasVideo`'s existing
+   *  "no source" convention); Renderer IN normals back to 'sourceA'
+   *  (the pre-existing default — never a silent NEW behavior). */
+  function applyVideoWire(inKey: VideoInKey, source: VideoSourceId | null): void {
+    if (inKey === 'renderer-in') {
+      settings.set('videoRendererIn', source ?? 'sourceA');
+    } else if (inKey === 'composite-inA') {
+      settings.set('videoCompositeInA', source === 'composite' ? 'none' : source ?? 'none');
+    } else {
+      settings.set('videoCompositeInB', source === 'composite' ? 'none' : source ?? 'none');
+    }
+  }
+
+  /** Drag a video OUT jack (Source A/B, Composite) toward a compatible
+   *  IN jack. Reverse of dragVideoIn; either end works, same
+   *  bidirectional convention as every other cable in this app. */
+  function dragVideoOut(ev: PointerEvent, outKey: VideoOutKey, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-videoin', outKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const candidates = validInTargetsFor(outKey);
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const cand = new Map(candidates.map((k) => [k, videoJacks.get(k)!] as const));
+        const hit = nearestJack(centersOf(cand), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+      },
+      () => {
+        setHover(videoJacks, p.hover, null);
+        pending = null;
+        if (p.hover) applyVideoWire(p.hover, videoOutSourceFor(outKey));
+      });
+  }
+
+  /** Drag a video IN jack (Composite's two inputs, Renderer) toward a
+   *  compatible OUT jack — or drop in space to unplug (Composite input
+   *  → 'none'; Renderer IN normals back to Source A). */
+  function dragVideoIn(ev: PointerEvent, inKey: VideoInKey, jack: HTMLElement): void {
+    const p: Pending = { kind: 'to-videoout', inKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const candidates = validOutSourcesFor(inKey);
+    runGesture(ev, jack,
+      (pos) => {
+        p.pos = pos;
+        const cand = new Map(candidates.map((k) => [k, videoJacks.get(k)!] as const));
+        const hit = nearestJack(centersOf(cand), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) { setHover(videoJacks, p.hover, hit?.id ?? null); p.hover = hit?.id ?? null; }
+      },
+      () => {
+        setHover(videoJacks, p.hover, null);
+        pending = null;
+        applyVideoWire(inKey, p.hover ? videoOutSourceFor(p.hover) : null);
+      });
   }
 
   function dragSlotOut(ev: PointerEvent, slotIndex: number, jack: HTMLElement): void {
@@ -612,20 +716,19 @@ export function createPatchBayView(
     bayPreviews.push({ canvas: cv, expanded: () => open, src });
   }
 
-  // VIDEO SOURCE module — the same `VideoSourceManager` instance Controls
-  // uses, so switching here (or there) is the SAME state, not a mirror:
-  // no separate "patch bay video source" concept to fall out of sync.
-  // No jack (it feeds the mesh upstream of everything patchable here,
-  // same reasoning `cols`/`scanRate` stay off the modulation TARGETS
-  // list — a one-shot device/stream choice, not a continuous signal).
-  {
+  // VIDEO SOURCE A/B modules — the same `VideoSourceManager` instances
+  // Controls (A) / the bay alone (B) use, so switching here is the SAME
+  // state, not a mirror. Each gets an OUT jack (owner: "the video
+  // source should have an output node") — drag it onto the Composite
+  // node's IN A/B or straight onto RENDERER IN to bypass compositing.
+  function mkVideoSourceModule(title: string, mgr: VideoSourceManager, outKey: VideoOutKey, kindKey: 'sourceKind' | 'sourceBKind'): void {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
-    const title = document.createElement('span');
-    title.textContent = 'VIDEO SOURCE';
-    head.append(title);
+    const titleEl = document.createElement('span');
+    titleEl.textContent = title;
+    head.append(titleEl);
     const lcdRow = document.createElement('div');
     lcdRow.className = 'rw-pb-row';
     const lcd = document.createElement('span');
@@ -643,28 +746,179 @@ export function createPatchBayView(
       btnRow.appendChild(b);
       return b;
     };
-    mkBtn('WEBCAM', 'Switch to the default webcam.', () => { void source.useWebcam(); });
-    mkBtn('SCREEN', 'Switch to a screen/window/tab share.', () => { void source.useScreen(); });
+    // Mirrors the boot overlay's own WEBCAM/SCREEN/FILE handlers
+    // (main.ts) — `VideoSourceManager` itself has no Settings
+    // connection (it's a plain instance, no `settings` in its
+    // constructor), so every call site that switches a source is
+    // responsible for also recording the choice. This was a real gap
+    // for Source A specifically: the bay's buttons switched the feed
+    // but never wrote `sourceKind`, so anything gating on it (the
+    // welcome-overlay dismissal, this feature's own composite "active"
+    // check before it was changed to read `video.readyState` instead)
+    // silently disagreed with what the LCD showed.
+    const setKind = (v: 'webcam' | 'screen' | 'file'): void => {
+      if (kindKey === 'sourceKind') settings.set('sourceKind', v);
+      else settings.set('sourceBKind', v);
+    };
+    // Await before recording the kind, same order as the boot overlay's
+    // own WEBCAM/SCREEN handlers — a denied permission or cancelled
+    // picker must NOT leave Settings claiming a source that isn't
+    // actually live (principle 3: no state claimed that isn't real).
+    // .catch swallows a denied/cancelled permission prompt — the LCD
+    // and Settings simply stay at whatever they were (no error banner
+    // here; the boot overlay's bootErr() is that surface, not this).
+    mkBtn('WEBCAM', 'Switch to the default webcam.', () => { void mgr.useWebcam().then(() => setKind('webcam')).catch(() => {}); });
+    mkBtn('SCREEN', 'Switch to a screen/window/tab share.', () => { void mgr.useScreen().then(() => setKind('screen')).catch(() => {}); });
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'video/*';
     fileInput.style.display = 'none';
     fileInput.addEventListener('change', () => {
       const f = fileInput.files?.[0];
-      if (f) source.useFile(f);
+      if (f) { mgr.useFile(f); setKind('file'); }
       fileInput.value = '';
     });
     mkBtn('FILE', 'Load a local video file.', () => fileInput.click());
-    mod.append(head, lcdRow, btnRow, fileInput);
+    const outRow = document.createElement('div');
+    outRow.className = 'rw-pb-row rw-pb-row--out';
+    const outLabel = document.createElement('label');
+    outLabel.textContent = 'OUT';
+    const outJack = makeJack('rw-rack-jack--out');
+    outJack.addEventListener('pointerdown', (ev) => dragVideoOut(ev, outKey, outJack));
+    attachTooltip(outJack, `${title} OUT — this feed as a video signal. Drag onto COMPOSITE's A/B input, or straight onto RENDERER IN to bypass compositing.`);
+    outRow.append(outLabel, outJack);
+    videoJacks.set(outKey, outJack);
+    mod.append(head, lcdRow, btnRow, fileInput, outRow);
     // Live monitor of the actual source feed — the SAME shared video
     // element the renderer's texture reads, drawn (not re-streamed), so
     // it works identically for webcam/screen/file/HLS.
     addPreviewRow(mod, 'Expand a live monitor of the incoming video signal.',
-      () => (source.video.readyState >= 2 ? source.video : null));
+      () => (mgr.video.readyState >= 2 ? mgr.video : null));
     rail.appendChild(mod);
-    source.subscribe((state) => {
+    mgr.subscribe((state) => {
       lcd.textContent = state.kind === 'none' ? 'NONE' : `${state.kind.toUpperCase()}: ${state.label || '—'}`;
     });
+  }
+  mkVideoSourceModule('VIDEO SOURCE A', source, 'sourceA-out', 'sourceKind');
+  mkVideoSourceModule('VIDEO SOURCE B', sourceB, 'sourceB-out', 'sourceBKind');
+
+  // COMPOSITE module — owner: "there should be a composite node with
+  // screen, add, mix, etc so I can composite two video sources." Two
+  // video INs (order matters for asymmetric modes — subtract, mask),
+  // the same 8 blend modes the Pattern Generator already offers (reused
+  // shader, see VideoCompositor.ts), a mix control, one video OUT.
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const title = document.createElement('span');
+    title.textContent = 'COMPOSITE';
+    head.append(title);
+    mod.appendChild(head);
+
+    const mkInRow = (label: string, inKey: VideoInKey): void => {
+      const row = document.createElement('div');
+      row.className = 'rw-pb-row';
+      const jack = makeJack('rw-rack-jack--in');
+      jack.addEventListener('pointerdown', (ev) => dragVideoIn(ev, inKey, jack));
+      attachTooltip(jack, () => {
+        const cur = currentVideoSourceFor(inKey);
+        const name = cur === 'sourceA' ? 'Video Source A' : cur === 'sourceB' ? 'Video Source B' : null;
+        return name
+          ? `Composite ${label} — patched from ${name}. Drag to move, drop in space to unplug.`
+          : `Composite ${label} — drag a Source A/B OUT here to patch it.`;
+      });
+      const l = document.createElement('label');
+      l.textContent = label;
+      row.append(jack, l);
+      mod.appendChild(row);
+      videoJacks.set(inKey, jack);
+    };
+    mkInRow('A', 'composite-inA');
+    mkInRow('B', 'composite-inB');
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'rw-pb-row';
+    const modeLabel = document.createElement('label');
+    modeLabel.textContent = 'blend';
+    const modeSel = document.createElement('select');
+    modeSel.className = 'rw-select';
+    const BLEND_LABELS: Record<PatternBlendMode, string> = {
+      replace: 'B only', add: 'Add', subtract: 'Subtract', multiply: 'Multiply',
+      screen: 'Screen', difference: 'Difference', mask: 'Mask (B luma keys A)', crossfade: 'Crossfade',
+    };
+    for (const [val, lbl] of Object.entries(BLEND_LABELS)) {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = lbl;
+      modeSel.appendChild(o);
+    }
+    modeSel.value = settings.get('videoCompositeBlendMode');
+    modeSel.addEventListener('change', () => settings.set('videoCompositeBlendMode', modeSel.value as PatternBlendMode));
+    attachTooltip(modeSel, 'How A and B combine — the same 8 modes the Pattern Generator uses, applied to two video signals.');
+    modeRow.append(modeLabel, modeSel);
+    mod.appendChild(modeRow);
+    settings.subscribe('videoCompositeBlendMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+
+    const mixRow = document.createElement('div');
+    mixRow.className = 'rw-pb-row';
+    const mixLabel = document.createElement('label');
+    mixLabel.textContent = 'mix';
+    const mixInput = document.createElement('input');
+    mixInput.type = 'number';
+    mixInput.min = '0'; mixInput.max = '1'; mixInput.step = '0.01';
+    mixInput.value = String(settings.get('videoCompositeMix'));
+    mixInput.addEventListener('input', () => {
+      const v = parseFloat(mixInput.value);
+      if (Number.isFinite(v)) writeParamValue('videoCompositeMix', v);
+    });
+    attachTooltip(mixInput, 'Wet/dry: 0 = A alone, 1 = the full blend. Also on the general faceplate (Pattern Generator group) with a live-value knob.');
+    mixRow.append(mixLabel, mixInput);
+    mod.appendChild(mixRow);
+    settings.subscribe('videoCompositeMix', (v) => { if (document.activeElement !== mixInput) mixInput.value = String(v); });
+
+    const outRow = document.createElement('div');
+    outRow.className = 'rw-pb-row rw-pb-row--out';
+    const outLabel = document.createElement('label');
+    outLabel.textContent = 'OUT';
+    const outJack = makeJack('rw-rack-jack--out');
+    outJack.addEventListener('pointerdown', (ev) => dragVideoOut(ev, 'composite-out', outJack));
+    attachTooltip(outJack, 'Composite OUT — the blended signal. Drag onto RENDERER IN to see it.');
+    outRow.append(outLabel, outJack);
+    videoJacks.set('composite-out', outJack);
+    mod.appendChild(outRow);
+
+    rail.appendChild(mod);
+  }
+
+  // RENDERER module — the sink (owner: "the renderer [should have] an
+  // input node"). Unplugged normals to Video Source A: the pre-existing
+  // single-source behavior, exactly, until this jack is actually
+  // patched (principle 5, coexistence — see VideoCompositor.ts).
+  {
+    const mod = document.createElement('div');
+    mod.className = 'rw-pb-module';
+    const head = document.createElement('div');
+    head.className = 'rw-pb-module-head';
+    const title = document.createElement('span');
+    title.textContent = 'RENDERER';
+    head.append(title);
+    mod.appendChild(head);
+    const row = document.createElement('div');
+    row.className = 'rw-pb-row';
+    const jack = makeJack('rw-rack-jack--in');
+    jack.addEventListener('pointerdown', (ev) => dragVideoIn(ev, 'renderer-in', jack));
+    attachTooltip(jack, () => {
+      const cur = settings.get('videoRendererIn');
+      const name = cur === 'sourceA' ? 'Video Source A (default)' : cur === 'sourceB' ? 'Video Source B' : 'the Composite node';
+      return `RENDERER IN — feeding from ${name}. Drag a Source/Composite OUT here to change it; drop in space to normal back to Source A.`;
+    });
+    const l = document.createElement('label');
+    l.textContent = 'IN';
+    row.append(jack, l);
+    mod.appendChild(row);
+    videoJacks.set('renderer-in', jack);
+    rail.appendChild(mod);
   }
 
   // RENDER PREVIEW module — output monitor for the bay (owner: "think
@@ -2143,6 +2397,35 @@ export function createPatchBayView(
       });
     }
 
+    // Video routing cables (Source A/B → Composite → Renderer) — a
+    // fixed 3-endpoint patch, drawn straight from Settings rather than
+    // a graph structure. `renderer-in` always resolves to something
+    // (never unplugged, per the "normals to Source A" convention).
+    const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'renderer-in'];
+    const usedVideoOuts = new Set<VideoOutKey>();
+    for (const inKey of VIDEO_IN_KEYS) {
+      if (pending?.kind === 'to-videoout' && pending.inKey === inKey) continue;
+      const src = currentVideoSourceFor(inKey);
+      // RENDERER IN's normal (sourceA, the default) draws no cable at
+      // all — a real Eurorack normal connection is invisible until you
+      // actually patch something else in; only a genuine choice (B or
+      // Composite) earns a visible cable.
+      const isNormalled = inKey === 'renderer-in' && src === 'sourceA';
+      const outKey: VideoOutKey | null = isNormalled ? null
+        : src === 'sourceA' ? 'sourceA-out' : src === 'sourceB' ? 'sourceB-out' : src === 'composite' ? 'composite-out' : null;
+      const inJack = videoJacks.get(inKey);
+      if (inJack) inJack.classList.toggle('rw-rack-jack--plugged', outKey !== null);
+      if (!outKey) continue;
+      usedVideoOuts.add(outKey);
+      const a = anchor(videoJacks.get(outKey));
+      const b = anchor(inJack);
+      if (!a || !b) continue;
+      drawPatchCable(ctx, local(a), local(b), VIDEO_COLOR, { style: 'sag', dashed: false });
+    }
+    for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out'] as VideoOutKey[]) {
+      videoJacks.get(outKey)?.classList.toggle('rw-rack-jack--plugged', usedVideoOuts.has(outKey));
+    }
+
     if (pending) {
       let fixed: HTMLElement | undefined;
       let color = CLASSIC_COLOR;
@@ -2168,6 +2451,12 @@ export function createPatchBayView(
       } else if (pending.kind === 'to-shapesrc') {
         fixed = shapeJacks.get(`${pending.nodeId}#${pending.param}`);
         color = SOURCE_COLOR;
+      } else if (pending.kind === 'to-videoin') {
+        fixed = videoJacks.get(pending.outKey);
+        color = VIDEO_COLOR;
+      } else if (pending.kind === 'to-videoout') {
+        fixed = videoJacks.get(pending.inKey);
+        color = VIDEO_COLOR;
       } else {
         fixed = graphNodeJacks.get(pending.sourceKey);
         color = NODE_WIRE_COLOR;

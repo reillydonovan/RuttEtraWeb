@@ -43,6 +43,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   patternKind:       { description: 'Which pattern generator to render: calibration (Solid/Gradient/Bars/Grid/Checker), waveform (Sine/Tri/Saw/Square/Pulse Bands, Lissajous, Spiral), noise (White/Perlin/Worley), or Oscilloscope.', panel: 'Pattern' },
   patternBlendMode:  { description: 'How the pattern composites with the video source: Replace, Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade.', panel: 'Pattern' },
   patternMix:        { description: 'Wet/dry between the unmodified video and the blended result. 0 = video only; 1 = full pattern blend.', range: '0..1', panel: 'Pattern' },
+  videoCompositeMix: { description: 'The Patch Bay Composite node’s wet/dry: 0 = input A alone, 1 = the full blend of A and B. Only has an effect once the Composite node is actually wired into RENDERER IN.', range: '0..1', panel: 'Source' },
   patternBrightness: { description: 'Master brightness applied to the generated pattern.', range: '0..1', panel: 'Pattern' },
   patternContrast:   { description: 'Contrast applied around 0.5 mid-gray; values >1 push toward black/white extremes.', range: '0..2', panel: 'Pattern' },
   patternFrequency:  { description: 'Cycles per frame for waveform / band patterns. Modulate with an LFO for animated stripes.', range: '0..64', panel: 'Pattern' },

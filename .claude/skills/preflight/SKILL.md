@@ -17,9 +17,22 @@ Run these in order; stop and report on the first failure:
 ## Invariant checklist (verify for the diff being committed)
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 32 as of v1.17.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 33 as of v1.18.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
+- **`VideoSourceManager` has NO Settings connection of its own** — it's
+  a plain instance (`video` element + internal state only). Every call
+  site that switches a source (`useWebcam`/`useScreen`/`useFile`) is
+  responsible for ALSO recording the choice in Settings
+  (`sourceKind`/`sourceBKind`) itself, AFTER awaiting success (a
+  denied/cancelled permission must not leave Settings claiming a live
+  source that isn't real). The Patch Bay's VIDEO SOURCE module missed
+  this for years before the Video Composite feature (v1.18.0) exposed
+  it — its buttons switched the feed but the LCD/Settings/`sourceKind`
+  disagreed with reality. If you add a new call site that switches a
+  video source, check it records the kind; if you need to know whether
+  a source is REALLY active, prefer `video.readyState >= 2` over
+  trusting the `sourceKind` label (same reasoning, defense in depth).
 - **Timeline schema**: same rule via `Timeline._v` (`src/sequencer/types.ts`)
   and the store's normalize path.
 - **Base/live split**: no modulation/automation code path may call
