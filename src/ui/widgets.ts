@@ -937,6 +937,154 @@ export function attachNumberStepper(input: HTMLInputElement): HTMLElement {
   return wrap;
 }
 
+/**
+ * Generic (non-Settings-bound) hardware-skin knob face, for a plain
+ * `{ get, set, min, max, step }` value — the same lightweight binding
+ * model `createMiniKnob` (`patchbay/miniKnob.ts`) already uses for the
+ * Patch Bay's jack cells, sized instead for a normal Controls-panel row
+ * (the `.rw-knob`/`.rw-knob-svg`/`.rw-knob-track`/`.rw-knob-fill`/
+ * `.rw-knob-cap`/`.rw-knob-ptr` classes `slider()`'s own knob face uses
+ * above in this file, at their real 44px size — NOT the Patch Bay's
+ * compact `.rw-pbknob*` classes, which would read as visually
+ * undersized next to every other knob in the same panel).
+ *
+ * Exists because `SlotRow.ts`'s hand-rolled fields (the Classic/Graph
+ * Beginner expandable rows' Amount slider, and every per-source-type
+ * param — LFO rate, Audio Band/Gain, Ramp phase, ...) only ever built a
+ * bare `<input type="range">` + `.rw-num` pair inside a `.rw-slider`
+ * wrapper. That's invisible under the hardware/rack skin: skin.css's
+ * `.rw-slider input[type="range"], .rw-slider .rw-num { display: none }`
+ * rule assumes EVERY `.rw-slider` has a matching `.rw-knob` face to
+ * show instead (the only face `slider()` itself ever builds) — a field
+ * with no knob at all just renders as an empty row (owner screenshot:
+ * the Beginner view's AMT slider, and Band/Gain, both blank under HW).
+ * `slider()`'s own knob-building code isn't reused directly because
+ * it's deeply coupled to Settings-specific concerns (range overrides,
+ * timeline auto-key, `toDisplay`) that none of these callers have —
+ * same "lighter cousin, not a fork of the heavy one" reasoning
+ * `createMiniKnob`'s own doc comment already gives for why IT exists
+ * as a separate copy rather than reusing `slider()`'s version either.
+ */
+export interface RawKnobOpts {
+  get(): number;
+  set(v: number): void;
+  min: number;
+  max: number;
+  step: number;
+  ariaLabel: string;
+}
+
+export interface RawKnob {
+  el: HTMLElement;
+  /** Re-read `get()` and update the pointer/fill. Cheap no-op when the
+   *  value hasn't changed since the last call. */
+  refresh(): void;
+}
+
+const RAW_KNOB_SWEEP = 270; // degrees of pot travel, -135°..+135°, 0° = up
+
+function rawKnobArcPath(r: number): string {
+  const pt = (deg: number): string => {
+    const a = (deg * Math.PI) / 180;
+    return `${(20 + r * Math.sin(a)).toFixed(3)} ${(20 - r * Math.cos(a)).toFixed(3)}`;
+  };
+  return `M ${pt(-RAW_KNOB_SWEEP / 2)} A ${r} ${r} 0 1 1 ${pt(RAW_KNOB_SWEEP / 2)}`;
+}
+
+export function createRawKnob(opts: RawKnobOpts): RawKnob {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = document.createElement('div');
+  el.className = 'rw-knob';
+  el.setAttribute('role', 'slider');
+  el.setAttribute('aria-orientation', 'vertical');
+  el.setAttribute('aria-label', opts.ariaLabel);
+  el.tabIndex = 0;
+
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 40 40');
+  svg.setAttribute('class', 'rw-knob-svg');
+  const track = document.createElementNS(svgNS, 'path');
+  track.setAttribute('d', rawKnobArcPath(17));
+  track.setAttribute('class', 'rw-knob-track');
+  const fill = document.createElementNS(svgNS, 'path');
+  fill.setAttribute('d', rawKnobArcPath(17));
+  fill.setAttribute('pathLength', String(RAW_KNOB_SWEEP));
+  fill.setAttribute('stroke-dasharray', `0 ${RAW_KNOB_SWEEP}`);
+  fill.setAttribute('class', 'rw-knob-fill');
+  const cap = document.createElementNS(svgNS, 'circle');
+  cap.setAttribute('cx', '20'); cap.setAttribute('cy', '20'); cap.setAttribute('r', '13');
+  cap.setAttribute('class', 'rw-knob-cap');
+  const ptr = document.createElementNS(svgNS, 'line');
+  ptr.setAttribute('x1', '20'); ptr.setAttribute('y1', '20');
+  ptr.setAttribute('x2', '20'); ptr.setAttribute('y2', '9');
+  ptr.setAttribute('class', 'rw-knob-ptr');
+  svg.append(track, fill, cap, ptr);
+  el.appendChild(svg);
+
+  const clamp = (v: number): number => Math.min(opts.max, Math.max(opts.min, v));
+  const snap = (v: number): number => (opts.step > 0 ? Math.round(v / opts.step) * opts.step : v);
+  const angleFor = (v: number): number => {
+    const span = opts.max - opts.min;
+    const t = span === 0 ? 0 : Math.min(1, Math.max(0, (v - opts.min) / span));
+    return -RAW_KNOB_SWEEP / 2 + t * RAW_KNOB_SWEEP;
+  };
+
+  let lastShown = Number.NaN;
+  function refresh(): void {
+    const v = opts.get();
+    if (Object.is(v, lastShown)) return;
+    lastShown = v;
+    const a = angleFor(v);
+    ptr.setAttribute('transform', `rotate(${a.toFixed(2)} 20 20)`);
+    const t = (a + RAW_KNOB_SWEEP / 2) / RAW_KNOB_SWEEP;
+    fill.setAttribute('stroke-dasharray', `${(t * RAW_KNOB_SWEEP).toFixed(2)} ${RAW_KNOB_SWEEP}`);
+    el.setAttribute('aria-valuenow', String(v));
+  }
+
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    const doc = el.ownerDocument;
+    const id = ev.pointerId;
+    const startY = ev.clientY;
+    const startVal = opts.get();
+    const onMove = (e: PointerEvent): void => {
+      if (e.pointerId !== id) return;
+      e.preventDefault();
+      const fine = e.shiftKey ? 0.1 : 1;
+      const span = opts.max - opts.min;
+      opts.set(clamp(snap(startVal + ((startY - e.clientY) / 160) * span * fine)));
+      refresh();
+    };
+    const onUp = (e: PointerEvent): void => {
+      if (e.pointerId !== id) return;
+      doc.removeEventListener('pointermove', onMove);
+      doc.removeEventListener('pointerup', onUp);
+      doc.removeEventListener('pointercancel', onUp);
+    };
+    doc.addEventListener('pointermove', onMove, { passive: false });
+    doc.addEventListener('pointerup', onUp);
+    doc.addEventListener('pointercancel', onUp);
+  });
+  el.addEventListener('keydown', (ev) => {
+    let v = opts.get();
+    switch (ev.key) {
+      case 'ArrowUp': case 'ArrowRight': v += opts.step; break;
+      case 'ArrowDown': case 'ArrowLeft': v -= opts.step; break;
+      case 'PageUp': v += opts.step * 10; break;
+      case 'PageDown': v -= opts.step * 10; break;
+      case 'Home': v = opts.min; break;
+      case 'End': v = opts.max; break;
+      default: return;
+    }
+    ev.preventDefault();
+    opts.set(clamp(snap(v)));
+    refresh();
+  });
+
+  refresh();
+  return { el, refresh };
+}
+
 function formatNum(v: number, step: number): string {
   if (step >= 1) return String(Math.round(v));
   if (step >= 0.1) return v.toFixed(2);

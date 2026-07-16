@@ -18,6 +18,7 @@
  */
 
 import { OutputCurve } from '../../state/Settings';
+import { createRawKnob } from '../widgets';
 
 // ====================================================================
 // Adapter interfaces
@@ -311,14 +312,25 @@ export function buildNumField(label: string, a: NumAdapter): NumFieldUi {
     const v = +range.value;
     a.set(v);
     if (num.value !== range.value) num.value = range.value;
+    knob.refresh();
   });
   num.addEventListener('input', () => {
     const v = parseFloat(num.value);
     if (!Number.isNaN(v)) {
       a.set(v);
       if (range.value !== num.value) range.value = num.value;
+      knob.refresh();
     }
   });
+  // Hardware/rack-skin face: skin.css hides `input[type="range"]`/
+  // `.rw-num` under `.rw-slider` unconditionally, expecting a `.rw-knob`
+  // to be present instead — without this, the field rendered completely
+  // empty under those two skins (owner screenshot: AMT/Band/Gain all
+  // blank). See createRawKnob's doc comment for the full story.
+  const knob = createRawKnob({
+    get: a.get, set: a.set, min: a.min, max: a.max, step: a.step, ariaLabel: label,
+  });
+  wrap.appendChild(knob.el);
 
   const root = el('div', 'rw-row');
   const lbl = el('label', 'rw-label', label);
@@ -331,6 +343,7 @@ export function buildNumField(label: string, a: NumAdapter): NumFieldUi {
       const v = String(a.get());
       if (range.value !== v) range.value = v;
       if (num.value !== v) num.value = v;
+      knob.refresh();
     },
   };
 }
@@ -809,14 +822,26 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     const v = +amtRange.value;
     adapter.amount.set(v);
     if (amtNum.value !== amtRange.value) amtNum.value = amtRange.value;
+    amtKnob.refresh();
   });
   amtNum.addEventListener('input', () => {
     const v = parseFloat(amtNum.value);
     if (!Number.isNaN(v)) {
       adapter.amount.set(v);
       if (amtRange.value !== amtNum.value) amtRange.value = amtNum.value;
+      amtKnob.refresh();
     }
   });
+  // Hardware/rack-skin face — see createRawKnob's doc comment
+  // (widgets.ts): without this, skin.css's `.rw-slider input[type=
+  // "range"], .rw-slider .rw-num { display: none }` rule left the whole
+  // AMT row blank under those two skins (owner screenshot).
+  const amtKnob = createRawKnob({
+    get: adapter.amount.get, set: adapter.amount.set,
+    min: adapter.amount.min, max: adapter.amount.max, step: adapter.amount.step,
+    ariaLabel: 'Amount',
+  });
+  amtWrap.appendChild(amtKnob.el);
   header.appendChild(amtWrap);
 
   // Target dropdown
@@ -966,6 +991,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     const av = String(adapter.amount.get());
     if (amtRange.value !== av) amtRange.value = av;
     if (amtNum.value !== av) amtNum.value = av;
+    amtKnob.refresh();
     if (pasteBtn) pasteBtn.disabled = !canPaste();
 
     // Sync expand state.

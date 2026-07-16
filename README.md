@@ -25,6 +25,11 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.5, July 2026 — hardware/rack skin: fixed blank slider rows in Classic/Graph slot fields)
+
+- **Fixed: the Amount slider and every per-source-type parameter (Audio Band/Gain, LFO rate, output stage Min/Max/Offset, etc.) in the Classic 4-slot matrix and Graph Beginner view rendered completely BLANK under the hardware and rack skins.** Root cause: these fields were hand-built with just a native range input + number box, but skin.css unconditionally hides both under those two skins, expecting a rotary knob face in their place — one that these fields never had. Fixed with a new shared `createRawKnob()` widget (matching `slider()`'s own big knob visually) wired into every one of `SlotRow.ts`'s fields, so Classic and Graph Beginner rows now show a real, working, correctly-styled knob under HW/rack, matching every other control in the panel.
+- This is very likely also the cause of a reported "vertical spasm" while dragging these same fields (interacting with a collapsed, invisible native control) — should no longer reproduce now that the fields have a real, properly-sized interactive control.
+
 ## Recent changes (v1.27.4, July 2026 — custom stepper arrows for Patch Bay value fields)
 
 - **The Patch Bay's per-param value fields now have real, CRT-styled up/down stepper buttons** in place of the browser's native spin arrows suppressed in the previous release — owner: "there should be stepper arrows just stylized to fit the aesthetic of the design system." New reusable `attachNumberStepper()` widget (`widgets.ts`): a thin two-button column (green chevron icons, matching the app's cursor/dropdown-chevron visual language) glued to the input's right edge; click steps once, press-and-hold repeats, respecting the field's own min/max/step. Every step still fires the same `input`/`change` events the field's existing listener already handles — no separate value path.
