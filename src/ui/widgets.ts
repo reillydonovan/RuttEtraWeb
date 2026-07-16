@@ -854,6 +854,89 @@ export function attachNumberDragScrub(input: HTMLInputElement, getStep: () => nu
   });
 }
 
+/**
+ * Custom stepper buttons for a plain `<input type="number">`, standing
+ * in for the browser's native spin-button arrows (suppressed app-wide
+ * in panel.css — they render as an unstyled grey OS control that can't
+ * be reskinned, only hidden: `::-webkit-inner/outer-spin-button` isn't
+ * restylable into a custom glyph). Owner: "there should be stepper
+ * arrows just stylized to fit the aesthetic of the design system" — a
+ * correction to simply removing them; this restores the up/down click
+ * affordance as a real, on-theme pair of buttons instead.
+ *
+ * Reads `min`/`max`/`step` off the input's own attributes (every
+ * current call site already sets them) rather than taking them as
+ * options — one source, no risk of the two drifting apart. Returns a
+ * wrapper `<span>` containing the (untouched, still focusable/typeable)
+ * input plus the button pair; the caller inserts the WRAPPER in the
+ * input's original place.
+ *
+ * Click steps once; press-and-hold repeats after a short delay, same
+ * feel as a native spinner. Every step dispatches a real `input` event
+ * (and `change` on release) so whatever listener the caller already
+ * attached to `input` keeps working unmodified — this only adds a
+ * second way to drive the same element, never a parallel value path.
+ */
+export function attachNumberStepper(input: HTMLInputElement): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'rw-num-stepper';
+  wrap.appendChild(input);
+
+  const btns = document.createElement('span');
+  btns.className = 'rw-num-stepper-btns';
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.className = 'rw-num-stepper-btn rw-num-stepper-up';
+  up.tabIndex = -1;
+  up.setAttribute('aria-label', 'Increment');
+  const down = document.createElement('button');
+  down.type = 'button';
+  down.className = 'rw-num-stepper-btn rw-num-stepper-down';
+  down.tabIndex = -1;
+  down.setAttribute('aria-label', 'Decrement');
+  btns.append(up, down);
+  wrap.appendChild(btns);
+
+  const bump = (dir: 1 | -1): void => {
+    const step = parseFloat(input.step) || 1;
+    const min = input.min !== '' ? parseFloat(input.min) : -Infinity;
+    const max = input.max !== '' ? parseFloat(input.max) : Infinity;
+    const cur = parseFloat(input.value) || 0;
+    const next = Math.min(max, Math.max(min, cur + dir * step));
+    input.value = String(next);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const HOLD_DELAY_MS = 400;
+  const REPEAT_MS = 60;
+  const wireHold = (btn: HTMLButtonElement, dir: 1 | -1): void => {
+    let delay: ReturnType<typeof setTimeout> | null = null;
+    let repeat: ReturnType<typeof setInterval> | null = null;
+    const stop = (): void => {
+      if (delay) clearTimeout(delay);
+      if (repeat) clearInterval(repeat);
+      delay = null; repeat = null;
+    };
+    btn.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      ev.preventDefault(); // don't steal focus/selection from the input
+      bump(dir);
+      delay = setTimeout(() => { repeat = setInterval(() => bump(dir), REPEAT_MS); }, HOLD_DELAY_MS);
+    });
+    const release = (): void => {
+      stop();
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+  };
+  wireHold(up, 1);
+  wireHold(down, -1);
+
+  return wrap;
+}
+
 function formatNum(v: number, step: number): string {
   if (step >= 1) return String(Math.round(v));
   if (step >= 0.1) return v.toFixed(2);

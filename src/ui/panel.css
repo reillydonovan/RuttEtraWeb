@@ -485,15 +485,17 @@ input[type="range"] {
    edge of an otherwise correctly CRT-styled value box, showing the
    default cursor when hovered/clicked regardless of this app's custom
    cursor rules (same native-sub-widget-doesn't-inherit-cursor quirk as
-   the `.rw-select` arrow fix above/nearby in this file). Removed rather
-   than reskinned: every number field in this app already has a real
-   "adjust without typing" affordance — the paired rotary knob (Patch
-   Bay cells), the paired `<input type="range">` (Controls-tab sliders),
-   or `attachNumberDragScrub`'s click-to-type/drag-to-scrub behavior
-   (the timeline transport's plain number fields) — so unlike the
-   `<select>` chevron, there's no missing affordance to replace here,
-   just native chrome to turn off. Unscoped so a future hand-built
-   number input never needs to remember this individually. */
+   the `.rw-select` arrow fix above/nearby in this file). The native
+   glyphs themselves can't be reskinned (`::-webkit-inner/outer-spin-
+   button` isn't restylable into a custom icon, only resized/hidden), so
+   they're suppressed here UNCONDITIONALLY, and `attachNumberStepper()`
+   (widgets.ts) — owner: "there should be stepper arrows just stylized
+   to fit the aesthetic" — builds a real custom pair of CRT-styled up/
+   down buttons (`.rw-num-stepper` below) as a drop-in replacement
+   wherever the up/down click affordance still matters (currently: the
+   Patch Bay's `addParamCell`). Unscoped so a future hand-built number
+   input never needs to remember the suppression individually, whether
+   or not it also opts into the custom stepper. */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   appearance: none;
@@ -501,6 +503,59 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* Custom stepper — `attachNumberStepper()`'s markup. A thin two-button
+   column glued to the input's right edge, replacing the native spinner
+   this file just suppressed above. `border-right: none` on the input
+   hands the shared divider line to the button column's own left border
+   so the seam reads as one control, not two boxes touching. */
+.rw-num-stepper {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rw-num-stepper input[type="number"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.rw-num-stepper-btns {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 13px;
+}
+.rw-num-stepper-btn {
+  flex: 1 1 50%;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--re-line);
+  border-left: 1px solid var(--re-line-hi);
+  background-color: rgba(0, 0, 0, 0.5);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 7px 4px;
+  cursor: var(--rw-cur-pointer);
+}
+.rw-num-stepper-up {
+  border-bottom: none;
+  border-top-right-radius: 2px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 5 L5 1 L9 5' fill='none' stroke='%235fff85' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.rw-num-stepper-down {
+  border-bottom-right-radius: 2px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1 L5 5 L9 1' fill='none' stroke='%235fff85' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.rw-num-stepper-btn:hover {
+  background-color: rgba(95, 255, 133, 0.14);
+  border-color: var(--re-accent);
+}
+.rw-num-stepper-btn:active {
+  background-color: rgba(95, 255, 133, 0.28);
 }
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;

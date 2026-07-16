@@ -291,7 +291,15 @@ Run these in order; stop and report on the first failure:
   right to the reporter: ask where the control lives and what it DOES,
   don't re-theorize from the same screenshot again — one line of owner
   context ("Patch Bay," "adjusts a float value up or down") ruled out
-  the wrong theory immediately.
+  the wrong theory immediately. That "no affordance to replace" call
+  was itself corrected one message later — the owner wanted the
+  up/down click behavior back, just reskinned, not removed. Since the
+  native glyphs can't be repainted (only resized/hidden), the real fix
+  is `attachNumberStepper()` (`widgets.ts`): a custom two-button column
+  that reads `min`/`max`/`step` off the input's own attributes and
+  dispatches real `input`/`change` events, so it's a drop-in visual
+  replacement wherever a project-specific control still needs the
+  click-to-nudge affordance, not a value-path fork.
 
 ## Deploy warning
 

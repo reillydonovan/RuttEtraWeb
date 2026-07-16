@@ -46,6 +46,7 @@ import type {
 } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
 import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
+import { attachNumberStepper } from '../widgets';
 import { getDef } from '../../modulation/graph/registry';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
@@ -1678,7 +1679,7 @@ export function createPatchBayView(
       if (Number.isFinite(v)) writeParamValue(key, v);
     });
     attachTooltip(input, `${label} — base value (${range.min}..${range.max}). Any modulation on this param adds/multiplies on top, live.`);
-    ctl.append(knob.el, input);
+    ctl.append(knob.el, attachNumberStepper(input));
     cell.appendChild(ctl);
     const liveSpan = document.createElement('span');
     liveSpan.className = 'rw-pb-cell-live';

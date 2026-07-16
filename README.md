@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.4, July 2026 — custom stepper arrows for Patch Bay value fields)
+
+- **The Patch Bay's per-param value fields now have real, CRT-styled up/down stepper buttons** in place of the browser's native spin arrows suppressed in the previous release — owner: "there should be stepper arrows just stylized to fit the aesthetic of the design system." New reusable `attachNumberStepper()` widget (`widgets.ts`): a thin two-button column (green chevron icons, matching the app's cursor/dropdown-chevron visual language) glued to the input's right edge; click steps once, press-and-hold repeats, respecting the field's own min/max/step. Every step still fires the same `input`/`change` events the field's existing listener already handles — no separate value path.
+
 ## Recent changes (v1.27.3, July 2026 — native number-input spin buttons suppressed)
 
 - **`<input type="number">`'s native up/down spin-button arrows are now suppressed app-wide** — found on the Patch Bay's per-param value fields (wide enough for Chromium's spinner cluster to render at full, unstyled size, unlike the tighter Controls-tab number boxes): a plain grey OS stepper with the default cursor, same root cause as the `<select>` chevron bug just below. Removed rather than reskinned — every number field already has a real adjust-without-typing affordance (a paired knob, a paired slider, or drag-to-scrub), so there's no missing feature to replace.
