@@ -3198,12 +3198,25 @@ export function createPatchBayView(
     for (const inKey of VIDEO_IN_KEYS) {
       if (pending?.kind === 'to-videoout' && pending.inKey === inKey) continue;
       const src = currentVideoSourceFor(inKey);
-      // RENDERER IN's normal (sourceA, the default) draws no cable at
-      // all — a real Eurorack normal connection is invisible until you
-      // actually patch something else in; only a genuine choice earns
-      // a visible cable.
-      const isNormalled = inKey === 'renderer-in' && src === 'sourceA';
-      const outKey: VideoOutKey | null = isNormalled || src === 'none' ? null : VIDEO_SRC_TO_OUT[src];
+      // RENDERER IN used to draw no cable at all when the source was
+      // 'sourceA' (the untouched default) — a real Eurorack normal
+      // connection is invisible until you patch something else in.
+      // Reverted (owner bug report): `videoRendererIn` is a single
+      // Settings value with no separate "was this ever explicitly
+      // wired" bit, and `SettingsStore.set()` is a no-op whenever the
+      // new value equals the current one (`Object.is` guard) — so
+      // explicitly dragging Source A onto Renderer when it's ALREADY
+      // 'sourceA' produced literally zero observable effect: no Settings
+      // change, no notify, and (since this check keys purely off the
+      // CURRENT value, not the gesture that produced it) still no
+      // cable on the next frame either. Confirmed live: Source B →
+      // Renderer worked (a real value change), Source A → Renderer
+      // silently did nothing every time. Always drawing the cable for
+      // whatever `renderer-in` currently resolves to — matching every
+      // other endpoint in the bay — is the only way to give an explicit
+      // Source A → Renderer patch the same visible confirmation as any
+      // other connection.
+      const outKey: VideoOutKey | null = src === 'none' ? null : VIDEO_SRC_TO_OUT[src];
       const inJack = videoJacks.get(inKey);
       if (inJack) inJack.classList.toggle('rw-rack-jack--plugged', outKey !== null);
       if (!outKey) continue;

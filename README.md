@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.28.1, July 2026 — fixed: Source A → Renderer cable silently did nothing)
+
+- **Fixed: dragging Video Source A's OUT jack onto RENDERER IN showed the correct "you can connect this" hover color but never actually confirmed the connection** (Source B worked fine). Cause: RENDERER IN's default source (Source A) was deliberately drawn with no cable at all (a "Eurorack normalled jack" touch) — but `Settings.set()` is a no-op when the new value already matches the current one, so explicitly re-wiring Source A onto Renderer when it was already the active source produced literally zero observable change: no cable before, no cable after, nothing to confirm the drop actually landed. Fixed by always drawing RENDERER IN's cable for whatever's actually feeding it, Source A included, matching every other connection in the Patch Bay.
+
 ## Recent changes (v1.28.0, July 2026 — custom min/max range clamps in the Patch Bay)
 
 - **Every Patch Bay param cell (the general faceplate, Pattern Generator's per-kind params, and all 18 Dual Raster params) now has the same "Set range" menu the Controls-tab sliders have had since v19** — a small ▾ next to the param's IN/OUT jacks opens a menu to set a custom min/max clamp (or an exact value), reset the range to stock, or reset the value to default. Ranges are stored in the same `paramRangeOverrides` Settings key both surfaces already share, so a range set from Controls now clamps the Patch Bay's knob too, and vice versa — one authoritative range per param, not two independently-drifting ones.
