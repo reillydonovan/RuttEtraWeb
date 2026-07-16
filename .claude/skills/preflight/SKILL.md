@@ -277,7 +277,21 @@ Run these in order; stop and report on the first failure:
   `.rw-select` overrides that only touch fill color don't blank the
   chevron back out again). If you add a NEW skin-specific or scoped
   `.rw-select` background override, use `background-color`, not
-  `background`, or you'll silently reintroduce this.
+  `background`, or you'll silently reintroduce this. The very next
+  report from the same screenshot turned out to be a DIFFERENT native
+  control with the same disease: `<input type="number">`'s spin-button
+  arrows were never suppressed anywhere (no `::-webkit-inner/outer-
+  spin-button` or `-moz-appearance: textfield` rule existed), most
+  visible on the Patch Bay's wide `.rw-pb-cell-value` field. Fixed the
+  same way (global unscoped rule in `panel.css`), but REMOVED rather
+  than reskinned — this app's number fields already have a real
+  adjust-without-typing affordance elsewhere (a paired knob/slider, or
+  `attachNumberDragScrub`), so there was no affordance to replace.
+  Lesson for next time a "confirmed served" fix still doesn't look
+  right to the reporter: ask where the control lives and what it DOES,
+  don't re-theorize from the same screenshot again — one line of owner
+  context ("Patch Bay," "adjusts a float value up or down") ruled out
+  the wrong theory immediately.
 
 ## Deploy warning
 

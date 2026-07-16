@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.3, July 2026 — native number-input spin buttons suppressed)
+
+- **`<input type="number">`'s native up/down spin-button arrows are now suppressed app-wide** — found on the Patch Bay's per-param value fields (wide enough for Chromium's spinner cluster to render at full, unstyled size, unlike the tighter Controls-tab number boxes): a plain grey OS stepper with the default cursor, same root cause as the `<select>` chevron bug just below. Removed rather than reskinned — every number field already has a real adjust-without-typing affordance (a paired knob, a paired slider, or drag-to-scrub), so there's no missing feature to replace.
+
 ## Recent changes (v1.27.2, July 2026 — native `<select>` chevron/cursor fix)
 
 - **Every dropdown in the app now draws its own CRT-styled chevron instead of showing Chromium's native grey arrow button.** `.rw-select` had `background`/`border`/`color` styling for a long time but never `appearance: none`, so the browser kept rendering its own native dropdown-arrow sub-widget on the right edge regardless — unstyled, and (a related Chromium quirk) showing the OS default cursor there even though a custom cursor rule was already set on the element. Found from an owner screenshot showing a correctly-themed value box with an unstyled grey system chevron glued to it.

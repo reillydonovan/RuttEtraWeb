@@ -476,6 +476,32 @@ input[type="range"] {
   height: 2px;
   outline: none;
 }
+
+/* Same safety net, same bug class, for `<input type="number">`'s native
+   up/down spin buttons — found from an owner screenshot showing exactly
+   this on the Patch Bay's `.rw-pb-cell-value` field (wide enough, unlike
+   the tighter `.rw-num`, for Chromium's spin-button cluster to render
+   at full unstyled size): a plain grey OS stepper glued to the right
+   edge of an otherwise correctly CRT-styled value box, showing the
+   default cursor when hovered/clicked regardless of this app's custom
+   cursor rules (same native-sub-widget-doesn't-inherit-cursor quirk as
+   the `.rw-select` arrow fix above/nearby in this file). Removed rather
+   than reskinned: every number field in this app already has a real
+   "adjust without typing" affordance — the paired rotary knob (Patch
+   Bay cells), the paired `<input type="range">` (Controls-tab sliders),
+   or `attachNumberDragScrub`'s click-to-type/drag-to-scrub behavior
+   (the timeline transport's plain number fields) — so unlike the
+   `<select>` chevron, there's no missing affordance to replace here,
+   just native chrome to turn off. Unscoped so a future hand-built
+   number input never needs to remember this individually. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 12px; height: 18px;
