@@ -25,6 +25,13 @@ npm run build
 
 ---
 
+## Recent changes (v1.26.0, July 2026 — audio node framework, Phase 1: LFO/graph signal → audible tone)
+
+- **New "Sonify" graph node** (category Audio) — a sink node, same shape as CV Output: wire any graph signal (an LFO, envelope, anything) into it and it delivers that value once per frame to the Sonification voice.
+- **Sonification's per-param mapping dropdowns (Pitch / Amplitude / Cutoff / Resonance) gained a "Graph Node" option** alongside the existing eight mesh stats — pick it on any of the four and that parameter is driven by whatever the Sonify node last supplied, through the exact same curve/smoothing/AudioParam pipeline every mesh-stat mapping already uses. No second AudioContext, no new ramp/limiter code — this reuses the existing safety-gated voice (default disabled, quiet default, soft-start ramp, brick-wall limiter, mic-feedback gate) entirely.
+- Scoped as Phase 1 of a larger "audio node framework" ask (LFO → audible tone / uploaded video-file audio routing / mic input as a patchable node) — the other two phases are intentionally deferred; this is the smallest, lowest-risk piece and the one that reuses existing machinery most directly.
+- Found and fixed a real ordering hazard while wiring this up: the Sonification instance's construction was moved earlier in `main.ts`'s boot sequence, ahead of the Graph engine factory — the factory's dependency object now references `sonification`, and it can be pre-warmed as early as boot if a saved session already has a non-Classic mod mode, which was before the old construction point ran.
+
 ## Recent changes (v1.25.1, July 2026 — popout right-click node-spawn fix)
 
 - **Fixed: right-clicking to add a graph node in a popped-out Patch Bay window spawned the node at the main window's click coordinates instead of the popout's own.** Root cause: the "Add Node" context menu was built, appended, and positioned against the bare global `document`/`window` — which, since the Patch Bay's setup code always runs in the MAIN window's JS context regardless of which window its `root` element ends up living in (per the popout architecture: a fresh instance is built by the opener and then adopted into the popup document), resolved to the wrong window's document body and viewport dimensions. Fixed by building/positioning the menu against `root.ownerDocument`/its `defaultView`, the same convention already used elsewhere in the file (tooltips, the cable canvas) for popout-safety.

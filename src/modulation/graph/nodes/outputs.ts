@@ -1,8 +1,8 @@
 /**
  * Output / sink nodes — opposite of the input nodes. These nodes have
  * an input port for a control signal and no output ports; their job
- * is to deliver the input to an external subsystem (CV-output, future
- * MIDI-out node, etc.) once per frame.
+ * is to deliver the input to an external subsystem (CV output, the
+ * Sonification voice, future MIDI-out node, etc.) once per frame.
  *
  * The visual editor renders cv-output nodes with a distinct icon and
  * amber tint so users can tell at a glance that this node is sending
@@ -40,5 +40,26 @@ register<{}>({
     const ch = Math.max(0, Math.round(+(params.channel ?? 0) as number));
     const v = inputs.signal ?? 0;
     if (Number.isFinite(v)) cvOut.setGraphSource(ch, v as number);
+  },
+});
+
+register<{}>({
+  type: 'audio-output',
+  category: 'Audio', // next to the other audio-* nodes, not Inputs — there's
+  // no "sonify-input" counterpart to pair with the way cv-output pairs
+  // with cv-input.
+  label: 'Sonify',
+  description: 'Delivers the input signal as the Sonification voice\'s "Graph Node" mapping source. Set one of Pitch/Amplitude/Cutoff/Resonance to "Graph Node" in I/O ▸ Sonification and enable the voice there to hear it — this node only supplies the value, it does not make sound on its own.',
+  inputs: [
+    { name: 'signal', kind: 'control', label: 'Signal' },
+  ],
+  outputs: [],
+  params: {},
+  init: () => ({}),
+  tick(ctx, _s, inputs, _params, _outputs) {
+    const son = ctx.deps.sonification;
+    if (!son) return;
+    const v = inputs.signal ?? 0;
+    if (Number.isFinite(v)) son.setGraphValue(v as number);
   },
 });

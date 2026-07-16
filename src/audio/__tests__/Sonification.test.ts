@@ -198,4 +198,16 @@ describe('Sonification class', () => {
     const son = new Sonification(DEFAULT_SONIFICATION);
     expect(son.getCaptureStream()).toBeNull();
   });
+
+  it('setGraphValue accepts finite values and drops non-finite input safely (no AudioContext side effects in Node)', () => {
+    // The 'graph' mapping source's actual audible effect can only be
+    // observed with a real running AudioContext (tick() early-returns
+    // while !voiceActive, same limitation the tick()-is-a-no-op test
+    // above documents) — this asserts the public contract stays safe
+    // to call from the audio-output graph node regardless of input.
+    const son = new Sonification(DEFAULT_SONIFICATION);
+    expect(() => son.setGraphValue(0.5)).not.toThrow();
+    expect(() => son.setGraphValue(NaN)).not.toThrow();
+    expect(() => son.setGraphValue(Infinity)).not.toThrow();
+  });
 });

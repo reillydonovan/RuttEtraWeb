@@ -32,6 +32,17 @@
  *     post-limiter (so the captured audio is the same audio the user
  *     hears). `getCaptureStream()` exposes the stream so the recorder
  *     and broadcaster can attach the audio track.
+ *
+ * Graph-driven mapping source:
+ *   - Any of the four mappings can be set to `'graph'` instead of a
+ *     mesh stat — its input then comes from `setGraphValue()`, called
+ *     once per frame by the `audio-output` graph node (a plain sink
+ *     node, mirrors `cv-output`'s `ctx.deps.cvOut.setGraphSource()`
+ *     shape). This is the whole feature: an LFO (or any graph signal)
+ *     wired into that node becomes audible through the EXISTING
+ *     safety-gated voice — no second AudioContext, no new ramp/limiter
+ *     code, since it rides the same per-param curve/smoothing/
+ *     AudioParam pipeline every mesh-stat mapping already uses.
  */
 
 import {
@@ -108,6 +119,11 @@ export class Sonification {
   /** Set when an external observer (FFTAnalyzer "running with mic"
    *  state) wants us to gate the voice. The UI surfaces this. */
   private micFeedbackActive = false;
+  /** Latest value from the `audio-output` graph node, read by any
+   *  mapping whose `source === 'graph'`. Defaults to 0 (silent/neutral)
+   *  when no such node is wired — same "absent contributor reads as
+   *  zero" convention as every other modulation source in this app. */
+  private graphValue = 0;
   /** Mute Briefly timer handle, so a second click cancels the
    *  ramp-back. */
   private muteBrieflyEndAt = 0;
@@ -174,6 +190,14 @@ export class Sonification {
     this.emit();
   }
 
+  /** Deliver the latest graph-provided scalar (called once per frame
+   *  by the `audio-output` graph node, when wired). Non-finite values
+   *  are dropped to 0 — same guard `cv-output` applies before calling
+   *  `CVOutput.setGraphSource()`. */
+  setGraphValue(v: number): void {
+    this.graphValue = Number.isFinite(v) ? v : 0;
+  }
+
   /** Subscribe to status changes. Fires once immediately. */
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
@@ -215,7 +239,15 @@ export class Sonification {
 
     for (const p of PARAM_KEYS) {
       const m = cfg.mappings[p];
-      const raw = readStat(stats, m.source);
+      // Graph mappings read the last value `audio-output` delivered
+      // (already expected to be roughly 0..1 unipolar or -1..1 bipolar
+      // by the app's signal convention); everything else still comes
+      // from mesh stats via readStat(). applyCurve() clamps either way,
+      // same as it always has for mesh stats — a bipolar LFO's negative
+      // half reads as 0 unless shaped upstream with a Scale/Offset/Range
+      // processor node, matching how every other graph consumer expects
+      // callers to pre-shape signals for their target's range.
+      const raw = m.source === 'graph' ? this.graphValue : readStat(stats, m.source);
       const shaped = applyCurve(raw, m.curve);
       this.smoothed[p] = this.smoothed[p] + alpha * (shaped - this.smoothed[p]);
     }

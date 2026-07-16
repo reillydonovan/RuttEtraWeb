@@ -272,6 +272,49 @@ async function bootSynth(): Promise<void> {
   const ioModule = await import('./io/IoSubsystems');
   const io = await ioModule.bootIoSubsystems(settings, liveValues);
 
+  // -------------------- Sonification (audible output) --------------------
+  // First audio-output feature: a single voice driven by mesh
+  // statistics (and, since the audio-node-framework pass, optionally a
+  // graph node's live value too — see Sonification's 'graph' mapping
+  // source). Boots disabled — settings migration always forces
+  // `sonification.enabled = false` regardless of saved value, so no
+  // audio can leak out without an explicit user gesture. The Enable
+  // toggle in the I/O panel is itself a click event (satisfies
+  // browser autoplay policy); the canvas-click fallback below handles
+  // the edge case where settings flip enabled=true after load
+  // without any user gesture having occurred (e.g. URL-driven config).
+  //
+  // Constructed here, BEFORE the graph-engine factory below, and not
+  // in its previous, more narrative spot further down — `sonification`
+  // must exist before `ensureGraphEngine()`'s deps object literal
+  // references it, and that factory can run as early as the
+  // "pre-warm if persisted state requires it" call a few lines down
+  // (whenever a saved session already has modMode !== 'classic'),
+  // which happens well before the code that used to construct
+  // `sonification` first ran. A prior version hit exactly this
+  // ReferenceError-from-TDZ class of ordering bug in testing.
+  const meshAnalyzer = new MeshAnalyzer();
+  const sonification = new Sonification(settings.get('sonification'));
+  settings.subscribe('sonification', (cfg) => sonification.applyConfig(cfg));
+  // Mic-feedback gate: when the FFT analyser is running with a
+  // microphone source, the mic is presumably routed to speakers and
+  // the sonification voice would feed straight back. Auto-mute the
+  // voice (with a status flag the UI surfaces) until the user changes
+  // the audio input source or disables sonification.
+  io.fft.subscribe((s) => {
+    sonification.setMicFeedbackActive(s.running && s.kind === 'mic');
+  });
+  // Autoplay-policy fallback: if sonification ever wants to be
+  // running but the AudioContext is suspended (e.g. preset URL set
+  // enabled=true on load — should be impossible thanks to the
+  // migration's force-off, but belt-and-braces), the next click
+  // anywhere on the canvas resumes audio.
+  const resumeAudioOnGesture = () => {
+    void sonification.userGesture();
+  };
+  canvas.addEventListener('pointerdown', resumeAudioOnGesture, { passive: true });
+  canvas.addEventListener('keydown', resumeAudioOnGesture);
+
   const matrix = new ModMatrix(settings, {
     fft:         io.fft,
     beat:        io.beat,
@@ -315,6 +358,7 @@ async function bootSynth(): Promise<void> {
       patternBus:  patternSignalBus,
       videoTap,
       liveValues,
+      sonification,
     });
     const persisted = settings.get('modGraph');
     if (persisted) graphEngine.setPatch(persisted);
@@ -357,37 +401,6 @@ async function bootSynth(): Promise<void> {
   // Pre-warm if persisted state requires it.
   if (settings.get('modMode') !== 'classic') void ensureGraphEngine();
   settings.subscribe('modMode', (m) => { if (m !== 'classic') void ensureGraphEngine(); });
-
-  // -------------------- Sonification (audible output) --------------------
-  // First audio-output feature: a single voice driven by mesh
-  // statistics. Boots disabled — settings migration always forces
-  // `sonification.enabled = false` regardless of saved value, so no
-  // audio can leak out without an explicit user gesture. The Enable
-  // toggle in the I/O panel is itself a click event (satisfies
-  // browser autoplay policy); the canvas-click fallback below handles
-  // the edge case where settings flip enabled=true after load
-  // without any user gesture having occurred (e.g. URL-driven config).
-  const meshAnalyzer = new MeshAnalyzer();
-  const sonification = new Sonification(settings.get('sonification'));
-  settings.subscribe('sonification', (cfg) => sonification.applyConfig(cfg));
-  // Mic-feedback gate: when the FFT analyser is running with a
-  // microphone source, the mic is presumably routed to speakers and
-  // the sonification voice would feed straight back. Auto-mute the
-  // voice (with a status flag the UI surfaces) until the user changes
-  // the audio input source or disables sonification.
-  io.fft.subscribe((s) => {
-    sonification.setMicFeedbackActive(s.running && s.kind === 'mic');
-  });
-  // Autoplay-policy fallback: if sonification ever wants to be
-  // running but the AudioContext is suspended (e.g. preset URL set
-  // enabled=true on load — should be impossible thanks to the
-  // migration's force-off, but belt-and-braces), the next click
-  // anywhere on the canvas resumes audio.
-  const resumeAudioOnGesture = () => {
-    void sonification.userGesture();
-  };
-  canvas.addEventListener('pointerdown', resumeAudioOnGesture, { passive: true });
-  canvas.addEventListener('keydown', resumeAudioOnGesture);
 
   // -------------------- Pattern Generator: scope sampler --------------------
   // Installed AFTER io / matrix / graph-engine factory exist so the

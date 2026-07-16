@@ -168,3 +168,27 @@ describe('cv-output (sink node)', () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe('audio-output (sink node)', () => {
+  it('writes its input to ctx.deps.sonification.setGraphValue', () => {
+    const calls: number[] = [];
+    const sonification = { setGraphValue: (v: number) => calls.push(v) };
+    runNode('audio-output', 1, {
+      deps: { sonification },
+      inputs: { signal: 0.42 },
+    });
+    expect(calls).toEqual([0.42]);
+  });
+  it('no-ops when the sonification dep is missing (does not throw)', () => {
+    expect(() => runNode('audio-output', 1, { inputs: { signal: 1 } })).not.toThrow();
+  });
+  it('skips non-finite signal values', () => {
+    const calls: number[] = [];
+    const sonification = { setGraphValue: (v: number) => calls.push(v) };
+    runNode('audio-output', 1, {
+      deps: { sonification },
+      inputs: { signal: NaN },
+    });
+    expect(calls).toHaveLength(0);
+  });
+});

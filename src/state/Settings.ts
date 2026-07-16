@@ -575,8 +575,10 @@ export type SonificationWaveform = 'sine' | 'triangle' | 'saw' | 'square';
 export type SonificationFilterType = 'lowpass' | 'bandpass' | 'highpass' | 'notch';
 
 export interface SonificationMapping {
-  /** Mesh stat id; empty string = unmapped (param holds at midpoint). */
-  source: MeshStatId | '';
+  /** Mesh stat id, `'graph'` (the live value most recently supplied by
+   *  an `audio-output` graph node — see Sonification.setGraphValue()),
+   *  or empty string = unmapped (param holds at midpoint). */
+  source: MeshStatId | 'graph' | '';
   curve: MappingCurve;
 }
 

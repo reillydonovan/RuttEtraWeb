@@ -34,6 +34,11 @@ export type NodeType =
   | 'cv-input' | 'gamepad-axis' | 'gamepad-button'
   // v9: CV out — sink node, writes its input to a CV output channel
   | 'cv-output'
+  // Audio out — sink node, delivers its input to the Sonification
+  // voice's 'graph' mapping source (see Sonification.setGraphValue()).
+  // No Settings schema bump needed: SonificationMapping.source just
+  // widened to allow one more valid string value, no new keys/shape.
+  | 'audio-output'
   // Processors
   | 'attenuator' | 'inverter' | 'offset' | 'scale' | 'range'
   | 'mixer' | 'multiplier' | 'crossfade' | 'min' | 'max'
@@ -186,6 +191,12 @@ export interface NodeDeps {
    *  `cv-output` graph node uses this to deliver per-frame source
    *  values to the CV-output subsystem. */
   cvOut?: CVOutputLike | null;
+  /** Sonification voice — the `audio-output` graph node uses this to
+   *  deliver its per-frame input as the voice's 'graph' mapping source.
+   *  Null until the Sonification instance exists (it's constructed
+   *  eagerly in main.ts, so in practice this is always set once the
+   *  engine itself exists — still optional for test stubs). */
+  sonification?: SonificationLike | null;
   /** v10: pattern internal signal bus. Read by `pattern-output` graph
    *  nodes. Null when patterns are disabled or before the renderer
    *  has run. */
@@ -274,6 +285,10 @@ export interface GamepadLike {
 
 export interface CVOutputLike {
   setGraphSource(channelIndex: number, value: number): void;
+}
+
+export interface SonificationLike {
+  setGraphValue(value: number): void;
 }
 
 export interface VideoTapLike {

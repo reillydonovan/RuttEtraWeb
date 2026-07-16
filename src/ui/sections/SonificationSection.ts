@@ -7,8 +7,10 @@
  *     status indicators, Test Tone + Mute Briefly buttons.
  *   - Voice: waveform / filter type / pitch range + quantize.
  *   - Mapping: 4 rows (Pitch / Amplitude / Cutoff / Resonance) each
- *     with a "← stat" dropdown and a curve dropdown. One global
- *     Smoothing slider drives all four mappings' time constant.
+ *     with a "← stat" dropdown (a mesh stat, or "Graph Node" — the
+ *     last value delivered by a "Sonify" audio-output node in the
+ *     Graph/Patch Bay) and a curve dropdown. One global Smoothing
+ *     slider drives all four mappings' time constant.
  *
  * Persistence: every control writes back to `settings.sonification`
  * via a single setter helper so subscribers (the `Sonification`
@@ -262,6 +264,11 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
       noneOpt.value = '';
       noneOpt.textContent = '(unmapped)';
       srcSel.appendChild(noneOpt);
+      const graphOpt = document.createElement('option');
+      graphOpt.value = 'graph';
+      graphOpt.textContent = 'Graph Node (Patch Bay)';
+      graphOpt.title = 'Reads the last value delivered by a "Sonify" node in the Graph/Patch Bay — wire an LFO or any other signal into it to hear it here.';
+      srcSel.appendChild(graphOpt);
       for (const id of MESH_STAT_IDS) {
         const opt = document.createElement('option');
         opt.value = id;
