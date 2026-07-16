@@ -1013,6 +1013,15 @@ export function createPatchBayView(
   // as explicitly out of v1). Two video INs (order isn't asymmetric
   // here — A always means raster A, B always raster B — labeled to
   // match), one video OUT that can only ever reach RENDERER IN.
+  //
+  // Homed in col2 (the right rail), not the left `rail` stack with the
+  // other rail modules — owner: "since the dual raster is so large as a
+  // node bump it to the far right of the stack to the right of the
+  // colorizer towards the top" (its full-controls pass grew it to ~20
+  // rows, dominating what used to be a compact left column). Built here
+  // (before col1/col2 exist yet) but not appended until right after
+  // `col2` is created, as its first child — see `dualRasterMod` below.
+  let dualRasterMod: HTMLElement | null = null;
   {
     const mod = document.createElement('div');
     mod.className = 'rw-pb-module';
@@ -1158,7 +1167,9 @@ export function createPatchBayView(
     videoJacks.set('dualraster-out', outJack);
     mod.appendChild(outRow);
 
-    rail.appendChild(mod);
+    // Not `rail.appendChild(mod)` — see the comment above this block.
+    // Appended into col2 once it exists (right after its declaration).
+    dualRasterMod = mod;
   }
 
   // RENDERER module — the sink (owner: "the renderer [should have] an
@@ -1562,6 +1573,11 @@ export function createPatchBayView(
   col1.className = 'rw-pb-col';
   const col2 = document.createElement('div');
   col2.className = 'rw-pb-col';
+  // DUAL RASTER lands here, first — the far-right stack, above COLORIZER
+  // / POST-FX (the `buildFaceplate()` loop below appends that and the
+  // rest of col2's fields AFTER this, so it stays at the top). See the
+  // module's own construction comment above for why.
+  if (dualRasterMod) col2.appendChild(dualRasterMod);
 
   /** Best-effort numeric range for a modulatable Settings key, sourced
    *  from `PARAM_DOCS`'s human-readable `range` field — the SAME data

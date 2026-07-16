@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.1, July 2026 — Dual Raster module relocated in the Patch Bay)
+
+- **The DUAL RASTER module now lives in the right-hand column (`col2`), above COLORIZER / POST-FX**, instead of the crowded left rail stack — its full-controls pass (previous release) grew it to ~20 rows, dominating what used to be a compact column of small Function Generator/Composite/Video Source modules. Pure layout change: drag/reorder/free-layout behavior is unaffected (the underlying machinery was already container-agnostic).
+
 ## Recent changes (v1.27.0, July 2026 — Dual Raster full Patch Bay controls, Video Source B in Controls tab; Settings v35)
 
 - **The DUAL RASTER Patch Bay module now carries every one of its own controls** — an enable LED + labeled toggle, the wipe/alternate mode dropdown, and full IN/knob/value/OUT param cells for the trace-position slider and all 16 of raster B's own Position & Size / Depth & Beam / Rotation / Linearity / Luminance params — grouped under labeled sub-sections, matching the Controls tab's own layout. Previously the module only had its two video-IN jacks and one OUT jack; every one of those 17 modulatable params was quietly reachable only through the general faceplate's AUXILIARY catch-all, disconnected from the module that's conceptually "about" them.
