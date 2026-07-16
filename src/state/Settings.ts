@@ -631,11 +631,18 @@ export interface Settings {
   sourceKind: 'webcam' | 'file' | 'screen' | 'stream' | 'none';
   deviceId: string;
   // ---------- Video Source B + Composite (v33) ----------
-  /** A second, independent video source (Patch Bay only) — lets the
-   *  Composite node blend two feeds (e.g. a file over a webcam). Same
-   *  shape as `sourceKind` minus 'stream' (matches what the Patch
-   *  Bay's VIDEO SOURCE module itself exposes: WEBCAM/SCREEN/FILE). */
-  sourceBKind: 'webcam' | 'file' | 'screen' | 'none';
+  /** A second, independent video source — lets the Composite node
+   *  blend two feeds (e.g. a file over a webcam) or Dual Raster give
+   *  each raster its own feed. Same shape as `sourceKind` (v35 added
+   *  'stream' to match — Source B can now be a stream URL too, not
+   *  just WEBCAM/SCREEN/FILE). */
+  sourceBKind: 'webcam' | 'file' | 'screen' | 'stream' | 'none';
+  /** v35: Source B's own remembered webcam device — separate from
+   *  `deviceId` (Source A's) so the two can independently pick
+   *  different physical cameras, or deliberately the SAME one (two
+   *  independent MediaStreams from one device; the browser/OS decide
+   *  whether that's allowed, not this app). */
+  deviceIdB: string;
   /** The Patch Bay's RENDERER IN jack: which signal feeds the DCU.
    *  'sourceA' is the pre-existing single-source behavior, byte for
    *  byte — nothing about rendering changes until this is patched
@@ -1265,6 +1272,7 @@ export const DEFAULTS: Settings = {
   sourceKind: 'none',
   deviceId: '',
   sourceBKind: 'none',
+  deviceIdB: '',
   videoRendererIn: 'sourceA',
   videoCompositeInA: 'sourceA',
   videoCompositeInB: 'sourceB',
@@ -1531,7 +1539,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 34;
+const CURRENT_VERSION = 35;
 
 interface Versioned { _v?: number }
 
@@ -2178,6 +2186,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.videoDualRasterInA = (s.videoDualRasterInA as Settings['videoDualRasterInA'] | undefined) ?? 'sourceA';
     s.videoDualRasterInB = (s.videoDualRasterInB as Settings['videoDualRasterInB'] | undefined) ?? 'sourceB';
     s._v = 34;
+  }
+
+  // v34 -> v35: Source B gets its own device slot + a Controls-tab
+  // picker (owner: "shouldn't I be able to specify what the second
+  // raster is — another webcam, same webcam, video, stream, etc?").
+  // Plain additive defaults; `sourceBKind`'s existing saved values
+  // ('webcam'/'file'/'screen'/'none') are all still valid under the
+  // widened type, nothing to backfill there.
+  if ((s._v ?? 1) < 35) {
+    s.deviceIdB = (s.deviceIdB as string | undefined) ?? '';
+    s._v = 35;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

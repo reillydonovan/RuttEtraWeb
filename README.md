@@ -25,6 +25,12 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.0, July 2026 — Dual Raster full Patch Bay controls, Video Source B in Controls tab; Settings v35)
+
+- **The DUAL RASTER Patch Bay module now carries every one of its own controls** — an enable LED + labeled toggle, the wipe/alternate mode dropdown, and full IN/knob/value/OUT param cells for the trace-position slider and all 16 of raster B's own Position & Size / Depth & Beam / Rotation / Linearity / Luminance params — grouped under labeled sub-sections, matching the Controls tab's own layout. Previously the module only had its two video-IN jacks and one OUT jack; every one of those 17 modulatable params was quietly reachable only through the general faceplate's AUXILIARY catch-all, disconnected from the module that's conceptually "about" them.
+- **Video Source B — a new "Video Source B" section in the Controls tab** (Synth, next to Source) — a full webcam-device / screen-capture / video-file / stream-URL picker, identical to Source A's, for the Patch Bay's second video feed. Previously Source B was only reachable via the Patch Bay's own one-click "default webcam only" module. Source B now remembers its own webcam device choice (`deviceIdB`, Settings v35) independently of Source A's — pick a different camera, the same camera, a file, or a stream.
+- Settings schema **v34 → v35**: `deviceIdB` (new key) and `sourceBKind` widened to include `'stream'` (previously WEBCAM/SCREEN/FILE only).
+
 ## Recent changes (v1.26.0, July 2026 — audio node framework, Phase 1: LFO/graph signal → audible tone)
 
 - **New "Sonify" graph node** (category Audio) — a sink node, same shape as CV Output: wire any graph signal (an LFO, envelope, anything) into it and it delivers that value once per frame to the Sonification voice.

@@ -1018,9 +1018,19 @@ export function createPatchBayView(
     mod.className = 'rw-pb-module';
     const head = document.createElement('div');
     head.className = 'rw-pb-module-head';
+    // Corner LED + labeled row, both writing `dualRasterEnabled` — same
+    // dual-control convention as the PATTERN GENERATOR module (a lone
+    // 12px LED reads as decoration until you already know to look for
+    // it; a labeled row next to it doesn't).
+    const en = document.createElement('input');
+    en.type = 'checkbox';
+    en.className = 'rw-pb-led-toggle';
+    en.checked = settings.get('dualRasterEnabled');
+    en.addEventListener('change', () => settings.set('dualRasterEnabled', en.checked));
+    attachTooltip(en, 'Enable dual raster. When off, the classic single-raster path renders exactly as before this node existed.');
     const title = document.createElement('span');
     title.textContent = 'DUAL RASTER';
-    head.append(title);
+    head.append(en, title);
     mod.appendChild(head);
 
     const mkInRow = (label: string, inKey: VideoInKey): void => {
@@ -1043,6 +1053,99 @@ export function createPatchBayView(
     };
     mkInRow('A', 'dualraster-inA');
     mkInRow('B', 'dualraster-inB');
+
+    const enableRow = document.createElement('div');
+    enableRow.className = 'rw-pb-row';
+    const enableLabel = document.createElement('label');
+    enableLabel.textContent = 'enable';
+    const enableCb = document.createElement('input');
+    enableCb.type = 'checkbox';
+    enableCb.checked = settings.get('dualRasterEnabled');
+    enableCb.addEventListener('change', () => settings.set('dualRasterEnabled', enableCb.checked));
+    settings.subscribe('dualRasterEnabled', (v) => { enableCb.checked = v; en.checked = v; });
+    attachTooltip(enableRow, 'Enable dual raster. When off, the classic single-raster path renders exactly as before this node existed.');
+    enableRow.append(enableLabel, enableCb);
+    mod.appendChild(enableRow);
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'rw-pb-row';
+    const modeLabel = document.createElement('label');
+    modeLabel.textContent = 'mode';
+    const modeSel = document.createElement('select');
+    modeSel.className = 'rw-select';
+    const DUAL_MODE_LABELS: Record<Settings['dualMode'], string> = {
+      wipe: 'Wipe (trace slider)', alternate: 'Alternate lines',
+    };
+    for (const [val, lbl] of Object.entries(DUAL_MODE_LABELS)) {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = lbl;
+      modeSel.appendChild(o);
+    }
+    modeSel.value = settings.get('dualMode');
+    modeSel.addEventListener('change', () => settings.set('dualMode', modeSel.value as Settings['dualMode']));
+    attachTooltip(modeSel, 'Wipe: the trace slider splits the frame, B on top. Alternate: rasters interleave row-by-row at half vertical resolution each (the trace slider does not apply).');
+    modeRow.append(modeLabel, modeSel);
+    mod.appendChild(modeRow);
+    settings.subscribe('dualMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+
+    // Raster B's own shaping params (owner: "shouldn't the dual raster
+    // node have all of its controls in it complete with inputs and
+    // output ports for cable runs and any supporting knobs?") — full
+    // addParamCell treatment (IN jack + knob + value + OUT jack), same
+    // construction the general faceplate's cells use. This is now the
+    // ONE authoritative jack per raster-B param; the general faceplate
+    // deliberately excludes every one of these TARGETS keys
+    // (`DUAL_RASTER_OWNED` in patchbayLayout.ts) so there's no second,
+    // competing physical jack for the same signal — same convention
+    // established for the Pattern Generator module's own params.
+    const subhead = (text: string): void => {
+      const h = document.createElement('div');
+      h.className = 'rw-pb-subhead';
+      h.textContent = text;
+      mod.appendChild(h);
+    };
+    const grid = (): HTMLElement => {
+      const g = document.createElement('div');
+      g.className = 'rw-pb-grid';
+      mod.appendChild(g);
+      return g;
+    };
+
+    subhead('Trace');
+    let g = grid();
+    addParamCell(g, 'dualTracePos', 'Trace');
+
+    subhead('B · Position & Size');
+    g = grid();
+    addParamCell(g, 'bHPos', 'H Position');
+    addParamCell(g, 'bVPos', 'V Position');
+    addParamCell(g, 'bHSize', 'H Size');
+    addParamCell(g, 'bVSize', 'V Size');
+
+    subhead('B · Depth & Beam');
+    g = grid();
+    addParamCell(g, 'bZPush', 'Z Push');
+    addParamCell(g, 'bZBias', 'Z Bias');
+    addParamCell(g, 'bIntensity', 'Intensity');
+
+    subhead('B · Rotation');
+    g = grid();
+    addParamCell(g, 'bHCenter', 'H Center');
+    addParamCell(g, 'bVCenter', 'V Center');
+    addParamCell(g, 'bHSpin', 'H Spin');
+    addParamCell(g, 'bVSpin', 'V Spin');
+    addParamCell(g, 'bRotation', 'Rotation');
+
+    subhead('B · Linearity');
+    g = grid();
+    addParamCell(g, 'bHLinearity', 'H Linearity');
+    addParamCell(g, 'bVLinearity', 'V Linearity');
+
+    subhead('B · Luminance Shaping');
+    g = grid();
+    addParamCell(g, 'bThreshold', 'Threshold');
+    addParamCell(g, 'bContrast', 'Contrast');
+    addParamCell(g, 'bGamma', 'Gamma');
 
     const outRow = document.createElement('div');
     outRow.className = 'rw-pb-row rw-pb-row--out';

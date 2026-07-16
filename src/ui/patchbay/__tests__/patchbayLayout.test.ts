@@ -4,21 +4,33 @@
  * without a faceplate field, it must land in the visible AUXILIARY
  * catch-all rather than silently vanishing — and this test tells them.
  *
- * `patternXxx` keys are the one deliberate exception: they're homed on
- * the PATTERN GENERATOR rail module instead (see the
- * `PATTERN_OWNED_PREFIX` comment in patchbayLayout.ts) — a second copy
- * here would silently steal their `paramJacks` Map registration.
+ * `patternXxx` keys and the raster-B/dual-trace keys are the deliberate
+ * exceptions: they're homed on the PATTERN GENERATOR and DUAL RASTER
+ * rail modules instead (see `PATTERN_OWNED_PREFIX` / `DUAL_RASTER_OWNED`
+ * in patchbayLayout.ts) — a second copy here would silently steal their
+ * `paramJacks` Map registration.
  */
 import { describe, it, expect } from 'vitest';
 import { buildFaceplate, SOURCE_JACKS } from '../patchbayLayout';
 import { TARGETS } from '../../targets';
 
+const DUAL_RASTER_KEYS = [
+  'dualTracePos',
+  'bHPos', 'bVPos', 'bHSize', 'bVSize',
+  'bZPush', 'bZBias', 'bIntensity',
+  'bHCenter', 'bVCenter', 'bHSpin', 'bVSpin', 'bRotation',
+  'bHLinearity', 'bVLinearity',
+  'bThreshold', 'bContrast', 'bGamma',
+];
+
 describe('buildFaceplate', () => {
   const fields = buildFaceplate();
   const allKeys = fields.flatMap((f) => f.params.map((p) => p.key));
 
-  it('covers every static TARGETS entry exactly once, except pattern-owned keys', () => {
-    const expected = TARGETS.filter((t) => t.v !== 'none' && !String(t.v).startsWith('pattern')).map((t) => String(t.v));
+  it('covers every static TARGETS entry exactly once, except pattern- and dual-raster-owned keys', () => {
+    const expected = TARGETS
+      .filter((t) => t.v !== 'none' && !String(t.v).startsWith('pattern') && !DUAL_RASTER_KEYS.includes(String(t.v)))
+      .map((t) => String(t.v));
     expect(new Set(allKeys).size).toBe(allKeys.length); // no duplicates
     expect([...allKeys].sort()).toEqual([...expected].sort());
   });
@@ -27,6 +39,12 @@ describe('buildFaceplate', () => {
     const patternTargets = TARGETS.filter((t) => t.v !== 'none' && String(t.v).startsWith('pattern')).map((t) => String(t.v));
     expect(patternTargets.length).toBeGreaterThan(0); // sanity: the exclusion is exercised
     for (const key of patternTargets) expect(allKeys).not.toContain(key);
+  });
+
+  it('excludes every dual-raster-owned key (homed on the DUAL RASTER module instead)', () => {
+    const dualTargets = TARGETS.filter((t) => t.v !== 'none' && DUAL_RASTER_KEYS.includes(String(t.v))).map((t) => String(t.v));
+    expect(dualTargets.length).toBe(DUAL_RASTER_KEYS.length); // sanity: every listed key is a real target
+    for (const key of dualTargets) expect(allKeys).not.toContain(key);
   });
 
   it('leads with the brochure DCU sub-groups in order', () => {

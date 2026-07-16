@@ -367,6 +367,24 @@
   gap: 8px 10px;
 }
 
+/* Lightweight in-module sub-section label — for a module whose param
+   cells are grouped (e.g. DUAL RASTER's Position & Size / Depth & Beam
+   / Rotation / Linearity / Luminance groups, mirroring the Controls-tab
+   layout) but isn't dynamic per-kind the way PATTERN GENERATOR's own
+   params section is, so it doesn't need that module's rebuild plumbing
+   — just a static divider between fixed `.rw-pb-grid` blocks. */
+.rw-pb-subhead {
+  margin: 10px 0 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--re-line);
+  font-family: var(--re-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--re-text-dim);
+  text-transform: uppercase;
+}
+.rw-pb-subhead:first-of-type { margin-top: 6px; }
+
 /* Each cell mirrors one row of the real RE-4 faceplate (owner reference
    photo, screenshots/ruttetra.jpeg): IN jack + engraved label + OUT
    jack on top, then a rotary knob beside its backlit value readout —

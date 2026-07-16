@@ -91,7 +91,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
   // Video Source B + Composite routing — device/mode config, same
   // reasoning as sourceKind/deviceId above; videoCompositeBlendMode and
   // videoCompositeMix stay keyframable (mirrors patternBlendMode/Mix).
-  'sourceBKind', 'videoRendererIn', 'videoCompositeInA', 'videoCompositeInB',
+  'sourceBKind', 'deviceIdB', 'videoRendererIn', 'videoCompositeInA', 'videoCompositeInB',
   'videoDualRasterInA', 'videoDualRasterInB',
 
   // Panel UI

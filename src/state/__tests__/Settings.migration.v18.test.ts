@@ -206,3 +206,22 @@ describe('migrateSettings v30 -> v31 (window tabs)', () => {
     expect(out.workspaceTabs?.center).toContain('renderer');
   });
 });
+
+describe('migrateSettings v34 -> v35 (Source B device slot)', () => {
+  it('backfills deviceIdB to empty string', () => {
+    const out = migrateSettings({ _v: 34 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(35);
+    expect(out.deviceIdB).toBe('');
+  });
+
+  it('preserves an explicit deviceIdB, and an already-widened sourceBKind of "stream"', () => {
+    const kept = migrateSettings({ _v: 34, deviceIdB: 'cam-42', sourceBKind: 'stream' });
+    expect(kept.deviceIdB).toBe('cam-42');
+    expect(kept.sourceBKind).toBe('stream');
+  });
+
+  it('is idempotent', () => {
+    const once = migrateSettings({ _v: 34 });
+    expect(migrateSettings(once)._v).toBe(once._v);
+  });
+});

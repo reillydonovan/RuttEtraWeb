@@ -79,6 +79,26 @@ const PANEL_FIELDS: ReadonlyArray<{ title: string; panels: readonly string[] }> 
 const PATTERN_OWNED_PREFIX = 'pattern';
 
 /**
+ * Every raster-B / dual-trace TARGETS entry gets its ONE authoritative
+ * IN/OUT jack pair (or, for `dualRasterEnabled`/`dualMode`, its one
+ * control) directly on the rail's own DUAL RASTER module — same
+ * reasoning and same bug class as `PATTERN_OWNED_PREFIX` above (a
+ * second static copy on the general faceplate would be a silent
+ * `paramJacks` Map-key collision, not a visible error). Listed
+ * explicitly rather than by prefix: 17 of these 18 keys happen to
+ * start with `b`, but relying on that would silently swallow a future
+ * unrelated `b*`-prefixed target too.
+ */
+const DUAL_RASTER_OWNED = new Set<string>([
+  'dualTracePos',
+  'bHPos', 'bVPos', 'bHSize', 'bVSize',
+  'bZPush', 'bZBias', 'bIntensity',
+  'bHCenter', 'bVCenter', 'bHSpin', 'bVSpin', 'bRotation',
+  'bHLinearity', 'bVLinearity',
+  'bThreshold', 'bContrast', 'bGamma',
+]);
+
+/**
  * Build the faceplate fields from the live TARGETS × PARAM_DOCS join.
  * `extraTargets` (cv:N virtual outputs etc.) are handled by the caller
  * — this covers the static list.
@@ -86,7 +106,9 @@ const PATTERN_OWNED_PREFIX = 'pattern';
 export function buildFaceplate(): FieldSpec[] {
   const labelOf = new Map<string, string>();
   for (const t of TARGETS) {
-    if (t.v !== 'none' && !String(t.v).startsWith(PATTERN_OWNED_PREFIX)) labelOf.set(String(t.v), t.l);
+    if (t.v !== 'none' && !String(t.v).startsWith(PATTERN_OWNED_PREFIX) && !DUAL_RASTER_OWNED.has(String(t.v))) {
+      labelOf.set(String(t.v), t.l);
+    }
   }
 
   const fields: FieldSpec[] = [];

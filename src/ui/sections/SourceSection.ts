@@ -6,6 +6,12 @@
  * synthesized layer with its own enable toggle, kind / blend / mix
  * controls, and a per-pattern dynamic params host that rebuilds itself
  * each time `patternKind` changes.
+ *
+ * The webcam/screen/file/stream picker itself is `buildVideoSourcePicker`
+ * — a reusable unit parameterized by which `VideoSourceManager` and
+ * Settings keys to drive, so `createSourceBSection` (Source B, the
+ * Patch Bay's second video feed) gets the identical picker instead of a
+ * hand-duplicated copy.
  */
 
 import {
@@ -88,218 +94,17 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   );
   root.appendChild(capGrp.root);
 
-  // ---- Webcam device selector ----
-  const wc = group('Webcam');
+  // Status readout — declared here (before the picker groups that write
+  // into it via `info.textContent = ...` in their error handlers) but
+  // appended to the DOM further down, in its original position. Event
+  // handlers only fire long after this whole function body has finished
+  // running, so the variable just needs to exist by then, not be
+  // textually declared before every closure that captures it.
+  const info = readout();
 
-  const select = document.createElement('select');
-  select.className = 'rw-select';
-  const refreshBtn = button('Refresh', async () => populateDevices(true));
-
-  async function populateDevices(reuse = false) {
-    if (!reuse) await VideoSourceManager.ensurePermission();
-    const list = await source.listDevices();
-    select.innerHTML = '';
-    for (const d of list) {
-      const o = document.createElement('option');
-      o.value = d.deviceId;
-      o.textContent = d.label;
-      select.appendChild(o);
-    }
-    if (settings.get('deviceId')) select.value = settings.get('deviceId');
-  }
-  populateDevices().catch(() => {});
-
-  select.addEventListener('change', async () => {
-    const id = select.value;
-    settings.set('deviceId', id);
-    try {
-      await source.useWebcam({
-        deviceId: id,
-        width:  settings.get('requestedWidth'),
-        height: settings.get('requestedHeight'),
-        fps:    settings.get('requestedFps'),
-      });
-      settings.set('sourceKind', 'webcam');
-    } catch (err) {
-      info.textContent = `Webcam error: ${(err as Error).message}`;
-    }
-  });
-
-  const startWebcam = button('Use Webcam', async () => {
-    try {
-      await source.useWebcam({
-        deviceId: settings.get('deviceId') || undefined,
-        width:  settings.get('requestedWidth'),
-        height: settings.get('requestedHeight'),
-        fps:    settings.get('requestedFps'),
-      });
-      settings.set('sourceKind', 'webcam');
-      await populateDevices(true);
-    } catch (err) {
-      info.textContent = `Webcam error: ${(err as Error).message}`;
-    }
-  }, 'primary');
-
-  wc.body.append(
-    row('Device', select),
-    row('', startWebcam),
-    row('', refreshBtn),
-  );
-  root.appendChild(wc.root);
-
-  // Screen capture
-  const sc = group('Screen Capture');
-  sc.body.append(
-    row('', button('Capture Screen', async () => {
-      try {
-        await source.useScreen({ fps: settings.get('requestedFps') });
-        settings.set('sourceKind', 'screen');
-      } catch (err) {
-        info.textContent = `Screen error: ${(err as Error).message}`;
-      }
-    }, 'primary')),
-  );
-  root.appendChild(sc.root);
-
-  // File
-  const fl = group('Video File');
-  const fileInp = document.createElement('input');
-  fileInp.type = 'file';
-  fileInp.accept = 'video/*';
-  fileInp.className = 'rw-text';
-
-  // Filename label — shows the active file's name regardless of which entry
-  // point loaded it (panel picker or boot overlay). Hidden when no file active.
-  const fileLabel = readout();
-  fileLabel.style.color = 'var(--re-text-dim)';
-  fileLabel.style.fontSize = '0.82em';
-  fileLabel.style.display = 'none';
-
-  // Shared notice shown whenever any video file is loaded in this group.
-  const videoNotice = readout();
-  videoNotice.style.color = 'var(--re-text-dim)';
-  videoNotice.style.fontSize = '0.82em';
-  videoNotice.style.display = 'none';
-
-  const VIDEO_COLOR_NOTICE =
-    'Color mode set to Video — scanlines now use the source\'s own colors. ' +
-    'Adjust in the Color / PostFX panel.';
-
-  function applyVideoColorMode(): void {
-    settings.set('colorMode', 'video');
-    videoNotice.textContent = VIDEO_COLOR_NOTICE;
-    videoNotice.style.display = '';
-  }
-
-  fileInp.addEventListener('change', () => {
-    const f = fileInp.files?.[0];
-    if (!f) return;
-    source.useFile(f);
-    settings.set('sourceKind', 'file');
-    applyVideoColorMode();
-  });
-
-  // Reactive to any file source activation (panel picker OR boot overlay).
-  source.subscribe((st) => {
-    if (st.kind === 'file') {
-      fileLabel.textContent = st.label || '';
-      fileLabel.style.display = st.label ? '' : 'none';
-      videoNotice.textContent = VIDEO_COLOR_NOTICE;
-      videoNotice.style.display = '';
-    } else {
-      fileLabel.style.display = 'none';
-    }
-  });
-
-  fl.body.append(row('File', fileInp), fileLabel, videoNotice);
-
-  // Sample video — only shown when the operator has deployed a file at the
-  // sample URL. HEAD request runs once on section creation; the row stays
-  // hidden permanently if the file doesn't exist.
-  const sampleRow = document.createElement('div');
-  sampleRow.style.display = 'none';
-  const sampleErr = readout();
-  sampleErr.style.color = 'var(--re-warn)';
-  sampleErr.style.fontSize = '0.85em';
-  sampleErr.textContent = '';
-
-  const loadSampleBtn = button('Load Sample Video', async () => {
-    sampleErr.textContent = '';
-    videoNotice.style.display = 'none';
-    try {
-      await source.useStreamUrl(SAMPLE_VIDEO_URL);
-      settings.set('sourceKind', 'stream');
-      applyVideoColorMode();
-    } catch (err) {
-      sampleErr.textContent = (err as Error).message;
-    }
-  });
-  const sampleHint = readout();
-  sampleHint.style.color = 'var(--re-text-dim)';
-  sampleHint.style.fontSize = '0.82em';
-  sampleHint.textContent = SAMPLE_VIDEO_URL;
-  sampleRow.append(row('', loadSampleBtn), sampleHint, sampleErr);
-  fl.body.append(sampleRow);
-
-  // HEAD check — reveal the sample row only if the file is actually present.
-  fetch(SAMPLE_VIDEO_URL, { method: 'HEAD' })
-    .then((r) => { if (r.ok) sampleRow.style.display = ''; })
-    .catch(() => { /* file absent or CORS — keep row hidden */ });
-
-  root.appendChild(fl.root);
-
-  // Stream URL
-  const su = group('Stream URL');
-  const urlInp = document.createElement('input');
-  urlInp.type = 'url';
-  urlInp.className = 'rw-text';
-  urlInp.placeholder = 'https://…/stream.m3u8';
-  urlInp.value = settings.get('streamUrl');
-  urlInp.style.width = '100%';
-  urlInp.addEventListener('change', () => settings.set('streamUrl', urlInp.value));
-
-  const streamStatus = readout();
-  streamStatus.style.color = 'var(--re-text-dim)';
-  streamStatus.style.whiteSpace = 'pre-line';
-  streamStatus.style.fontSize = '0.85em';
-  streamStatus.textContent = '';
-
-  const useStreamBtn = button('Use Stream', async () => {
-    const url = urlInp.value.trim();
-    if (!url) {
-      streamStatus.style.color = 'var(--re-warn)';
-      streamStatus.textContent = 'Enter a URL first.';
-      return;
-    }
-    streamStatus.style.color = 'var(--re-text-dim)';
-    streamStatus.textContent = 'Connecting…';
-    try {
-      await source.useStreamUrl(url);
-      settings.set('streamUrl', url);
-      settings.set('sourceKind', 'stream');
-      streamStatus.style.color = 'var(--re-text-dim)';
-      streamStatus.textContent = '';
-    } catch (err) {
-      streamStatus.style.color = 'var(--re-warn)';
-      streamStatus.textContent = (err as Error).message;
-    }
-  }, 'primary');
-
-  const streamNote = readout();
-  streamNote.style.color = 'var(--re-text-dim)';
-  streamNote.style.fontSize = '0.82em';
-  streamNote.textContent =
-    'Formats: HLS (.m3u8), direct MP4/WebM URL.\n' +
-    'MPEG-DASH (.mpd) not supported — re-mux to HLS.\n' +
-    'The URL is remembered but not auto-reconnected on load.';
-
-  su.body.append(
-    row('URL', urlInp),
-    row('', useStreamBtn),
-    streamStatus,
-    streamNote,
-  );
-  root.appendChild(su.root);
+  root.appendChild(buildVideoSourcePicker({
+    settings, source, kindKey: 'sourceKind', deviceIdKey: 'deviceId', info,
+  }));
 
   // ── Video Audio ──────────────────────────────────────────────────────
   // Allows playback of the video file or stream's own audio track through
@@ -346,10 +151,309 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   }, 'danger'));
 
   // Status readout
-  const info = readout();
   info.style.marginTop = '8px';
   root.appendChild(info);
   source.subscribe((st) => {
+    info.textContent =
+      `kind:   ${st.kind}\n` +
+      `label:  ${st.label || '-'}\n` +
+      `size:   ${st.width}×${st.height}`;
+  });
+
+  return root;
+}
+
+// =====================================================================
+// Shared video-source picker (webcam / screen / file / stream URL)
+// =====================================================================
+
+export interface VideoSourcePickerOpts {
+  settings: SettingsStore;
+  source: VideoSourceManager;
+  /** Which Settings key records the active source kind — 'sourceKind'
+   *  for Source A, 'sourceBKind' for Source B. */
+  kindKey: 'sourceKind' | 'sourceBKind';
+  /** Which Settings key remembers the chosen webcam device — separate
+   *  per source so A and B can independently pick different (or the
+   *  SAME) physical camera. */
+  deviceIdKey: 'deviceId' | 'deviceIdB';
+  /** Error/status line the caller creates, appends wherever it wants,
+   *  and (usually) also drives from `source.subscribe()` for a
+   *  kind/label/size readout — shared with any inline error messages
+   *  raised here, same "last write wins, and a real state change wins
+   *  right back" behavior the original Source A section already had. */
+  info: HTMLElement;
+}
+
+/**
+ * Builds the Webcam / Screen Capture / Video File / Stream URL groups
+ * — the actual "what feeds this raster" picker — as one reusable unit.
+ * Extracted from `createSourceSection` so Source B's Controls-tab
+ * section (owner: "shouldn't I be able to specify what the second
+ * raster is — another webcam, same webcam, video, stream, etc?") gets
+ * the exact same picker Source A has, not a second hand-maintained
+ * copy. Capture Settings (resolution/fps — shared, applies to
+ * whichever source opens a webcam next), Video Audio, Mirror, and
+ * Pattern Generator stay Source-A-specific concepts in
+ * `createSourceSection` itself.
+ */
+export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement {
+  const { settings, source, kindKey, deviceIdKey, info } = opts;
+  const wrap = document.createElement('div');
+
+  // ---- Webcam device selector ----
+  const wc = group('Webcam');
+
+  const select = document.createElement('select');
+  select.className = 'rw-select';
+  const refreshBtn = button('Refresh', async () => populateDevices(true));
+
+  async function populateDevices(reuse = false) {
+    if (!reuse) await VideoSourceManager.ensurePermission();
+    const list = await source.listDevices();
+    select.innerHTML = '';
+    for (const d of list) {
+      const o = document.createElement('option');
+      o.value = d.deviceId;
+      o.textContent = d.label;
+      select.appendChild(o);
+    }
+    if (settings.get(deviceIdKey)) select.value = settings.get(deviceIdKey);
+  }
+  populateDevices().catch(() => {});
+
+  select.addEventListener('change', async () => {
+    const id = select.value;
+    settings.set(deviceIdKey, id);
+    try {
+      await source.useWebcam({
+        deviceId: id,
+        width:  settings.get('requestedWidth'),
+        height: settings.get('requestedHeight'),
+        fps:    settings.get('requestedFps'),
+      });
+      settings.set(kindKey, 'webcam');
+    } catch (err) {
+      info.textContent = `Webcam error: ${(err as Error).message}`;
+    }
+  });
+
+  const startWebcam = button('Use Webcam', async () => {
+    try {
+      await source.useWebcam({
+        deviceId: settings.get(deviceIdKey) || undefined,
+        width:  settings.get('requestedWidth'),
+        height: settings.get('requestedHeight'),
+        fps:    settings.get('requestedFps'),
+      });
+      settings.set(kindKey, 'webcam');
+      await populateDevices(true);
+    } catch (err) {
+      info.textContent = `Webcam error: ${(err as Error).message}`;
+    }
+  }, 'primary');
+
+  wc.body.append(
+    row('Device', select),
+    row('', startWebcam),
+    row('', refreshBtn),
+  );
+  wrap.appendChild(wc.root);
+
+  // Screen capture
+  const sc = group('Screen Capture');
+  sc.body.append(
+    row('', button('Capture Screen', async () => {
+      try {
+        await source.useScreen({ fps: settings.get('requestedFps') });
+        settings.set(kindKey, 'screen');
+      } catch (err) {
+        info.textContent = `Screen error: ${(err as Error).message}`;
+      }
+    }, 'primary')),
+  );
+  wrap.appendChild(sc.root);
+
+  // File
+  const fl = group('Video File');
+  const fileInp = document.createElement('input');
+  fileInp.type = 'file';
+  fileInp.accept = 'video/*';
+  fileInp.className = 'rw-text';
+
+  // Filename label — shows the active file's name regardless of which entry
+  // point loaded it (panel picker or boot overlay). Hidden when no file active.
+  const fileLabel = readout();
+  fileLabel.style.color = 'var(--re-text-dim)';
+  fileLabel.style.fontSize = '0.82em';
+  fileLabel.style.display = 'none';
+
+  // Shared notice shown whenever any video file is loaded in this group.
+  const videoNotice = readout();
+  videoNotice.style.color = 'var(--re-text-dim)';
+  videoNotice.style.fontSize = '0.82em';
+  videoNotice.style.display = 'none';
+
+  const VIDEO_COLOR_NOTICE =
+    'Color mode set to Video — scanlines now use the source\'s own colors. ' +
+    'Adjust in the Color / PostFX panel.';
+
+  function applyVideoColorMode(): void {
+    settings.set('colorMode', 'video');
+    videoNotice.textContent = VIDEO_COLOR_NOTICE;
+    videoNotice.style.display = '';
+  }
+
+  fileInp.addEventListener('change', () => {
+    const f = fileInp.files?.[0];
+    if (!f) return;
+    source.useFile(f);
+    settings.set(kindKey, 'file');
+    applyVideoColorMode();
+  });
+
+  // Reactive to any file source activation (panel picker OR boot overlay).
+  source.subscribe((st) => {
+    if (st.kind === 'file') {
+      fileLabel.textContent = st.label || '';
+      fileLabel.style.display = st.label ? '' : 'none';
+      videoNotice.textContent = VIDEO_COLOR_NOTICE;
+      videoNotice.style.display = '';
+    } else {
+      fileLabel.style.display = 'none';
+    }
+  });
+
+  fl.body.append(row('File', fileInp), fileLabel, videoNotice);
+
+  // Sample video — only shown when the operator has deployed a file at the
+  // sample URL. HEAD request runs once on section creation; the row stays
+  // hidden permanently if the file doesn't exist.
+  const sampleRow = document.createElement('div');
+  sampleRow.style.display = 'none';
+  const sampleErr = readout();
+  sampleErr.style.color = 'var(--re-warn)';
+  sampleErr.style.fontSize = '0.85em';
+  sampleErr.textContent = '';
+
+  const loadSampleBtn = button('Load Sample Video', async () => {
+    sampleErr.textContent = '';
+    videoNotice.style.display = 'none';
+    try {
+      await source.useStreamUrl(SAMPLE_VIDEO_URL);
+      settings.set(kindKey, 'stream');
+      applyVideoColorMode();
+    } catch (err) {
+      sampleErr.textContent = (err as Error).message;
+    }
+  });
+  const sampleHint = readout();
+  sampleHint.style.color = 'var(--re-text-dim)';
+  sampleHint.style.fontSize = '0.82em';
+  sampleHint.textContent = SAMPLE_VIDEO_URL;
+  sampleRow.append(row('', loadSampleBtn), sampleHint, sampleErr);
+  fl.body.append(sampleRow);
+
+  // HEAD check — reveal the sample row only if the file is actually present.
+  fetch(SAMPLE_VIDEO_URL, { method: 'HEAD' })
+    .then((r) => { if (r.ok) sampleRow.style.display = ''; })
+    .catch(() => { /* file absent or CORS — keep row hidden */ });
+
+  wrap.appendChild(fl.root);
+
+  // Stream URL
+  const su = group('Stream URL');
+  const urlInp = document.createElement('input');
+  urlInp.type = 'url';
+  urlInp.className = 'rw-text';
+  urlInp.placeholder = 'https://…/stream.m3u8';
+  urlInp.value = settings.get('streamUrl');
+  urlInp.style.width = '100%';
+  urlInp.addEventListener('change', () => settings.set('streamUrl', urlInp.value));
+
+  const streamStatus = readout();
+  streamStatus.style.color = 'var(--re-text-dim)';
+  streamStatus.style.whiteSpace = 'pre-line';
+  streamStatus.style.fontSize = '0.85em';
+  streamStatus.textContent = '';
+
+  const useStreamBtn = button('Use Stream', async () => {
+    const url = urlInp.value.trim();
+    if (!url) {
+      streamStatus.style.color = 'var(--re-warn)';
+      streamStatus.textContent = 'Enter a URL first.';
+      return;
+    }
+    streamStatus.style.color = 'var(--re-text-dim)';
+    streamStatus.textContent = 'Connecting…';
+    try {
+      await source.useStreamUrl(url);
+      settings.set('streamUrl', url);
+      settings.set(kindKey, 'stream');
+      streamStatus.style.color = 'var(--re-text-dim)';
+      streamStatus.textContent = '';
+    } catch (err) {
+      streamStatus.style.color = 'var(--re-warn)';
+      streamStatus.textContent = (err as Error).message;
+    }
+  }, 'primary');
+
+  const streamNote = readout();
+  streamNote.style.color = 'var(--re-text-dim)';
+  streamNote.style.fontSize = '0.82em';
+  streamNote.textContent =
+    'Formats: HLS (.m3u8), direct MP4/WebM URL.\n' +
+    'MPEG-DASH (.mpd) not supported — re-mux to HLS.\n' +
+    'The URL is remembered but not auto-reconnected on load.';
+
+  su.body.append(
+    row('URL', urlInp),
+    row('', useStreamBtn),
+    streamStatus,
+    streamNote,
+  );
+  wrap.appendChild(su.root);
+
+  return wrap;
+}
+
+/**
+ * Controls-tab "Video Source B" section — the second, independent video
+ * feed the Patch Bay's Composite/Dual Raster nodes can draw from. Until
+ * now this was only configurable via the Patch Bay's own VIDEO SOURCE B
+ * module (one-click default webcam, no device choice) — owner: "in the
+ * controls shouldn't I be able to specify what the second raster is,
+ * another webcam, same webcam, video, stream, etc?" Reuses the exact
+ * same picker Source A has (`buildVideoSourcePicker`); deliberately
+ * skips Capture Settings (shared with A), Video Audio, Mirror, and
+ * Pattern Generator — those are Source-A/global concepts, not a second
+ * copy this section would need.
+ */
+export function createSourceBSection(settings: SettingsStore, sourceB: VideoSourceManager): HTMLElement {
+  const root = document.createElement('div');
+
+  const note = document.createElement('p');
+  note.className = 'section-note';
+  note.textContent =
+    'A second, independent video feed for the Patch Bay\'s Composite and '
+    + 'Dual Raster nodes — pick a different camera, the same camera, a '
+    + 'file, or a stream, same as Source A. Has no effect until wired to '
+    + 'Composite or Dual Raster in the Patch Bay.';
+  root.appendChild(note);
+
+  const info = readout();
+  root.appendChild(buildVideoSourcePicker({
+    settings, source: sourceB, kindKey: 'sourceBKind', deviceIdKey: 'deviceIdB', info,
+  }));
+
+  root.appendChild(button('Stop Source B', () => {
+    sourceB.stop();
+    settings.set('sourceBKind', 'none');
+  }, 'danger'));
+
+  info.style.marginTop = '8px';
+  root.appendChild(info);
+  sourceB.subscribe((st) => {
     info.textContent =
       `kind:   ${st.kind}\n` +
       `label:  ${st.label || '-'}\n` +

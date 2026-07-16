@@ -39,7 +39,7 @@ import type { GraphEngine } from './modulation/graph/GraphEngine';
 import { STARTER_PATCHES, StarterPatch } from './modulation/graph/library';
 import type { GraphPatch } from './modulation/graph/types';
 import { ControlPanel } from './ui/ControlPanel';
-import { createSourceSection } from './ui/sections/SourceSection';
+import { createSourceSection, createSourceBSection } from './ui/sections/SourceSection';
 import { createDcuSection } from './ui/sections/DcuSection';
 import { createDualRasterSection } from './ui/sections/DualRasterSection';
 import { createModulationContainerSection } from './ui/sections/ModulationContainerSection';
@@ -1247,6 +1247,7 @@ async function bootSynth(): Promise<void> {
   }
 
   panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Video Source B',        body: createSourceBSection(settings, sourceB) });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
@@ -1392,6 +1393,7 @@ async function bootSynth(): Promise<void> {
     host.className = 'rw-panel-multihost';
     const extra = new ControlPanel(host, settings);
     extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Video Source B',       body: createSourceBSection(settings, sourceB) });
     extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings), initiallyOpen: true });
     extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });
     extra.addSection({ tab: 'synth', title: 'Camera',               body: createCameraSection(settings, cameraRig) });
