@@ -2609,8 +2609,8 @@ export function createPatchBayView(
     if (!addNodeMenuEl) return;
     addNodeMenuEl.remove();
     addNodeMenuEl = null;
-    document.removeEventListener('pointerdown', onAddNodeMenuOutsideClick, true);
-    document.removeEventListener('keydown', onAddNodeMenuKeydown, true);
+    root.ownerDocument.removeEventListener('pointerdown', onAddNodeMenuOutsideClick, true);
+    root.ownerDocument.removeEventListener('keydown', onAddNodeMenuKeydown, true);
   }
   function onAddNodeMenuOutsideClick(e: PointerEvent): void {
     if (addNodeMenuEl && !addNodeMenuEl.contains(e.target as Node)) closeAddNodeMenu();
@@ -2618,8 +2618,19 @@ export function createPatchBayView(
   function onAddNodeMenuKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') closeAddNodeMenu();
   }
+  // `clientX`/`clientY` are always relative to whichever window fired the
+  // originating contextmenu event — for a popped-out Patch Bay that's the
+  // POPUP's own viewport, not the main window's (owner bug report: a
+  // right-click in a popout spawned its node at the main window's click
+  // coordinates instead). The menu must be built, sized, and positioned
+  // against `root.ownerDocument`/its `defaultView`, never the bare global
+  // `document`/`window` — same convention already used for tooltips
+  // (`root.ownerDocument` above) and the cable canvas (`canvas.ownerDocument
+  // !== root.ownerDocument` check near the scope-canvas code).
   function openAddNodeMenu(clientX: number, clientY: number): void {
     closeAddNodeMenu();
+    const doc = root.ownerDocument;
+    const win = doc.defaultView ?? window;
     const menu = createPalette({
       onAdd: (type) => {
         addGraphNode(type, clientX, clientY);
@@ -2627,10 +2638,10 @@ export function createPatchBayView(
       },
     });
     menu.classList.add('rw-pb-addnode-menu');
-    document.body.appendChild(menu);
+    doc.body.appendChild(menu);
     const rect = menu.getBoundingClientRect();
-    const left = Math.min(clientX, Math.max(0, window.innerWidth - rect.width - 8));
-    const top = Math.min(clientY, Math.max(0, window.innerHeight - rect.height - 8));
+    const left = Math.min(clientX, Math.max(0, win.innerWidth - rect.width - 8));
+    const top = Math.min(clientY, Math.max(0, win.innerHeight - rect.height - 8));
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
     addNodeMenuEl = menu;
@@ -2638,8 +2649,8 @@ export function createPatchBayView(
     // trailing pointerdown (some browsers fire one for the auxiliary
     // button) would otherwise close the menu the instant it opens.
     setTimeout(() => {
-      document.addEventListener('pointerdown', onAddNodeMenuOutsideClick, true);
-      document.addEventListener('keydown', onAddNodeMenuKeydown, true);
+      doc.addEventListener('pointerdown', onAddNodeMenuOutsideClick, true);
+      doc.addEventListener('keydown', onAddNodeMenuKeydown, true);
     }, 0);
   }
   /** Place a just-created graph module free-floating at the spawn point

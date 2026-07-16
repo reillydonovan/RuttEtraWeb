@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.25.1, July 2026 — popout right-click node-spawn fix)
+
+- **Fixed: right-clicking to add a graph node in a popped-out Patch Bay window spawned the node at the main window's click coordinates instead of the popout's own.** Root cause: the "Add Node" context menu was built, appended, and positioned against the bare global `document`/`window` — which, since the Patch Bay's setup code always runs in the MAIN window's JS context regardless of which window its `root` element ends up living in (per the popout architecture: a fresh instance is built by the opener and then adopted into the popup document), resolved to the wrong window's document body and viewport dimensions. Fixed by building/positioning the menu against `root.ownerDocument`/its `defaultView`, the same convention already used elsewhere in the file (tooltips, the cable canvas) for popout-safety.
+
 ## Recent changes (v1.25.0, July 2026 — Patch Bay node hover/select/drag-cursor states)
 
 - **Graph node/module header bars now show a hover cue** — resting the mouse over any Patch Bay unit's header (a Function Generator, a graph node, a faceplate field group, the SOURCES bus) glows softly, signaling it's the grab handle before you commit to a drag.
