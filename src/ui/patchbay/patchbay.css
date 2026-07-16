@@ -394,6 +394,7 @@
    targets get jacks only (addParamCell) — they aren't real Settings
    keys. */
 .rw-pb-cell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -413,6 +414,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Range-clamp ▾ (owner: "adjust the max and min values... in the
+   patch"), reusing panel.css's `.rw-range-menu-btn` — but that widget's
+   own CSS assumes the more spacious Controls-tab row (absolute,
+   `top: -13px`), which would overshoot a cell this tight (118px
+   min-width, 8-10px grid gaps). Flattened back to a plain small inline
+   flex item instead. */
+.rw-pb-cell-top .rw-range-menu-btn {
+  position: static;
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  font-size: 9px;
+  line-height: 1;
+  padding: 0 2px;
 }
 .rw-pb-cell-ctl {
   display: flex;

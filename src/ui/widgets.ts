@@ -611,8 +611,12 @@ function clampNumber(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** v19: optional range-editing section on the numeric modal. */
-interface RangeEditOptions {
+/** v19: optional range-editing section on the numeric modal. Exported
+ *  so any other surface with its own numeric control (the Patch Bay's
+ *  `addParamCell`, currently) can open the SAME modal instead of
+ *  forking a second range-editing UI — one authoritative "set range"
+ *  experience app-wide, per principle 1. */
+export interface RangeEditOptions {
   /** Designed bounds — the "Reset range" target and clamp reference. */
   defMin: number;
   defMax: number;
@@ -622,7 +626,7 @@ interface RangeEditOptions {
   onChange(next: { min: number; max: number } | null): void;
 }
 
-function openNumericModal(
+export function openNumericModal(
   title: string, current: number, min: number, max: number, step: number,
   onAccept: (v: number) => void,
   rangeEdit?: RangeEditOptions,

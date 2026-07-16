@@ -25,6 +25,11 @@ npm run build
 
 ---
 
+## Recent changes (v1.28.0, July 2026 — custom min/max range clamps in the Patch Bay)
+
+- **Every Patch Bay param cell (the general faceplate, Pattern Generator's per-kind params, and all 18 Dual Raster params) now has the same "Set range" menu the Controls-tab sliders have had since v19** — a small ▾ next to the param's IN/OUT jacks opens a menu to set a custom min/max clamp (or an exact value), reset the range to stock, or reset the value to default. Ranges are stored in the same `paramRangeOverrides` Settings key both surfaces already share, so a range set from Controls now clamps the Patch Bay's knob too, and vice versa — one authoritative range per param, not two independently-drifting ones.
+- Known gap, not yet covered: a couple of hand-built number fields that don't go through the shared cell builder (Composite's and Pattern Generator's own "mix" fields) don't have the range menu yet.
+
 ## Recent changes (v1.27.5, July 2026 — hardware/rack skin: fixed blank slider rows in Classic/Graph slot fields)
 
 - **Fixed: the Amount slider and every per-source-type parameter (Audio Band/Gain, LFO rate, output stage Min/Max/Offset, etc.) in the Classic 4-slot matrix and Graph Beginner view rendered completely BLANK under the hardware and rack skins.** Root cause: these fields were hand-built with just a native range input + number box, but skin.css unconditionally hides both under those two skins, expecting a rotary knob face in their place — one that these fields never had. Fixed with a new shared `createRawKnob()` widget (matching `slider()`'s own big knob visually) wired into every one of `SlotRow.ts`'s fields, so Classic and Graph Beginner rows now show a real, working, correctly-styled knob under HW/rack, matching every other control in the panel.

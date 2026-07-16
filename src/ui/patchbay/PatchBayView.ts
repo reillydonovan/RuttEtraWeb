@@ -46,7 +46,9 @@ import type {
 } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
 import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
-import { attachNumberStepper } from '../widgets';
+import { attachNumberStepper, openNumericModal } from '../widgets';
+import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
+import { DEFAULTS } from '../../state/Settings';
 import { getDef } from '../../modulation/graph/registry';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
@@ -1580,14 +1582,16 @@ export function createPatchBayView(
   // module's own construction comment above for why.
   if (dualRasterMod) col2.appendChild(dualRasterMod);
 
-  /** Best-effort numeric range for a modulatable Settings key, sourced
-   *  from `PARAM_DOCS`'s human-readable `range` field — the SAME data
-   *  that already drives in-app Help and the About page's Param
-   *  Reference (one source, not a second hand-authored table). Handles
-   *  the handful of radian ranges written as e.g. '0..2π'. A key
-   *  `PARAM_DOCS` doesn't cover falls back to a generous, unclamped
-   *  default — still a fully usable number input, just without a tight
-   *  min/max hint. */
+  /** Best-effort DESIGNED (stock) numeric range for a modulatable
+   *  Settings key, sourced from `PARAM_DOCS`'s human-readable `range`
+   *  field — the SAME data that already drives in-app Help and the
+   *  About page's Param Reference (one source, not a second hand-
+   *  authored table). Handles the handful of radian ranges written as
+   *  e.g. '0..2π'. A key `PARAM_DOCS` doesn't cover falls back to a
+   *  generous, unclamped default — still a fully usable number input,
+   *  just without a tight min/max hint. This is the "Reset range"
+   *  target and the modal's `defMin`/`defMax` — NOT necessarily what
+   *  the knob/input currently clamp to, see `effectiveRangeFor`. */
   function paramRangeFor(key: string): { min: number; max: number; step: number } {
     const text = PARAM_DOCS[key]?.range;
     const m = text?.match(/^(-?[\d.]+)(\s*π)?\s*\.\.\s*(-?[\d.]+)(\s*π)?/);
@@ -1596,6 +1600,21 @@ export function createPatchBayView(
     const span = Math.abs(max - min);
     const step = span <= 2 ? 0.01 : span <= 20 ? 0.1 : 1;
     return { min, max, step };
+  }
+
+  /** Effective (designed range × any user override) bounds — the SAME
+   *  `paramRangeOverrides` Settings key the Controls-tab `slider()`
+   *  widget's own "Set range" modal writes (owner: "I should be able to
+   *  adjust the max and min values of all variables in controls AND in
+   *  the patch"). One authoritative range per key, read by whichever
+   *  surface is showing it — a range set from Controls now clamps the
+   *  Patch Bay's knob/value field too, and vice versa. */
+  function effectiveRangeFor(key: string): { min: number; max: number; step: number } {
+    const designed = paramRangeFor(key);
+    const o = (settings.get('paramRangeOverrides') ?? {})[key];
+    const normalized = o ? clampRangeOverride(designed.min, designed.max, o.min, o.max) : null;
+    if (!normalized) return designed;
+    return { min: normalized.min, max: normalized.max, step: designed.step };
   }
 
   /** Write a faceplate param's BASE value directly (never the live
@@ -1655,30 +1674,116 @@ export function createPatchBayView(
 
     // Rotary knob + backlit value field (base value; the amber needle /
     // ▸ readout show the live value when modulation rides on top).
-    const range = paramRangeFor(key);
-    const ctl = document.createElement('div');
-    ctl.className = 'rw-pb-cell-ctl';
-    const knob = createMiniKnob({
-      min: range.min, max: range.max, step: range.step,
+    // `knobOpts` is a stable, MUTATED-in-place object (not spread into a
+    // fresh literal) — createMiniKnob reads `opts.min/max/step` live off
+    // the same reference, so updating it in `applyEffRange` below and
+    // calling `knob.refresh()` is enough to move the knob's clamp/travel
+    // without rebuilding it.
+    const knobOpts = {
+      min: 0, max: 0, step: 0.01,
       label,
       get: () => {
         const v = settings.get(key as keyof Settings);
         return typeof v === 'number' ? v : 0;
       },
-      set: (v) => writeParamValue(key, v),
-    });
+      set: (v: number) => writeParamValue(key, v),
+    };
+    const ctl = document.createElement('div');
+    ctl.className = 'rw-pb-cell-ctl';
+    const knob = createMiniKnob(knobOpts);
     attachTooltip(knob.el, `${label} — drag vertically to adjust (Shift = fine). Amber needle = live value with modulation.`);
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'rw-pb-cell-value';
-    input.step = String(range.step);
-    input.min = String(range.min);
-    input.max = String(range.max);
     input.addEventListener('input', () => {
       const v = parseFloat(input.value);
       if (Number.isFinite(v)) writeParamValue(key, v);
     });
-    attachTooltip(input, `${label} — base value (${range.min}..${range.max}). Any modulation on this param adds/multiplies on top, live.`);
+
+    // Effective range (designed × any user override) — kept live via the
+    // SAME `paramRangeOverrides` Settings key the Controls-tab `slider()`
+    // widget's own "Set range" modal writes (owner: "I should be able to
+    // adjust the max and min values of all variables in controls AND in
+    // the patch"). Applied once at build and again whenever the override
+    // map changes (mirrors slider()'s own `applyEffRange`).
+    const applyEffRange = (): void => {
+      const eff = effectiveRangeFor(key);
+      knobOpts.min = eff.min; knobOpts.max = eff.max; knobOpts.step = eff.step;
+      input.min = String(eff.min); input.max = String(eff.max); input.step = String(eff.step);
+      knob.refresh();
+      attachTooltip(input, `${label} — base value (${eff.min}..${eff.max}). Any modulation on this param adds/multiplies on top, live.`);
+    };
+    applyEffRange();
+    settings.subscribe('paramRangeOverrides', applyEffRange);
+
+    // Discoverable range clamp — same ▾ menu / modal as the Controls-tab
+    // slider (openNumericModal, reused not forked): "Set range / exact
+    // value…", "Reset range to stock", "Reset value to default".
+    const rangeBtn = document.createElement('button');
+    rangeBtn.type = 'button';
+    rangeBtn.className = 'rw-range-menu-btn';
+    rangeBtn.textContent = '▾';
+    attachTooltip(rangeBtn, 'Value & range menu — set a custom min/max clamp for this param.');
+    rangeBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    rangeBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const doc = rangeBtn.ownerDocument;
+      doc.getElementById('rw-range-menu')?.remove();
+      const ul = doc.createElement('ul');
+      ul.id = 'rw-range-menu';
+      ul.className = 'rw-kf-menu';
+      const r = rangeBtn.getBoundingClientRect();
+      ul.style.left = `${r.left}px`;
+      ul.style.top = `${r.bottom + 4}px`;
+      const item = (text: string, disabled: boolean, onClick?: () => void): void => {
+        const li = doc.createElement('li');
+        li.textContent = text;
+        if (disabled) li.classList.add('disabled');
+        else li.addEventListener('click', () => { onClick?.(); ul.remove(); });
+        ul.appendChild(li);
+      };
+      const designed = paramRangeFor(key);
+      const hasOverride = (settings.get('paramRangeOverrides') ?? {})[key] != null;
+      item('Set range / exact value…', false, () => {
+        openNumericModal(`Enter ${label}`, knobOpts.get(), knobOpts.min, knobOpts.max, knobOpts.step, (v) => {
+          writeParamValue(key, v);
+        }, {
+          defMin: designed.min, defMax: designed.max,
+          current: { min: knobOpts.min, max: knobOpts.max },
+          onChange: (next) => {
+            const cur = { ...(settings.get('paramRangeOverrides') ?? {}) };
+            const normalized = next ? clampRangeOverride(designed.min, designed.max, next.min, next.max) : null;
+            if (!normalized || isDefaultRange(designed.min, designed.max, normalized)) delete cur[key];
+            else cur[key] = normalized;
+            settings.set('paramRangeOverrides', cur);
+          },
+        }, doc);
+      });
+      item('Reset range to stock', !hasOverride, () => {
+        const cur = { ...(settings.get('paramRangeOverrides') ?? {}) };
+        delete cur[key];
+        settings.set('paramRangeOverrides', cur);
+      });
+      const defaultValue = (DEFAULTS as unknown as Record<string, unknown>)[key];
+      if (typeof defaultValue === 'number') {
+        item(`Reset value to default (${defaultValue})`, false, () => writeParamValue(key, defaultValue));
+      }
+      doc.body.appendChild(ul);
+      const close = (e: Event): void => {
+        if (e.target instanceof Node && ul.contains(e.target)) return;
+        ul.remove();
+        doc.removeEventListener('pointerdown', close, true);
+      };
+      doc.addEventListener('pointerdown', close, true);
+    });
+    // Appended into the (flow-layout) top row, not absolutely positioned
+    // like the Controls-tab equivalent — this cell is far too tight
+    // (118px min-width, 8-10px grid gaps) for that widget's `-13px`
+    // top offset, which was tuned for the more spacious panel row.
+    // `.rw-pb-cell-top .rw-range-menu-btn` (patchbay.css) overrides the
+    // positioning back to a plain small inline button for this context.
+    topRow.appendChild(rangeBtn);
+
     ctl.append(knob.el, attachNumberStepper(input));
     cell.appendChild(ctl);
     const liveSpan = document.createElement('span');
