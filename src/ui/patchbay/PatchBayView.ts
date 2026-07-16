@@ -246,6 +246,20 @@ export function createPatchBayView(
    *  on screen right now, never a separately-computed/stale geometry. */
   let drawnThisFrame: Array<{ id: string; a: Pt; b: Pt; style: CableStyle }> = [];
 
+  /** Click-selected module/field/graphnode/bus unit (owner: "additional
+   *  selection... visuals, not just for the node" — the same click-to-
+   *  select affordance the cables already have, applied to node bodies).
+   *  The class lives directly on the element rather than an id lookup —
+   *  unlike cables (recomputed from data every frame), unit elements are
+   *  stable DOM nodes kept alive across rebuilds (see `graphModuleEls`). */
+  let selectedUnit: HTMLElement | null = null;
+  function selectUnit(u: HTMLElement | null): void {
+    if (selectedUnit === u) return;
+    if (selectedUnit) selectedUnit.classList.remove('rw-pb-unit-selected');
+    selectedUnit = u;
+    if (selectedUnit) selectedUnit.classList.add('rw-pb-unit-selected');
+  }
+
   /** Start a new drag gesture — clears any click-selection so it doesn't
    *  visually compete with the active drag. */
   function startDrag(p: Pending): void {
@@ -1704,6 +1718,11 @@ export function createPatchBayView(
           if (d < bestDist) { bestDist = d; bestId = c.id; }
         }
         selectedCableId = bestId;
+        // Empty-background click (or a click that only found a cable)
+        // also clears any node selection — this gesture already excludes
+        // clicks starting on a module/field/graphnode (see the pointerdown
+        // guard above), so reaching here always means "away from a unit."
+        selectUnit(null);
       }
     };
     root.addEventListener('pointermove', onMove);
@@ -1987,6 +2006,14 @@ export function createPatchBayView(
         if (!started) {
           if (Math.hypot(e.clientX - startX, e.clientY - startY) < 5) return;
           started = true;
+          // Forces the grabbing cursor over the WHOLE board for the rest
+          // of the gesture (owner: "additional... drag visuals, not just
+          // for the node, but for the cursor too") — without this, fast
+          // pointer motion can outrun the unit being repositioned under
+          // it and the cursor would flash back to whatever's normally
+          // under that point (same precedent as workspace.css's
+          // `body.rw-region-dragging` rule).
+          root.classList.add('rw-pb-node-dragging');
           if (!freeMode) unit.classList.add('rw-pb-unit-lifting');
           else { beginFree(e); }
         }
@@ -2037,7 +2064,18 @@ export function createPatchBayView(
         doc.removeEventListener('pointerup', onUp);
         doc.removeEventListener('pointercancel', onUp);
         unit.classList.remove('rw-pb-unit-dragging', 'rw-pb-unit-lifting');
-        if (!started) { insertLine.remove(); return; }
+        root.classList.remove('rw-pb-node-dragging');
+        if (!started) {
+          // A plain click (never crossed the drag threshold) selects this
+          // unit instead — the same click-to-select affordance the
+          // cables already have (owner: "additional selection... visuals,
+          // not just for the node"). Clears any cable selection so the
+          // two outline styles don't compete for attention at once.
+          insertLine.remove();
+          selectUnit(unit);
+          selectedCableId = null;
+          return;
+        }
         if (!freeMode) {
           if (stackTarget && insertLine.parentNode === stackTarget) {
             // Reorder within/into the stack at the insertion line.
@@ -2176,6 +2214,7 @@ export function createPatchBayView(
     for (const [nodeId, el] of Array.from(graphModuleEls)) {
       if (nodeIds.has(nodeId)) continue;
       el.remove();
+      if (selectedUnit === el) selectUnit(null);
       graphModuleEls.delete(nodeId);
       for (const key of Array.from(graphNodeJacks.keys())) {
         if (key.startsWith(`${nodeId}#`)) graphNodeJacks.delete(key);

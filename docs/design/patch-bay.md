@@ -153,3 +153,12 @@ Immediate owner follow-up to v1.23: push the Patch-Bay-only cursor work out to t
 - The plain resting arrow (`html, body`) and the text-input caret (all real text-editable elements, via an unscoped safety-net rule) are now custom too; native `<select>`/checkbox/radio get the pointer token via a second small unscoped rule (closing a real gap — `.rw-select` never had an explicit cursor rule at all).
 - A global `mousedown` listener in `main.ts` suppresses the browser's native middle-click autoscroll gesture app-wide (previously only locally suppressed inside the Patch Bay's own pan handler).
 - See CLAUDE.md's "State of the app-wide custom cursor round" entry for full detail. No Settings/schema change; pure CSS + one small JS listener.
+
+## v1.25: node hover/select/drag-cursor states
+
+Immediate owner follow-up: give module/graph-node units the same hover/select/drag visual language the cables already have — a header hover glow, click-to-select with a persistent outline, and a cursor that stays consistent for the whole drag gesture, not just while directly over the unit.
+
+- `patchbay.css`'s `.rw-pb-unit-handle:hover` (already added by `makeUnitDraggable()` to every module/field/graphnode/bus header) gets a background wash + inset glow.
+- New `selectedUnit`/`selectUnit()` in `PatchBayView.ts` — click a header (no drag) to select, click empty board background to clear; mutually exclusive with cable selection so the two outline styles never compete.
+- `root` gets a `.rw-pb-node-dragging` class for the duration of any unit drag, forcing the grabbing cursor over the whole board (`!important`) rather than relying on a per-element rule that fast pointer motion can outrun.
+- See CLAUDE.md's "State of the node hover/select/drag-cursor round" entry for full detail. Not yet spot-checked live in a browser this round (no browser-automation tool available in that session) — worth a follow-up check next time one is.

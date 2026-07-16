@@ -256,6 +256,19 @@
   border-bottom: 1px solid var(--re-line);
   padding-bottom: 6px;
   margin-bottom: 6px;
+  border-radius: 2px;
+}
+
+/* Header-bar hover cue (owner: "if I hover over a node's header bar
+   there should be a visual cue... that I am hovering over it to select
+   it") — `.rw-pb-unit-handle` is added by makeUnitDraggable() to every
+   module/field/graphnode/bus header, so this one rule covers all of
+   them. The header text is already --re-accent by default, so a color
+   change alone wouldn't read as "something happened" — a background
+   wash + inset glow does. */
+.rw-pb-unit-handle:hover {
+  background: rgba(95, 255, 133, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(95, 255, 133, 0.45);
 }
 
 /* Enable checkbox drawn as an LED lens. */
@@ -536,6 +549,23 @@
   outline: 1px solid var(--re-accent);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(95, 255, 133, 0.25);
   cursor: var(--rw-cur-grabbing);
+}
+/* Click-selected unit (owner: "additional selection... visuals, not
+   just for the node") — a bright, always-on outline distinct from both
+   the transient hover glow above and the accent-colored drag outline,
+   so "selected" reads as its own persistent state, mirroring the
+   cable-selection white outline (cableDraw.ts's `selected` option). */
+.rw-pb-unit-selected {
+  outline: 2px solid #ffffff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.45);
+}
+/* Forces the grabbing cursor over the whole board for the duration of
+   any node drag (TIDY reorder-lift or FREE-mode move) — same
+   precedent as workspace.css's `body.rw-region-dragging` rule. Without
+   this the cursor is only guaranteed correct while directly over the
+   dragged unit's own box, which fast pointer motion can outrun. */
+.rw-pb-node-dragging, .rw-pb-node-dragging * {
+  cursor: var(--rw-cur-grabbing) !important;
 }
 .rw-pb-tidy {
   float: right;

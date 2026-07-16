@@ -25,6 +25,12 @@ npm run build
 
 ---
 
+## Recent changes (v1.25.0, July 2026 — Patch Bay node hover/select/drag-cursor states)
+
+- **Graph node/module header bars now show a hover cue** — resting the mouse over any Patch Bay unit's header (a Function Generator, a graph node, a faceplate field group, the SOURCES bus) glows softly, signaling it's the grab handle before you commit to a drag.
+- **Click-to-select for nodes and modules** — click a unit's header to give it a bright, persistent white outline (the same visual language the cable click-to-select already uses); click empty board background to clear it. Selecting a unit clears any cable selection and vice versa, so the two outline styles never compete for attention.
+- **The cursor now stays a consistent "grabbing" glyph for the full duration of any node drag** (reorder in TIDY mode or a free move), instead of only being guaranteed correct while directly over the dragged unit's own box — fast pointer motion could previously outrun the moving element and flicker the cursor back to default.
+
 ## Recent changes (v1.24.0, July 2026 — custom cursor graphics app-wide)
 
 - **Every browser-default cursor in the app is now a custom on-theme glyph** — not just the Patch Bay. A shared `src/ui/cursors.css` defines one set of small SVG cursors (a subtle ring-and-dot for anything clickable, a move-cross for drag handles, a red slash-circle for disabled/blocked, a green "?" for help, a fine reticle for precise-pick tools, directional double-arrows for resize handles, a styled I-beam for text entry, and even the plain resting arrow) and every stylesheet in the app — panel, timeline, graph editor, workspace tabs, menu bar, layout, tutorial, rack skin — references the same tokens instead of hand-rolling its own. Native `<select>`/checkbox/radio controls and every text input get the treatment too via a couple of unscoped safety-net rules, and the browser's own middle-click autoscroll cursor is suppressed app-wide so it can never sneak in.
