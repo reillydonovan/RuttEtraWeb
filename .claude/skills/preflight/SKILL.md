@@ -262,7 +262,22 @@ Run these in order; stop and report on the first failure:
   CRT theme) recurred at multiple unrelated call sites because a
   hand-built `<input>` didn't carry the right class. If you fix a
   styling bug for the second time on the same element type, the third
-  fix belongs in a global rule, not another call site.
+  fix belongs in a global rule, not another call site. `.rw-select`
+  itself was a case of this discovered late (2026-07-16): it had a
+  `background`/`border`/`color`/`cursor` rule for years but never
+  `appearance: none`, so Chromium kept drawing its OWN native
+  dropdown-arrow sub-widget on the right edge of every select in the
+  app — unstyled AND showing the OS default cursor regardless of the
+  `cursor` rule already set on the element, because that native arrow
+  is a distinct rendering surface `appearance: auto` keeps around. Found
+  from an owner screenshot (a correctly CRT-styled value box with a grey
+  system chevron glued to it) — fixed with `appearance: none` +
+  a hand-drawn SVG chevron (`background-image`, kept as separate
+  longhand properties, not the `background` shorthand, so per-skin
+  `.rw-select` overrides that only touch fill color don't blank the
+  chevron back out again). If you add a NEW skin-specific or scoped
+  `.rw-select` background override, use `background-color`, not
+  `background`, or you'll silently reintroduce this.
 
 ## Deploy warning
 

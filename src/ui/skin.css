@@ -181,12 +181,22 @@ body:is([data-skin="hardware"], [data-skin="rack"]) .rw-btn:active:not(:disabled
 
 body:is([data-skin="hardware"], [data-skin="rack"]) .rw-select,
 body:is([data-skin="hardware"], [data-skin="rack"]) .rw-text {
-  background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--re-line);
   border-radius: 2px;
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.8);
   color: var(--re-accent);
   text-shadow: var(--re-glow);
+}
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-text {
+  background: rgba(0, 0, 0, 0.55);
+}
+/* `.rw-select` gets `background-color` only (not the `background`
+   shorthand `.rw-text` uses above) — panel.css's base `.rw-select` rule
+   draws its dropdown chevron via `background-image`, and the shorthand
+   form always resets every background-* sub-property to initial,
+   which would blank the chevron out again for these two skins. */
+body:is([data-skin="hardware"], [data-skin="rack"]) .rw-select {
+  background-color: rgba(0, 0, 0, 0.55);
 }
 
 /* ---------- color swatch: screw-mounted lens frame ---------- */

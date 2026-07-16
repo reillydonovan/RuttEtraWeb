@@ -576,14 +576,37 @@ input[type="range"]::-moz-range-thumb {
   font-size: 13px;
 }
 
-/* Select */
+/* Select — `appearance: none` + a hand-drawn chevron, same reasoning
+   as the `input[type=range]`/scrollbar/file-input rules elsewhere in
+   this file: a native `<select>` keeps `appearance: auto` unless told
+   otherwise, so Chromium renders its OWN grey dropdown-arrow button on
+   the right edge regardless of the background/border/color set here —
+   the rest of the box picks up this theme, but that one native sub-
+   widget doesn't, AND (a related Chromium quirk) doesn't reliably
+   inherit a custom `cursor` either, so it shows the OS default arrow
+   even though `select { cursor: var(--rw-cur-pointer) }` (cursors.css)
+   is already in force. Found live via an owner screenshot (`arrows.png`)
+   showing exactly this: a correctly CRT-styled text/value area with an
+   unstyled grey system chevron glued to its right edge. `background-
+   image`/`-repeat`/`-position`/`-size` are separate longhand properties
+   (not folded into the `background` shorthand below) specifically so
+   the hardware/rack skin's own `.rw-select` override (skin.css, which
+   only sets `background-color`, not the shorthand) can restyle the fill
+   color without blanking out the chevron. */
 .rw-select {
-  background: rgba(0,0,0,0.6);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: rgba(0,0,0,0.6);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1 L5 5 L9 1' fill='none' stroke='%235fff85' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
   color: var(--re-text);
   border: 1px solid var(--re-line);
   font-family: var(--re-mono);
   font-size: 14px;
-  padding: 3px 6px;
+  padding: 3px 22px 3px 6px;
   width: 100%;
 }
 .rw-select:focus { outline: none; border-color: var(--re-accent); }
@@ -900,7 +923,7 @@ body.viewer-mode #stage { background: #000; }
 .rw-learn-row { border-top: 1px dashed rgba(95,255,133,0.10); font-size: 12px; }
 .rw-learn-row:first-child { border-top: none; }
 .rw-learn-row .rw-num { font-size: 12px; padding: 1px 3px; }
-.rw-learn-row .rw-select { font-size: 12px; padding: 1px 3px; }
+.rw-learn-row .rw-select { font-size: 12px; padding: 1px 18px 1px 3px; background-position: right 5px center; }
 .rw-learn-row .rw-btn { padding: 2px 6px; font-size: 12px; }
 .rw-learn-src { font-size: 12px; color: var(--re-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rw-learn-empty {

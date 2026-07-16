@@ -25,6 +25,10 @@ npm run build
 
 ---
 
+## Recent changes (v1.27.2, July 2026 — native `<select>` chevron/cursor fix)
+
+- **Every dropdown in the app now draws its own CRT-styled chevron instead of showing Chromium's native grey arrow button.** `.rw-select` had `background`/`border`/`color` styling for a long time but never `appearance: none`, so the browser kept rendering its own native dropdown-arrow sub-widget on the right edge regardless — unstyled, and (a related Chromium quirk) showing the OS default cursor there even though a custom cursor rule was already set on the element. Found from an owner screenshot showing a correctly-themed value box with an unstyled grey system chevron glued to it.
+
 ## Recent changes (v1.27.1, July 2026 — Dual Raster module relocated in the Patch Bay)
 
 - **The DUAL RASTER module now lives in the right-hand column (`col2`), above COLORIZER / POST-FX**, instead of the crowded left rail stack — its full-controls pass (previous release) grew it to ~20 rows, dominating what used to be a compact column of small Function Generator/Composite/Video Source modules. Pure layout change: drag/reorder/free-layout behavior is unaffected (the underlying machinery was already container-agnostic).
