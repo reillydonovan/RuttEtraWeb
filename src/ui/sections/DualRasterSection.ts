@@ -3,9 +3,11 @@
  *
  * Feature-flagged extra rasters: enable toggle, 2/3 raster-count switch,
  * wipe/alternate mode, the two trace sliders, the (unsaved) identify
- * tint, and raster B's and C's independent deflection + luminance
- * controls. Everything here is inert while the flag is off — the
- * classic single-raster path is untouched.
+ * tint, and every raster's deflection + luminance controls: A's rows
+ * are a second view onto the main DCU keys, B's and C's are their own
+ * b* / c* keys. B/C controls are inert while the flag is off (the
+ * classic single-raster path is untouched); A's rows always drive
+ * raster A, exactly like the DCU section.
  *
  * See docs/design/dual-raster.md for the architecture and the list of
  * params deliberately shared with raster A (scan, source, color).
@@ -15,16 +17,34 @@ import { SettingsStore } from '../../state/Settings';
 import { group, row, slider, toggle, dropdown } from '../widgets';
 import { createRasterIdentifyToggle } from '../rasterIdentifyToggle';
 
-type RasterPrefix = 'b' | 'c';
+type Raster = 'a' | 'b' | 'c';
+
+/** Settings key for one raster param. Raster A's params are the main
+ *  DCU keys (`hPos`, `zPush`, …); B and C use `b`/`c`-prefixed copies
+ *  (`bHPos`, `cZPush`, …). The keys are real `Settings` number keys; the
+ *  string can't be narrowed by TS, so assert through `never`. */
+function rasterKey(r: Raster, name: string): never {
+  return (r === 'a' ? name[0].toLowerCase() + name.slice(1) : `${r}${name}`) as never;
+}
+
+/** Slider ranges that differ per raster. Raster A matches the Display
+ *  Control Unit section's sliders exactly (the same keys, so the two
+ *  rows must agree); B and C keep their v23 ranges. */
+const RANGES: Record<Raster, { zPush: [number, number]; intensity: [number, number]; contrast: [number, number]; gamma: [number, number] }> = {
+  a: { zPush: [0, 4],  intensity: [0, 2], contrast: [0, 4], gamma: [0.2, 4] },
+  b: { zPush: [-4, 4], intensity: [0, 3], contrast: [0, 3], gamma: [0.2, 3] },
+  c: { zPush: [-4, 4], intensity: [0, 3], contrast: [0, 3], gamma: [0.2, 3] },
+};
 
 /** The per-raster groups (Position & Size / Depth & Beam / Rotation /
- *  Luminance Shaping) for raster B or C — one builder, since the two
- *  rasters carry the identical 17-param set under different prefixes. */
-function rasterGroups(settings: SettingsStore, p: RasterPrefix): HTMLElement[] {
-  const L = p.toUpperCase();
-  // The b*/c* keys are real `Settings` number keys; the template literal
-  // just can't be narrowed by TS, so assert through `never`.
-  const k = (name: string): never => `${p}${name}` as never;
+ *  Luminance Shaping) for raster A, B or C — one builder for all three.
+ *  Raster A's rows are a second view onto the same Settings keys the
+ *  Display Control Unit section edits (not a copy of the state), so
+ *  every raster's controls sit side by side here. */
+function rasterGroups(settings: SettingsStore, r: Raster): HTMLElement[] {
+  const L = r.toUpperCase();
+  const k = (name: string): never => rasterKey(r, name);
+  const rg = RANGES[r];
 
   const pos = group(`${L} · Position & Size`);
   pos.body.append(
@@ -38,9 +58,9 @@ function rasterGroups(settings: SettingsStore, p: RasterPrefix): HTMLElement[] {
 
   const depth = group(`${L} · Depth & Beam`);
   depth.body.append(
-    row('Z Push',    slider(settings, k('ZPush'), -4, 4, 0.001)),
+    row('Z Push',    slider(settings, k('ZPush'), rg.zPush[0], rg.zPush[1], 0.001)),
     row('Z Bias',    slider(settings, k('ZBias'), -2, 2, 0.001)),
-    row('Intensity', slider(settings, k('Intensity'), 0, 3, 0.001)),
+    row('Intensity', slider(settings, k('Intensity'), rg.intensity[0], rg.intensity[1], 0.001)),
   );
 
   const rot = group(`${L} · Rotation`);
@@ -55,8 +75,8 @@ function rasterGroups(settings: SettingsStore, p: RasterPrefix): HTMLElement[] {
   const lum = group(`${L} · Luminance Shaping`);
   lum.body.append(
     row('Threshold', slider(settings, k('Threshold'), 0, 1, 0.001)),
-    row('Contrast',  slider(settings, k('Contrast'), 0, 3, 0.001)),
-    row('Gamma',     slider(settings, k('Gamma'), 0.2, 3, 0.001)),
+    row('Contrast',  slider(settings, k('Contrast'), rg.contrast[0], rg.contrast[1], 0.001)),
+    row('Gamma',     slider(settings, k('Gamma'), rg.gamma[0], rg.gamma[1], 0.001)),
   );
 
   return [pos.root, depth.root, rot.root, lum.root];
@@ -83,6 +103,9 @@ export function createDualRasterSection(settings: SettingsStore): HTMLElement {
   );
   root.appendChild(main.root);
 
+  // Raster A first — the same controls as the Display Control Unit
+  // section, repeated here so A, B and C read side by side.
+  for (const el of rasterGroups(settings, 'a')) root.appendChild(el);
   for (const el of rasterGroups(settings, 'b')) root.appendChild(el);
   const cGroups = rasterGroups(settings, 'c');
   for (const el of cGroups) root.appendChild(el);

@@ -1170,6 +1170,18 @@ export function createPatchBayView(
     addParamCell(g, 'dualTracePos2', 'Trace 2');
     const trace2Cell = g.lastElementChild as HTMLElement;
 
+    // Raster A's params are the main DCU keys, whose one authoritative
+    // jack each already lives on the faceplate fields — a second jack
+    // here would silently steal the `paramJacks` registration (see the
+    // preflight invariant). Point there instead of duplicating.
+    subhead('A · Controls');
+    {
+      const note = document.createElement('div');
+      note.className = 'rw-pb-row rw-pb-row--note';
+      note.textContent = 'Raster A uses the main DCU controls: the POSITION & SIZE, DEPTH, BEAM, ROTATION, LINEARITY and LUMINANCE fields on this faceplate.';
+      mod.appendChild(note);
+    }
+
     subhead('B · Position & Size');
     g = grid();
     addParamCell(g, 'bHPos', 'H Position');
