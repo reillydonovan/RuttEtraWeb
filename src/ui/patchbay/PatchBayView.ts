@@ -65,6 +65,7 @@ import {
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
 import type { VideoSourceManager } from '../../input/sources';
+import { createRasterIdentifyToggle } from '../rasterIdentifyToggle';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import {
   PATTERN_REGISTRY, PATTERN_ORDER, PATTERN_CATEGORY_LABEL, type PatternParamKey,
@@ -94,7 +95,7 @@ const SNAP_PX = 26;
  *  modulation graph's per-node jacks this set never grows, so it's a
  *  literal union rather than a dynamic key scheme. */
 type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out' | 'dualraster-out';
-type VideoInKey = 'composite-inA' | 'composite-inB' | 'dualraster-inA' | 'dualraster-inB' | 'renderer-in';
+type VideoInKey = 'composite-inA' | 'composite-inB' | 'dualraster-inA' | 'dualraster-inB' | 'dualraster-inC' | 'renderer-in';
 type VideoJackKey = VideoOutKey | VideoInKey;
 type VideoSourceId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster';
 
@@ -362,8 +363,8 @@ export function createPatchBayView(
   }
   function validInTargetsFor(outKey: VideoOutKey): VideoInKey[] {
     if (outKey === 'dualraster-out') return ['renderer-in'];
-    if (outKey === 'composite-out') return ['renderer-in', 'dualraster-inA', 'dualraster-inB'];
-    return ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
+    if (outKey === 'composite-out') return ['renderer-in', 'dualraster-inA', 'dualraster-inB', 'dualraster-inC'];
+    return ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'dualraster-inC', 'renderer-in'];
   }
   function validOutSourcesFor(inKey: VideoInKey): VideoOutKey[] {
     return (['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[])
@@ -378,6 +379,7 @@ export function createPatchBayView(
     if (inKey === 'composite-inA') return settings.get('videoCompositeInA');
     if (inKey === 'composite-inB') return settings.get('videoCompositeInB');
     if (inKey === 'dualraster-inA') return settings.get('videoDualRasterInA');
+    if (inKey === 'dualraster-inC') return settings.get('videoDualRasterInC');
     return settings.get('videoDualRasterInB');
   }
   /** Write an IN endpoint's source. `null` = unplug: Composite/Dual
@@ -409,7 +411,12 @@ export function createPatchBayView(
     } else {
       const norm: 'sourceA' | 'sourceB' | 'composite' | 'none' =
         (source && source !== 'dualRaster') ? source : 'none';
-      settings.set(inKey === 'dualraster-inA' ? 'videoDualRasterInA' : 'videoDualRasterInB', norm);
+      settings.set(
+        inKey === 'dualraster-inA' ? 'videoDualRasterInA'
+          : inKey === 'dualraster-inC' ? 'videoDualRasterInC'
+          : 'videoDualRasterInB',
+        norm,
+      );
     }
   }
 
@@ -1045,7 +1052,7 @@ export function createPatchBayView(
     head.append(en, title);
     mod.appendChild(head);
 
-    const mkInRow = (label: string, inKey: VideoInKey): void => {
+    const mkInRow = (label: string, inKey: VideoInKey): HTMLElement => {
       const row = document.createElement('div');
       row.className = 'rw-pb-row';
       const jack = makeJack('rw-rack-jack--in');
@@ -1062,9 +1069,13 @@ export function createPatchBayView(
       row.append(jack, l);
       mod.appendChild(row);
       videoJacks.set(inKey, jack);
+      return row;
     };
     mkInRow('A', 'dualraster-inA');
     mkInRow('B', 'dualraster-inB');
+    // v36: raster C's input — shown only with 3 rasters (see the
+    // `dualRasterCount` subscription at the end of this block).
+    const inCRow = mkInRow('C', 'dualraster-inC');
 
     const enableRow = document.createElement('div');
     enableRow.className = 'rw-pb-row';
@@ -1095,10 +1106,38 @@ export function createPatchBayView(
     }
     modeSel.value = settings.get('dualMode');
     modeSel.addEventListener('change', () => settings.set('dualMode', modeSel.value as Settings['dualMode']));
-    attachTooltip(modeSel, 'Wipe: the trace slider splits the frame, B on top. Alternate: rasters interleave row-by-row at half vertical resolution each (the trace slider does not apply).');
+    attachTooltip(modeSel, 'Wipe: the trace sliders split the frame, B above A (and C on top with 3 rasters). Alternate: rasters interleave row-by-row (the trace sliders do not apply).');
     modeRow.append(modeLabel, modeSel);
     mod.appendChild(modeRow);
     settings.subscribe('dualMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+
+    // v36: the 2/3 raster switch (owner picked a switch on this node
+    // over a separate Triple Raster node — one concept, one place).
+    const countRow = document.createElement('div');
+    countRow.className = 'rw-pb-row';
+    const countLabel = document.createElement('label');
+    countLabel.textContent = 'rasters';
+    const countSel = document.createElement('select');
+    countSel.className = 'rw-select';
+    for (const [val, lbl] of [['2', '2 (A + B)'], ['3', '3 (A + B + C)']] as const) {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = lbl;
+      countSel.appendChild(o);
+    }
+    countSel.addEventListener('change', () => settings.set('dualRasterCount', countSel.value === '3' ? 3 : 2));
+    attachTooltip(countSel, 'How many rasters to draw. 3 adds raster C: in wipe mode it takes the top of the frame (Trace 2), in alternate mode rows cycle A, B, C.');
+    countRow.append(countLabel, countSel);
+    mod.appendChild(countRow);
+
+    // v36: identify tint — shared builder with the Controls tab, bound to
+    // the same unsaved state (never reaches recordings/streams).
+    const idRow = document.createElement('div');
+    idRow.className = 'rw-pb-row rw-pb-row--identify';
+    const idLabel = document.createElement('label');
+    idLabel.textContent = 'identify';
+    idRow.append(idLabel, createRasterIdentifyToggle());
+    attachTooltip(idRow, 'Tint rasters A / B / C green / cyan / amber while you set up. Never saved, and automatically off while recording, streaming, or with the render window popped out.');
+    mod.appendChild(idRow);
 
     // Raster B's own shaping params (owner: "shouldn't the dual raster
     // node have all of its controls in it complete with inputs and
@@ -1126,6 +1165,10 @@ export function createPatchBayView(
     subhead('Trace');
     let g = grid();
     addParamCell(g, 'dualTracePos', 'Trace');
+    // v36: Trace 2 — its own cell, hidden with 2 rasters. addParamCell
+    // appends one cell to the grid; grab it right after for show/hide.
+    addParamCell(g, 'dualTracePos2', 'Trace 2');
+    const trace2Cell = g.lastElementChild as HTMLElement;
 
     subhead('B · Position & Size');
     g = grid();
@@ -1158,6 +1201,51 @@ export function createPatchBayView(
     addParamCell(g, 'bThreshold', 'Threshold');
     addParamCell(g, 'bContrast', 'Contrast');
     addParamCell(g, 'bGamma', 'Gamma');
+
+    // v36: raster C — the identical 17-param set under the c* keys,
+    // collected so the whole block hides with 2 rasters.
+    const cStart = mod.childElementCount;
+    subhead('C · Position & Size');
+    g = grid();
+    addParamCell(g, 'cHPos', 'H Position');
+    addParamCell(g, 'cVPos', 'V Position');
+    addParamCell(g, 'cHSize', 'H Size');
+    addParamCell(g, 'cVSize', 'V Size');
+
+    subhead('C · Depth & Beam');
+    g = grid();
+    addParamCell(g, 'cZPush', 'Z Push');
+    addParamCell(g, 'cZBias', 'Z Bias');
+    addParamCell(g, 'cIntensity', 'Intensity');
+
+    subhead('C · Rotation');
+    g = grid();
+    addParamCell(g, 'cHCenter', 'H Center');
+    addParamCell(g, 'cVCenter', 'V Center');
+    addParamCell(g, 'cHSpin', 'H Spin');
+    addParamCell(g, 'cVSpin', 'V Spin');
+    addParamCell(g, 'cRotation', 'Rotation');
+
+    subhead('C · Linearity');
+    g = grid();
+    addParamCell(g, 'cHLinearity', 'H Linearity');
+    addParamCell(g, 'cVLinearity', 'V Linearity');
+
+    subhead('C · Luminance Shaping');
+    g = grid();
+    addParamCell(g, 'cThreshold', 'Threshold');
+    addParamCell(g, 'cContrast', 'Contrast');
+    addParamCell(g, 'cGamma', 'Gamma');
+    const cBlock = Array.from(mod.children).slice(cStart) as HTMLElement[];
+
+    // Show raster C's input, Trace 2 and C params only with 3 rasters.
+    // Inline display, not `hidden` — module rows set their own display
+    // in patchbay.css, which outranks the UA [hidden] rule.
+    settings.subscribe('dualRasterCount', (n) => {
+      const three = n === 3;
+      if (document.activeElement !== countSel) countSel.value = String(n);
+      for (const el of [inCRow, trace2Cell, ...cBlock]) el.style.display = three ? '' : 'none';
+    });
 
     const outRow = document.createElement('div');
     outRow.className = 'rw-pb-row rw-pb-row--out';
@@ -3190,13 +3278,16 @@ export function createPatchBayView(
     // Settings rather than a graph structure. `renderer-in` always
     // resolves to something (never unplugged, per the "normals to
     // Source A" convention).
-    const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
+    const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'dualraster-inC', 'renderer-in'];
+    const rasterCShown = settings.get('dualRasterCount') === 3;
     const VIDEO_SRC_TO_OUT: Record<VideoSourceId, VideoOutKey> = {
       sourceA: 'sourceA-out', sourceB: 'sourceB-out', composite: 'composite-out', dualRaster: 'dualraster-out',
     };
     const usedVideoOuts = new Set<VideoOutKey>();
     for (const inKey of VIDEO_IN_KEYS) {
       if (pending?.kind === 'to-videoout' && pending.inKey === inKey) continue;
+      // Raster C's IN row is hidden with 2 rasters — no jack to draw to.
+      if (inKey === 'dualraster-inC' && !rasterCShown) continue;
       const src = currentVideoSourceFor(inKey);
       // RENDERER IN used to draw no cable at all when the source was
       // 'sourceA' (the untouched default) — a real Eurorack normal

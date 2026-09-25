@@ -1827,6 +1827,9 @@ async function bootSynth(): Promise<void> {
       if (dualRaster.b) {
         ruttEtra.setExternalVideoTextureB(dualRaster.b.texture, dualRaster.b.width, dualRaster.b.height);
       } // else: InB unwired — leave raster B mirroring whatever raster A was just set to above
+      if (dualRaster.c) {
+        ruttEtra.setExternalVideoTextureC(dualRaster.c.texture, dualRaster.c.width, dualRaster.c.height);
+      } // else: InC unwired (or only 2 rasters) — raster C mirrors raster A, same as B's fallback
       videoCompositeBoundExternal = true;
     }
 

@@ -32,7 +32,7 @@ Run these in order; stop and report on the first failure:
   the change.
 
 - **Settings schema**: any change to saved-format shape bumps `_v`
-  (`CURRENT_VERSION` in `src/state/Settings.ts` — 35 as of v1.27.0) and
+  (`CURRENT_VERSION` in `src/state/Settings.ts` — 36 as of v1.29.0) and
   adds an idempotent `migrateSettings()` step. Migration tests assert
   `_v >= N`, never `=== N`.
 - **`VideoSourceManager` has NO Settings connection of its own** — it's
@@ -60,6 +60,12 @@ Run these in order; stop and report on the first failure:
   every frame it persisted, which would have churned a new texture
   every frame — fixed by doing nothing in that branch and trusting
   whatever an earlier step in the same frame had already bound.
+- **Anything that takes the render canvas out of the app must register
+  with `setOutputActive(reason, on)` (`src/renderer/rasterIdentify.ts`)**
+  — recorder, PeerJS broadcast, WHIP, render popout, XR and MCP
+  screenshot already do. That's what keeps the setup-only raster
+  identify tint (v1.29) out of recordings and streams; a new output
+  path that skips it will leak the tint into the final output.
 - **Timeline schema**: same rule via `Timeline._v` (`src/sequencer/types.ts`)
   and the store's normalize path.
 - **Never use the `hidden` attribute/property to hide a mounted VIEW

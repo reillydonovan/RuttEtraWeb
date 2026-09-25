@@ -140,12 +140,14 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 #### Dual Raster
 
-The **Dual Raster** section adds a second, independently modulated raster (B) fed by the same video signal — a dual-trace scope on the bench:
+The **Dual Raster** section adds a second (and optionally a third) independently modulated raster fed by the same video signal — a dual-trace scope on the bench:
 
 - **Wipe mode** — the **Trace** slider splits the frame: fully down = all raster A, fully up = all raster B, anywhere between = B on top, A below, both at full resolution with independent controls. Trace position is modulatable (`Dual: Trace Position` in any Target dropdown) — sweep it with an LFO or CV for a live wipe.
 - **Alternate lines** — rasters interleave row-by-row (half vertical resolution each); the slider doesn't apply.
 - Raster B has its own position, size, Z push/bias, intensity, rotation/spin, linearity, and luminance shaping — every one a `B: …` modulation target. Scan rate/columns, mirrors, and color mode are shared with A.
-- **Two independent video sources, via the Patch Bay** — by default both rasters display the same video signal (this toggle just adds a second independently-modulated *geometry*). To feed them genuinely different footage, patch it in the Patch Bay: a **DUAL RASTER** node takes two video inputs (drag Video Source A/B or the Composite node's output onto its A/B jacks) and its OUT feeds the **RENDERER** module — wiring that connection enables this toggle for you automatically, the same way patching a graph cable wakes the modulation engine.
+- **Rasters: 2 or 3** — set **Rasters** to 3 to add a third raster, C, with the same full set of controls (`C: …` modulation targets). In wipe mode a second slider, **Trace 2**, sets how much of the top of the frame C takes (0 = no C), so the frame reads A at the bottom, B in the middle, C on top. Where Trace 2 overlaps Trace, C wins. In alternate mode rows cycle A, B, C, a third of the vertical resolution each. `Dual: Trace 2 Position` is modulatable like Trace.
+- **Identify** — tints rasters A / B / C green / cyan / amber on screen so you can see which lines belong to which raster while you set up. It's a setup aid only: it isn't saved with your session, presets or projects, and it switches itself off while you record, stream (PeerJS or WHIP), pop out the render window, run a WebXR session, or take an MCP screenshot, then comes back when that stops.
+- **Two independent video sources, via the Patch Bay** — by default both rasters display the same video signal (this toggle just adds a second independently-modulated *geometry*). To feed them genuinely different footage, patch it in the Patch Bay: a **DUAL RASTER** node takes two video inputs, three with Rasters set to 3 (drag Video Source A/B or the Composite node's output onto its A/B/C jacks) and its OUT feeds the **RENDERER** module — wiring that connection enables this toggle for you automatically, the same way patching a graph cable wakes the modulation engine.
 
 When the toggle is off, nothing about the classic single-raster path changes — no extra draw call, no shader work.
 

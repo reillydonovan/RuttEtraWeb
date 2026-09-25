@@ -182,13 +182,22 @@ export class VideoCompositor {
     texA: THREE.Texture | null, aActive: boolean,
     texB: THREE.Texture | null, bActive: boolean,
     aWidth: number, aHeight: number, bWidth: number, bHeight: number,
-  ): { a: VideoCompositeResult | null; b: VideoCompositeResult | null } | null {
+  ): { a: VideoCompositeResult | null; b: VideoCompositeResult | null; c: VideoCompositeResult | null } | null {
     if (this.settings.get('videoRendererIn') !== 'dualRaster') return null;
     const refA = this.settings.get('videoDualRasterInA');
     const refB = this.settings.get('videoDualRasterInB');
-    return {
-      a: this.resolveRef(refA, texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight),
-      b: this.resolveRef(refB, texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight),
+    // v36: raster C's input only resolves while 3 rasters are drawn —
+    // otherwise C is invisible and there's nothing to bind (and a
+    // 'composite' ref would render the Composite pass for no reason).
+    const refC = this.settings.get('dualRasterCount') === 3 ? this.settings.get('videoDualRasterInC') : 'none';
+    // Several rasters can reference 'composite' — render that pass at
+    // most once per frame (same target, same inputs, same result).
+    let composite: VideoCompositeResult | null = null;
+    const resolve = (ref: VideoSourceRef): VideoCompositeResult | null => {
+      if (ref !== 'composite') return this.resolveRef(ref, texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight);
+      composite ??= this.renderComposite(texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight);
+      return composite;
     };
+    return { a: resolve(refA), b: resolve(refB), c: resolve(refC) };
   }
 }

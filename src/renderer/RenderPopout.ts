@@ -29,6 +29,8 @@
  * mouse and looks away from the controls).
  */
 
+import { setOutputActive } from './rasterIdentify';
+
 export interface RenderPopoutController {
   /** True while the output lives in the popup window. */
   isOpen(): boolean;
@@ -153,6 +155,7 @@ export function createRenderPopout(
     // Either side closing tears the stream down.
     w.addEventListener('pagehide', popIn);
     window.addEventListener('pagehide', closePopup);
+    setOutputActive('renderPopout', true);
     onChange?.(true);
   }
 
@@ -168,6 +171,7 @@ export function createRenderPopout(
   function popIn(): void {
     closePopup();
     window.removeEventListener('pagehide', closePopup);
+    setOutputActive('renderPopout', false);
     onChange?.(false);
   }
 

@@ -310,6 +310,10 @@
   font-size: 11px;
   letter-spacing: 0.1em;
 }
+/* v36 Dual Raster "identify" row: the shared toggle carries a note
+   line — keep it compact and let it wrap under the toggle. */
+.rw-pb-row--identify { align-items: flex-start; }
+.rw-pb-row--identify .rw-identify-note { font-size: 10px; letter-spacing: 0; max-width: 200px; }
 .rw-pb-row label { flex: 0 0 34px; }
 .rw-pb-row input[type="number"] {
   flex: 1 1 auto;

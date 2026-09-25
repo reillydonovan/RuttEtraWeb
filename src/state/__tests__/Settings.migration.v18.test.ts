@@ -225,3 +225,37 @@ describe('migrateSettings v34 -> v35 (Source B device slot)', () => {
     expect(migrateSettings(once)._v).toBe(once._v);
   });
 });
+
+describe('migrateSettings v35 -> v36 (third raster switch)', () => {
+  it('backfills the raster count at 2 so existing sessions render unchanged', () => {
+    const out = migrateSettings({ _v: 35 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(36);
+    expect(out.dualRasterCount).toBe(2);
+    expect(out.dualTracePos2).toBe(0);
+    expect(out.videoDualRasterInC).toBe('sourceA');
+  });
+
+  it('backfills every raster-C key at raster-A defaults', () => {
+    const out = migrateSettings({ _v: 35 });
+    expect(out.cZPush).toBe(0.9);
+    expect(out.cHSize).toBe(1);
+    expect(out.cThreshold).toBe(0.04);
+    expect(out.cGamma).toBe(1);
+    expect(out.cRotation).toBe(0);
+  });
+
+  it('preserves explicit values', () => {
+    const kept = migrateSettings({ _v: 35, dualRasterCount: 3, dualTracePos2: 0.4, cZPush: -2 });
+    expect(kept.dualRasterCount).toBe(3);
+    expect(kept.dualTracePos2).toBe(0.4);
+    expect(kept.cZPush).toBe(-2);
+  });
+
+  it('is idempotent', () => {
+    const once = migrateSettings({ _v: 35, dualRasterCount: 3, cZPush: -2 });
+    const twice = migrateSettings(once);
+    expect(twice._v).toBe(once._v);
+    expect(twice.dualRasterCount).toBe(3);
+    expect(twice.cZPush).toBe(-2);
+  });
+});

@@ -96,6 +96,13 @@ const DUAL_RASTER_OWNED = new Set<string>([
   'bHCenter', 'bVCenter', 'bHSpin', 'bVSpin', 'bRotation',
   'bHLinearity', 'bVLinearity',
   'bThreshold', 'bContrast', 'bGamma',
+  // v36: third raster — Trace 2 + every raster-C param, same module.
+  'dualTracePos2',
+  'cHPos', 'cVPos', 'cHSize', 'cVSize',
+  'cZPush', 'cZBias', 'cIntensity',
+  'cHCenter', 'cVCenter', 'cHSpin', 'cVSpin', 'cRotation',
+  'cHLinearity', 'cVLinearity',
+  'cThreshold', 'cContrast', 'cGamma',
 ]);
 
 /**

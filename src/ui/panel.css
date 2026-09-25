@@ -443,6 +443,13 @@ html, body, #app {
   color: var(--re-text-dim);
 }
 
+/* v36 raster identify toggle (src/ui/rasterIdentifyToggle.ts) — a
+   toggle plus a one-line note stacked in the control column. The note
+   sits inside the control, not as a row hint, so it drops the hint's
+   grid-column placement. */
+.rw-identify { display: flex; flex-direction: column; gap: 2px; }
+.rw-identify .rw-identify-note { grid-column: auto; font-size: 11px; }
+
 /* Slider */
 .rw-slider {
   display: grid;

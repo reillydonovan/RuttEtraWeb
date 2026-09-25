@@ -12,6 +12,10 @@ uniform float     uIntensity;
 uniform vec3      uTint;
 uniform int       uColorMode;
 uniform float     uAlphaFalloff; // 0..1 — fade lines below threshold
+// v36: raster identify tint — a setup aid only. 0 in any frame that
+// leaves the app (see src/renderer/rasterIdentify.ts).
+uniform float     uIdentifyOn;
+uniform vec3      uIdentifyTint;
 
 varying float vLum;
 varying vec2  vUv;
@@ -27,6 +31,12 @@ void main() {
     col = uTint * vLum;
   } else {
     col = vec3(vLum);
+  }
+
+  // Identify tint replaces the color pipeline's hue with this raster's
+  // ID color, keeping the brightness so the image stays readable.
+  if (uIdentifyOn > 0.5) {
+    col = uIdentifyTint * max(vLum, 0.15);
   }
 
   col *= uIntensity;

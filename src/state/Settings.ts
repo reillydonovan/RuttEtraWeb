@@ -199,6 +199,12 @@ export type ModTarget =
   | 'bIntensity' | 'bHCenter' | 'bVCenter' | 'bHSpin' | 'bVSpin'
   | 'bRotation' | 'bHLinearity' | 'bVLinearity'
   | 'bThreshold' | 'bContrast' | 'bGamma'
+  // v36: third raster (C) — the second wipe line + every raster-C param
+  | 'dualTracePos2'
+  | 'cHPos' | 'cVPos' | 'cHSize' | 'cVSize' | 'cZPush' | 'cZBias'
+  | 'cIntensity' | 'cHCenter' | 'cVCenter' | 'cHSpin' | 'cVSpin'
+  | 'cRotation' | 'cHLinearity' | 'cVLinearity'
+  | 'cThreshold' | 'cContrast' | 'cGamma'
   | 'hLinearity' | 'vLinearity' | 'skip'
   | 'threshold' | 'contrast' | 'gamma'
   | 'bloomIntensity' | 'bloomRadius'
@@ -671,6 +677,8 @@ export interface Settings {
    *  mirroring raster A (today's default dual-raster behavior). */
   videoDualRasterInA: 'sourceA' | 'sourceB' | 'composite' | 'none';
   videoDualRasterInB: 'sourceA' | 'sourceB' | 'composite' | 'none';
+  /** v36: raster C's input (only used when `dualRasterCount === 3`). */
+  videoDualRasterInC: 'sourceA' | 'sourceB' | 'composite' | 'none';
   mirrorH: boolean;
   mirrorV: boolean;
   requestedWidth: number;
@@ -802,6 +810,24 @@ export interface Settings {
   bRotation: number;
   bHLinearity: number; bVLinearity: number;
   bThreshold: number; bContrast: number; bGamma: number;
+  /** v36: how many rasters Dual Raster draws — 2 (A/B, the original
+   *  dual trace) or 3 (adds raster C). Only matters while
+   *  `dualRasterEnabled` is on. */
+  dualRasterCount: 2 | 3;
+  /** v36: second wipe line, 0..1 — raster C occupies the top
+   *  `dualTracePos2` fraction (it takes priority over B where the two
+   *  overlap). Only applies in wipe mode with 3 rasters. Modulatable. */
+  dualTracePos2: number;
+  /** v36: raster C deflection + luminance params (same set as B). */
+  cHPos: number; cVPos: number;
+  cHSize: number; cVSize: number;
+  cZPush: number; cZBias: number;
+  cIntensity: number;
+  cHCenter: number; cVCenter: number;
+  cHSpin: number; cVSpin: number;
+  cRotation: number;
+  cHLinearity: number; cVLinearity: number;
+  cThreshold: number; cContrast: number; cGamma: number;
 
   scanRate: number;
   cols: number;
@@ -1278,6 +1304,7 @@ export const DEFAULTS: Settings = {
   videoCompositeInB: 'sourceB',
   videoDualRasterInA: 'sourceA',
   videoDualRasterInB: 'sourceB',
+  videoDualRasterInC: 'sourceA',
   videoCompositeBlendMode: 'crossfade',
   videoCompositeMix: 0.5,
   mirrorH: true,
@@ -1353,6 +1380,17 @@ export const DEFAULTS: Settings = {
   bRotation: 0,
   bHLinearity: 0, bVLinearity: 0,
   bThreshold: 0.04, bContrast: 1, bGamma: 1,
+  dualRasterCount: 2,
+  dualTracePos2: 0,
+  cHPos: 0, cVPos: 0,
+  cHSize: 1, cVSize: 1,
+  cZPush: 0.9, cZBias: 0,
+  cIntensity: 1,
+  cHCenter: 0, cVCenter: 0,
+  cHSpin: 0, cVSpin: 0,
+  cRotation: 0,
+  cHLinearity: 0, cVLinearity: 0,
+  cThreshold: 0.04, cContrast: 1, cGamma: 1,
 
   scanRate: 240,
   cols: 320,
@@ -1539,7 +1577,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 35;
+const CURRENT_VERSION = 36;
 
 interface Versioned { _v?: number }
 
@@ -2197,6 +2235,28 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 35) {
     s.deviceIdB = (s.deviceIdB as string | undefined) ?? '';
     s._v = 35;
+  }
+
+  // v35 -> v36: third raster (owner: "a third raster possibility" —
+  // shipped as a 2/3 switch on the existing Dual Raster rather than a
+  // separate node). Backfill the count at 2 (every existing session
+  // renders exactly as before), the second wipe line at 0 (no raster C
+  // territory), raster C's input, and every raster-C key at raster-A
+  // defaults. Purely visual, nothing force-reset.
+  if ((s._v ?? 1) < 36) {
+    const tripleKeys: (keyof Settings)[] = [
+      'dualRasterCount', 'dualTracePos2', 'videoDualRasterInC',
+      'cHPos', 'cVPos', 'cHSize', 'cVSize', 'cZPush', 'cZBias',
+      'cIntensity', 'cHCenter', 'cVCenter', 'cHSpin', 'cVSpin',
+      'cRotation', 'cHLinearity', 'cVLinearity',
+      'cThreshold', 'cContrast', 'cGamma',
+    ];
+    for (const k of tripleKeys) {
+      if ((s as Record<string, unknown>)[k as string] === undefined) {
+        (s as Record<string, unknown>)[k as string] = DEFAULTS[k] as unknown;
+      }
+    }
+    s._v = 36;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

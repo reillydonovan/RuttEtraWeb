@@ -40,6 +40,7 @@
 import * as THREE from 'three';
 import { CameraView, SettingsStore, XrMeshScale } from '../state/Settings';
 import { CameraRig } from './CameraRig';
+import { setOutputActive } from './rasterIdentify';
 import {
   PerformanceProfileManager,
   resolveXrProfile,
@@ -233,6 +234,7 @@ export class XRManager {
 
     // Wire session lifecycle and tab-visibility safety.
     this.session = session;
+    setOutputActive('xr', true);
     session.addEventListener('end', this.boundOnSessionEnd);
     if (this.deps.settings.get('xrAutoEndOnVisibilityChange')) {
       document.addEventListener('visibilitychange', this.boundOnVisibilityChange);
@@ -320,6 +322,7 @@ export class XRManager {
   }
 
   private handleSessionEnd(): void {
+    setOutputActive('xr', false);
     const stash = this.stash;
     const layoutMode = this.deps.getLayoutMode();
 

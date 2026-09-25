@@ -92,7 +92,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
   // reasoning as sourceKind/deviceId above; videoCompositeBlendMode and
   // videoCompositeMix stay keyframable (mirrors patternBlendMode/Mix).
   'sourceBKind', 'deviceIdB', 'videoRendererIn', 'videoCompositeInA', 'videoCompositeInB',
-  'videoDualRasterInA', 'videoDualRasterInB',
+  'videoDualRasterInA', 'videoDualRasterInB', 'videoDualRasterInC',
 
   // Panel UI
   'panelDock', 'panelCollapsed', 'panelTab', 'hudVisible',

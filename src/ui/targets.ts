@@ -97,6 +97,17 @@ export const TARGETS: TargetOption[] = [
   { v: 'bRotation', l: 'B: Rotation' },
   { v: 'bHLinearity', l: 'B: H Linearity' }, { v: 'bVLinearity', l: 'B: V Linearity' },
   { v: 'bThreshold', l: 'B: Threshold' }, { v: 'bContrast', l: 'B: Contrast' }, { v: 'bGamma', l: 'B: Gamma' },
+  // Third raster (v36) — the second wipe line + every raster-C param.
+  { v: 'dualTracePos2', l: 'Dual: Trace 2 Position' },
+  { v: 'cHPos', l: 'C: H Position' }, { v: 'cVPos', l: 'C: V Position' },
+  { v: 'cHSize', l: 'C: H Size' },    { v: 'cVSize', l: 'C: V Size' },
+  { v: 'cZPush', l: 'C: Z Push' },    { v: 'cZBias', l: 'C: Z Bias' },
+  { v: 'cIntensity', l: 'C: Intensity' },
+  { v: 'cHCenter', l: 'C: H Center' }, { v: 'cVCenter', l: 'C: V Center' },
+  { v: 'cHSpin', l: 'C: H Spin' },     { v: 'cVSpin', l: 'C: V Spin' },
+  { v: 'cRotation', l: 'C: Rotation' },
+  { v: 'cHLinearity', l: 'C: H Linearity' }, { v: 'cVLinearity', l: 'C: V Linearity' },
+  { v: 'cThreshold', l: 'C: Threshold' }, { v: 'cContrast', l: 'C: Contrast' }, { v: 'cGamma', l: 'C: Gamma' },
 ];
 
 /** Same list, in `{ value, label }` shape for the LearnBinding widget. */

@@ -21,6 +21,12 @@ const DUAL_RASTER_KEYS = [
   'bHCenter', 'bVCenter', 'bHSpin', 'bVSpin', 'bRotation',
   'bHLinearity', 'bVLinearity',
   'bThreshold', 'bContrast', 'bGamma',
+  'dualTracePos2',
+  'cHPos', 'cVPos', 'cHSize', 'cVSize',
+  'cZPush', 'cZBias', 'cIntensity',
+  'cHCenter', 'cVCenter', 'cHSpin', 'cVSpin', 'cRotation',
+  'cHLinearity', 'cVLinearity',
+  'cThreshold', 'cContrast', 'cGamma',
 ];
 
 describe('buildFaceplate', () => {

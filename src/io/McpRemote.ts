@@ -34,6 +34,7 @@ import { getDef, allDefs } from '../modulation/graph/registry';
 import { TARGETS } from '../ui/targets';
 import { PARAM_DOCS } from '../ui/help/paramDocs';
 import { listActions, runAction } from '../ui/actions';
+import { setOutputActive } from '../renderer/rasterIdentify';
 
 export type McpStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
@@ -202,19 +203,27 @@ export class McpRemote {
 
       case 'screenshot': {
         // Capture inside a rAF so the GL frame is freshly composited
-        // (the render canvas doesn't preserve its drawing buffer).
-        return await new Promise<string>((resolve, reject) => {
-          requestAnimationFrame(() => {
-            const stage = document.getElementById('stage') as HTMLCanvasElement | null;
-            if (!stage) { reject(new Error('render canvas not found')); return; }
-            const c = document.createElement('canvas');
-            c.width = stage.width; c.height = stage.height;
-            const ctx = c.getContext('2d');
-            if (!ctx) { reject(new Error('2d context unavailable')); return; }
-            ctx.drawImage(stage, 0, 0);
-            resolve(c.toDataURL('image/png'));
+        // (the render canvas doesn't preserve its drawing buffer). A
+        // screenshot is output: suppress the setup-only raster identify
+        // tint and wait one extra frame so the captured frame is drawn
+        // without it.
+        setOutputActive('mcpScreenshot', true);
+        try {
+          return await new Promise<string>((resolve, reject) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              const stage = document.getElementById('stage') as HTMLCanvasElement | null;
+              if (!stage) { reject(new Error('render canvas not found')); return; }
+              const c = document.createElement('canvas');
+              c.width = stage.width; c.height = stage.height;
+              const ctx = c.getContext('2d');
+              if (!ctx) { reject(new Error('2d context unavailable')); return; }
+              ctx.drawImage(stage, 0, 0);
+              resolve(c.toDataURL('image/png'));
+            }));
           });
-        });
+        } finally {
+          setOutputActive('mcpScreenshot', false);
+        }
       }
 
       default:

@@ -50,8 +50,13 @@ uniform float uRows;           // total row count for skip math
 // v23: dual raster. Mode 0 = off (single raster, identical to pre-v23),
 // 1 = wipe (split by uWipe), 2 = alternate lines (row parity).
 uniform float uDualMode;
-uniform float uDualSide;       // 0 = raster A, 1 = raster B
+uniform float uDualSide;       // 0 = raster A, 1 = raster B, 2 = raster C (v36)
 uniform float uWipe;           // 0..1 — B occupies the top uWipe fraction
+// v36: third raster. uRasterCount is 2 or 3; with 3, raster C occupies
+// the top uWipe2 fraction in wipe mode (taking priority over B), and
+// alternate mode cycles rows A, B, C.
+uniform float uRasterCount;
+uniform float uWipe2;
 
 uniform float uTime;           // seconds (for any time-driven shader effects)
 
@@ -152,12 +157,17 @@ void main() {
   //     "uv.y < uWipe" is the top region — raster B's territory in
   //     wipe mode.
   if (uDualMode > 1.5) {
-    // Alternate lines: even rows = A, odd rows = B.
-    float parity = mod(row, 2.0);
-    keep *= (abs(parity - uDualSide) < 0.5) ? 1.0 : 0.0;
+    // Alternate lines: rows cycle A, B (, C) — row mod raster count.
+    float slot = mod(row, uRasterCount);
+    keep *= (abs(slot - uDualSide) < 0.5) ? 1.0 : 0.0;
   } else if (uDualMode > 0.5) {
-    float topRegion = 1.0 - step(uWipe, uv.y);
-    keep *= (uDualSide > 0.5) ? topRegion : 1.0 - topRegion;
+    // Wipe: C (3 rasters only) owns the top uWipe2, B the top uWipe
+    // below that, A the rest. With 2 rasters this is exactly the v23
+    // two-way split.
+    float owner = 0.0;
+    if (uv.y < uWipe) owner = 1.0;
+    if (uRasterCount > 2.5 && uv.y < uWipe2) owner = 2.0;
+    keep *= (abs(owner - uDualSide) < 0.5) ? 1.0 : 0.0;
   }
 
   vAlive = keep;

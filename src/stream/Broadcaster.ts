@@ -10,6 +10,7 @@
  * No backend required — uses PeerJS's free public broker by default.
  */
 
+import { setOutputActive } from '../renderer/rasterIdentify';
 import Peer, { MediaConnection } from 'peerjs';
 
 export type BroadcastState = 'idle' | 'connecting' | 'live' | 'error';
@@ -131,6 +132,8 @@ export class Broadcaster {
 
   private setState(s: BroadcastState, error?: string): void {
     this.state = s;
+    // Setup-only raster identify tint must never reach viewers.
+    setOutputActive('broadcast', s === 'connecting' || s === 'live');
     this.emit(error);
   }
   private emit(error?: string): void {

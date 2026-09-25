@@ -17,6 +17,7 @@
  */
 
 import type { InjectionResult, StereoMetadataInjector } from './StereoMetadata';
+import { setOutputActive } from '../renderer/rasterIdentify';
 
 /** Sonification capture interface — only what the recorder needs from
  *  `Sonification`. Kept duck-typed so tests can stub it. */
@@ -363,6 +364,8 @@ export class CanvasRecorder {
   }
 
   private emit(s: 'idle' | 'recording' | 'finalizing'): void {
+    // Setup-only raster identify tint must never reach a recording.
+    setOutputActive('recorder', s !== 'idle');
     for (const fn of this.listeners) fn(s);
   }
 }

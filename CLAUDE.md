@@ -41,7 +41,7 @@ Vitest runs in the `node` environment with an explicit `include` allowlist in `v
 
 5. **Coexistence over replacement.** Classic ModMatrix and GraphEngine both exist (`Settings.modMode: classic | graph | both`). Pattern Generator is a compositing layer, not a fourth `sourceKind`. Presets / Timelines / Projects are three separate save formats with different scopes.
 
-6. **Migrations are explicit.** Any saved-format change bumps the version (`_v` for Settings/presets — currently 29 in `src/state/Settings.ts`; `formatVersion` for projects) and adds an idempotent step to `migrateSettings()` / `migrateProject()`. Files with a newer version than the code log `console.warn` and normalize on save — never silently truncate.
+6. **Migrations are explicit.** Any saved-format change bumps the version (`_v` for Settings/presets — currently 36 in `src/state/Settings.ts`; `formatVersion` for projects) and adds an idempotent step to `migrateSettings()` / `migrateProject()`. Files with a newer version than the code log `console.warn` and normalize on save — never silently truncate.
 
 7. **Documentation lands with the feature.** New modulatable Settings key → entry in `PARAM_DOCS`. New graph node → complete `NodeDef` in the registry (auto-appears in the About Node Catalog). User-facing behavior change → update `src/ui/help/content.ts` and the relevant `docs/about/*.md`. Docs are part of the feature, not a follow-up.
 
@@ -531,6 +531,17 @@ Fixed by removing the `isNormalled` special case in the video-routing cable-draw
 **Meta-note on process**: two rounds of `AskUserQuestion` (what happens exactly, which direction, then the Source-A-vs-B asymmetry) did the actual diagnostic work here — the first investigation pass (previous CLAUDE.md entry, "the patch bay won't let me...") read the candidate-matching/hit-testing code exhaustively and found nothing, because the bug wasn't in that code at all. The asymmetry between Source A (broken) and Source B (working) — surfaced only once the owner tried both and reported back — was the one fact that made the `Object.is` no-op interaction obvious in under a minute of follow-up reading.
 
 No Settings/schema impact — pure cable-draw visibility logic. Full suite unchanged (556/556 — GPU/canvas draw code the suite doesn't cover), typecheck, build, about-bundle guard all clean. Verified via `curl` that both dev-server ports no longer serve the removed `isNormalled` code. **Not verified live in a real browser** — no browser-automation tool was available this session.
+
+### State of the third-raster switch + identify tint (2026-09-25, branch `garyhill-experiments`, v1.28.1 → v1.29.0, Settings v35 → v36)
+
+**Branch rule: `garyhill-experiments` is Gary's personal branch and must never touch `main`** (no merges, pushes, or rebases onto it). Anything meant for `main` goes to the admin as a PR for approval.
+
+Gary asked to "see what it would look like with a third raster" → a private interactive mockup artifact first, then the build. Gary chose a **2/3 raster-count switch on the existing Dual Raster** over a separate Triple Raster node, and per-raster colors as a **setup-only identify tint that never reaches output**. Full design notes are in `docs/design/dual-raster.md` ("Third raster" + "Identify tint").
+
+- Raster C = a third material on the shared geometry (`uDualSide = 2`). The shader wipe gives C the top `uWipe2` fraction (C wins over B where the two overlap), and alternate mode is `row mod uRasterCount`. With 2 rasters the output is identical to v23.
+- Settings v36: `dualRasterCount` (default 2), `dualTracePos2`, `videoDualRasterInC`, and 17 `c*` keys. All are TARGETS / PARAM_DOCS / `DUAL_RASTER_OWNED`, and the Controls + Patch Bay UIs hide C while Rasters = 2.
+- The identify tint lives in `src/renderer/rasterIdentify.ts`. It is not a Settings key. Output paths register via `setOutputActive(reason, on)`: Recorder, Broadcaster, WHIP, RenderPopout, XR, and MCP screenshot. **Any new path that takes the canvas out of the app must register there.** Known gap: RENDERER tabs inside a `ViewPopout` window aren't registered (those mirrors have no teardown hook).
+- Verified: typecheck, full suite (566/566, including new `rasterIdentify.test.ts`, the v36 migration cases, and the updated `patchbayLayout.test.ts` key list), build, and the about-bundle guard are all clean. **Not yet checked live in a browser**: the GPU side (raster C rendering, the 3-way wipe, the identify tint) and the tint dropping out while recording. Node 20 was installed user-locally at `~/.local/node` (this Mac had no Node or Homebrew), so prefix commands with `export PATH=~/.local/node/bin:$PATH`.
 
 ### Known drift
 

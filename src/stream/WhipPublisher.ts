@@ -23,6 +23,8 @@
  * live / error) is owned here; the WHIP endpoint URL is passed in at start().
  */
 
+import { setOutputActive } from '../renderer/rasterIdentify';
+
 export type WhipState = 'idle' | 'connecting' | 'live' | 'error';
 
 export interface WhipInfo {
@@ -157,6 +159,8 @@ export class WhipPublisher {
 
   private setState(state: WhipState, error?: string): void {
     this.state = state;
+    // Setup-only raster identify tint must never reach the stream.
+    setOutputActive('whip', state === 'connecting' || state === 'live');
     const info: WhipInfo = error ? { error } : {};
     for (const fn of this.listeners) fn(state, info);
   }
