@@ -24,6 +24,8 @@ import { allDefs } from '../modulation/graph/registry';
 // no Web Audio, no DOM) so this stays inside the about-page budget.
 import '../modulation/graph/bootstrap';
 import { NodeDef, ParamSpec, PortSpec } from '../modulation/graph/types';
+import { flowSvg } from '../ui/help/flowSvg';
+import { nodeTemplateFlow } from '../ui/help/flowTemplates';
 
 /** HTML-escape a string for safe insertion as text. Tiny inline helper
  *  rather than a runtime dep — we trust our own paramDocs / nodeDefs
@@ -127,6 +129,7 @@ function renderNodeDef(d: NodeDef<unknown>): string {
     <article class="about-node">
       <h4 id="node-${slug(d.type)}"><code>${esc(d.type)}</code> — ${esc(d.label)}</h4>
       <p>${esc(d.description)}</p>
+      ${d.inputs.length || d.outputs.length ? `<div class="about-flow about-flow--node">${flowSvg(nodeTemplateFlow(d))}</div>` : ''}
       ${inputs ? `<div class="about-kvp"><span class="about-k">Inputs</span><span>${inputs}</span></div>` : ''}
       ${outputs ? `<div class="about-kvp"><span class="about-k">Outputs</span><span>${outputs}</span></div>` : ''}
       ${params ? `<div class="about-kvp"><span class="about-k">Params</span><span>${params}</span></div>` : ''}

@@ -2,6 +2,8 @@
 
 The core synth: how brightness becomes geometry, what each knob does, and how to dial in a look.
 
+<div class="about-flow" data-flow="core-path"><span class="about-flow-cap">The core signal path: a picture and modulation go into the Display Control Unit, which draws the raster the Virtual Camera looks at.</span></div>
+
 ### Sources
 
 - **Webcam** — pick any attached camera from the device dropdown. After granting permission, click **Refresh** to populate device labels (browsers withhold them until permission is granted).
@@ -114,7 +116,7 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 - **H Position / V Position** — translate the displaced mesh in 2D screen space.
 - **H Size / V Size** — bipolar sliders. Positive scales out from center; negative inverts (mirrors) along that axis.
-- **Aspect** — pinch the H/V scale together, useful for matching non-square sources or stylizing into a tall/narrow look.
+- **Aspect** — pinch the H/V scale together, useful for matching non-square sources or stylizing into a tall/narrow look. The raster keeps its own aspect (4:3, like the hardware) whatever the input's shape, so a 16:9 camera is squeezed by default. **Match source** sets Aspect to the live input's width ÷ height in one click; **4:3** puts it back.
 
 #### Depth
 
@@ -139,6 +141,8 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 **Collapse the scan**: H Size and V Size both pass through zero — dial either to `0` to collapse the raster to a line, or both for a point. This is the faithful "zoom to zero" gesture (the deflection dies, not the camera).
 
 #### Dual Raster
+
+<div class="about-flow" data-flow="dual-raster"><span class="about-flow-cap">Two cameras, two rasters: in the Patch Bay, Source A and Source B feed Dual Raster’s A and B inputs, and its OUT goes to the Renderer.</span></div>
 
 The **Dual Raster** section adds a second, independently modulated raster (B) fed by the same video signal — a dual-trace scope on the bench:
 

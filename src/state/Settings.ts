@@ -650,12 +650,12 @@ export interface Settings {
    *  'sourceA', same convention as a real Eurorack jack. 'dualRaster'
    *  (v34) hands BOTH rasters over to the Dual Raster node's own two
    *  inputs instead of a single texture. */
-  videoRendererIn: 'sourceA' | 'sourceB' | 'composite' | 'dualRaster';
+  videoRendererIn: 'sourceA' | 'sourceB' | 'composite' | 'dualRaster' | 'pattern';
   /** The Composite node's two inputs — which source (or none) feeds
    *  each side of the blend. Order matters for asymmetric modes
    *  (subtract, mask). */
-  videoCompositeInA: 'sourceA' | 'sourceB' | 'none';
-  videoCompositeInB: 'sourceA' | 'sourceB' | 'none';
+  videoCompositeInA: 'sourceA' | 'sourceB' | 'pattern' | 'none';
+  videoCompositeInB: 'sourceA' | 'sourceB' | 'pattern' | 'none';
   /** Reuses the Pattern Generator's 8 blend modes — the same math,
    *  applied to two video signals instead of pattern+video. */
   videoCompositeBlendMode: PatternBlendMode;
@@ -669,8 +669,10 @@ export interface Settings {
    *  (the Composite node's own blended output), same three choices
    *  Composite's own inputs get, plus 'none' to leave that raster
    *  mirroring raster A (today's default dual-raster behavior). */
-  videoDualRasterInA: 'sourceA' | 'sourceB' | 'composite' | 'none';
-  videoDualRasterInB: 'sourceA' | 'sourceB' | 'composite' | 'none';
+  videoDualRasterInA: 'sourceA' | 'sourceB' | 'composite' | 'pattern' | 'none';
+  videoDualRasterInB: 'sourceA' | 'sourceB' | 'composite' | 'pattern' | 'none';
+  // v1.31: 'pattern' = the Pattern Generator's raw output, patched as a
+  // picture source (its OUT jack). Additive values — no schema bump.
   mirrorH: boolean;
   mirrorV: boolean;
   requestedWidth: number;

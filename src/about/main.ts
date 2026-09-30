@@ -53,6 +53,9 @@ import tutorialsHtml     from '../../docs/about/10-tutorials.md?aboutMd';
 //   - the graph node registry is a Map populated by side-effect-free
 //     `register(...)` calls; no synth runtime, no DOM access.
 import { buildParamReferenceHtml, buildNodeCatalogHtml } from './autogen';
+import { flowSvg } from '../ui/help/flowSvg';
+import { ABOUT_FLOWS } from '../ui/help/flowTemplates';
+import '../ui/help/flow.css';
 
 const SECTIONS: { html: string; injectAfter?: 'reference' }[] = [
   { html: introHtml },
@@ -93,6 +96,14 @@ if (referenceSection) {
   // appear as top-level TOC entries.
   referenceSection.insertAdjacentHTML('beforeend', buildParamReferenceHtml());
   referenceSection.insertAdjacentHTML('beforeend', buildNodeCatalogHtml());
+}
+
+// Signal-flow diagrams placed in the Markdown as
+// <div class="about-flow" data-flow="<id>"> (see ui/help/flowTemplates.ts).
+for (const el of Array.from(doc.querySelectorAll<HTMLElement>('.about-flow[data-flow]'))) {
+  const model = ABOUT_FLOWS[el.dataset.flow ?? ''];
+  if (model) el.insertAdjacentHTML('afterbegin', flowSvg(model));
+  else el.remove();
 }
 
 // =====================================================================

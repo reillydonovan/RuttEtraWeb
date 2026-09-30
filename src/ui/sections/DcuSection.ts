@@ -6,7 +6,21 @@
 import { SettingsStore } from '../../state/Settings';
 import { row, group, slider, toggle, button } from '../widgets';
 
-export function createDcuSection(settings: SettingsStore): HTMLElement {
+/** Raster aspect that matches a `w`×`h` picture, clamped to the Aspect
+ *  slider's range; null when there's no picture yet. */
+export function aspectForSource(w: number, h: number): number | null {
+  if (!(w > 0) || !(h > 0)) return null;
+  return Math.min(4, Math.max(0.25, Math.round((w / h) * 1000) / 1000));
+}
+
+/**
+ * @param getSourceSize the live input's pixel size (whatever feeds the
+ *   raster), or null when nothing is playing — drives "Match source".
+ */
+export function createDcuSection(
+  settings: SettingsStore,
+  getSourceSize?: () => { w: number; h: number } | null,
+): HTMLElement {
   const root = document.createElement('div');
 
   // ---- Position & Size ----
@@ -18,6 +32,24 @@ export function createDcuSection(settings: SettingsStore): HTMLElement {
     row('V Size',      slider(settings, 'vSize', -2, 2, 0.001), 'negative inverts'),
     row('Aspect',      slider(settings, 'aspect', 0.25, 4, 0.001)),
   );
+  // Owner ask: the raster keeps its own aspect (4:3, like the hardware)
+  // regardless of the input — one click makes it match the source.
+  if (getSourceSize) {
+    const aspRow = document.createElement('div');
+    aspRow.className = 'rw-btn-row';
+    const match = button('Match source', () => {
+      const sz = getSourceSize();
+      const a = sz ? aspectForSource(sz.w, sz.h) : null;
+      if (a == null) {
+        match.textContent = 'No video yet';
+        setTimeout(() => { match.textContent = 'Match source'; }, 1500);
+        return;
+      }
+      settings.set('aspect', a);
+    });
+    aspRow.append(match, button('4:3', () => settings.set('aspect', 4 / 3)));
+    pos.body.append(aspRow);
+  }
   root.appendChild(pos.root);
 
   // ---- Depth (Z) ----

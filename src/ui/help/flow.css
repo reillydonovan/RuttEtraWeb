@@ -1,0 +1,16 @@
+/* Signal-flow diagrams (flowSvg.ts) — shared by the ⓘ pop-ups and the
+   About page. Colours fall back so the file works in either document. */
+.rw-flow { display: block; width: 100%; height: auto; font-family: var(--re-mono, monospace); }
+.rw-flow text { font-size: 12px; fill: var(--re-text, #cfe8d8); }
+.rw-flow-box { fill: rgba(95, 255, 133, 0.05); stroke: var(--re-accent, #5fff85); stroke-width: 1; }
+.rw-flow-rule { stroke: var(--re-line, rgba(95,255,133,0.18)); stroke-width: 1; }
+.rw-flow .rw-flow-title { fill: var(--re-accent, #5fff85); font-size: 12px; letter-spacing: 0.1em; }
+.rw-flow .rw-flow-port { fill: var(--re-text, #cfe8d8); font-size: 11px; }
+.rw-flow-cable { fill: none; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 2px currentColor); }
+.rw-flow-cable--idle { stroke-opacity: 0.4; stroke-dasharray: 5 4; filter: none; }
+.rw-flow-cable--empty { stroke-opacity: 0.35; stroke-dasharray: 3 3; filter: none; }
+.rw-flow-jack { fill: #0a100b; stroke-width: 2; }
+.rw-flow .rw-flow-label { font-size: 11px; }
+.rw-flow .rw-flow-label--idle { fill: var(--re-text-dim, #5a9a72); }
+.rw-flow .rw-flow-label--empty { fill: var(--re-text-dim, #5a9a72); font-style: italic; }
+.rw-flow .rw-flow-foot { fill: var(--re-text-dim, #5a9a72); font-size: 11px; }

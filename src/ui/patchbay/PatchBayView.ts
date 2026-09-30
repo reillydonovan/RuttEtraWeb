@@ -105,10 +105,10 @@ const SNAP_PX = 26;
  *  two INs and one OUT, and the Renderer's one IN. Unlike the
  *  modulation graph's per-node jacks this set never grows, so it's a
  *  literal union rather than a dynamic key scheme. */
-type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out' | 'dualraster-out';
+type VideoOutKey = 'sourceA-out' | 'sourceB-out' | 'composite-out' | 'dualraster-out' | 'pattern-out';
 type VideoInKey = 'composite-inA' | 'composite-inB' | 'dualraster-inA' | 'dualraster-inB' | 'renderer-in';
 type VideoJackKey = VideoOutKey | VideoInKey;
-type VideoSourceId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster';
+type VideoSourceId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster' | 'pattern';
 
 /** Classic waveform sources ↔ graph enum options (LFO `shape`). Lets
  *  the SOURCES bus jacks plug into a node's shape param — drag TRI onto
@@ -538,6 +538,7 @@ export function createPatchBayView(
     if (key === 'sourceA-out') return 'sourceA';
     if (key === 'sourceB-out') return 'sourceB';
     if (key === 'composite-out') return 'composite';
+    if (key === 'pattern-out') return 'pattern';
     return 'dualRaster';
   }
   function validInTargetsFor(outKey: VideoOutKey): VideoInKey[] {
@@ -546,7 +547,7 @@ export function createPatchBayView(
     return ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
   }
   function validOutSourcesFor(inKey: VideoInKey): VideoOutKey[] {
-    return (['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[])
+    return (['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out', 'pattern-out'] as VideoOutKey[])
       .filter((ok) => validInTargetsFor(ok).includes(inKey));
   }
   /** Current source feeding an IN endpoint, read from Settings.
@@ -583,11 +584,11 @@ export function createPatchBayView(
     // 'composite' itself (no self-loop, enforced by Settings' own
     // narrower type for those two keys); Dual Raster's inputs CAN.
     if (inKey === 'composite-inA' || inKey === 'composite-inB') {
-      const norm: 'sourceA' | 'sourceB' | 'none' =
-        (source === 'sourceA' || source === 'sourceB') ? source : 'none';
+      const norm: 'sourceA' | 'sourceB' | 'pattern' | 'none' =
+        (source === 'sourceA' || source === 'sourceB' || source === 'pattern') ? source : 'none';
       settings.set(inKey === 'composite-inA' ? 'videoCompositeInA' : 'videoCompositeInB', norm);
     } else {
-      const norm: 'sourceA' | 'sourceB' | 'composite' | 'none' =
+      const norm: 'sourceA' | 'sourceB' | 'composite' | 'pattern' | 'none' =
         (source && source !== 'dualRaster') ? source : 'none';
       settings.set(inKey === 'dualraster-inA' ? 'videoDualRasterInA' : 'videoDualRasterInB', norm);
     }
@@ -1471,10 +1472,10 @@ export function createPatchBayView(
   // selected") — mirrors Controls' own SourceSection.ts Pattern
   // Generator group exactly (same defaults-before-kind-switch order,
   // same enum option lists, imported from the shared PatternRegistry.ts
-  // home rather than duplicated). No jack: it always operates on
-  // whatever signal is already feeding the DCU (VIDEO SOURCE
-  // A/B/COMPOSITE, per RENDERER's own wiring above) — there's no
-  // separate "pattern's video input" to route.
+  // home rather than duplicated). By default it overlays whatever is
+  // feeding the DCU (per RENDERER's wiring above); since v1.31 it also
+  // has a video OUT so it can be patched as a picture source instead
+  // (see the pOutRow below).
   //
   // The dynamic "supporting properties" section is the actual reason
   // this needs its OWN module rather than just relying on the general
@@ -1524,6 +1525,21 @@ export function createPatchBayView(
     attachTooltip(enableRow, 'Enable the Pattern Generator layer. When off, the live video texture feeds the DCU directly (no extra GPU cost).');
     enableRow.append(enableLabel, enableCb);
     mod.appendChild(enableRow);
+
+    // Video OUT (v1.31, owner-approved): the raw pattern as a picture
+    // source — patch it into RENDERER, COMPOSITE A/B or DUAL RASTER A/B.
+    // While it's patched anywhere the overlay role is off (the pattern
+    // shows only where the cable goes); unplug to get the overlay back.
+    const pOutRow = document.createElement('div');
+    pOutRow.className = 'rw-pb-row rw-pb-row--out';
+    const pOutLabel = document.createElement('label');
+    pOutLabel.textContent = 'OUT';
+    const pOutJack = makeJack('rw-rack-jack--out');
+    pOutJack.addEventListener('pointerdown', (ev) => dragVideoOut(ev, 'pattern-out', pOutJack));
+    attachTooltip(pOutJack, 'Pattern OUT — the raw pattern as a video source. Drag onto RENDERER, COMPOSITE or DUAL RASTER. While patched, it stops overlaying and shows only where the cable goes.');
+    pOutRow.append(pOutLabel, pOutJack);
+    videoJacks.set('pattern-out', pOutJack);
+    mod.appendChild(pOutRow);
 
     const kindRow = document.createElement('div');
     kindRow.className = 'rw-pb-row';
@@ -3485,6 +3501,7 @@ export function createPatchBayView(
     const VIDEO_IN_KEYS: VideoInKey[] = ['composite-inA', 'composite-inB', 'dualraster-inA', 'dualraster-inB', 'renderer-in'];
     const VIDEO_SRC_TO_OUT: Record<VideoSourceId, VideoOutKey> = {
       sourceA: 'sourceA-out', sourceB: 'sourceB-out', composite: 'composite-out', dualRaster: 'dualraster-out',
+      pattern: 'pattern-out',
     };
     const usedVideoOuts = new Set<VideoOutKey>();
     for (const inKey of VIDEO_IN_KEYS) {
@@ -3524,7 +3541,7 @@ export function createPatchBayView(
       });
       drawnThisFrame.push({ id, a: la, b: lb, style: 'sag' });
     }
-    for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out'] as VideoOutKey[]) {
+    for (const outKey of ['sourceA-out', 'sourceB-out', 'composite-out', 'dualraster-out', 'pattern-out'] as VideoOutKey[]) {
       videoJacks.get(outKey)?.classList.toggle('rw-rack-jack--plugged', usedVideoOuts.has(outKey));
     }
 

@@ -90,3 +90,20 @@ describe('flowSvg', () => {
     expect(flowSvg({ title: 'x', inputs, outputs: [] })).toContain('+6 more');
   });
 });
+
+describe('signalFlow v1.31', () => {
+  it('draws an unpatched unit with empty IN jacks instead of nothing', () => {
+    const f = paramsFlow(state({ modSlots: [] }), 'Idle', ['hPos', 'vPos', 'hSize', 'vSize', 'aspect', 'zPush', 'zBias']);
+    expect(f.inputs).toHaveLength(5);
+    expect(f.inputs.every((p) => p.links.length === 0)).toBe(true);
+    expect(f.unpatched).toBe(2);
+    expect(flowSvg(f)).not.toBe('');
+  });
+
+  it('shows where the Pattern Generator OUT is patched', () => {
+    const s = state({ video: { rendererIn: 'pattern', compositeInA: 'sourceA', compositeInB: 'pattern', dualRasterInA: 'none', dualRasterInB: 'none' } });
+    const f = moduleFlow(s, 'PATTERN GENERATOR', []);
+    expect(f.outputs[0].links.map((l) => l.label)).toEqual(['Composite · B', 'Renderer']);
+    expect(moduleFlow(s, 'RENDERER', []).inputs[0].links[0].label).toBe('Pattern Generator');
+  });
+});

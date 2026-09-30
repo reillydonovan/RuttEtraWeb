@@ -594,3 +594,18 @@ body.about-body::before {
     content: counter(about-h2) "." counter(about-h3) " ";
   }
 }
+
+/* Signal-flow diagrams (drawn by ui/help/flowSvg.ts; styles in flow.css). */
+.about-flow {
+  margin: 14px 0 20px;
+  padding: 8px 0 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--re-line);
+}
+.about-flow--node { margin: 8px 0 10px; max-width: 560px; }
+.about-flow-cap {
+  display: block;
+  padding: 2px 12px 0;
+  color: var(--re-text-dim);
+  font-size: 0.85em;
+}

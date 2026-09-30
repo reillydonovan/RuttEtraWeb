@@ -25,6 +25,8 @@ Per-patch reset (↻ icon) zeros out a single patch's contribution. The global *
 
 Each row in the Classic matrix is a complete patch. Walk through one end-to-end:
 
+<div class="about-flow" data-flow="function-gen"><span class="about-flow-cap">A Classic slot as a Patch Bay module: a waveform from the Sources bus goes in, and its OUT drives one parameter.</span></div>
+
 1. **Source dropdown** — pick LFO (sine / triangle / square / saw / pulse), Ramp (up / down / triangle / hold), Audio (envelope), Audio Band [n], Beat, MIDI CC/Note/Velocity/Clock, OSC, Joystick X/Y/Z, Constant, CV Input (audio), CV Input (OSC), Gamepad Axis, Gamepad Button.
 2. **▼ Expand** — opens source-specific controls below the row.
 3. For an **LFO**: Rate, Shape, Phase, Duty (square/pulse only), Depth, Sync (Free/MIDI/Tempo), **Retrigger** button, Polarity (bipolar / unipolar).
@@ -45,6 +47,8 @@ Each row in the Classic matrix is a complete patch. Walk through one end-to-end:
 ### Graph mode — patcher concepts
 
 Graph mode is a signal-flow patcher modeled directly on the original Rutt/Etra's voltage-control philosophy. Sources drive other sources, processors shape signals, and bindings deliver results to Settings parameters.
+
+<div class="about-flow" data-flow="graph-lfo"><span class="about-flow-cap">One graph node can fan out: this LFO drives H Position (a binding, cyan) and feeds a Scope node (a node wire, amber).</span></div>
 
 - **Beginner view** — same expandable rows as Classic, but each row maps under the hood to a source node + a binding (= an Output node). Add / remove rows to add / remove bindings.
 - **Advanced view** — the full node graph canvas with palette, Probe tool, Library, and inspector. **Drag from an output jack to an input jack** — a rubber-band cable follows the cursor (click-then-click still works too). Multi-output nodes (Sync's pulse/phase, and any future ones) connect **per port**. **Wheel zooms** (anchored on the cursor, 0.4×–2.5×), **drag empty canvas to pan**. Right-click a node for context actions; Esc cancels a half-made cable.

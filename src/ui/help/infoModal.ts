@@ -8,6 +8,7 @@
  */
 
 import './infoModal.css';
+import './flow.css';
 import type { InfoContent } from './infoContent';
 import { flowSvg } from './flowSvg';
 

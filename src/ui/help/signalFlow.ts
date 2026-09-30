@@ -41,7 +41,7 @@ export interface FlowModel {
   unpatched?: number;
 }
 
-type VideoId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster' | 'none';
+type VideoId = 'sourceA' | 'sourceB' | 'composite' | 'dualRaster' | 'pattern' | 'none';
 
 export interface FlowState {
   modSlots: ReadonlyArray<Pick<ModSlot, 'enabled' | 'source' | 'target'>>;
@@ -193,8 +193,23 @@ export function paramsFlow(s: FlowState, title: string, keys: readonly string[])
     if (outs.length) outputs.push({ name: paramLabel(k), kind: 'graph', links: outs });
     if (!ins.length && !outs.length) unpatched++;
   }
+  // Nothing patched at all: still draw the unit, with its first few
+  // parameters as empty IN jacks and an empty OUT stub (owner: the
+  // pop-ups should have a picture, not just text).
+  if (!inputs.length && !outputs.length && seen.size) {
+    const idle = [...seen].slice(0, IDLE_ROWS);
+    return {
+      title,
+      inputs: idle.map((k) => ({ name: paramLabel(k), kind: 'mod' as const, links: [], empty: 'drag an OUT here' })),
+      outputs: [{ name: 'OUT jacks', kind: 'graph', links: [], empty: 'to any IN' }],
+      unpatched: seen.size - idle.length,
+    };
+  }
   return { title, inputs, outputs, unpatched };
 }
+
+/** Parameters drawn as empty jacks when a unit has no cables at all. */
+const IDLE_ROWS = 5;
 
 /** A Function Generator (Classic slot `i`). */
 export function slotFlow(s: FlowState, i: number): FlowModel | null {
@@ -228,6 +243,7 @@ export function busFlow(s: FlowState): FlowModel {
 
 const VIDEO_NAME: Record<Exclude<VideoId, 'none'>, string> = {
   sourceA: 'Video Source A', sourceB: 'Video Source B', composite: 'Composite', dualRaster: 'Dual Raster',
+  pattern: 'Pattern Generator',
 };
 
 function videoIn(name: string, src: VideoId, empty: string): FlowPort {
@@ -263,6 +279,7 @@ function videoFlow(s: FlowState, key: string): { inputs: FlowPort[]; outputs: Fl
       outputs: [out('dualRaster')],
     };
     case 'RENDERER': return { inputs: [videoIn('IN', v.rendererIn, 'Video Source A')], outputs: [] };
+    case 'PATTERN GENERATOR': return { inputs: [], outputs: [{ ...out('pattern'), empty: 'overlay (not patched)' }] };
     default: return null;
   }
 }

@@ -21,7 +21,7 @@ import { CameraRig } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
 import { ResolutionManager } from './renderer/ResolutionManager';
 import { PatternRenderer } from './renderer/patterns/PatternRenderer';
-import { VideoCompositor } from './renderer/VideoCompositor';
+import { VideoCompositor, isPatternRouted } from './renderer/VideoCompositor';
 import { PatternSignalBus } from './renderer/patterns/PatternSignalBus';
 import type { OscilloscopeBuffer } from './renderer/patterns/OscilloscopeBuffer';
 import { VideoTap } from './modulation/graph/VideoTap';
@@ -236,9 +236,16 @@ async function bootSynth(): Promise<void> {
   // render resolution, so it needs no ResolutionManager involvement.
   const videoCompositor = new VideoCompositor(renderer, settings, liveValues);
   let videoCompositeBoundExternal = false;
+  /** Pixel size of the video feeding the raster (for DCU ▸ Match source). */
+  const rasterSourceSize = (): { w: number; h: number } | null => {
+    const v = settings.get('videoRendererIn') === 'sourceB' ? videoB : video;
+    return v.videoWidth > 0 ? { w: v.videoWidth, h: v.videoHeight } : null;
+  };
+  let patternWasRendering = false;
   // Restore the live video binding when the user disables the layer.
   settings.subscribe('patternEnabled', (enabled) => {
-    if (!enabled) patternRenderer.bypass();
+    // Still rendering as a patched source (v1.31)? Leave it running.
+    if (!enabled && !isPatternRouted((k) => settings.get(k))) patternRenderer.bypass();
   });
 
   // Hide panel/timeline while user "peeks" via long-press.
@@ -1310,7 +1317,7 @@ async function bootSynth(): Promise<void> {
 
   panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Video Source B',        body: createSourceBSection(settings, sourceB) });
-  panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings, rasterSourceSize),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Virtual Camera',        body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'XR',                    body: createXrSection(settings, xrManager) });
@@ -1456,7 +1463,7 @@ async function bootSynth(): Promise<void> {
     const extra = new ControlPanel(host, settings);
     extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source), initiallyOpen: true });
     extra.addSection({ tab: 'synth', title: 'Video Source B',       body: createSourceBSection(settings, sourceB) });
-    extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings, rasterSourceSize), initiallyOpen: true });
     extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });
     extra.addSection({ tab: 'synth', title: 'Virtual Camera',       body: createCameraSection(settings, cameraRig) });
     extra.addSection({ tab: 'synth', title: 'XR',                   body: createXrSection(settings, xrManager) });
@@ -1890,6 +1897,18 @@ async function bootSynth(): Promise<void> {
     // permanently for a Patch-Bay-only pick — see mkVideoSourceModule's
     // comment) disagree with whether the element actually has a frame.
     // Same convention the bay's own preview monitors already use.
+    // Pattern Generator as a patchable picture source (v1.31): when its
+    // OUT is patched anywhere it renders as a source (fed to the
+    // compositor below) and does NOT also overlay; otherwise it keeps
+    // its classic overlay role when enabled.
+    const patternRouted = isPatternRouted((k) => settings.get(k));
+    const patternOverlay = settings.get('patternEnabled') && !patternRouted;
+    const patternOut = (settings.get('patternEnabled') || patternRouted)
+      ? patternRenderer.renderPattern(t, dt) : null;
+    if (!patternOut && patternWasRendering) patternRenderer.bypass(); // drop stale signals
+    patternWasRendering = !!patternOut;
+    videoCompositor.setPatternSource(patternRouted ? patternOut : null);
+
     const composedVideo = videoCompositor.resolveVideoInput(
       ruttEtra.videoTexture, video.readyState >= 2,
       videoBTexture, videoB.readyState >= 2,
@@ -1901,14 +1920,19 @@ async function bootSynth(): Promise<void> {
     // result as the DCU's input. No-op when disabled — whatever the
     // composite step above bound (or the live VideoTexture from
     // RuttEtraScene.attachVideo() when neither is active) stays bound.
-    if (settings.get('patternEnabled')) {
-      patternRenderer.tick(t, dt, composedVideo?.texture ?? ruttEtra.videoTexture);
-    } else if (composedVideo) {
-      ruttEtra.setExternalVideoTexture(composedVideo.texture, composedVideo.width, composedVideo.height);
-      videoCompositeBoundExternal = true;
-    } else if (videoCompositeBoundExternal) {
-      ruttEtra.attachVideo();
-      videoCompositeBoundExternal = false;
+    if (patternOverlay && patternOut) {
+      patternRenderer.overlay(composedVideo?.texture ?? ruttEtra.videoTexture);
+    } else {
+      // Not overlaying: if the overlay was bound last frame, the live
+      // video binding has to be restored below.
+      const releasedOverlay = patternRenderer.releaseOverlay();
+      if (composedVideo) {
+        ruttEtra.setExternalVideoTexture(composedVideo.texture, composedVideo.width, composedVideo.height);
+        videoCompositeBoundExternal = true;
+      } else if (videoCompositeBoundExternal || releasedOverlay) {
+        ruttEtra.attachVideo();
+        videoCompositeBoundExternal = false;
+      }
     }
 
     // Dual Raster node (v1.20): when wired (videoRendererIn ===

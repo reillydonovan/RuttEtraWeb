@@ -248,10 +248,21 @@ export class PatternRenderer {
    * compositor uses it via `uVideo` / `uHasVideo`.
    */
   tick(timeSec: number, dt: number, videoTexture: THREE.Texture | null): void {
+    if (this.renderPattern(timeSec, dt)) this.overlay(videoTexture);
+  }
+
+  /**
+   * Render this frame's raw pattern (steps 1 + 1b) and publish its
+   * signals, WITHOUT compositing it onto the DCU input. Returns the raw
+   * pattern texture (the phosphor trail for the oscilloscope), or null
+   * for an unknown kind. Used directly when the Pattern Generator is
+   * patched as a picture source (v1.31); `tick()` = this + `overlay()`.
+   */
+  renderPattern(timeSec: number, dt: number): { texture: THREE.Texture; width: number; height: number } | null {
     const s = this.settings.all;
     const kind = s.patternKind;
     const def = PATTERN_REGISTRY[kind];
-    if (!def) return;
+    if (!def) return null;
 
     let triggerHit = false;
     if (kind === 'oscilloscope' && this.scopeSampler) {
@@ -322,8 +333,24 @@ export class PatternRenderer {
       this.previewCtx.putImageData(imgData, 0, 0);
     }
 
-    // 2. Render compositor -> compositRT
-    const patternTexture = isScope ? this.trailRT.texture : this.patternRT.texture;
+    this.renderer.setRenderTarget(oldRT);
+    this.lastPatternTexture = isScope ? this.trailRT.texture : this.patternRT.texture;
+    return { texture: this.lastPatternTexture, width: this.width, height: this.height };
+  }
+
+  /** Last texture `renderPattern()` produced (null before the first). */
+  private lastPatternTexture: THREE.Texture | null = null;
+
+  /**
+   * Step 2 + 3: blend this frame's pattern over `videoTexture` and bind
+   * the result as the DCU input (the classic overlay role). Call after
+   * `renderPattern()` in the same frame.
+   */
+  overlay(videoTexture: THREE.Texture | null): void {
+    const patternTexture = this.lastPatternTexture;
+    if (!patternTexture) return;
+    const s = this.settings.all;
+    const oldRT = this.renderer.getRenderTarget();
     this.compositor.uniforms.uPattern.value = patternTexture;
     this.compositor.uniforms.uVideo.value = videoTexture;
     this.compositor.uniforms.uHasVideo.value = videoTexture ? 1 : 0;
@@ -347,10 +374,25 @@ export class PatternRenderer {
    * Restore the live video source as the DCU's input. Called when the
    * user toggles `patternEnabled` off. Idempotent.
    */
-  bypass(): void {
-    if (!this.boundExternal) return;
-    this.ruttEtra.attachVideo();
+  /**
+   * Stop overlaying without clearing signals (the pattern is still being
+   * rendered as a patched source). Returns true if the overlay had been
+   * bound, so the caller knows to restore the live video binding.
+   */
+  releaseOverlay(): boolean {
+    const was = this.boundExternal;
     this.boundExternal = false;
+    return was;
+  }
+
+  bypass(): void {
+    // Restore the live video only if the overlay was bound; the signal
+    // cleanup below runs regardless (the pattern may have been rendering
+    // as a patched source, v1.31, without ever binding).
+    if (this.boundExternal) {
+      this.ruttEtra.attachVideo();
+      this.boundExternal = false;
+    }
     this.scopeBuf.clear();
     // Drop every published signal — otherwise stale Lissajous X / scope
     // mean / etc. would keep driving slots that targeted them.

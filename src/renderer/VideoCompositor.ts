@@ -36,7 +36,16 @@ export interface VideoCompositeResult {
 }
 
 /** The three sources a routing input can reference (`'none'` = unplugged). */
-export type VideoSourceRef = 'sourceA' | 'sourceB' | 'composite' | 'none';
+export type VideoSourceRef = 'sourceA' | 'sourceB' | 'composite' | 'pattern' | 'none';
+
+/** Settings keys that can reference the Pattern Generator as a source. */
+const PATTERN_ROUTE_KEYS = ['videoRendererIn', 'videoCompositeInA', 'videoCompositeInB', 'videoDualRasterInA', 'videoDualRasterInB'] as const;
+
+/** True when the Pattern Generator's OUT is patched anywhere (v1.31) —
+ *  it then renders as a picture source instead of overlaying. */
+export function isPatternRouted(get: (k: typeof PATTERN_ROUTE_KEYS[number]) => string): boolean {
+  return PATTERN_ROUTE_KEYS.some((k) => get(k) === 'pattern');
+}
 
 export class VideoCompositor {
   private rt: THREE.WebGLRenderTarget;
@@ -51,6 +60,13 @@ export class VideoCompositor {
    *  binds this instead, matching the shader's own "no source = black"
    *  convention (compositor.frag.glsl's `uHasVideo` gate). */
   private blackTex: THREE.DataTexture;
+  /** This frame's Pattern Generator output, when it's patched as a source. */
+  private patternSrc: VideoCompositeResult | null = null;
+
+  /** Set each frame before resolving (null when the pattern isn't rendering). */
+  setPatternSource(src: VideoCompositeResult | null): void {
+    this.patternSrc = src;
+  }
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -104,6 +120,7 @@ export class VideoCompositor {
     const pick = (which: VideoSourceRef): { tex: THREE.Texture; active: boolean } => {
       if (which === 'sourceA') return { tex: texA ?? this.blackTex, active: aActive };
       if (which === 'sourceB') return { tex: texB ?? this.blackTex, active: bActive };
+      if (which === 'pattern' && this.patternSrc) return { tex: this.patternSrc.texture, active: true };
       return { tex: this.blackTex, active: false };
     };
     const a = pick(this.settings.get('videoCompositeInA'));
@@ -140,6 +157,7 @@ export class VideoCompositor {
     if (ref === 'sourceA') return texA ? { texture: texA, width: aWidth || 640, height: aHeight || 480 } : null;
     if (ref === 'sourceB') return texB ? { texture: texB, width: bWidth || 640, height: bHeight || 480 } : null;
     if (ref === 'composite') return this.renderComposite(texA, aActive, texB, bActive, aWidth, aHeight, bWidth, bHeight);
+    if (ref === 'pattern') return this.patternSrc;
     return null; // 'none'
   }
 
@@ -163,6 +181,7 @@ export class VideoCompositor {
   ): VideoCompositeResult | null {
     const routeIn = this.settings.get('videoRendererIn');
     if (routeIn === 'sourceA' || routeIn === 'dualRaster') return null;
+    if (routeIn === 'pattern') return this.patternSrc; // null → normal to Source A
     if (routeIn === 'sourceB') {
       if (!texB) return null; // B has never loaded metadata — normal to sourceA
       return { texture: texB, width: bWidth || 640, height: bHeight || 480 };

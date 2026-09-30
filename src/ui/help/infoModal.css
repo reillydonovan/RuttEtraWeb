@@ -90,7 +90,7 @@
 }
 .rw-info-more:hover { border-bottom-style: solid; }
 
-/* Live signal-flow diagram (flowSvg.ts). */
+/* Live signal-flow diagram wrapper (the diagram itself: flow.css). */
 .rw-info-flow {
   margin: 4px 0 6px;
   padding: 6px 0;
@@ -98,17 +98,3 @@
   border: 1px solid var(--re-line);
 }
 .rw-info-flow-none { margin: 2px 0 6px; color: var(--re-text-dim); font-size: 11px; }
-.rw-flow { display: block; width: 100%; height: auto; font-family: var(--re-mono); }
-.rw-flow text { font-size: 12px; fill: var(--re-text); }
-.rw-flow-box { fill: rgba(95, 255, 133, 0.05); stroke: var(--re-accent); stroke-width: 1; }
-.rw-flow-rule { stroke: var(--re-line); stroke-width: 1; }
-.rw-flow .rw-flow-title { fill: var(--re-accent); font-size: 12px; letter-spacing: 0.1em; }
-.rw-flow .rw-flow-port { fill: var(--re-text); font-size: 11px; }
-.rw-flow-cable { fill: none; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 2px currentColor); }
-.rw-flow-cable--idle { stroke-opacity: 0.4; stroke-dasharray: 5 4; filter: none; }
-.rw-flow-cable--empty { stroke-opacity: 0.35; stroke-dasharray: 3 3; filter: none; }
-.rw-flow-jack { fill: #0a100b; stroke-width: 2; }
-.rw-flow .rw-flow-label { font-size: 11px; }
-.rw-flow .rw-flow-label--idle { fill: var(--re-text-dim); }
-.rw-flow .rw-flow-label--empty { fill: var(--re-text-dim); font-style: italic; }
-.rw-flow .rw-flow-foot { fill: var(--re-text-dim); font-size: 11px; }
