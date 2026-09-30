@@ -87,11 +87,14 @@ export default defineConfig({
     port: 5190,
     strictPort: true,
     host: true,
+    // Allow Bonjour names (http://<mac-name>.local:5190/) besides raw IPs.
+    allowedHosts: ['.local'],
   },
   preview: {
     port: 4190,
     strictPort: true,
     host: true,
+    allowedHosts: ['.local'],
   },
   plugins: [aboutMarkdown()],
   build: {
