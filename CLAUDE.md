@@ -11,7 +11,7 @@ Stack: Vite + vanilla TypeScript (no framework), three.js, PeerJS, hls.js, qrcod
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server on http://localhost:5173
+npm run dev          # Vite dev server on http://localhost:5190 (also on the LAN; own fixed port)
 npm run build        # tsc --noEmit && vite build
 npm run typecheck    # tsc --noEmit only
 npm test             # vitest run (all tests)

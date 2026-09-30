@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** and click **REQUEST WEBCAM**.
+Open **http://localhost:5190** and click **REQUEST WEBCAM**.
 
 ## Build for production
 

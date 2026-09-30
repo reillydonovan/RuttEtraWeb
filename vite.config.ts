@@ -78,8 +78,19 @@ export default defineConfig({
   define: {
     __BUILD_INFO__: JSON.stringify(BUILD_INFO),
   },
+  // Own fixed port (5173 is taken by another local project, and Vite
+  // would otherwise silently drift to 5174, 5175…). `host: true` listens
+  // on the LAN too, so another machine (e.g. the one running the Chrome
+  // extension) can open http://<this-mac's-LAN-IP>:5190/. strictPort
+  // fails loudly instead of changing the address under you.
   server: {
-    port: 5173,
+    port: 5190,
+    strictPort: true,
+    host: true,
+  },
+  preview: {
+    port: 4190,
+    strictPort: true,
     host: true,
   },
   plugins: [aboutMarkdown()],
