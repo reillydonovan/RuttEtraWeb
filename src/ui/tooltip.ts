@@ -77,6 +77,7 @@ export function scheduleTooltip(
   doc: Document,
   text: string | (() => string | null | undefined),
   anchor: { x: number; y: number } | HTMLElement,
+  delayMs: number = SHOW_DELAY_MS,
 ): void {
   const s = dragTooltipState(doc);
   if (s.timer != null) { clearTimeout(s.timer); s.timer = null; }
@@ -89,7 +90,7 @@ export function scheduleTooltip(
     tip.hidden = false;
     if (anchor instanceof HTMLElement) position(tip, anchor);
     else positionAtPoint(tip, doc, anchor.x, anchor.y);
-  }, SHOW_DELAY_MS);
+  }, delayMs);
 }
 
 /** Cancel any pending/shown drag-time tooltip for `doc`. Safe to call
@@ -123,6 +124,9 @@ export function attachTooltip(el: HTMLElement, text: string | (() => string | nu
     cancel();
     timer = window.setTimeout(() => {
       timer = null;
+      // A cable drag owns the tooltip (drag-time accept/refusal hints —
+      // scheduleTooltip); a jack's idle hint must not overwrite it.
+      if (el.closest('.rw-rack-dragging')) return;
       const content = typeof text === 'function' ? text() : text;
       if (!content) return;
       const tip = tooltipFor(el.ownerDocument);
@@ -131,7 +135,12 @@ export function attachTooltip(el: HTMLElement, text: string | (() => string | nu
       position(tip, el);
     }, SHOW_DELAY_MS);
   });
-  el.addEventListener('pointerleave', hide);
+  el.addEventListener('pointerleave', () => {
+    // During a cable drag the shared tooltip belongs to the drag's own
+    // accept/refusal hint — leaving the grabbed jack must not hide it.
+    if (el.closest('.rw-rack-dragging')) { cancel(); return; }
+    hide();
+  });
   // Don't let a tooltip linger through a drag or click.
   el.addEventListener('pointerdown', hide);
 }

@@ -155,7 +155,8 @@ as the Modulation panel's dropdown. Drop a cable in empty space to
 unplug it. Drag a knob's output jack onto another knob's input to
 modulate one parameter with another. Cyan cables show Graph-engine
 bindings; grab one by its input jack to move or unplug it. Every cable
-here is the same patch the Patch Bay shows. Same parameters, same values in every skin; the choice is
+here is the same patch the Patch Bay shows. While dragging, the cable's end turns
+red over a jack it can't go into, and a short note says why. Same parameters, same values in every skin; the choice is
 remembered on this machine — it isn't part of your presets or projects.
 Touch layouts keep their touch-friendly controls regardless of skin.
 

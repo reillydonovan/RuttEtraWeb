@@ -117,6 +117,16 @@ body[data-skin="rack"] .rw-rack-jack--hover {
 }
 /* The jack currently being dragged from — instant feedback on
    pointerdown, independent of the cable canvas. */
+/* A jack the dragged cable can't go into — red ring + an explaining
+   tooltip (patchRules.ts); the dragged cable fades to red meanwhile. */
+body[data-skin="rack"] .rw-rack-jack--reject {
+  border-color: #ff5566;
+  box-shadow: 0 0 8px rgba(255, 85, 102, 0.8);
+}
+/* Drag-time cursor: check when the cable would connect, slash when not
+   (same glyphs as the Patch Bay). */
+.rw-rack-cursor-accept, .rw-rack-cursor-accept * { cursor: var(--rw-cur-accept) !important; }
+.rw-rack-cursor-reject, .rw-rack-cursor-reject * { cursor: var(--rw-cur-not-allowed) !important; }
 body[data-skin="rack"] .rw-rack-jack--grab {
   border-color: var(--re-accent);
   box-shadow: 0 0 12px rgba(95, 255, 133, 1);

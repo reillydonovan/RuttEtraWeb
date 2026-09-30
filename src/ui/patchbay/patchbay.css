@@ -148,6 +148,12 @@
   box-shadow: 0 0 5px rgba(255, 255, 255, 0.35);
   transform: scale(1.1);
 }
+/* A jack the dragged cable can't go into (patchRules.ts explains why in
+   a tooltip) — red ring, matching the cable's red "won't connect" end. */
+.rw-patchbay .rw-rack-jack--reject {
+  border-color: #ff5566;
+  box-shadow: 0 0 8px rgba(255, 85, 102, 0.8);
+}
 .rw-patchbay .rw-rack-jack--hover {
   /* --rw-hover-color is set inline per drag (the color the resulting
    * cable would actually have — CLASSIC/SOURCE/GRAPH/NODE_WIRE/VIDEO —

@@ -38,7 +38,8 @@ import type { SettingsStore, ModTarget } from '../../state/Settings';
 import type { GraphPatch } from '../../modulation/graph/types';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
-import { attachTooltip } from '../tooltip';
+import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
+import { rejectReason, type JackKind } from './patchRules';
 import {
   classicCables, graphCables, applyCableTarget, slotForParam,
   nearestJack, rectCenter, Pt,
@@ -49,6 +50,12 @@ import './rack.css';
 const CLASSIC_COLOR = '#5fff85';
 const GRAPH_COLOR   = '#5fffd0';
 const SNAP_PX = 28;
+/** Drag cable end colors — white = will connect, red = won't (the same
+ *  pair the Patch Bay uses). */
+const CABLE_ACCEPT_COLOR = '#ffffff';
+const CABLE_REJECT_COLOR = '#ff5566';
+const REJECT_TIP_MS = 180;
+const ON_JACK_PX = 10;
 
 const TARGET_KEYS = new Set<string>(TARGETS.filter((t) => t.v !== 'none').map((t) => String(t.v)));
 
@@ -164,6 +171,19 @@ export function createRackLayer(
     return r.width > 0 && r.height > 0 ? r : null;
   }
 
+  /** True when a cable end would only be drawn at a fallback spot (its
+   *  jack is hidden — collapsed section or another tab). */
+  function hidden(jack: HTMLElement | undefined): boolean {
+    return !jack || !visibleRect(jack);
+  }
+  /** A cable is worth drawing only if at least one real end is on screen.
+   *  With BOTH ends hidden, both fall back to the same header or tab
+   *  strip and the cable degenerates into a stray stub (owner report: a
+   *  tracer under the I/O tab for a patch that lives on the Synth tab). */
+  function drawable(a: HTMLElement | undefined, b: HTMLElement | undefined): boolean {
+    return !(hidden(a) && hidden(b));
+  }
+
   /** Jack itself → its section's header → the tab strip. Null = undrawable. */
   function anchorFor(jack: HTMLElement): Pt | null {
     const own = visibleRect(jack);
@@ -211,19 +231,79 @@ export function createRackLayer(
       if (e.pointerId !== activeId) return;
       e.preventDefault();
       onMovePos({ x: e.clientX, y: e.clientY });
+      probeReject({ x: e.clientX, y: e.clientY }, grabbedJack);
     };
     const onUp = (e: PointerEvent): void => {
       if (e.pointerId !== activeId) return;
       doc.removeEventListener('pointermove',   onMove);
       doc.removeEventListener('pointerup',     onUp);
       doc.removeEventListener('pointercancel', onUp);
-      panelRoot.classList.remove('rw-rack-dragging');
+      panelRoot.classList.remove('rw-rack-dragging', 'rw-rack-cursor-accept', 'rw-rack-cursor-reject');
       grabbedJack.classList.remove('rw-rack-jack--grab');
       onDrop();
+      setRejectJack(null, '');
+      cancelTooltip(doc);
     };
     doc.addEventListener('pointermove',   onMove, { passive: false });
     doc.addEventListener('pointerup',     onUp);
     doc.addEventListener('pointercancel', onUp);
+  }
+
+  // "Why won't this connect" — a jack near the pointer that the drag
+  // won't snap to lights red with a short explanation (patchRules.ts,
+  // shared with the Patch Bay).
+  let rejectJack: HTMLElement | null = null;
+  function setRejectJack(el: HTMLElement | null, reason: string): void {
+    if (el === rejectJack) return;
+    rejectJack?.classList.remove('rw-rack-jack--reject');
+    rejectJack = el;
+    if (el) {
+      el.classList.add('rw-rack-jack--reject');
+      scheduleTooltip(panelRoot.ownerDocument, reason, el, REJECT_TIP_MS);
+    } else {
+      cancelTooltip(panelRoot.ownerDocument);
+    }
+  }
+  function classifyJack(el: HTMLElement): { kind: JackKind; key: string } | null {
+    for (const [k, v] of paramJacks) if (v === el) return { kind: 'param-in', key: k };
+    for (const [k, v] of paramOutJacks) if (v === el) return { kind: 'param-out', key: k };
+    for (const [k, v] of slotJacks) if (v === el) return { kind: 'slot-out', key: String(k) };
+    return null;
+  }
+  function dragOrigin(p: Pending): { kind: JackKind; key: string; bindingReroute?: boolean } {
+    switch (p.kind) {
+      case 'to-param': return { kind: 'slot-out', key: String(p.slotIndex) };
+      case 'to-slot': return { kind: 'param-in', key: p.paramKey };
+      case 'graph-to-param': return { kind: 'node-out', key: p.bindingId, bindingReroute: true };
+      case 'pout-to-param': return { kind: 'param-out', key: p.paramKey };
+    }
+  }
+  function probeReject(pos: Pt, grabbed: HTMLElement): void {
+    const p = pending;
+    if (!p) { setRejectJack(null, ''); return; }
+    let best: HTMLElement | null = null;
+    let bestD = SNAP_PX;
+    for (const el of [...paramJacks.values(), ...paramOutJacks.values(), ...slotJacks.values()]) {
+      if (el === grabbed) continue;
+      const r = visibleRect(el);
+      if (!r) continue;
+      const d = Math.hypot(r.left + r.width / 2 - pos.x, r.top + r.height / 2 - pos.y);
+      if (d < bestD) { bestD = d; best = el; }
+    }
+    if (p.hover != null) {
+      // Valid jack in range wins, unless the pointer is right ON a jack
+      // that won't take this cable (IN/OUT sit side by side).
+      const valid = panelRoot.querySelector<HTMLElement>('.rw-rack-jack--hover');
+      if (!best || best === valid || bestD > ON_JACK_PX) { setRejectJack(null, ''); return; }
+      valid?.classList.remove('rw-rack-jack--hover');
+      (p as { hover: unknown }).hover = null;
+    }
+    const to = best ? classifyJack(best) : null;
+    const from = dragOrigin(p);
+    if (!best || !to || (to.kind === from.kind && to.key === from.key)) { setRejectJack(null, ''); return; }
+    const sameParam = ((from.kind === 'param-out' && to.kind === 'param-in') || (from.kind === 'param-in' && to.kind === 'param-out'))
+      && from.key === to.key;
+    setRejectJack(best, rejectReason(from.kind, to.kind, { sameParam, bindingReroute: from.bindingReroute }));
   }
 
   function jackCenters<K>(jacks: Map<K, HTMLElement>): Array<Pt & { id: K }> {
@@ -400,7 +480,7 @@ export function createRackLayer(
       if (pending?.kind === 'to-param' && pending.slotIndex === c.slotIndex) continue;
       const jack = paramJacks.get(c.target);
       const outJack = slotJacks.get(c.slotIndex);
-      if (!jack || !outJack) continue;
+      if (!jack || !outJack || !drawable(outJack, jack)) continue;
       const a = anchorFor(outJack);
       const b = anchorFor(jack);
       if (!a || !b) continue;
@@ -426,6 +506,13 @@ export function createRackLayer(
       if (pending?.kind === 'graph-to-param' && pending.bindingId === g.bindingId) continue;
       const jack = paramJacks.get(g.paramKey);
       if (!jack) continue;
+      // Source end: the feeding param's OUT jack, or (other graph nodes)
+      // the Modulation header — treat that as hidden when the Modulation
+      // section's slot cards aren't on screen.
+      const fromKey0 = paramOutKeyOf(graph, g.sourceNodeId);
+      const srcJack = fromKey0 ? paramOutJacks.get(fromKey0)
+        : panelRoot.querySelector<HTMLElement>('.rw-mod-slot[data-mod-slot]') ?? undefined;
+      if (!drawable(srcJack, jack)) continue;
       const a = graphSrcAnchor(g.sourceNodeId);
       const b = anchorFor(jack);
       if (!a || !b) continue;
@@ -455,9 +542,13 @@ export function createRackLayer(
         a = b ? graphSrcAnchor(b.sourceNodeId) : null;
         color = GRAPH_COLOR;
       }
+      const accepting = pending.hover != null;
+      panelRoot.classList.toggle('rw-rack-cursor-accept', accepting);
+      panelRoot.classList.toggle('rw-rack-cursor-reject', !accepting);
       if (a) {
         drawPatchCable(ctx, local(a), local(pending.pos), color, {
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,
+          gradientEnd: accepting ? CABLE_ACCEPT_COLOR : CABLE_REJECT_COLOR,
         });
       }
     }

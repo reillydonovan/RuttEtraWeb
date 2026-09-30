@@ -46,6 +46,13 @@ import type {
 } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
 import { EDGE_PAN, edgePull, stepAxis, type AxisState } from './edgePan';
+import { rejectReason, type JackKind } from '../rack/patchRules';
+
+/** Refusal tooltips appear quickly — they answer "why isn't this
+ *  snapping?" while the cable is still hovering. */
+const REJECT_TIP_MS = 180;
+/** Pointer this close to a jack's center counts as "on" that jack. */
+const ON_JACK_PX = 10;
 import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
@@ -218,15 +225,22 @@ export function createPatchBayView(
   // ---------------- drag machinery -----------------------------------
   type Pending =
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
-    | { kind: 'to-slotout'; paramKey: string; pos: Pt; hover: number | null }
+    | { kind: 'to-slotout'; paramKey: string; pos: Pt; hover: OutSeekHover }
     | { kind: 'to-slotsrc'; source: ModSource; pos: Pt; hover: SlotSrcHover }
     | { kind: 'to-param-graph'; bindingId: string; pos: Pt; hover: string | null }
-    | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: string | null }
+    | { kind: 'to-graphin'; nodeId: string; port: string; pos: Pt; hover: OutSeekHover }
     | { kind: 'to-graphout'; sourceKey: string; pos: Pt; hover: GraphOutHover }
     | { kind: 'to-paramout'; paramKey: string; pos: Pt; hover: GraphOutHover }
     | { kind: 'to-shapesrc'; nodeId: string; param: string; pos: Pt; hover: ModSource | null }
     | { kind: 'to-videoin'; outKey: VideoOutKey; pos: Pt; hover: VideoInKey | null }
     | { kind: 'to-videoout'; inKey: VideoInKey; pos: Pt; hover: VideoOutKey | null };
+  /** An input being dragged toward an output (the reverse direction):
+   *  a Function Generator OUT, a parameter's OUT, or a graph node's OUT. */
+  type OutSeekHover =
+    | { kind: 'slot'; index: number }
+    | { kind: 'pout'; key: string }
+    | { kind: 'nodeout'; key: string }
+    | null;
   /** An OUT jack can land on another node's IN jack (wire) OR a faceplate
    *  param jack (binding) — see dragGraphOut / dragParamOut. */
   type GraphOutHover = { kind: 'in'; key: string } | { kind: 'param'; key: string } | null;
@@ -272,7 +286,93 @@ export function createPatchBayView(
    *  might still be scheduled/shown for it. */
   function endDrag(): void {
     pending = null;
+    setRejectJack(null, '');
     cancelTooltip(root.ownerDocument);
+  }
+
+  // ---------------- "why won't this connect" feedback ------------------
+  // Owner: hovering a jack a cable CAN'T go into should read as a refusal
+  // — the jack lights red (the cable is already red while nothing valid
+  // is under it) and a short tooltip says why (patchRules.ts, shared
+  // with the rack skin's Controls cables).
+  let rejectJack: HTMLElement | null = null;
+  function setRejectJack(el: HTMLElement | null, reason: string): void {
+    if (el === rejectJack) return;
+    rejectJack?.classList.remove('rw-rack-jack--reject');
+    rejectJack = el;
+    if (el) {
+      el.classList.add('rw-rack-jack--reject');
+      scheduleTooltip(root.ownerDocument, reason, el, REJECT_TIP_MS);
+    } else if (pending && pending.hover == null) {
+      cancelTooltip(root.ownerDocument);
+    }
+  }
+  /** Kind of jack an element is (+ its registry key), for explanations. */
+  function classifyJack(el: HTMLElement): { kind: JackKind; key: string } | null {
+    const find = <K>(m: Map<K, HTMLElement>): K | undefined => { for (const [k, v] of m) if (v === el) return k; return undefined; };
+    let k: unknown;
+    if ((k = find(paramJacks)) !== undefined) return { kind: 'param-in', key: String(k) };
+    if ((k = find(paramOutJacks)) !== undefined) return { kind: 'param-out', key: String(k) };
+    if ((k = find(slotOutJacks)) !== undefined) return { kind: 'slot-out', key: String(k) };
+    if ((k = find(slotSrcJacks)) !== undefined) return { kind: 'slot-srcin', key: String(k) };
+    if ((k = find(srcJacks)) !== undefined) return { kind: 'bus', key: String(k) };
+    if ((k = find(shapeJacks)) !== undefined) return { kind: 'shape', key: String(k) };
+    if ((k = find(graphInputJacks)) !== undefined) return { kind: 'node-in', key: String(k) };
+    if ((k = find(graphNodeJacks)) !== undefined) return { kind: 'node-out', key: String(k) };
+    if ((k = find(videoJacks)) !== undefined) return { kind: String(k).endsWith('-out') ? 'video-out' : 'video-in', key: String(k) };
+    return null;
+  }
+  /** The fixed (cable-source) end of the current drag. */
+  function dragOrigin(p: Pending): { kind: JackKind; key: string; bindingReroute?: boolean } {
+    switch (p.kind) {
+      case 'to-param': return { kind: 'slot-out', key: String(p.slotIndex) };
+      case 'to-slotout': return { kind: 'param-in', key: p.paramKey };
+      case 'to-slotsrc': return { kind: 'bus', key: p.source };
+      case 'to-param-graph': return { kind: 'node-out', key: p.bindingId, bindingReroute: true };
+      case 'to-graphin': return { kind: 'node-in', key: `${p.nodeId}#${p.port}` };
+      case 'to-graphout': return { kind: 'node-out', key: p.sourceKey };
+      case 'to-paramout': return { kind: 'param-out', key: p.paramKey };
+      case 'to-shapesrc': return { kind: 'shape', key: `${p.nodeId}#${p.param}` };
+      case 'to-videoin': return { kind: 'video-out', key: p.outKey };
+      case 'to-videoout': return { kind: 'video-in', key: p.inKey };
+    }
+  }
+  /** Called on every drag move after the drag's own snap search: if
+   *  nothing valid is under the pointer but some other jack is close,
+   *  that jack is a refusal — mark it and explain. */
+  function probeReject(pos: Pt, grabbed: HTMLElement): void {
+    const p = pending;
+    if (!p) { setRejectJack(null, ''); return; }
+    let best: HTMLElement | null = null;
+    let bestD = SNAP_PX;
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>('.rw-rack-jack'))) {
+      if (el === grabbed) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0) continue;
+      const d = Math.hypot(r.left + r.width / 2 - pos.x, r.top + r.height / 2 - pos.y);
+      if (d < bestD) { bestD = d; best = el; }
+    }
+    if (p.hover != null) {
+      // A valid jack is in snap range. It wins — unless the pointer sits
+      // right ON a different jack that won't accept this cable (IN and
+      // OUT jacks are side by side, so the valid neighbour would
+      // otherwise swallow the aim). Then the refusal wins and dropping
+      // here connects nothing.
+      const valid = root.querySelector<HTMLElement>('.rw-rack-jack--hover');
+      if (!best || best === valid || bestD > ON_JACK_PX) { setRejectJack(null, ''); return; }
+      valid?.classList.remove('rw-rack-jack--hover');
+      valid?.style.removeProperty('--rw-hover-color');
+      (p as { hover: unknown }).hover = null;
+    }
+    const to = best ? classifyJack(best) : null;
+    if (!best || !to) { setRejectJack(null, ''); return; }
+    const from = dragOrigin(p);
+    if (to.key === from.key && to.kind === from.kind) { setRejectJack(null, ''); return; } // its own jack
+    const sameParam = (from.kind === 'param-out' && to.kind === 'param-in') || (from.kind === 'param-in' && to.kind === 'param-out')
+      ? from.key === to.key : false;
+    setRejectJack(best, rejectReason(from.kind, to.kind, {
+      sameParam, bindingReroute: from.bindingReroute, fromKey: from.key, toKey: to.key,
+    }));
   }
 
   /** Screen-space top-left of the cable canvas (the bay's visible
@@ -350,12 +450,13 @@ export function createPatchBayView(
     const id = ev.pointerId;
     grabbed.classList.add('rw-rack-jack--grab');
     root.classList.add('rw-rack-dragging');
-    autoPan.begin(ev.clientX, ev.clientY, (x, y) => onMove({ x, y }));
+    autoPan.begin(ev.clientX, ev.clientY, (x, y) => { onMove({ x, y }); probeReject({ x, y }, grabbed); });
     const move = (e: PointerEvent): void => {
       if (e.pointerId !== id) return;
       e.preventDefault();
       autoPan.update(e.clientX, e.clientY);
       onMove({ x: e.clientX, y: e.clientY });
+      probeReject({ x: e.clientX, y: e.clientY }, grabbed);
     };
     const up = (e: PointerEvent): void => {
       if (e.pointerId !== id) return;
@@ -562,26 +663,74 @@ export function createPatchBayView(
   function dragGraphIn(ev: PointerEvent, nodeId: string, port: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-graphin', nodeId, port, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
+    const setOutHover = outSeekHoverSetter(p, NODE_WIRE_COLOR, "Drop to wire this output into this node's input.");
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(centersOf(graphNodeJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(graphNodeJacks, p.hover, hit?.id ?? null, NODE_WIRE_COLOR, "Drop to wire this node's output into this input."); p.hover = hit?.id ?? null; }
+        setOutHover(nearestOutput(pos, { nodeout: true, pout: true }));
       },
       () => {
-        setHover(graphNodeJacks, p.hover, null);
+        const h = p.hover;
+        setOutHover(null);
         endDrag();
         const patch = settings.get('modGraph');
         if (!patch) return;
-        const ref = p.hover ? refFromJackKey(p.hover) : null;
-        const node = patch.nodes.find((n) => n.id === nodeId);
-        if (node && (node.inputs[port] ?? null) !== ref) {
-          const updated = applyNodeInputRef(patch, nodeId, port, ref);
-          ensureGraphLive();
-          settings.set('modGraph', updated);
-          void getEngine().then((e) => e.setPatch(updated));
+        let base = patch;
+        let ref: string | null = null;
+        if (h?.kind === 'nodeout') ref = refFromJackKey(h.key);
+        else if (h?.kind === 'pout') {
+          const r = ensureParamOutNode(patch, h.key, genId);
+          base = r.patch; ref = r.nodeId;
         }
+        const node = base.nodes.find((n) => n.id === nodeId);
+        if (node && (node.inputs[port] ?? null) !== ref) commitGraph(applyNodeInputRef(base, nodeId, port, ref));
       });
+  }
+
+  /** The graph's two-write rule for every bay gesture: Settings (UI,
+   *  persistence) and the engine's live patch. */
+  function commitGraph(updated: GraphPatch): void {
+    if (updated === settings.get('modGraph')) return;
+    ensureGraphLive();
+    settings.set('modGraph', updated);
+    void getEngine().then((e) => e.setPatch(updated));
+  }
+
+  /** Nearest OUTPUT jack across the requested pools (reverse drags). */
+  function nearestOutput(pos: Pt, pools: { slot?: boolean; pout?: boolean; nodeout?: boolean }, excludeParam?: string): OutSeekHover {
+    const cands: Array<{ d: number; h: Exclude<OutSeekHover, null> }> = [];
+    const push = (hit: (Pt & { id: unknown }) | null, h: Exclude<OutSeekHover, null>): void => {
+      if (hit) cands.push({ d: Math.hypot(hit.x - pos.x, hit.y - pos.y), h });
+    };
+    if (pools.slot) { const hit = nearestJack(centersOf(slotOutJacks), pos, SNAP_PX); if (hit) push(hit, { kind: 'slot', index: hit.id }); }
+    if (pools.pout) {
+      const hit = nearestJack(centersOf(paramOutJacks).filter((c) => c.id !== excludeParam), pos, SNAP_PX);
+      if (hit) push(hit, { kind: 'pout', key: hit.id });
+    }
+    if (pools.nodeout) { const hit = nearestJack(centersOf(graphNodeJacks), pos, SNAP_PX); if (hit) push(hit, { kind: 'nodeout', key: hit.id }); }
+    cands.sort((a, b) => a.d - b.d);
+    return cands[0]?.h ?? null;
+  }
+
+  /** Hover transitions for reverse drags across the three output pools. */
+  function outSeekHoverSetter(p: { hover: OutSeekHover }, graphColor: string, graphText: string): (next: OutSeekHover) => void {
+    const clear = (h: OutSeekHover): void => {
+      if (h?.kind === 'slot') setHover(slotOutJacks, h.index, null);
+      if (h?.kind === 'pout') setHover(paramOutJacks, h.key, null);
+      if (h?.kind === 'nodeout') setHover(graphNodeJacks, h.key, null);
+    };
+    return (next) => {
+      const prev = p.hover;
+      const same = prev?.kind === next?.kind && (
+        prev?.kind === 'slot' ? prev.index === (next as { index: number }).index
+          : prev ? prev.key === (next as { key: string }).key : true);
+      if (same) return;
+      clear(prev);
+      if (next?.kind === 'slot') setHover(slotOutJacks, null, next.index, CLASSIC_COLOR, 'Drop to route this Function Generator into this parameter.');
+      if (next?.kind === 'pout') setHover(paramOutJacks, null, next.key, graphColor, graphText);
+      if (next?.kind === 'nodeout') setHover(graphNodeJacks, null, next.key, graphColor, graphText);
+      p.hover = next;
+    };
   }
 
   /** Every bay gesture that creates/edits a graph connection calls this
@@ -658,30 +807,32 @@ export function createPatchBayView(
           void getEngine().then((e) => e.setPatch(updated));
           return;
         }
-        // hover.kind === 'param': create a binding, or retarget this
-        // node's own placeholder ('none') binding if it still has one —
-        // the exact companion binding addGraphNode() creates, so a
-        // fresh node's first drag-to-param consumes it instead of
-        // piling up an orphaned extra binding.
-        const { nodeId: srcId, port: srcPort } = splitJackKey(sourceKey);
-        const placeholder = patch.bindings.find((b) => (
-          b.paramKey === 'none' && b.sourceNodeId === srcId
-          && (b.sourcePort || defaultOutputPort(srcId)) === srcPort
-        ));
-        const updated: GraphPatch = placeholder
-          ? { ...patch, bindings: patch.bindings.map((b) => (b.id === placeholder.id ? { ...b, paramKey: hover.key } : b)) }
-          : {
-            ...patch,
-            bindings: [...patch.bindings, {
-              id: genId('b'), paramKey: hover.key, sourceNodeId: srcId,
-              sourcePort: srcPort === defaultOutputPort(srcId) ? undefined : srcPort,
-              amount: 0.25, mode: 'additive',
-            }],
-          };
-        ensureGraphLive();
-        settings.set('modGraph', updated);
-        void getEngine().then((e) => e.setPatch(updated));
+        commitGraph(bindNodeOutToParam(patch, sourceKey, hover.key));
       });
+  }
+
+  /** Bind a graph node OUT jack (`nodeId#port`) to a parameter: retarget
+   *  the node's own placeholder ('none') binding if it still has one —
+   *  the companion binding addGraphNode() creates, so a fresh node's
+   *  first patch consumes it instead of piling up an orphaned extra —
+   *  otherwise add a binding. */
+  function bindNodeOutToParam(patch: GraphPatch | null | undefined, sourceKey: string, paramKey: string): GraphPatch {
+    const base: GraphPatch = patch ?? { nodes: [], bindings: [] };
+    const { nodeId: srcId, port: srcPort } = splitJackKey(sourceKey);
+    const samePort = (b: { sourceNodeId: string; sourcePort?: string }): boolean => (
+      b.sourceNodeId === srcId && (b.sourcePort || defaultOutputPort(srcId)) === srcPort);
+    if (base.bindings.some((b) => samePort(b) && b.paramKey === paramKey)) return base;
+    const placeholder = base.bindings.find((b) => b.paramKey === 'none' && samePort(b));
+    return placeholder
+      ? { ...base, bindings: base.bindings.map((b) => (b.id === placeholder.id ? { ...b, paramKey } : b)) }
+      : {
+        ...base,
+        bindings: [...base.bindings, {
+          id: genId('b'), paramKey, sourceNodeId: srcId,
+          sourcePort: srcPort === defaultOutputPort(srcId) ? undefined : srcPort,
+          amount: 0.25, mode: 'additive',
+        }],
+      };
   }
 
   /** `${nodeId}#${port}` jack key -> a `GraphNode.inputs` ref string,
@@ -737,19 +888,26 @@ export function createPatchBayView(
     if (bindingId) { dragGraphParam(ev, bindingId, jack); return; }
     const p: Pending = { kind: 'to-slotout', paramKey: key, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
+    const setOutHover = outSeekHoverSetter(p, GRAPH_COLOR, 'Drop to modulate this parameter with that output.');
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(centersOf(slotOutJacks), pos, SNAP_PX);
-        if ((hit?.id ?? null) !== p.hover) { setHover(slotOutJacks, p.hover, hit?.id ?? null, CLASSIC_COLOR, 'Drop to route this Function Generator into this parameter.'); p.hover = hit?.id ?? null; }
+        setOutHover(nearestOutput(pos, { slot: true, pout: true, nodeout: true }, key));
       },
       () => {
-        setHover(slotOutJacks, p.hover, null);
+        const h = p.hover;
+        setOutHover(null);
         endDrag();
-        if (p.hover == null) return;
-        const slots = settings.get('modSlots');
-        if (slots[p.hover] && slots[p.hover].target !== key) {
-          settings.set('modSlots', applyCableTarget(slots, p.hover, key as ModTarget));
+        if (!h) return;
+        if (h.kind === 'slot') {
+          const slots = settings.get('modSlots');
+          if (slots[h.index] && slots[h.index].target !== key) {
+            settings.set('modSlots', applyCableTarget(slots, h.index, key as ModTarget));
+          }
+        } else if (h.kind === 'pout') {
+          commitGraph(bindParamOut(settings.get('modGraph'), h.key, key, genId));
+        } else {
+          commitGraph(bindNodeOutToParam(settings.get('modGraph'), h.key, key));
         }
       });
   }
@@ -3325,6 +3483,7 @@ export function createPatchBayView(
         fixed = slotOutJacks.get(pending.slotIndex);
       } else if (pending.kind === 'to-slotout') {
         fixed = paramJacks.get(pending.paramKey);
+        if (pending.hover && pending.hover.kind !== 'slot') color = GRAPH_COLOR;
       } else if (pending.kind === 'to-slotsrc') {
         fixed = srcJacks.get(pending.source);
         color = SOURCE_COLOR;
