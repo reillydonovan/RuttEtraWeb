@@ -89,6 +89,14 @@ window.addEventListener('vite:preloadError', (event) => {
   location.reload();
 });
 
+/** Fade out and remove the startup splash from index.html (idempotent). */
+function hideSplash(): void {
+  const el = document.getElementById('rw-splash');
+  if (!el || el.classList.contains('rw-splash-out')) return;
+  el.classList.add('rw-splash-out');
+  setTimeout(() => el.remove(), 400);
+}
+
 if (params.has('reset')) {
   // ?reset — the escape hatch for a saved state that won't load. Clears
   // everything the app keeps in localStorage (backing it up first) and
@@ -101,6 +109,7 @@ if (params.has('reset')) {
   const q = params.toString();
   location.replace(`${location.pathname}${q ? `?${q}` : ''}${location.hash}`);
 } else if (viewTarget) {
+  hideSplash();
   bootViewer(viewTarget);
 } else {
   try {
@@ -110,6 +119,8 @@ if (params.has('reset')) {
       showStatusBadge(`Saved state reset (${n} items) — backup kept as "${BACKUP_KEY}"`, 'info', 8000);
     }
   } catch { /* ignore */ }
+  // Never leave the startup splash covering a working app.
+  setTimeout(hideSplash, 15000);
   bootSynth().catch((err) => {
     console.error(err);
     document.body.innerText = `Failed to start: ${err.message}. Opening ${location.pathname}?reset clears saved state.`;
@@ -2058,9 +2069,11 @@ async function bootSynth(): Promise<void> {
   // Output popouts can drive this same frame when the main window's rAF
   // stops (hidden behind a fullscreen popout) — renderer/frameDriver.ts.
   setFrameRunner(() => { if (!renderer.xr.isPresenting) guardedFrame(); });
+  let splashShown = true;
   renderer.setAnimationLoop(() => {
     noteMainFrame();
     guardedFrame();
+    if (splashShown) { splashShown = false; hideSplash(); } // first frame is up
   });
 
   // GPU context loss (driver reset, phone backgrounding, sleep). three
