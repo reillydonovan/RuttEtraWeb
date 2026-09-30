@@ -16,6 +16,7 @@ import { attachTooltip } from './tooltip';
 import { SECTION_HINTS } from './help/sectionHints';
 import { infoButton } from './help/infoModal';
 import { sectionInfo } from './help/infoContent';
+import { flowStateOf, paramsFlow } from './help/signalFlow';
 import { SkinId, setSkin, subscribeSkin } from './skin';
 
 export type TabId = 'synth' | 'io' | 'help';
@@ -285,10 +286,11 @@ export class ControlPanel {
     chev.textContent = '▾';
     // ⓘ — opens this section's reference (keys gathered at click time,
     // so controls added after construction are included).
-    const info = infoButton(() => sectionInfo(
-      section.title,
-      Array.from(wrap.querySelectorAll<HTMLElement>('[data-param-key]'), (n) => n.dataset.paramKey!),
-    ), `About ${section.title}`);
+    const info = infoButton(() => {
+      const keys = Array.from(wrap.querySelectorAll<HTMLElement>('[data-param-key]'), (n) => n.dataset.paramKey!);
+      const c = sectionInfo(section.title, keys);
+      return keys.length ? { ...c, flow: paramsFlow(flowStateOf(this.settings), section.title, keys) } : c;
+    }, `About ${section.title}`);
     head.append(titleSpan, info, chev);
     const hint = SECTION_HINTS[section.title];
     if (hint) attachTooltip(head, hint);

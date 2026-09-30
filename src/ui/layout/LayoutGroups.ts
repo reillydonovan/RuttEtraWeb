@@ -23,5 +23,5 @@ export const COMPACT_TABS: CompactTabSpec[] = [
   { id: 'synth',  label: 'Synth',  icon: 'DCU', sections: ['Display Control Unit'] },
   { id: 'mod',    label: 'Mod',    icon: 'MOD', sections: ['Modulation', 'Audio', 'MIDI', 'OSC'] },
   { id: 'fx',     label: 'FX',     icon: 'FX',  sections: ['Color / Post FX', 'Geometry'] },
-  { id: 'more',   label: 'More',   icon: '...', sections: ['Camera', 'Presets', 'Record', 'Share', 'Manual'] },
+  { id: 'more',   label: 'More',   icon: '...', sections: ['Virtual Camera', 'Presets', 'Record', 'Share', 'Manual'] },
 ];

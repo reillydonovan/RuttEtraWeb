@@ -201,7 +201,7 @@ All three amounts are modulation targets: drive Dropout from an audio band and t
 
 ### Camera
 
-Switch modes from the **Camera panel → Mode dropdown** (top of the panel).
+Switch modes from the **Virtual Camera panel → Mode dropdown** (top of the panel).
 
 The viewport's 3D camera operates in two modes:
 

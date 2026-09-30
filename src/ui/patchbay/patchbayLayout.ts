@@ -46,7 +46,7 @@ const DCU_SUBGROUPS: ReadonlyArray<{ title: string; keys: readonly string[] }> =
  *  into 'AUXILIARY' at the end (coverage test keeps this honest). */
 const PANEL_FIELDS: ReadonlyArray<{ title: string; panels: readonly string[] }> = [
   { title: 'COLORIZER / POST-FX', panels: ['Color/PostFX'] },
-  { title: 'CAMERA',              panels: ['Camera'] },
+  { title: 'VIRTUAL CAMERA',      panels: ['Camera'] },
   // No 'Pattern'/'Source' field group here (there used to be one,
   // "PATTERN GENERATOR" — confused an owner report next to the rail's
   // own dedicated PATTERN GENERATOR module, "it is unclear what the

@@ -77,7 +77,7 @@ export function buildTutorialSteps(deps: TutorialDeps): TutorialStep[] {
       body:
         'Click the canvas, then WASD + mouse-look for a free-flight ' +
         'camera, or drag to orbit without clicking first. Scroll to dolly.',
-      before: () => { reveal(panel, 'Camera'); },
+      before: () => { reveal(panel, 'Virtual Camera'); },
       // The instructions are about the 3D view itself, not a panel
       // param — spotlight the render canvas, not the Camera section's
       // (long) list of FOV/near/far/speed sliders.

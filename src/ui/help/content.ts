@@ -121,7 +121,8 @@ const MD_QUICKSTART = `
 >
 > **ⓘ on every module, graph node and Controls section** opens a pop-up
 > explaining what it does, how to patch it and every parameter it
-> holds, with a link to the manual.
+> holds, with a link to the manual — topped by a live signal-flow
+> diagram of what's plugged in and where its outputs go.
 >
 > **⧉ on any window bar** pops that window's view out to its own OS
 > window for multi-display rigs, with its OWN tab bar and `+` so a
@@ -1072,7 +1073,7 @@ const MD_TIPS = `
 - **A patch is humming / oscillating.** Feedback loops get an implicit one-frame delay, but the loop's gain still matters. Add an attenuator (or a longer **Delay** node) inside the loop to tame it.
 - **Probe shows nothing.** The probe overlay reads the engine's last frame; if the patch is empty, mode is \`classic\`, or the source node has no input wired, it'll just sit at 0.
 - **Beginner view says my patch is too complex.** Open Advanced view to keep editing. Beginner only handles linear chains of source → optional 1-2 processors → binding.
-- **Camera rotation is unconstrained** — you can orbit completely over the top, underneath, or behind the raster. If the world ends up rolled at an awkward angle, click **Reset Up** in the Camera panel (or use **Hard Reset Camera** / \`Shift+R\` to fully clear it back to factory defaults).
+- **Camera rotation is unconstrained** — you can orbit completely over the top, underneath, or behind the raster. If the world ends up rolled at an awkward angle, click **Reset Up** in the Virtual Camera panel (or use **Hard Reset Camera** / \`Shift+R\` to fully clear it back to factory defaults).
 - **Camera got stuck or pointer-locked weird?** \`Shift+R\` is the escape hatch — it releases pointer lock, kills auto-orbit, switches back to Orbit mode, wipes any saved default, and snaps every value to factory defaults.
 - **Set Resolution to Full HD or 4K before recording** for consistent output dimensions regardless of your browser window size. The recorded video will be exactly the selected resolution.
 - **Render Scale is a multiplier on the chosen resolution.** 4K × 0.5 scale renders 1080p internally and upscales — fast performance recovery if your GPU is struggling, with no change to the recording dimension story.
@@ -1166,7 +1167,7 @@ export function generateControlsMarkdown(filter?: string): string {
     const items = groups.get(g);
     if (!items || items.length === 0) continue;
     any = true;
-    out += `## ${g}\n\n`;
+    out += `## ${g === 'Camera' ? 'Virtual Camera' : g}\n\n`;
     out += `| Key | Description | Range |\n|---|---|---|\n`;
     for (const [k, d] of items) {
       out += `| \`${k}\` | ${d.description} | ${d.range ?? ''} |\n`;
@@ -1176,8 +1177,8 @@ export function generateControlsMarkdown(filter?: string): string {
     // Camera section gets a small button & gesture reference appended —
     // these aren't param keys but matter for the user.
     if (g === 'Camera' && cameraButtonsMatch(tokens)) {
-      out += '### Camera — mode\n\n';
-      out += 'Switch modes from **Camera panel → Mode** (top of the panel).\n\n';
+      out += '### Virtual Camera — mode\n\n';
+      out += 'Switch modes from **Virtual Camera panel → Mode** (top of the panel).\n\n';
       out += '**Orbit (default)** — drag to rotate, scroll to zoom, right-drag to pan.\n\n';
       out += '**Fly** — click the canvas to capture the pointer, then use the controls below. Click again or press `Esc` to release.\n\n';
       out += '| Fly key | Action |\n|---|---|\n';

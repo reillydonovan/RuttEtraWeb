@@ -1300,7 +1300,7 @@ async function bootSynth(): Promise<void> {
   panel.addSection({ tab: 'synth', title: 'Video Source B',        body: createSourceBSection(settings, sourceB) });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings),                  initiallyOpen: true });
   panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
-  panel.addSection({ tab: 'synth', title: 'Camera',                body: createCameraSection(settings, cameraRig) });
+  panel.addSection({ tab: 'synth', title: 'Virtual Camera',        body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'XR',                    body: createXrSection(settings, xrManager) });
   panel.addSection({ tab: 'synth', title: 'Color / Post FX',       body: createColorPostFxSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Modulation',            body: createModulationContainerSection({ settings, matrix, liveValues, cv: io.cv, gamepad: io.gamepad, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });
@@ -1446,7 +1446,7 @@ async function bootSynth(): Promise<void> {
     extra.addSection({ tab: 'synth', title: 'Video Source B',       body: createSourceBSection(settings, sourceB) });
     extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings), initiallyOpen: true });
     extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });
-    extra.addSection({ tab: 'synth', title: 'Camera',               body: createCameraSection(settings, cameraRig) });
+    extra.addSection({ tab: 'synth', title: 'Virtual Camera',       body: createCameraSection(settings, cameraRig) });
     extra.addSection({ tab: 'synth', title: 'XR',                   body: createXrSection(settings, xrManager) });
     extra.addSection({ tab: 'synth', title: 'Color / Post FX',      body: createColorPostFxSection(settings) });
     extra.addSection({ tab: 'synth', title: 'Modulation',           body: createModulationContainerSection({ settings, matrix, liveValues, cv: io.cv, gamepad: io.gamepad, getEngine: ensureGraphEngine, getVideoTap: () => videoTap }) });

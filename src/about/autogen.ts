@@ -61,7 +61,7 @@ export function buildParamReferenceHtml(): string {
   for (const cat of sortedKeys) {
     const list = groups.get(cat)!;
     list.sort((a, b) => a[0].localeCompare(b[0]));
-    rows.push(`<h3 id="param-ref-${slug(cat)}" class="about-subhead">${esc(cat)}</h3>`);
+    rows.push(`<h3 id="param-ref-${slug(cat)}" class="about-subhead">${esc(cat === 'Camera' ? 'Virtual Camera' : cat)}</h3>`);
     rows.push('<table class="about-table">');
     rows.push('<thead><tr><th>Key</th><th>Description</th><th>Range</th></tr></thead><tbody>');
     for (const [key, doc] of list) {

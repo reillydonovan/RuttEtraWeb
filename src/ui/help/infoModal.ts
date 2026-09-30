@@ -9,6 +9,7 @@
 
 import './infoModal.css';
 import type { InfoContent } from './infoContent';
+import { flowSvg } from './flowSvg';
 
 let openClose: (() => void) | null = null;
 
@@ -43,6 +44,18 @@ export function openInfoModal(doc: Document, info: InfoContent): HTMLElement {
   const body = el('div', 'rw-info-body');
   card.appendChild(body);
   if (info.summary) body.appendChild(el('p', 'rw-info-summary', info.summary));
+
+  // Live signal flow: what's plugged in (left) and where it goes (right).
+  const svg = info.flow ? flowSvg(info.flow) : '';
+  if (svg) {
+    body.appendChild(el('div', 'rw-info-h', 'Signal flow · live'));
+    const fig = el('div', 'rw-info-flow');
+    fig.innerHTML = svg; // flowSvg escapes every piece of text it emits
+    body.appendChild(fig);
+  } else if (info.flow?.unpatched) {
+    body.appendChild(el('div', 'rw-info-h', 'Signal flow · live'));
+    body.appendChild(el('p', 'rw-info-flow-none', 'Nothing is patched here yet — drag from an output into one of its IN jacks.'));
+  }
 
   if (info.tips.length) {
     body.appendChild(el('div', 'rw-info-h', 'How to use it'));

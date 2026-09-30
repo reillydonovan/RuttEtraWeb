@@ -55,6 +55,7 @@ const REJECT_TIP_MS = 180;
 const ON_JACK_PX = 10;
 import { infoButton } from '../help/infoModal';
 import { moduleInfo, nodeInfo } from '../help/infoContent';
+import { flowStateOf, moduleFlow, nodeFlow } from '../help/signalFlow';
 import { attachTooltip, scheduleTooltip, cancelTooltip, flashTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
@@ -197,10 +198,10 @@ export function createPatchBayView(
     const title = unitTitle(h);
     if (!title) return;
     const unit = h.parentElement;
-    h.appendChild(infoButton(() => moduleInfo(
-      title,
-      unit ? [...paramJacks].filter(([, j]) => unit.contains(j)).map(([k]) => k) : [],
-    ), `About ${title}`));
+    h.appendChild(infoButton(() => {
+      const keys = unit ? [...paramJacks].filter(([, j]) => unit.contains(j)).map(([k]) => k) : [];
+      return { ...moduleInfo(title, keys), flow: moduleFlow(flowStateOf(settings), title, keys) };
+    }, `About ${title}`));
   };
   const slotOutJacks = new Map<number, HTMLElement>();
   const slotSrcJacks = new Map<number, HTMLElement>();
@@ -2807,7 +2808,8 @@ export function createPatchBayView(
         const infoBtn = infoButton(() => {
           const n = settings.get('modGraph')?.nodes.find((x) => x.id === nodeId);
           const d = n ? getDef(n.type) : null;
-          return d ? nodeInfo(d) : moduleInfo(titleEl.textContent ?? 'Node', []);
+          if (!d) return moduleInfo(titleEl.textContent ?? 'Node', []);
+          return { ...nodeInfo(d), flow: nodeFlow(flowStateOf(settings), nodeId) ?? undefined };
         }, 'About this node');
         head.append(infoBtn, delBtn);
         mod.appendChild(head);

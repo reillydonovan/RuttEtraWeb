@@ -12,7 +12,7 @@ export const SECTION_HINTS: Record<string, string> = {
   Source: 'The video signal feeding the synth — webcam, screen capture, a file, or a stream URL — plus the Pattern Generator, a built-in synthesized signal.',
   'Display Control Unit': 'The core Rutt/Etra control set: how video maps onto the scanline mesh — position, size, depth (Z) displacement, beam focus/intensity, and rotation.',
   'Dual Raster': 'A second, independently modulated raster fed by the same video — wipe or interleave it against the main raster.',
-  Camera: 'The free-flight 3D camera: orbit/fly modes, field of view, and the saved default view.',
+  'Virtual Camera': 'The free-flight 3D camera that views the scanline mesh (not your webcam): orbit/fly modes, field of view, and the saved default view.',
   XR: 'WebXR headset output — view the scanline mesh in VR or AR.',
   'Color / Post FX': 'Color grading and the CRT post-processing chain: bloom, feedback/burn-in, scanlines, analog character.',
   Modulation: 'The two modulation engines — Classic (4-slot patch matrix) and Graph (node-based) — that drive parameters over time from LFOs, audio, MIDI, CV, and more.',

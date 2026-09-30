@@ -53,3 +53,13 @@ describe('infoContent', () => {
     }
   });
 });
+
+describe('nodeInfo enum detail', () => {
+  it('summarises very long option lists instead of dumping them', () => {
+    const info = nodeInfo({
+      type: 'lfo', label: 'X', category: 'Sources', description: '', inputs: [], outputs: [],
+      params: { key: { kind: 'enum', options: Array.from({ length: 30 }, (_, i) => `o${i}`), default: 'o0' } },
+    });
+    expect(info.sections[0].rows[0].detail).toBe('one of 30 choices');
+  });
+});

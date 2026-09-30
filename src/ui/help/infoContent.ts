@@ -16,6 +16,7 @@ import { PARAM_DOCS } from './paramDocs';
 import { SECTION_HINTS } from './sectionHints';
 import { TARGETS } from '../targets';
 import type { NodeDef } from '../../modulation/graph/types';
+import type { FlowModel } from './signalFlow';
 
 export interface InfoRow {
   name: string;
@@ -33,6 +34,8 @@ export interface InfoContent {
   tips: string[];
   /** Anchor on about.html for "read more". */
   aboutHash?: string;
+  /** Live signal-flow diagram (what's patched in / out right now). */
+  flow?: FlowModel;
 }
 
 const LABELS = new Map<string, string>(TARGETS.map((t) => [String(t.v), t.l]));
@@ -128,7 +131,7 @@ export const MODULE_INFO: Record<string, ModuleText> = {
   LINEARITY: { summary: 'Bends the horizontal and vertical sweep, like the deflection linearity trims on the original hardware.' },
   LUMINANCE: { summary: 'Shapes how video brightness becomes depth: threshold cuts the darks, contrast and gamma bend the curve.' },
   'COLORIZER / POST-FX': { summary: 'Colour and the CRT post-processing chain: bloom, scanlines, chroma, vignette, feedback and analog character.' },
-  CAMERA: { summary: 'The 3D camera looking at the mesh: field of view, clipping, orbit and fly speeds.' },
+  'VIRTUAL CAMERA': { summary: 'The virtual 3D camera looking at the scanline mesh (not your webcam — that’s Video Source): field of view, clipping, orbit and fly speeds.' },
   GEOMETRY: { summary: 'The scanline mesh itself.' },
   'AUDIO ANALYZER': { summary: 'The audio analysis that feeds the audio sources — gain, floor, attack, release and beat sensitivity.' },
   AUXILIARY: { summary: 'Modulatable parameters that don’t have a dedicated module yet.' },
@@ -173,7 +176,7 @@ export function sectionInfo(title: string, keys: readonly string[]): InfoContent
 function specDetail(spec: NodeDef['params'][string]): string {
   switch (spec.kind) {
     case 'number': return `${spec.min}–${spec.max}, default ${spec.default}`;
-    case 'enum': return spec.options.join(' · ');
+    case 'enum': return spec.options.length > 10 ? `one of ${spec.options.length} choices` : spec.options.join(' · ');
     case 'boolean': return `on/off, default ${spec.default ? 'on' : 'off'}`;
     default: return 'text';
   }
