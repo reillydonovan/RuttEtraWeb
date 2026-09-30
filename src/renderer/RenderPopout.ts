@@ -44,12 +44,44 @@ export interface RenderPopoutController {
 import { driveFromWindow } from './frameDriver';
 
 
+/**
+ * Source `<video>` elements to HOST in the popup while it's open (v1.31.2).
+ * Chrome pauses muted video in a hidden window — and fullscreening the
+ * popup on macOS hides the main window — so the webcam/file feeding the
+ * raster froze even though rendering carried on. Moved into the popup
+ * (the visible window) they keep playing; they move back on close.
+ * `onMoved` runs after every move so the caller can re-create its
+ * VideoTextures (their frame callbacks don't reliably survive a move).
+ */
+export interface PopoutMedia {
+  videos: HTMLVideoElement[];
+  onMoved: () => void;
+}
+
 export function createRenderPopout(
   canvas: HTMLCanvasElement,
   onChange?: (open: boolean) => void,
+  media?: PopoutMedia,
 ): RenderPopoutController {
   let popup: Window | null = null;
   let stopDrive: (() => void) | null = null;
+  /** Where each hosted video came from, to put it back. */
+  let homes: Array<{ v: HTMLVideoElement; parent: Node; next: Node | null }> = [];
+
+  function moveMediaTo(doc: Document): void {
+    if (!media) return;
+    homes = media.videos.map((v) => ({ v, parent: v.parentNode ?? document.body, next: v.nextSibling }));
+    for (const v of media.videos) doc.body.appendChild(v);
+    for (const v of media.videos) void v.play().catch(() => { /* no source yet */ });
+    media.onMoved();
+  }
+  function moveMediaHome(): void {
+    if (!media || !homes.length) return;
+    for (const h of homes) h.parent.insertBefore(h.v, h.next && h.next.parentNode === h.parent ? h.next : null);
+    homes = [];
+    for (const v of media.videos) void v.play().catch(() => { /* no source */ });
+    media.onMoved();
+  }
 
   function popOut(): void {
     if (popup && !popup.closed) { popup.focus(); return; }
@@ -119,6 +151,7 @@ export function createRenderPopout(
       outCtx.drawImage(canvas, 0, 0);
     };
     stopDrive = driveFromWindow(w, copyFrame);
+    moveMediaTo(doc);
 
     const fsBtn = doc.createElement('button');
     fsBtn.id = 'rw-fs-btn';
@@ -174,6 +207,7 @@ export function createRenderPopout(
   function closePopup(): void {
     stopDrive?.();
     stopDrive = null;
+    moveMediaHome(); // before the popup document goes away
     if (popup && !popup.closed) popup.close();
     popup = null;
   }

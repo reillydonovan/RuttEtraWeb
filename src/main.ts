@@ -909,6 +909,14 @@ async function bootSynth(): Promise<void> {
       renderPopoutBtn.title = open
         ? 'Output window is open — click to bring it back / close it'
         : 'Pop the output out into a separate window (fullscreen there for a projector/second display)';
+    }, {
+      // Host both source videos in the output window while it's open, so
+      // they keep playing when fullscreen hides this one (RenderPopout.ts).
+      videos: [video, videoB],
+      onMoved: () => {
+        ruttEtra.attachVideo();
+        if (videoB.readyState >= 1) attachVideoB();
+      },
     });
     renderPopoutBtn.addEventListener('click', () => renderPopout.toggle());
     panel.addTitleAction(renderPopoutBtn);
