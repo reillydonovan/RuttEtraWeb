@@ -37,6 +37,7 @@
 import { applySkinToDocument, releaseDocument } from '../skin';
 import { applyTextScaleToDocument } from '../textScale';
 import type { ViewId } from './workspaceModel';
+import { driveFromWindow } from '../../renderer/frameDriver';
 
 const openPopups = new Map<string, Window>();
 
@@ -69,6 +70,10 @@ export function popoutView(opts: {
   if (!opened) return false; // popup blocked
   const w = opened; // re-bind: narrowing a `const` doesn't persist into hoisted function declarations below
   openPopups.set(opts.view, w);
+  // A Renderer tab here mirrors the main canvas; keep the render loop
+  // running if this window hides the main one (see frameDriver.ts).
+  // Stops by itself when the popup closes.
+  driveFromWindow(w);
   w.document.title = `RUTT/ETRA — ${opts.label}`;
 
   // Same stylesheet/skin/text-scale propagation as PanelPopout — this

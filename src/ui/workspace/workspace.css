@@ -67,7 +67,16 @@ body.viewer-mode .rw-region-bar {
   background: linear-gradient(180deg, rgba(34, 46, 34, 0.95), rgba(16, 24, 16, 0.8));
   color: var(--re-accent);
 }
-.rw-wtab:hover { box-shadow: 0 0 6px rgba(95, 255, 133, 0.35); }
+/* Hover: a real state change (text, border, fill, INSET glow). An outer
+   glow alone was clipped by .rw-tabstrip's overflow:hidden and read as
+   no hover at all on inactive tabs (owner report). */
+.rw-wtab:hover {
+  color: var(--re-text);
+  border-color: var(--re-accent);
+  background: rgba(95, 255, 133, 0.1);
+  box-shadow: inset 0 0 6px rgba(95, 255, 133, 0.3);
+}
+.rw-wtab.active:hover { color: var(--re-accent); background: linear-gradient(180deg, rgba(44, 62, 44, 0.95), rgba(20, 30, 20, 0.85)); }
 .rw-wtab-caret {
   flex: 0 0 2px;
   width: 2px;
@@ -214,6 +223,12 @@ body.rw-region-dragging, body.rw-region-dragging * { cursor: var(--rw-cur-grabbi
   background: var(--re-bg, #0a0e0a) !important;
 }
 .rw-region-max.rw-center-passthrough { background: transparent !important; }
+/* Renderer maximized: the center window is see-through (the canvas under
+   it IS the content), so the side windows are hidden rather than covered,
+   and availableCanvasRect() sizes the canvas to the whole area. */
+body.rw-center-max #panel-root,
+body.rw-center-max #rw-left-shell,
+body.rw-center-max #timeline-dock { visibility: hidden !important; }
 
 /* Drag ghost + edge drop zones */
 .rw-drag-ghost {

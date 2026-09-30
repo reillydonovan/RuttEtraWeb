@@ -262,7 +262,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     if (id === 'right' || id === 'bottom') {
       const maxBtn = document.createElement('button');
       maxBtn.type = 'button';
-      maxBtn.className = 'rw-region-btn';
+      maxBtn.className = 'rw-region-btn rw-region-max-btn';
       maxBtn.textContent = '⤢';
       attachTooltip(maxBtn, 'Maximize this window (near-fullscreen); click again to restore.');
       maxBtn.addEventListener('click', () => toggleMaximize(id));
@@ -273,10 +273,13 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       attachTooltip(colBtn, 'Collapse this window (a strip remains to restore it).');
       colBtn.addEventListener('click', () => toggleCollapse(id));
       bar.append(maxBtn, colBtn);
-    } else if (id === 'left') {
+    } else if (id === 'left' || id === 'center') {
+      // The center (Renderer) window maximizes too (owner ask): the raster
+      // fills everything under the menu bar and the side windows hide —
+      // see body.rw-center-max in workspace.css and availableCanvasRect().
       const maxBtn = document.createElement('button');
       maxBtn.type = 'button';
-      maxBtn.className = 'rw-region-btn';
+      maxBtn.className = 'rw-region-btn rw-region-max-btn';
       maxBtn.textContent = '⤢';
       attachTooltip(maxBtn, 'Maximize this window (near-fullscreen); click again to restore.');
       maxBtn.addEventListener('click', () => toggleMaximize(id));
@@ -289,7 +292,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     bar.addEventListener('dblclick', (ev) => {
       const t = ev.target as HTMLElement;
       if (t.closest('select, button, .rw-wtab')) return;
-      if (id !== 'center') toggleMaximize(id);
+      toggleMaximize(id);
     });
     return win;
   }
@@ -351,6 +354,13 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       else w.shell.removeAttribute('data-region-max');
     }
     maximized = next;
+    document.body.classList.toggle('rw-center-max', next === 'center');
+    // ⤢ ↔ ⤡ so every window's button reads as a toggle.
+    for (const w of windows.values()) {
+      for (const b of Array.from(w.bar.querySelectorAll<HTMLElement>('.rw-region-max-btn'))) {
+        b.textContent = w.id === next ? '⤡' : '⤢';
+      }
+    }
     window.dispatchEvent(new Event('rw:layout-resize'));
   }
 

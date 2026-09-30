@@ -26,6 +26,9 @@ export interface PanelSection {
   body: HTMLElement;
   initiallyOpen?: boolean;
   tab?: TabId;
+  /** Keep this section first in its tab even if it's added late
+   *  (lazily loaded sections are otherwise appended at the bottom). */
+  pinTop?: boolean;
 }
 
 interface TabPane {
@@ -302,7 +305,8 @@ export class ControlPanel {
     head.addEventListener('click', () => wrap.classList.toggle('collapsed'));
 
     wrap.append(head, body);
-    this.tabPanes[tabId].pane.appendChild(wrap);
+    if (section.pinTop) wrap.dataset.pinTop = 'true';
+    this.placeSection(this.tabPanes[tabId].pane, wrap);
     this.sectionsByTitle.set(section.title, wrap);
     this.sectionTab.set(section.title, tabId);
     return wrap;
@@ -319,7 +323,16 @@ export class ControlPanel {
     const tab  = this.sectionTab.get(title);
     if (!wrap || !tab) return;
     if (wrap.parentElement === this.tabPanes[tab].pane) return;
-    this.tabPanes[tab].pane.appendChild(wrap);
+    this.placeSection(this.tabPanes[tab].pane, wrap);
+  }
+
+  /** Append a section, or put a `pinTop` one before the first unpinned section. */
+  private placeSection(pane: HTMLElement, wrap: HTMLElement): void {
+    if (!wrap.dataset.pinTop) { pane.appendChild(wrap); return; }
+    const firstUnpinned = Array.from(pane.children).find(
+      (c) => c.classList.contains('rw-section') && !(c as HTMLElement).dataset.pinTop,
+    );
+    pane.insertBefore(wrap, firstUnpinned ?? null);
   }
 
   /** All known section titles in registration order. */

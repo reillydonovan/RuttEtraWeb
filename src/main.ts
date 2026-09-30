@@ -51,6 +51,7 @@ import { createPresetsSection } from './ui/sections/PresetsSection';
 import { createPerformanceSection } from './ui/sections/PerformanceSection';
 import { createXrSection } from './ui/sections/XrSection';
 import { XRManager } from './renderer/XRManager';
+import { noteMainFrame, setFrameRunner } from './renderer/frameDriver';
 import { layoutManager } from './ui/layout/LayoutManager';
 import { ResponsivePanel } from './ui/layout/ResponsivePanel';
 import { DebugOverlay } from './ui/layout/DebugOverlay';
@@ -613,6 +614,12 @@ async function bootSynth(): Promise<void> {
     overlayDismissed = true;
     overlay.classList.add('hidden');
   }
+  /** Bring the "select a source" screen back (File ▸ New Project). */
+  function showOverlay(): void {
+    overlayDismissed = false;
+    overlay.classList.remove('hidden');
+    resize(); // re-pin it over the canvas's current rect
+  }
   source.subscribe((st) => {
     if (st.kind !== 'none') dismissOverlay();
   });
@@ -762,6 +769,11 @@ async function bootSynth(): Promise<void> {
         if (cur.dirty && !confirm('Unsaved changes will be lost. Continue?')) return;
         projectStore.newProject();
         AutoSave.clearPending();
+        // A new project starts from nothing: release the camera/file/stream
+        // on both inputs and show the source picker again (owner ask).
+        source.stop();
+        sourceB.stop();
+        showOverlay();
       },
     },
     {
@@ -1269,7 +1281,7 @@ async function bootSynth(): Promise<void> {
   void (async () => {
     const psMod = await import('./ui/sections/ProjectSection');
     panel.addSection({
-      tab: 'synth', title: 'Project', initiallyOpen: true,
+      tab: 'synth', title: 'Project', initiallyOpen: true, pinTop: true,
       body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
     });
   })();
@@ -1459,7 +1471,7 @@ async function bootSynth(): Promise<void> {
     void (async () => {
       const psMod = await import('./ui/sections/ProjectSection');
       extra.addSection({
-        tab: 'synth', title: 'Project', initiallyOpen: true,
+        tab: 'synth', title: 'Project', initiallyOpen: true, pinTop: true,
         body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
       });
       const [rs, ss, ms, as, os, cvs, cvos, sons] = await Promise.all([
@@ -1698,6 +1710,12 @@ async function bootSynth(): Promise<void> {
     // 0 when hidden (compact layout, viewer mode), so no special cases.
     const menubarEl = document.getElementById('rw-menubar');
     if (menubarEl) top += menubarEl.getBoundingClientRect().height;
+
+    // Renderer window maximized: the raster takes everything under the
+    // menu bar (the side windows are hidden by body.rw-center-max).
+    if (document.getElementById('rw-center-shell')?.hasAttribute('data-region-max')) {
+      return { x: 0, y: top, width: Math.max(1, vp.width), height: Math.max(1, vp.height - top) };
+    }
 
     // Maximized regions (data-region-max) are transient OVERLAYS — they
     // cover the canvas rather than shrinking it, so they're skipped.
@@ -1994,7 +2012,7 @@ async function bootSynth(): Promise<void> {
   // sampled so the console isn't flooded at 60 fps), and a small badge
   // tells the performer something is wrong.
   let frameErrors = 0;
-  renderer.setAnimationLoop(() => {
+  const guardedFrame = (): void => {
     try {
       frame();
     } catch (err) {
@@ -2004,6 +2022,13 @@ async function bootSynth(): Promise<void> {
       }
       showStatusBadge(`render error ×${frameErrors} — see console`, 'error');
     }
+  };
+  // Output popouts can drive this same frame when the main window's rAF
+  // stops (hidden behind a fullscreen popout) — renderer/frameDriver.ts.
+  setFrameRunner(() => { if (!renderer.xr.isPresenting) guardedFrame(); });
+  renderer.setAnimationLoop(() => {
+    noteMainFrame();
+    guardedFrame();
   });
 
   // GPU context loss (driver reset, phone backgrounding, sleep). three

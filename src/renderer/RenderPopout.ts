@@ -39,6 +39,8 @@ export interface RenderPopoutController {
   toggle(): void;
 }
 
+import { driveFromWindow } from './frameDriver';
+
 const CAPTURE_FPS = 60;
 
 export function createRenderPopout(
@@ -47,6 +49,7 @@ export function createRenderPopout(
 ): RenderPopoutController {
   let popup: Window | null = null;
   let stream: MediaStream | null = null;
+  let stopDrive: (() => void) | null = null;
 
   function popOut(): void {
     if (popup && !popup.closed) { popup.focus(); return; }
@@ -58,6 +61,9 @@ export function createRenderPopout(
     const w = window.open('', 'ruttetra-output', `popup=yes,width=${w0},height=${h0}`);
     if (!w) return; // popup blocked — nothing to do, button stays inert
     popup = w;
+    // Keep the render loop going if this window hides the main one
+    // (fullscreen on macOS = its own Space) — see frameDriver.ts.
+    stopDrive = driveFromWindow(w);
     const doc = w.document;
     doc.title = 'RUTT/ETRA — Output';
 
@@ -157,6 +163,8 @@ export function createRenderPopout(
   }
 
   function closePopup(): void {
+    stopDrive?.();
+    stopDrive = null;
     if (stream) {
       for (const track of stream.getTracks()) track.stop();
       stream = null;
