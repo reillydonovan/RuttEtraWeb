@@ -18,7 +18,7 @@
 
 <IfModule mod_headers.c>
   # ---------- 1. Never-cache the update channel ----------
-  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|manifest\.webmanifest)$">
+  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|about\.html|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
@@ -35,18 +35,14 @@
   # sensitive in some Apache builds, so explicitly re-set the
   # entry-point headers below to defeat the long-cache rule above
   # if the cascade falls through.
-  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|manifest\.webmanifest)$">
+  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|about\.html|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
 </IfModule>
 
-# SPA fallback: if Hostinger ever serves the app at a sub-path
-# (e.g. /synth/), make sure deep links resolve to index.html.
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+# No SPA fallback. The app has no client-side routes (the manual is a
+# real about.html; viewer mode is a ?view= query), and rewriting every
+# unknown path to index.html made missing files answer 200 text/html:
+# robots.txt, a missing sample video, and - worst - an old hashed chunk
+# requested by a tab left open across a deploy, which then failed as
+# "not a valid JavaScript module" instead of a clean 404.

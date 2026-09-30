@@ -3,6 +3,15 @@ name: Build & Deploy to Hostinger
 on:
   push:
     branches: [main]
+  # Manual re-run from the Actions tab (handy for checking a secret or
+  # protocol change without pushing a commit).
+  workflow_dispatch:
+
+# One deploy at a time: a second push waits for the running upload to
+# finish instead of two FTP syncs interleaving on the live site.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -16,7 +25,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # Gate the upload: a failing suite or an about page that pulled in
+      # synth runtime never reaches the live site.
+      - run: npm test
       - run: npm run build
+      - run: node scripts/check-about-bundle.cjs
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -24,5 +37,18 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
+          # Plain FTP (the action's default) sends the password unencrypted.
+          # If the host accepts FTPS, set the repository variable
+          # FTP_PROTOCOL to "ftps" (Settings > Secrets and variables >
+          # Actions > Variables) and re-run this workflow; delete the
+          # variable to fall back to plain FTP.
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftp' }}
           local-dir: dist/
           server-dir: public_html/
+          # The action's default excludes, plus source maps (built with
+          # sourcemap: 'hidden' for local debugging only).
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/*.map

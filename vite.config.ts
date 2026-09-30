@@ -85,7 +85,10 @@ export default defineConfig({
   plugins: [aboutMarkdown()],
   build: {
     target: 'es2022',
-    sourcemap: true,
+    // 'hidden': maps are still written for local debugging, but the built
+    // JS doesn't reference them and the deploy workflow excludes *.map,
+    // so the full source isn't published with every deploy.
+    sourcemap: 'hidden',
     assetsInlineLimit: 0,
     rollupOptions: {
       // Multi-page: the synth at index.html, the long-form manual at
