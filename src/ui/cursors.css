@@ -36,6 +36,12 @@
   /* `move` (native 4-arrow) means the same thing as `grab` in every use
    * in this app (a node/handle you can reposition) — one glyph, not two. */
   --rw-cur-move: var(--rw-cur-grab);
+  /* Board pan (Patch Bay background): open hand at rest, closed fist while
+     the view is being dragged — distinct from the 4-way move glyph used
+     for dragging a module, so "move the view" and "move this node" read
+     differently (Figma/Photoshop hand-tool convention). */
+  --rw-cur-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cg fill='none' stroke='%23021006' stroke-opacity='0.85' stroke-width='4.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.5 13 V6'/%3E%3Cpath d='M12.2 12 V3.5'/%3E%3Cpath d='M15.9 12 V3.8'/%3E%3Cpath d='M19.6 13 V6.5'/%3E%3Cpath d='M6.5 16.5 L3.5 12.5'/%3E%3Cpath d='M6.5 13 V19 Q6.5 25 12.5 25 H15.5 Q21.5 25 21.5 19 V12'/%3E%3C/g%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.5 13 V6'/%3E%3Cpath d='M12.2 12 V3.5'/%3E%3Cpath d='M15.9 12 V3.8'/%3E%3Cpath d='M19.6 13 V6.5'/%3E%3Cpath d='M6.5 16.5 L3.5 12.5'/%3E%3Cpath d='M6.5 13 V19 Q6.5 25 12.5 25 H15.5 Q21.5 25 21.5 19 V12'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+  --rw-cur-hand-closed: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cg fill='none' stroke='%23021006' stroke-opacity='0.85' stroke-width='4.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.5 14 V10.5'/%3E%3Cpath d='M12.2 13.5 V9.5'/%3E%3Cpath d='M15.9 13.5 V9.5'/%3E%3Cpath d='M19.6 14 V10.5'/%3E%3Cpath d='M6.5 15.5 L9 17.5'/%3E%3Cpath d='M6.5 14 V19 Q6.5 25 12.5 25 H15.5 Q21.5 25 21.5 19 V13.5'/%3E%3C/g%3E%3Cpath d='M6.5 14 V19 Q6.5 25 12.5 25 H15.5 Q21.5 25 21.5 19 V13.5 Z' fill='%235fff85' fill-opacity='0.22'/%3E%3Cg fill='none' stroke='%235fff85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.5 14 V10.5'/%3E%3Cpath d='M12.2 13.5 V9.5'/%3E%3Cpath d='M15.9 13.5 V9.5'/%3E%3Cpath d='M19.6 14 V10.5'/%3E%3Cpath d='M6.5 15.5 L9 17.5'/%3E%3Cpath d='M6.5 14 V19 Q6.5 25 12.5 25 H15.5 Q21.5 25 21.5 19 V13.5'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
 
   /* Blocked / rejects the current action — a red slash-circle, shared
    * by disabled buttons AND the Patch Bay drag-reject state (same

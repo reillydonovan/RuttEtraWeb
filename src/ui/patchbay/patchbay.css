@@ -15,14 +15,26 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  cursor: var(--rw-cur-grab);
+  /* Open hand: empty board background can be grabbed to move the view. */
+  cursor: var(--rw-cur-hand);
   background:
     radial-gradient(circle at 30% 0%, rgba(95, 255, 133, 0.05), transparent 55%),
     linear-gradient(180deg, #131a13, #0b100b);
 }
-/* Click-drag-to-pan on empty background (node-editor convention). */
-.rw-patchbay.rw-pb-panning {
-  cursor: var(--rw-cur-grabbing);
+/* Module/field bodies don't pan (pointerdown there is ignored by the pan
+   handler), so they must not inherit the hand — plain arrow instead.
+   Their headers, jacks, knobs and inputs keep their own cursors. */
+.rw-patchbay .rw-pb-module,
+.rw-patchbay .rw-pb-field,
+.rw-patchbay .rw-pb-graphnode,
+.rw-patchbay .rw-pb-bus-cell {
+  cursor: var(--rw-cur-default);
+}
+/* Closed fist from press until release, over everything the pointer
+   crosses (fast drags can outrun the element under the cursor). */
+.rw-patchbay.rw-pb-panning,
+.rw-patchbay.rw-pb-panning * {
+  cursor: var(--rw-cur-hand-closed) !important;
 }
 
 .rw-pb-surface {

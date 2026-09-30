@@ -1968,13 +1968,15 @@ export function createPatchBayView(
     const startLeft = root.scrollLeft, startTop = root.scrollTop;
     let started = false;
     root.setPointerCapture(pid);
+    // Closed-hand cursor from the moment of the press (grab), not only
+    // once the pan threshold is crossed.
+    root.classList.add('rw-pb-panning');
     const onMove = (ev: PointerEvent): void => {
       if (ev.pointerId !== pid) return;
       const dx = ev.clientX - startX, dy = ev.clientY - startY;
       if (!started) {
         if (Math.hypot(dx, dy) < 4) return;
         started = true;
-        root.classList.add('rw-pb-panning');
       }
       root.scrollLeft = startLeft - dx;
       root.scrollTop = startTop - dy;
