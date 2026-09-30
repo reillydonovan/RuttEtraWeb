@@ -93,6 +93,25 @@ export function scheduleTooltip(
   }, delayMs);
 }
 
+/**
+ * Show a short hint on `el` right away (no hover delay), e.g. when a
+ * press can't start the gesture the user tried. Hides after `holdMs` or
+ * when the pointer leaves `el`, whichever comes first.
+ */
+export function flashTooltip(el: HTMLElement, text: string, holdMs = 2400): void {
+  const doc = el.ownerDocument;
+  scheduleTooltip(doc, text, el, 0);
+  const done = (): void => {
+    el.removeEventListener('pointerleave', done);
+    window.clearTimeout(t);
+    cancelTooltip(doc);
+  };
+  const t = window.setTimeout(done, holdMs);
+  el.addEventListener('pointerleave', done);
+  el.classList.add('rw-rack-jack--hint');
+  window.setTimeout(() => el.classList.remove('rw-rack-jack--hint'), 700);
+}
+
 /** Cancel any pending/shown drag-time tooltip for `doc`. Safe to call
  *  unconditionally (e.g. on every drag-drop, whether or not one was
  *  ever scheduled). */

@@ -150,7 +150,7 @@ control), bat switches, LCD readouts. **RACK** adds modular chrome and
 **live patch cables**: every modulatable knob grows an input and an
 output jack, each
 Classic mod slot gets an output jack, and dragging a cable between them
-— in either direction — sets that slot's Target, exactly the same edit
+from the output into the input sets that slot's Target, exactly the same edit
 as the Modulation panel's dropdown. Drop a cable in empty space to
 unplug it. Drag a knob's output jack onto another knob's input to
 modulate one parameter with another. Cyan cables show Graph-engine

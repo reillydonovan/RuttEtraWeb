@@ -70,3 +70,25 @@ export function rejectReason(from: JackKind, to: JackKind, ctx: RejectContext = 
   }
   return 'Those two jacks can’t be patched together.';
 }
+
+/**
+ * Patching direction (owner decision, 2026-09-30): cables are made ONE
+ * WAY, from an output into an input, for clarity. Pressing an EMPTY
+ * input shows `outputHint` instead of starting a cable; a PLUGGED input
+ * still picks up its existing cable to move or unplug it.
+ *
+ * Future option: set this to true to allow starting a new cable from an
+ * empty input as well (the reverse drags are kept intact behind this
+ * flag in PatchBayView and RackLayer). The result is the same
+ * output → input patch either way; only the gesture differs.
+ */
+export const TWO_WAY_PATCHING = false;
+
+/** "Drag from an output" hint for an empty input jack of this kind. */
+export function outputHint(kind: 'param-in' | 'node-in' | 'video-in', where: 'bay' | 'controls' = 'bay'): string {
+  if (kind === 'video-in') return 'Drag from a video output — Source A/B, Composite or Dual Raster OUT — into this input.';
+  if (kind === 'node-in') return 'Drag from an output — a graph node’s or a parameter’s OUT — into this input.';
+  return where === 'controls'
+    ? 'Drag from an output — a modulation slot’s OUT or another knob’s OUT — into this input.'
+    : 'Drag from an output — a Function Generator, graph node or parameter OUT — into this input.';
+}

@@ -38,8 +38,8 @@ import type { SettingsStore, ModTarget } from '../../state/Settings';
 import type { GraphPatch } from '../../modulation/graph/types';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
-import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
-import { rejectReason, type JackKind } from './patchRules';
+import { attachTooltip, scheduleTooltip, cancelTooltip, flashTooltip } from '../tooltip';
+import { rejectReason, TWO_WAY_PATCHING, outputHint, type JackKind } from './patchRules';
 import {
   classicCables, graphCables, applyCableTarget, slotForParam,
   nearestJack, rectCenter, Pt,
@@ -126,14 +126,20 @@ export function createRackLayer(
         const i = slotForParam(settings.get('modSlots'), key);
         return i >= 0
           ? `Patched from Classic slot ${i + 1} — drag to move the cable, drop in space to unplug.`
-          : 'Modulation input — drag from here to a slot’s output jack (or the other way around) to patch it.';
+          : TWO_WAY_PATCHING
+            ? 'Modulation input — drag from here to a slot’s output jack (or the other way around) to patch it.'
+            : 'Modulation input — drag a cable into it from an output jack (a modulation slot’s OUT, or another knob’s OUT).';
       });
       jack.addEventListener('pointerdown', (ev) => {
         const i = slotForParam(settings.get('modSlots'), key);
         if (i >= 0) { beginDrag(ev, i, jack); return; }
         const bindingId = graphBindingForParam(settings.get('modGraph'), key);
         if (bindingId) { beginGraphDrag(ev, bindingId, jack); return; }
-        beginReverseDrag(ev, key, jack);
+        if (TWO_WAY_PATCHING) { beginReverseDrag(ev, key, jack); return; }
+        // One-way patching: an empty input can't start a cable.
+        ev.preventDefault();
+        ev.stopPropagation();
+        flashTooltip(jack, outputHint('param-in', 'controls'));
       });
       el.appendChild(jack);
       paramJacks.set(key, jack);

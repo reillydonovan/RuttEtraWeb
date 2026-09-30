@@ -46,14 +46,14 @@ import type {
 } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
 import { EDGE_PAN, edgePull, stepAxis, type AxisState } from './edgePan';
-import { rejectReason, type JackKind } from '../rack/patchRules';
+import { rejectReason, TWO_WAY_PATCHING, outputHint, type JackKind } from '../rack/patchRules';
 
 /** Refusal tooltips appear quickly — they answer "why isn't this
  *  snapping?" while the cable is still hovering. */
 const REJECT_TIP_MS = 180;
 /** Pointer this close to a jack's center counts as "on" that jack. */
 const ON_JACK_PX = 10;
-import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
+import { attachTooltip, scheduleTooltip, cancelTooltip, flashTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
 import { DEFAULTS } from '../../state/Settings';
@@ -595,6 +595,7 @@ export function createPatchBayView(
    *  compatible OUT jack — or drop in space to unplug (Composite input
    *  → 'none'; Renderer IN normals back to Source A). */
   function dragVideoIn(ev: PointerEvent, inKey: VideoInKey, jack: HTMLElement): void {
+    if (!TWO_WAY_PATCHING && currentVideoSourceFor(inKey) === 'none') { refuseEmptyInput(ev, jack, 'video-in'); return; }
     const p: Pending = { kind: 'to-videoout', inKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
     const candidates = validOutSourcesFor(inKey);
@@ -661,6 +662,10 @@ export function createPatchBayView(
    *  dropped in space) — mirrors dragSlotOut/dragGraphParam's "grab the
    *  target end" pattern. */
   function dragGraphIn(ev: PointerEvent, nodeId: string, port: string, jack: HTMLElement): void {
+    if (!TWO_WAY_PATCHING) {
+      const node = settings.get('modGraph')?.nodes.find((n) => n.id === nodeId);
+      if (!node?.inputs[port]) { refuseEmptyInput(ev, jack, 'node-in'); return; }
+    }
     const p: Pending = { kind: 'to-graphin', nodeId, port, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
     const setOutHover = outSeekHoverSetter(p, NODE_WIRE_COLOR, "Drop to wire this output into this node's input.");
@@ -881,11 +886,20 @@ export function createPatchBayView(
       });
   }
 
+  /** One-way patching (patchRules.TWO_WAY_PATCHING): pressing an empty
+   *  input doesn't start a cable — it says where cables come from. */
+  function refuseEmptyInput(ev: PointerEvent, jack: HTMLElement, kind: 'param-in' | 'node-in' | 'video-in'): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    flashTooltip(jack, outputHint(kind));
+  }
+
   function dragParam(ev: PointerEvent, key: string, jack: HTMLElement): void {
     const i = slotForParam(settings.get('modSlots'), key);
     if (i >= 0) { dragSlotOut(ev, i, jack); return; }
     const bindingId = graphBindingForParam(settings.get('modGraph'), key);
     if (bindingId) { dragGraphParam(ev, bindingId, jack); return; }
+    if (!TWO_WAY_PATCHING) { refuseEmptyInput(ev, jack, 'param-in'); return; }
     const p: Pending = { kind: 'to-slotout', paramKey: key, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
     const setOutHover = outSeekHoverSetter(p, GRAPH_COLOR, 'Drop to modulate this parameter with that output.');
@@ -1858,7 +1872,7 @@ export function createPatchBayView(
         const nodeLabel = node ? getDef(node.type)?.label ?? node.type : 'a graph node';
         return `${label} IN — patched from ${nodeLabel} (graph). Drag to move, drop in space to unplug.`;
       }
-      return `${label} IN — drag to a generator OUT (or from one to here) to patch.`;
+      return `${label} IN — drag a cable here from an output (a Function Generator, graph node or parameter OUT).`;
     });
     const l = document.createElement('span');
     l.textContent = label;
@@ -2844,7 +2858,7 @@ export function createPatchBayView(
           const curNode = cur?.nodes.find((n) => n.id === nodeId);
           const ref = curNode?.inputs[portSpec.name];
           const portLabel = portSpec.label ?? portSpec.name;
-          if (!ref) return `${label} · ${portLabel} IN — drag from another node's OUT jack here to wire it (or drag this jack to one).`;
+          if (!ref) return `${label} · ${portLabel} IN — drag a cable here from another node's or a parameter's OUT jack.`;
           const { nodeId: srcId } = splitInputRef(ref);
           const srcNode = cur?.nodes.find((n) => n.id === srcId);
           const srcLabel = srcNode ? (getDef(srcNode.type)?.label ?? srcNode.type) : 'an unknown node';
