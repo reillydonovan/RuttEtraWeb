@@ -134,4 +134,60 @@ export const PRESETS: Preset[] = [
       },
     },
   },
+
+  // ---- No-camera presets ----------------------------------------------
+  // Each turns on the Pattern Generator (replace blend, full mix) with a
+  // pattern that moves on its own, so the instrument shows a live image
+  // with no camera, microphone or file — the boot overlay's PATTERN
+  // button loads the first of these. Pattern values follow the kind's
+  // registry defaults with small tweaks.
+  {
+    id: 'pattern-terrain',
+    name: 'Noise Terrain',
+    description: 'No camera needed — slowly drifting Perlin noise read as a phosphor landscape.',
+    values: {
+      patternEnabled: true, patternKind: 'perlinNoise', patternBlendMode: 'replace', patternMix: 1,
+      patternBrightness: 0.75, patternContrast: 1.3, patternScale: 3.0, patternOctaves: 4,
+      colorMode: 'phosphorGreen',
+      backgroundColor: '#000000',
+      zPush: 1.4, intensity: 0.85, focus: 0.1,
+      bloomEnabled: true, bloomIntensity: 0.5, bloomRadius: 0.5, bloomThreshold: 0.3,
+      scanlineEnabled: true, scanlineIntensity: 0.15,
+      vignetteEnabled: true, vignetteAmount: 0.5,
+    },
+  },
+  {
+    id: 'pattern-lissajous',
+    name: 'Lissajous Scope',
+    description: 'No camera needed — a moving two-oscillator trace pushed into depth.',
+    values: {
+      patternEnabled: true, patternKind: 'lissajous', patternBlendMode: 'replace', patternMix: 1,
+      patternBrightness: 1.0, patternFrequency: 3, patternFreqRatio: 2,
+      patternPhaseOffset: Math.PI / 2, patternThickness: 0.02,
+      colorMode: 'phosphorGreen',
+      backgroundColor: '#02100a',
+      zPush: 1.0, intensity: 1.2,
+      bloomEnabled: true, bloomIntensity: 1.2, bloomRadius: 0.8, bloomThreshold: 0.05,
+      scanlineEnabled: true, scanlineIntensity: 0.2,
+      vignetteEnabled: true, vignetteAmount: 0.55,
+    },
+  },
+  {
+    id: 'pattern-cells',
+    name: 'Worley Cells',
+    description: 'No camera needed — shifting cellular terrain in amber.',
+    values: {
+      patternEnabled: true, patternKind: 'worleyNoise', patternBlendMode: 'replace', patternMix: 1,
+      patternBrightness: 0.9, patternContrast: 1.2, patternScale: 1.0, patternPointDensity: 8,
+      colorMode: 'phosphorAmber',
+      backgroundColor: '#0c0703',
+      zPush: 1.2, intensity: 1.0,
+      bloomEnabled: true, bloomIntensity: 0.95, bloomRadius: 0.7, bloomThreshold: 0.1,
+      scanlineEnabled: true, scanlineIntensity: 0.25,
+      vignetteEnabled: true, vignetteAmount: 0.6,
+    },
+  },
 ];
+
+/** The preset the boot overlay's PATTERN button starts with. */
+export const NO_CAMERA_PRESET_ID = 'pattern-terrain';

@@ -49,6 +49,7 @@ Append any of these to the URL of the synth (`index.html?...`). Multiple flags c
 | Parameter | Effect |
 |---|---|
 | `?view=<peerid>` | Viewer mode — connects to the broadcast with the given PeerJS id, hides UI, fullscreen output. |
+| `?reset` | Escape hatch: clears everything the app keeps in browser storage (settings snapshot, presets, timelines, graph library, auto-save, skin, text size), keeping one copy under `ruttetra-backup`, then reloads without the parameter. Use it if saved state ever stops the page from loading. |
 | `?layout=compact` | Force compact layout (single-column, ideal for tablets). |
 | `?layout=standard` | Force standard layout. |
 | `?layout=expansive` | Force expansive layout (large desktop). |

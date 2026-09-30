@@ -10,7 +10,9 @@
  * export / import are still available via the buttons in this section.
  */
 
-import { Settings, SettingsStore, migrateSettings } from '../../state/Settings';
+import {
+  Settings, SettingsStore, migrateSettings, presetPatch, settingsSnapshot, sanitizeImportedSettings,
+} from '../../state/Settings';
 import { PRESETS } from '../presets';
 import { row, group, button, textInput, readout } from '../widgets';
 import { exportEverything, importEverything } from '../../state/exportEverything';
@@ -69,9 +71,9 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   const loadBtn = button('Load', () => {
     const p = PRESETS.find((x) => x.id === builtinSel.value);
     if (p) {
-      const migrated = migrateSettings(p.values) as Partial<Settings>;
-      delete (migrated as { _v?: number })._v;
-      settings.patch(migrated);
+      // Only the preset's own keys — see presetPatch() for why a plain
+      // migrateSettings() here used to wipe bindings, graph and layout.
+      settings.patch(presetPatch(p.values));
       haptic('click');
     }
   }, 'primary');
@@ -96,9 +98,9 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     c.addEventListener('click', () => {
       builtinSel.value = p.id;
       refreshBuiltinDesc();
-      const migrated = migrateSettings(p.values) as Partial<Settings>;
-      delete (migrated as { _v?: number })._v;
-      settings.patch(migrated);
+      // Only the preset's own keys — see presetPatch() for why a plain
+      // migrateSettings() here used to wipe bindings, graph and layout.
+      settings.patch(presetPatch(p.values));
       haptic('click');
     });
     chips.appendChild(c);
@@ -200,7 +202,7 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     const list = loadUser();
     // Strip UI-only fields so a user preset doesn't lock the receiver's
     // panel state at apply time.
-    const values = { ...settings.all } as Partial<Settings> & Record<string, unknown>;
+    const values = settingsSnapshot(settings.all) as Partial<Settings> & Record<string, unknown>;
     delete values.modSlotExpanded;
     list.push({ id, name, values });
     saveUser(list);
@@ -211,7 +213,11 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
     const list = loadUser();
     const p = list.find((x) => x.id === userSel.value);
     if (p) {
-      const migrated = migrateSettings(p.values) as Partial<Settings>;
+      // Stamped presets (saved by this build or later) migrate from their
+      // own `_v`; older unstamped ones still take the legacy v1 path. User
+      // presets also arrive inside shared projects, so connection settings
+      // are sanitized like any other import.
+      const migrated = sanitizeImportedSettings(migrateSettings(p.values)) as Partial<Settings>;
       delete (migrated as { _v?: number })._v;
       settings.patch(migrated);
     }

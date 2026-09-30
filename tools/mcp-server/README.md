@@ -37,6 +37,17 @@ route).
 Override the relay port with `MCP_BRIDGE_PORT` (update the in-app URL
 to match).
 
+**Security.** Whoever connects to the relay gets full remote control of
+the synth (params, menu actions, graph edits, canvas screenshots), so it
+is locked down by default:
+
+- it listens on `127.0.0.1` only (`MCP_BRIDGE_HOST` to change — don't
+  expose it on a shared network such as a venue's Wi-Fi);
+- it accepts browser connections only from `https://ruttetraweb.com`,
+  `https://www.ruttetraweb.com` and localhost dev/preview servers on any
+  port — any other website open in the same browser is refused. Add
+  origins with `MCP_BRIDGE_ORIGINS="https://example.com,https://other"`.
+
 ## Tools
 
 | Tool | What it does |

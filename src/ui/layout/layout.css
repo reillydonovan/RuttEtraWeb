@@ -388,22 +388,27 @@ body[data-layout="compact"] .rw-help-body {
 }
 
 /* ============================================================
-   Tap-to-enable-audio overlay (iOS Safari WebAudio gesture gate)
+   Status badge (ui/statusBadge.ts) — render errors, GPU context
+   loss, ?reset notice. Bottom-left, small, never takes the pointer.
    ============================================================ */
-#rw-audio-gate {
-  position: fixed; inset: 0;
-  z-index: 70;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.65);
+.rw-status-badge {
+  position: fixed;
+  left: calc(8px + env(safe-area-inset-left, 0px));
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 9000;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.82);
   color: var(--re-accent);
-  font-family: var(--re-mono);
-  font-size: 16px;
-  text-shadow: var(--re-glow);
-  cursor: var(--rw-cur-pointer);
-  text-align: center;
-  padding: 24px;
+  font: 12px/1.3 var(--re-mono, monospace);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
-#rw-audio-gate small { color: var(--re-text-dim); display: block; margin-top: 8px; font-size: 13px; }
+.rw-status-badge[data-tone="error"] { color: #ff7a7a; }
+.rw-status-badge--show { opacity: 1; }
 
 /* ============================================================
    Compact slider: scrub bar + stop-chips + tappable readout

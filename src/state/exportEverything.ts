@@ -11,7 +11,7 @@
  * (their own loaders normalize on read).
  */
 
-import { Settings, migrateSettings } from './Settings';
+import { Settings, migrateSettings, stripExportSecrets, sanitizeImportedSettings } from './Settings';
 import type { Timeline } from '../sequencer/types';
 
 const SETTINGS_KEY  = 'ruttetra.settings.v1';
@@ -48,8 +48,10 @@ export function exportEverything(): string {
     _v: 1,
     type: 'ruttetra-everything',
     exportedAt: new Date().toISOString(),
-    settings:    readJsonOr<Partial<Settings>>(SETTINGS_KEY,    {}),
-    userPresets: readJsonOr<UserPreset[]>(USER_PRESETS_KEY,    []),
+    // Bundles get shared: no secrets in the settings or in any user preset.
+    settings:    stripExportSecrets(readJsonOr<Partial<Settings>>(SETTINGS_KEY, {})),
+    userPresets: readJsonOr<UserPreset[]>(USER_PRESETS_KEY, [])
+      .map((p) => ({ ...p, values: stripExportSecrets(p.values ?? {}) })),
     timelines:   readJsonOr<Timeline[]>(TIMELINES_KEY,         []),
   };
   return JSON.stringify(bundle, null, 2);
@@ -62,7 +64,9 @@ export function importEverything(json: string): void {
   }
   // Settings: migrate, then write back.
   if (parsed.settings && typeof parsed.settings === 'object') {
-    const migrated = migrateSettings(parsed.settings as Record<string, unknown>);
+    // Same import rule as projects and presets: a bundle can't switch on
+    // connections or aim a bridge off this network.
+    const migrated = sanitizeImportedSettings(migrateSettings(parsed.settings as Record<string, unknown>));
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated));
   }
   if (Array.isArray(parsed.userPresets)) {

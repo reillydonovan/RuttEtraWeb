@@ -540,7 +540,7 @@ The original `audio` mod source is preserved — it now reads `FFTAnalyzer.getEn
 
 ### Presets
 
-Seven built-in presets load with a single click. Each captures all DCU, color/FX, and camera default view settings:
+Ten built-in presets load with a single click. Applying one changes only the settings it names — bindings, the mod graph, layout and everything else stay as they are:
 
 | Preset | Description |
 |---|---|
@@ -551,8 +551,11 @@ Seven built-in presets load with a single click. Each captures all DCU, color/FX
 | Heavy Bloom | Deep haze, high contrast, dramatic glow |
 | Burn-In | Long-exposure feedback trails |
 | Diving | Camera tucked inside the raster in fly mode |
+| Noise Terrain | No camera needed — drifting Perlin noise as a phosphor landscape (the boot screen's PATTERN button) |
+| Lissajous Scope | No camera needed — a moving two-oscillator trace pushed into depth |
+| Worley Cells | No camera needed — shifting cellular terrain in amber |
 
-**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files. The format is versioned (`_v`, currently 25) and older presets are auto-migrated on load — old files keep working, missing fields are filled with sensible defaults.
+**User presets** can be saved (named, stored in `localStorage`) and exported/imported as JSON files. The format is versioned (`_v`, currently 35) and older presets are auto-migrated on load — old files keep working, missing fields are filled with sensible defaults.
 
 ### Recording
 

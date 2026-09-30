@@ -1540,6 +1540,11 @@ export const DEFAULTS: Settings = {
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
 const CURRENT_VERSION = 35;
+/** The Settings schema version this build writes (`_v`). Stamp it on every
+ *  settings snapshot you save (projects, user presets, exports) so a later
+ *  load migrates FROM the right version instead of re-running every step
+ *  since v1 on already-current data. */
+export const SETTINGS_VERSION = CURRENT_VERSION;
 
 interface Versioned { _v?: number }
 
@@ -2219,7 +2224,155 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.sonification = { ...DEFAULT_SONIFICATION };
   }
 
+  // Data from a NEWER build: we can't migrate forward, so say so rather
+  // than silently pretending it's current (Principle 6).
+  if (v > CURRENT_VERSION) {
+    console.warn(`[settings] snapshot is schema v${v}, this build is v${CURRENT_VERSION}; unknown keys are ignored`);
+  }
+  const dropped = dropMistypedKeys(s);
+  if (dropped.length > 0) {
+    console.warn('[settings] ignored values with the wrong type:', dropped.join(', '));
+  }
+
   return s as Partial<Settings> & Versioned;
+}
+
+/**
+ * Last line of defence for data that came from outside the running code
+ * (a saved snapshot, an imported file): any top-level key whose value has
+ * a different TYPE than its `DEFAULTS` entry is dropped, so the store keeps
+ * its current (or default) value instead of, say, feeding the string
+ * "banana" into the mesh builder as a line count. Numbers must also be
+ * finite. Shallow on purpose — nested objects keep their own migration
+ * steps. Keys whose default is null/undefined are nullable by design and
+ * left alone. Returns the dropped keys so the caller can report them —
+ * nothing is coerced silently (Principle 3).
+ */
+function dropMistypedKeys(s: Record<string, unknown>): string[] {
+  const dropped: string[] = [];
+  const defaults = DEFAULTS as unknown as Record<string, unknown>;
+  for (const key of Object.keys(s)) {
+    if (key === '_v' || !Object.prototype.hasOwnProperty.call(defaults, key)) continue;
+    const def = defaults[key];
+    const val = s[key];
+    if (def === null || def === undefined || val === undefined) continue;
+    let ok: boolean;
+    if (Array.isArray(def)) ok = Array.isArray(val);
+    else if (typeof def === 'number') ok = typeof val === 'number' && Number.isFinite(val);
+    else if (typeof def === 'object') ok = val !== null && typeof val === 'object' && !Array.isArray(val);
+    else ok = typeof val === typeof def;
+    if (!ok) {
+      delete s[key];
+      dropped.push(key);
+    }
+  }
+  return dropped;
+}
+
+/**
+ * The patch to apply for a PARTIAL settings object that ships with this
+ * build — a built-in preset's `values`. It is migrated as current-version
+ * data and restricted to the keys the preset actually names.
+ *
+ * Why not just `migrateSettings(values)`: an unstamped object is treated
+ * as v1 data, and the migration chain then back-fills defaults for ~140
+ * unrelated keys (and re-runs one-time steps such as the v31 window-tab
+ * rebuild). Patching THAT in wiped MIDI/OSC bindings, the mod graph, the
+ * Pattern Generator, the workspace layout and the timeline dock every time
+ * someone clicked "Classic 1974".
+ */
+export function presetPatch(values: Partial<Settings>): Partial<Settings> {
+  const migrated = migrateSettings({ ...(values as Record<string, unknown>), _v: CURRENT_VERSION }) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(values)) {
+    if (key !== '_v' && Object.prototype.hasOwnProperty.call(migrated, key)) out[key] = migrated[key];
+  }
+  return out as Partial<Settings>;
+}
+
+/** A settings snapshot safe to SAVE or SHARE: stamped with the schema
+ *  version (so loading it later migrates from the right place) and
+ *  without secrets (see `stripExportSecrets`). */
+export function settingsSnapshot(all: Readonly<Settings>): Partial<Settings> & Versioned {
+  return stripExportSecrets({ ...all, _v: CURRENT_VERSION } as Partial<Settings> & Versioned);
+}
+
+// --------------------------------------------------------------------
+// Settings that must not travel inside files
+// --------------------------------------------------------------------
+//
+// One list (Principle 1) for the two rules below. Projects, presets,
+// timelines and "export everything" bundles are made to be shared, so:
+//
+//   - EXPORT never writes a secret (the WHIP bearer token — its own doc
+//     comment already said "don't share it in exports").
+//   - IMPORT never lets a file switch on a connection or point a bridge
+//     somewhere off this machine/network: auto-connect flags are ignored,
+//     and MCP/OSC bridge URLs are only accepted for loopback or private-LAN
+//     hosts (the bridges are local tools by design). A file handed to you by
+//     a stranger could otherwise aim the MCP bridge at their own server,
+//     which can drive every param, run any menu action and screenshot the
+//     canvas (webcam included).
+
+/** Keys never written into an exported/shared file. */
+export const EXPORT_SECRET_KEYS = ['whipBearerToken'] as const;
+
+/** Connection flags a file may never turn on. */
+const IMPORT_IGNORED_KEYS = ['mcpAutoConnect', 'oscAutoConnect', 'whipBearerToken'] as const;
+
+/** Bridge URLs a file may only set to a local address. */
+const IMPORT_LOCAL_URL_KEYS = ['mcpBridgeUrl', 'oscBridgeUrl'] as const;
+
+/** Every key the two import rules above guard. Timeline playback also
+ *  never writes these (a shared .timeline.json can't smuggle them in via
+ *  a keyframe snapshot). */
+export const CONNECTION_SETTING_KEYS: readonly string[] = [...IMPORT_IGNORED_KEYS, ...IMPORT_LOCAL_URL_KEYS];
+
+export function stripExportSecrets<T extends object>(o: T): T {
+  const out = { ...o } as Record<string, unknown>;
+  for (const k of EXPORT_SECRET_KEYS) delete out[k];
+  return out as T;
+}
+
+/** True for ws(s):// URLs whose host is this machine or a private network
+ *  (localhost, *.local, 127/8, 10/8, 172.16/12, 192.168/16, 169.254/16,
+ *  ::1, fc00::/7, fe80::/10). */
+export function isLocalBridgeUrl(url: unknown): boolean {
+  if (typeof url !== 'string') return false;
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  if (u.protocol !== 'ws:' && u.protocol !== 'wss:') return false;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254);
+  }
+  return host === '::1' || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host);
+}
+
+/** Remove what an imported file must not set (see the block comment
+ *  above). Returns a copy; logs what it ignored so nothing is silent. */
+export function sanitizeImportedSettings<T extends object>(o: T): T {
+  const out = { ...o } as Record<string, unknown>;
+  const notable: string[] = [];
+  for (const k of IMPORT_IGNORED_KEYS) {
+    if (!(k in out)) continue;
+    // A file normally carries `false` / '' here — dropping those is routine.
+    if (out[k] === true || (typeof out[k] === 'string' && out[k] !== '')) notable.push(k);
+    delete out[k];
+  }
+  for (const k of IMPORT_LOCAL_URL_KEYS) {
+    if (k in out && !isLocalBridgeUrl(out[k])) {
+      notable.push(`${k} (${String(out[k])})`);
+      delete out[k];
+    }
+  }
+  if (notable.length > 0) {
+    console.warn('[settings] ignored connection settings from an imported file:', notable.join(', '));
+  }
+  return out as T;
 }
 
 // --------------------------------------------------------------------
@@ -2349,14 +2502,20 @@ export class SettingsStore {
 
   /** Export a JSON-serializable snapshot, stamped with the current version. */
   export(): string {
-    return JSON.stringify({ ...this.state, _v: CURRENT_VERSION }, null, 2);
+    return JSON.stringify(settingsSnapshot(this.state), null, 2);
   }
 
-  /** Import from JSON; runs migration before merging. */
+  /** Import from JSON; runs migration before merging. Connection settings
+   *  the file may not set (see `sanitizeImportedSettings`) keep their
+   *  current values rather than falling back to defaults. */
   import(json: string): void {
     const parsed = JSON.parse(json) as unknown;
-    const migrated = migrateSettings(parsed);
-    this.replaceAll(migrated);
+    const migrated = sanitizeImportedSettings(migrateSettings(parsed)) as Record<string, unknown>;
+    const current = this.state as unknown as Record<string, unknown>;
+    for (const k of CONNECTION_SETTING_KEYS) {
+      if (!(k in migrated)) migrated[k] = current[k];
+    }
+    this.replaceAll(migrated as Partial<Settings>);
   }
 
   reset(): void {

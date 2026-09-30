@@ -206,7 +206,9 @@ export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement
 
   const select = document.createElement('select');
   select.className = 'rw-select';
-  const refreshBtn = button('Refresh', async () => populateDevices(true));
+  // Refresh is a click, so it may ask for camera permission (browsers hide
+  // device labels until it's granted). Building the picker never asks.
+  const refreshBtn = button('Refresh', async () => populateDevices(false));
 
   async function populateDevices(reuse = false) {
     if (!reuse) await VideoSourceManager.ensurePermission();
@@ -220,7 +222,10 @@ export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement
     }
     if (settings.get(deviceIdKey)) select.value = settings.get(deviceIdKey);
   }
-  populateDevices().catch(() => {});
+  // List whatever the browser reveals WITHOUT prompting: labels appear once
+  // camera permission exists (after WEBCAM or Refresh). Asking here fired a
+  // camera prompt ~1 s after page load, before the visitor chose anything.
+  populateDevices(true).catch(() => {});
 
   select.addEventListener('change', async () => {
     const id = select.value;
@@ -355,8 +360,13 @@ export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement
   fl.body.append(sampleRow);
 
   // HEAD check — reveal the sample row only if the file is actually present.
+  // Require an actual video response: a host that answers every unknown
+  // path with index.html (200, text/html) would otherwise reveal a Load
+  // Sample button that can only fail.
   fetch(SAMPLE_VIDEO_URL, { method: 'HEAD' })
-    .then((r) => { if (r.ok) sampleRow.style.display = ''; })
+    .then((r) => {
+      if (r.ok && (r.headers.get('content-type') ?? '').startsWith('video/')) sampleRow.style.display = '';
+    })
     .catch(() => { /* file absent or CORS — keep row hidden */ });
 
   wrap.appendChild(fl.root);

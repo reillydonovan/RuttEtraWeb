@@ -36,7 +36,7 @@ When unsaved changes exist, the title bar appends an asterisk: `{Project Name} *
 
 **Auto-save and recovery**
 
-Toggle **Auto-save every 60 s** in the Project section to write the current project to browser storage every minute when there are unsaved changes. If your tab crashes or you accidentally close, the next page load offers to recover. Auto-save is a safety net, not a primary save — explicit Save to file is still how you preserve work permanently.
+Toggle **Auto-save every 60 s** in the Project section to write the current project to browser storage every minute when there are unsaved changes (and once more when the tab closes). If your tab crashes or you accidentally close, the next page load offers to recover. With Auto-save off, nothing is written and no recovery prompt appears on your next visit. Auto-save is a safety net, not a primary save — explicit Save to file is still how you preserve work permanently.
 
 **Recent Projects**
 

@@ -11,6 +11,7 @@
  */
 
 import type { SettingsStore } from '../state/Settings';
+import { CONNECTION_SETTING_KEYS } from '../state/Settings';
 import { MidiClock } from '../midi/MidiClock';
 import { applyEasing } from './easings';
 import { laneOffsets } from './lanes';
@@ -29,6 +30,12 @@ import {
 } from './types';
 
 const HISTORY_CAP = 50;
+
+/** A timeline's exclusion list plus the connection settings no keyframe
+ *  may ever write (see CONNECTION_SETTING_KEYS in Settings.ts). */
+function excludedSet(list: readonly string[]): Set<string> {
+  return new Set([...list, ...CONNECTION_SETTING_KEYS]);
+}
 
 function deepClone<T>(v: T): T {
   // structuredClone is widely available in modern browsers; fall back to JSON.
@@ -106,7 +113,7 @@ export class Sequencer {
 
   // ---------- private ----------
   private midiClock: MidiClock | null = null;
-  private excluded: Set<string> = new Set(DEFAULT_EXCLUDED_PARAMS);
+  private excluded: Set<string> = excludedSet(DEFAULT_EXCLUDED_PARAMS);
   /** Last applied Partial<Settings> output; used to skip no-op writes. */
   private lastApplied: Partial<unknown> | null = null;
   private history: Timeline[] = [];
@@ -164,7 +171,7 @@ export class Sequencer {
     // drops the 'timeline' namespace contributions the same frame.
     this.applyLanes();
     if (t) {
-      this.excluded = new Set(t.excludedParams);
+      this.excluded = excludedSet(t.excludedParams);
       sortKeyframes(t.keyframes);
       // Park settings at the first keyframe (if any) so the screen reflects
       // the loaded timeline immediately.
@@ -429,7 +436,7 @@ export class Sequencer {
     this.future.push(deepClone(this.timeline));
     const prev = this.history.pop()!;
     this.timeline = prev;
-    this.excluded = new Set(prev.excludedParams);
+    this.excluded = excludedSet(prev.excludedParams);
     sortKeyframes(this.timeline.keyframes);
     if (this.selectedKeyframeId
         && !this.timeline.keyframes.find(k => k.id === this.selectedKeyframeId)) {
@@ -444,7 +451,7 @@ export class Sequencer {
     this.history.push(deepClone(this.timeline));
     const next = this.future.pop()!;
     this.timeline = next;
-    this.excluded = new Set(next.excludedParams);
+    this.excluded = excludedSet(next.excludedParams);
     sortKeyframes(this.timeline.keyframes);
     this.fireTimelineChange();
   }

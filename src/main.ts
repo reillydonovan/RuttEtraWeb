@@ -13,7 +13,8 @@
  */
 
 import * as THREE from 'three';
-import { settings } from './state/Settings';
+import { settings, presetPatch } from './state/Settings';
+import { PRESETS, NO_CAMERA_PRESET_ID } from './ui/presets';
 import { VideoSourceManager } from './input/sources';
 import { RuttEtraScene } from './renderer/RuttEtra';
 import { CameraRig } from './renderer/CameraRig';
@@ -29,7 +30,7 @@ import { Sonification } from './audio/Sonification';
 import { ProjectStore } from './project/ProjectStore';
 import { AutoSave } from './project/AutoSave';
 import { maybePackageRecoveredSession } from './project/RecoveredSession';
-import { describeSummary } from './project/Project';
+import { describeSummary, UI_STATE_KEYS } from './project/Project';
 import { ModMatrix } from './modulation/ModMatrix';
 import { activeTargetsBus } from './modulation/ActiveTargetsBus';
 import { LiveValuesStore } from './modulation/LiveValues';
@@ -58,18 +59,59 @@ import { FrameBudgetWatcher } from './perf/FrameBudgetWatcher';
 import { attachHaptics, haptic } from './platform/HapticFeedback';
 import * as keyframeAffordance from './ui/keyframeAffordance';
 import { registerLiveValues } from './ui/liveValueBus';
+import { resetSavedState, BACKUP_KEY } from './state/resetSavedState';
+import { showStatusBadge } from './ui/statusBadge';
+// Self-hosted UI fonts (were a render-blocking Google Fonts stylesheet).
+import '@fontsource/vt323';
+import '@fontsource/share-tech-mono';
 import './ui/layout/layout.css';
 import './ui/cursors.css';
 
+const UI_STATE_KEY_SET: ReadonlySet<string> = new Set(UI_STATE_KEYS);
 const params = new URLSearchParams(window.location.search);
 const viewTarget = params.get('view');
+const RESET_NOTICE_KEY = 'rw-reset-notice';
 
-if (viewTarget) {
+// A tab left open across a deploy asks for code-split chunks the new build
+// no longer has. Reload once (at most once a minute) to pick up the new
+// build instead of leaving a half-loaded panel.
+window.addEventListener('vite:preloadError', (event) => {
+  const KEY = 'rw-chunk-reload-at';
+  try {
+    const last = Number(sessionStorage.getItem(KEY) ?? 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(KEY, String(Date.now()));
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  location.reload();
+});
+
+if (params.has('reset')) {
+  // ?reset — the escape hatch for a saved state that won't load. Clears
+  // everything the app keeps in localStorage (backing it up first) and
+  // reloads without the parameter, so nothing reads storage before it's
+  // clean.
+  let cleared = 0;
+  try { cleared = resetSavedState(localStorage); } catch { /* storage disabled */ }
+  try { sessionStorage.setItem(RESET_NOTICE_KEY, String(cleared)); } catch { /* ignore */ }
+  params.delete('reset');
+  const q = params.toString();
+  location.replace(`${location.pathname}${q ? `?${q}` : ''}${location.hash}`);
+} else if (viewTarget) {
   bootViewer(viewTarget);
 } else {
+  try {
+    const n = sessionStorage.getItem(RESET_NOTICE_KEY);
+    if (n != null) {
+      sessionStorage.removeItem(RESET_NOTICE_KEY);
+      showStatusBadge(`Saved state reset (${n} items) — backup kept as "${BACKUP_KEY}"`, 'info', 8000);
+    }
+  } catch { /* ignore */ }
   bootSynth().catch((err) => {
     console.error(err);
-    document.body.innerText = `Failed to start: ${err.message}`;
+    document.body.innerText = `Failed to start: ${err.message}. Opening ${location.pathname}?reset clears saved state.`;
   });
 }
 
@@ -86,6 +128,7 @@ async function bootSynth(): Promise<void> {
   const bootScreen   = document.getElementById('boot-screen')         as HTMLButtonElement;
   const bootFile     = document.getElementById('boot-file')           as HTMLButtonElement;
   const bootStreamBtn = document.getElementById('boot-stream-btn')    as HTMLButtonElement;
+  const bootPattern  = document.getElementById('boot-pattern')        as HTMLButtonElement;
   const bootStreamRow = document.getElementById('boot-stream-row')    as HTMLElement;
   const bootStreamInput = document.getElementById('boot-stream-input') as HTMLInputElement;
   const bootStreamConnect = document.getElementById('boot-stream-connect') as HTMLButtonElement;
@@ -650,7 +693,11 @@ async function bootSynth(): Promise<void> {
       }
     },
     getActiveTimelineId: () => sequencer.timeline?.id ?? null,
-    subscribeAllSettings: (fn) => settings.subscribeAll(() => fn()),
+    // Panel/help UI state (tab switches, the first-run Help auto-open)
+    // isn't an edit to the work — it must not put a "*" in the title.
+    subscribeAllSettings: (fn) => settings.subscribeAll((_v, key) => {
+      if (!UI_STATE_KEY_SET.has(key)) fn();
+    }),
   });
   const autoSave = new AutoSave(projectStore);
 
@@ -688,9 +735,12 @@ async function bootSynth(): Promise<void> {
 
   // beforeunload — flush an autosave snapshot if dirty so a crash
   // or accidental close still leaves a recoverable trail. Synchronous
-  // only; we can't await async writes here.
+  // only; we can't await async writes here. Only when Auto-save is ON:
+  // flushing for everyone meant any visitor who touched a single control
+  // got a native "Recover unsaved changes?" dialog on their next visit —
+  // including a presenter reloading mid-demo.
   window.addEventListener('beforeunload', () => {
-    if (projectStore.getState().dirty) autoSave.tick();
+    if (autoSave.isEnabled() && projectStore.getState().dirty) autoSave.tick();
   });
 
   // Project file actions — ONE implementation each, registered in the
@@ -1482,10 +1532,14 @@ async function bootSynth(): Promise<void> {
   settings.subscribe('renderResolutionCustomW', () => resize());
   settings.subscribe('renderResolutionCustomH', () => resize());
 
-  // -------------------------- Audio gesture gate (iOS) ---------------------
-  if (!settings.get('audioGestureUnlocked')) {
-    mountAudioGate();
-  }
+  // (The old full-screen "TAP TO ENABLE AUDIO + WEBCAM" gate is gone. It
+  // stacked on top of the source picker on every touch device, swallowed
+  // the first tap, let that tap fall through to whichever button sat
+  // underneath, and resumed nothing — every AudioContext in the app is
+  // created or resumed inside the click that turns its feature on. Its
+  // desktop branch also wrote a setting at boot, which marked every fresh
+  // session dirty and triggered a "Recover unsaved changes?" prompt on the
+  // next visit.)
 
   // -------------------------- Boot source picker ---------------------------
   function bootErr(msg: string): void {
@@ -1494,6 +1548,46 @@ async function bootSynth(): Promise<void> {
   function bootClearErr(): void {
     bootError.textContent = '';
   }
+
+  // Phones and tablets can't capture the screen; don't offer a button that
+  // can only fail.
+  if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
+    bootScreen.style.display = 'none';
+  }
+
+  // PATTERN: start with the Pattern Generator as the input — no camera,
+  // microphone or file needed, so nobody lands on a black screen (the
+  // audience closer, or anyone who declines the camera). The Pattern
+  // Generator stays a compositing layer (Principle 5); this just turns it
+  // on. If the visitor later picks a video source while the pattern still
+  // covers it completely (replace blend at full mix — the defaults), the
+  // pattern is switched off so their video actually shows, with a toast
+  // saying so.
+  let patternAutoStarted = false;
+  function startWithPattern(): void {
+    bootClearErr();
+    if (!settings.get('patternEnabled')) {
+      // A curated look with a pattern that moves on its own (the default
+      // Sine Bands is static). presetPatch applies only the preset's own
+      // keys, so bindings, graph and layout are untouched.
+      const preset = PRESETS.find((p) => p.id === NO_CAMERA_PRESET_ID);
+      if (preset) settings.patch(presetPatch(preset.values));
+      else settings.set('patternEnabled', true);
+      patternAutoStarted = true;
+    }
+    dismissOverlay();
+  }
+  bootPattern.addEventListener('click', startWithPattern);
+  source.subscribe((st) => {
+    if (!patternAutoStarted || st.kind === 'none') return;
+    patternAutoStarted = false;
+    if (settings.get('patternEnabled')
+      && settings.get('patternBlendMode') === 'replace'
+      && settings.get('patternMix') >= 0.999) {
+      settings.set('patternEnabled', false);
+      responsive.toast('Pattern layer switched off so your video shows. Turn it back on in Source ▸ Pattern Generator.');
+    }
+  });
 
   bootWebcam.addEventListener('click', async () => {
     bootClearErr();
@@ -1505,7 +1599,6 @@ async function bootSynth(): Promise<void> {
         facingMode: layout.hasTouch ? settings.get('cameraFacing') : undefined,
       });
       settings.set('sourceKind', 'webcam');
-      settings.set('audioGestureUnlocked', true);
     } catch (err) {
       bootErr(`Webcam: ${(err as Error).message}`);
     }
@@ -1570,7 +1663,15 @@ async function bootSynth(): Promise<void> {
     if (e.key === 'Enter') connectBootStream();
   });
 
+  // "continue without video" must never leave a black screen: with no
+  // video source and the pattern layer off there is nothing to draw, so it
+  // starts the pattern. Otherwise (a source is live, or the pattern is
+  // already on) it just closes the overlay.
   bootSkip.addEventListener('click', () => {
+    if (source.getState().kind === 'none' && !settings.get('patternEnabled')) {
+      startWithPattern();
+      return;
+    }
     dismissOverlay();
   });
 
@@ -1884,26 +1985,40 @@ async function bootSynth(): Promise<void> {
   // Use three.js's XR-aware loop — this is identical to RAF when no
   // XR session is active and switches to the headset's compositor RAF
   // automatically when `renderer.xr.setSession(...)` is called.
-  renderer.setAnimationLoop(frame);
-
-  // -------------------------- Audio gate helper ---------------------
-  function mountAudioGate(): void {
-    // Only relevant on touch devices where AudioContext requires a gesture.
-    if (!layout.hasTouch) {
-      settings.set('audioGestureUnlocked', true);
-      return;
+  //
+  // Guarded: three's WebGLAnimation only requests the next frame AFTER
+  // this callback returns, so one uncaught exception anywhere in
+  // `frame()` (a modulation node, a pattern, post-FX, the HUD) used to
+  // freeze the output until reload — on stage, a dead projector. Now the
+  // loop keeps running, the first errors are logged in full (then
+  // sampled so the console isn't flooded at 60 fps), and a small badge
+  // tells the performer something is wrong.
+  let frameErrors = 0;
+  renderer.setAnimationLoop(() => {
+    try {
+      frame();
+    } catch (err) {
+      frameErrors++;
+      if (frameErrors <= 3 || frameErrors % 600 === 0) {
+        console.error(`[ruttetra] frame error #${frameErrors}`, err);
+      }
+      showStatusBadge(`render error ×${frameErrors} — see console`, 'error');
     }
-    const gate = document.createElement('div');
-    gate.id = 'rw-audio-gate';
-    gate.innerHTML = '<div>TAP TO ENABLE AUDIO + WEBCAM<small>iOS Safari requires a tap to unlock the audio engine</small></div>';
-    const dismiss = () => {
-      gate.remove();
-      settings.set('audioGestureUnlocked', true);
-    };
-    gate.addEventListener('click', dismiss);
-    gate.addEventListener('touchend', dismiss);
-    document.body.appendChild(gate);
-  }
+  });
+
+  // GPU context loss (driver reset, phone backgrounding, sleep). three
+  // already calls preventDefault on 'webglcontextlost' so the browser may
+  // restore the context, and rebuilds its own GPU state on restore; we
+  // tell the performer what's happening and re-apply sizing once it's back.
+  canvas.addEventListener('webglcontextlost', () => {
+    console.warn('[ruttetra] WebGL context lost — waiting for the browser to restore it');
+    showStatusBadge('GPU context lost — recovering…', 'info', 60_000);
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    console.info('[ruttetra] WebGL context restored');
+    showStatusBadge('GPU context restored', 'info', 3_000);
+    resize();
+  });
 }
 
 // -----------------------------------------------------------------

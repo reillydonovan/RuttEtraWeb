@@ -21,6 +21,7 @@
 
 import {
   Settings, SettingsStore, migrateSettings,
+  settingsSnapshot, sanitizeImportedSettings, stripExportSecrets,
 } from '../state/Settings';
 import { Timeline } from '../sequencer/types';
 import {
@@ -76,7 +77,10 @@ export function snapshotProject(deps: ProjectSnapshotDeps, opts: {
     savedAt: new Date().toISOString(),
     name: opts.name,
     description: opts.description,
-    settings: deps.settings.all,
+    // Stamped with the schema version (so opening it later migrates from
+    // the right place instead of re-running every step since v1) and
+    // stripped of secrets — project files get shared.
+    settings: settingsSnapshot(deps.settings.all),
     userPresets: deps.getUserPresets(),
     timelines: deps.getTimelines(),
     activeTimelineId: deps.getActiveTimelineId?.() ?? undefined,
@@ -188,8 +192,10 @@ export function applyProject(p: SynthProject, deps: ProjectApplyDeps): ProjectSu
   //    `migrateSettings` returns `Partial<Settings> & { _v }`, the
   //    `_v` is a private versioning marker that `SettingsStore.import`
   //    consumes; we strip it before patching since `patch()` only
-  //    accepts user-facing keys.
-  const migrated = migrateSettings(p.settings as Record<string, unknown>);
+  //    accepts user-facing keys. A project file may not switch on
+  //    connections or aim a bridge off this network
+  //    (`sanitizeImportedSettings`); those keys keep their current values.
+  const migrated = sanitizeImportedSettings(migrateSettings(p.settings as Record<string, unknown>));
   const patch = { ...migrated } as Partial<Settings> & { _v?: number };
   delete patch._v;
   deps.settings.patch(patch);
@@ -257,17 +263,25 @@ function plural(n: number): string { return n === 1 ? '' : 's'; }
 // setup. Compatible with `settings.import()` from `PresetsSection`.
 // --------------------------------------------------------------------
 
-/** UI-only fields that should never travel inside a shareable preset.
- *  Mirrors the existing exclude set in `PresetsSection.exportBtn`. */
-const PRESET_EXCLUDE_KEYS: ReadonlyArray<keyof Settings> = [
+/** Panel / help UI state. Changing these is not an edit to the work, so
+ *  they don't mark the project dirty (the first-run Help auto-open used
+ *  to put an unsaved-changes star in the title of every fresh visit), and
+ *  they never travel inside a shareable preset. */
+export const UI_STATE_KEYS: ReadonlyArray<keyof Settings> = [
   'modSlotExpanded',
   'panelDock', 'panelCollapsed', 'panelTab', 'hudVisible',
   'helpSeen', 'helpAutoOpen', 'helpActiveTab',
+] as unknown as ReadonlyArray<keyof Settings>;
+
+/** UI-only fields that should never travel inside a shareable preset.
+ *  Mirrors the existing exclude set in `PresetsSection.exportBtn`. */
+const PRESET_EXCLUDE_KEYS: ReadonlyArray<keyof Settings> = [
+  ...UI_STATE_KEYS,
   'activeTimelineId',
 ] as unknown as ReadonlyArray<keyof Settings>;
 
 export function presetFromProject(p: SynthProject): Partial<Settings> {
-  const out = { ...p.settings } as Partial<Settings> & Record<string, unknown>;
+  const out = stripExportSecrets({ ...p.settings }) as Partial<Settings> & Record<string, unknown>;
   for (const k of PRESET_EXCLUDE_KEYS) delete (out as Record<string, unknown>)[k as string];
   return out;
 }

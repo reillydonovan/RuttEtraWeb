@@ -124,9 +124,9 @@ const MD_QUICKSTART = `
 > commands, the graph patch, screenshots — via **I/O ▸ MCP** plus the
 > bridge in tools/mcp-server (opt-in; see its README).
 
-1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, or **STREAM URL** — or click **continue without video** to use the Pattern Generator as the sole source. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
+1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, **STREAM URL**, or **PATTERN** — PATTERN (and **continue without video**) starts a moving Pattern Generator image that needs no camera, microphone or file. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
-3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ).
+3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ). *Noise Terrain*, *Lissajous Scope* and *Worley Cells* need no camera. A preset only changes the settings it names — your bindings, patch and layout stay put.
 4. Open the **MIDI** or **Audio** tab to add reactive control.
 5. Open the timeline strip at the bottom, hit **+ NEW**, drop preset chips onto the track to create scenes, then **PLAY**.
 
@@ -979,9 +979,15 @@ last save, an asterisk appears next to the project name —
 ## Auto-save and recovery
 
 Toggle **Auto-save every 60 s** in the Project section to write the
-current project to browser storage every minute. If your tab crashes
-or you accidentally close, the next page load offers to recover
-unsaved changes.
+current project to browser storage every minute (and once more when
+the tab closes). If your tab crashes or you accidentally close, the
+next page load offers to recover unsaved changes. With Auto-save off,
+nothing is written and no recovery prompt appears.
+
+If saved state ever stops the page from loading, open the site with
+\`?reset\` on the end of the address: everything the app keeps in
+browser storage is cleared (a copy is kept under \`ruttetra-backup\`)
+and the page reloads fresh.
 
 Auto-save is a safety net, not a primary save — explicit Save to
 file is still how you preserve work permanently. Browser storage is

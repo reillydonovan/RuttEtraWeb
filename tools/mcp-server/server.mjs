@@ -32,7 +32,37 @@ let browser = null; // latest connected browser socket wins
 let nextId = 1;
 const pending = new Map(); // id -> { resolve, reject, timer }
 
-const wss = new WebSocketServer({ port: PORT });
+// Loopback only, and only pages we expect: the relay hands whoever connects
+// full remote control of the synth, so it must not be reachable from the
+// venue Wi-Fi or from an arbitrary website open in another tab (browsers
+// let any page open a WebSocket to localhost; the Origin header is how we
+// tell them apart). Extra origins: MCP_BRIDGE_ORIGINS="https://a,https://b".
+const HOST = process.env.MCP_BRIDGE_HOST ?? '127.0.0.1';
+const ALLOWED_ORIGINS = new Set([
+  'https://ruttetraweb.com',
+  'https://www.ruttetraweb.com',
+  ...(process.env.MCP_BRIDGE_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
+]);
+function originAllowed(origin) {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  try {
+    const { hostname } = new URL(origin); // local dev / preview servers, any port
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
+const wss = new WebSocketServer({
+  host: HOST,
+  port: PORT,
+  verifyClient: ({ origin }) => {
+    const ok = originAllowed(origin);
+    if (!ok) console.error(`[mcp-bridge] refused connection from origin ${origin ?? '(none)'}`);
+    return ok;
+  },
+});
 wss.on('connection', (ws) => {
   console.error(`[mcp-bridge] browser connected (${wss.clients.size} client(s))`);
   browser = ws;
@@ -51,7 +81,7 @@ wss.on('connection', (ws) => {
     console.error('[mcp-bridge] browser disconnected');
   });
 });
-console.error(`[mcp-bridge] WebSocket relay listening on ws://localhost:${PORT}`);
+console.error(`[mcp-bridge] WebSocket relay listening on ws://${HOST}:${PORT}`);
 
 function call(cmd, args = {}) {
   return new Promise((resolve, reject) => {
