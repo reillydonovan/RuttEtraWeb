@@ -37,17 +37,29 @@ export function createDcuSection(
   if (getSourceSize) {
     const aspRow = document.createElement('div');
     aspRow.className = 'rw-btn-row';
+    // Each button briefly says what it did — Match source on a 640×480
+    // camera lands on 4:3 (the default), which otherwise looked like the
+    // button did nothing (owner report).
+    const flash = (b: HTMLElement, text: string, rest: string): void => {
+      b.textContent = text;
+      clearTimeout(Number(b.dataset.flashT ?? 0));
+      b.dataset.flashT = String(window.setTimeout(() => { b.textContent = rest; }, 1800));
+    };
+    const same = (a: number): boolean => Math.abs(settings.get('aspect') - a) < 0.0005;
     const match = button('Match source', () => {
       const sz = getSourceSize();
       const a = sz ? aspectForSource(sz.w, sz.h) : null;
-      if (a == null) {
-        match.textContent = 'No video yet';
-        setTimeout(() => { match.textContent = 'Match source'; }, 1500);
-        return;
-      }
+      if (a == null || !sz) { flash(match, 'No video yet', 'Match source'); return; }
+      const was = same(a);
       settings.set('aspect', a);
+      flash(match, `${sz.w}×${sz.h}${was ? ' · already' : ''} → ${a.toFixed(3)}`, 'Match source');
     });
-    aspRow.append(match, button('4:3', () => settings.set('aspect', 4 / 3)));
+    const four3 = button('4:3', () => {
+      const was = same(4 / 3);
+      settings.set('aspect', 4 / 3);
+      flash(four3, was ? 'already 4:3' : '4:3 ✓', '4:3');
+    });
+    aspRow.append(match, four3);
     pos.body.append(aspRow);
   }
   root.appendChild(pos.root);

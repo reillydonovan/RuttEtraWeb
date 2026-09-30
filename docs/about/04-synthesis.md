@@ -116,7 +116,7 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 - **H Position / V Position** — translate the displaced mesh in 2D screen space.
 - **H Size / V Size** — bipolar sliders. Positive scales out from center; negative inverts (mirrors) along that axis.
-- **Aspect** — pinch the H/V scale together, useful for matching non-square sources or stylizing into a tall/narrow look. The raster keeps its own aspect (4:3, like the hardware) whatever the input's shape, so a 16:9 camera is squeezed by default. **Match source** sets Aspect to the live input's width ÷ height in one click; **4:3** puts it back.
+- **Aspect** — pinch the H/V scale together, useful for matching non-square sources or stylizing into a tall/narrow look. The raster keeps its own aspect (4:3, like the hardware) whatever the input's shape, so a 16:9 camera is squeezed by default. **Match source** sets Aspect to the live input's width ÷ height in one click (the button briefly shows the size it read, e.g. `1280×720 → 1.778`); **4:3** puts it back. Note that many webcams send 640×480 — itself 4:3 — when Source ▸ Capture Settings ▸ Resolution is on Auto; pick HD 720p or 1080p there for a widescreen picture, then Match source.
 
 #### Depth
 

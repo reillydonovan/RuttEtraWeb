@@ -17,6 +17,9 @@
 export const REVEAL_PX = 22;
 const HIDE_MS = 900;
 const RAIL = 10;
+/** Gap between rail and window edge — keeps the window's own resize
+ *  handle (which overlaps the edge by ~4 px) grabbable (owner report). */
+const EDGE_GAP = 6;
 const MIN_THUMB = 28;
 
 /** Thumb size + offset for one axis, or null when nothing scrolls. Pure. */
@@ -76,19 +79,20 @@ export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
   const update = (): void => {
     const cw = scroller.clientWidth, ch = scroller.clientHeight;
     const sl = scroller.scrollLeft, st = scroller.scrollTop;
-    const gv = thumbGeometry(ch, scroller.scrollHeight, st, ch - RAIL);
-    const gh = thumbGeometry(cw, scroller.scrollWidth, sl, cw - RAIL);
+    const OFF = RAIL + EDGE_GAP;
+    const gv = thumbGeometry(ch, scroller.scrollHeight, st, ch - OFF);
+    const gh = thumbGeometry(cw, scroller.scrollWidth, sl, cw - OFF);
     v.rail.style.display = gv ? '' : 'none';
     h.rail.style.display = gh ? '' : 'none';
     if (gv) {
-      v.rail.style.transform = `translate(${sl + cw - RAIL}px, ${st}px)`;
-      v.rail.style.height = `${ch - RAIL}px`;
+      v.rail.style.transform = `translate(${sl + cw - OFF}px, ${st}px)`;
+      v.rail.style.height = `${ch - OFF}px`;
       v.thumb.style.height = `${gv.size}px`;
       v.thumb.style.transform = `translateY(${gv.offset}px)`;
     }
     if (gh) {
-      h.rail.style.transform = `translate(${sl}px, ${st + ch - RAIL}px)`;
-      h.rail.style.width = `${cw - RAIL}px`;
+      h.rail.style.transform = `translate(${sl}px, ${st + ch - OFF}px)`;
+      h.rail.style.width = `${cw - OFF}px`;
       h.thumb.style.width = `${gh.size}px`;
       h.thumb.style.transform = `translateX(${gh.offset}px)`;
     }
@@ -121,7 +125,7 @@ export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
       const start = isV ? e.clientY : e.clientX;
       const client = isV ? scroller.clientHeight : scroller.clientWidth;
       const total = isV ? scroller.scrollHeight : scroller.scrollWidth;
-      const track = client - RAIL;
+      const track = client - RAIL - EDGE_GAP;
       const g = thumbGeometry(client, total, isV ? scroller.scrollTop : scroller.scrollLeft, track);
       if (!g) { dragging = null; return; }
       const startOffset = g.offset;
