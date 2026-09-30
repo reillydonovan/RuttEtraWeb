@@ -678,3 +678,35 @@
   outline: 1px solid var(--re-accent);
   border-color: var(--re-accent);
 }
+
+/* Hover-revealed scroll rails (edgeScrollbars.ts). The bay hides its
+   native scrollbars: on macOS they're overlay-only, can't be styled,
+   and showed the pan hand. */
+.rw-patchbay { position: relative; scrollbar-width: none; }
+.rw-patchbay::-webkit-scrollbar { display: none; }
+.rw-pb-scrollbar {
+  position: absolute; left: 0; top: 0; z-index: 30;
+  opacity: 0; transition: opacity 0.18s ease;
+  background: rgba(8, 14, 8, 0.55);
+  border-radius: 5px;
+  cursor: var(--rw-cur-pointer) !important;
+}
+.rw-pb-scrollbar--v { width: 10px; }
+.rw-pb-scrollbar--h { height: 10px; }
+.rw-pb-scrollbar--on, .rw-pb-scrollbar--drag { opacity: 1; }
+.rw-pb-scrollbar-thumb {
+  position: absolute; left: 1px; top: 1px;
+  border-radius: 4px;
+  background: var(--re-line-hi, rgba(95, 255, 133, 0.45));
+  box-shadow: 0 0 6px rgba(95, 255, 133, 0.35);
+}
+/* Scroll handles take the axis resize cursor (not the 4-way move glyph). */
+.rw-pb-scrollbar--v .rw-pb-scrollbar-thumb { width: 8px; cursor: var(--rw-cur-resize-ns) !important; }
+.rw-pb-scrollbar--h .rw-pb-scrollbar-thumb { height: 8px; cursor: var(--rw-cur-resize-ew) !important; }
+.rw-pb-scrollbar-thumb:hover,
+.rw-pb-scrollbar--drag .rw-pb-scrollbar-thumb { background: var(--re-accent, #5fff85); }
+/* Keep the axis cursor for the whole drag, even off the thumb. */
+.rw-patchbay:has(.rw-pb-scrollbar--v.rw-pb-scrollbar--drag),
+.rw-patchbay:has(.rw-pb-scrollbar--v.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ns) !important; }
+.rw-patchbay:has(.rw-pb-scrollbar--h.rw-pb-scrollbar--drag),
+.rw-patchbay:has(.rw-pb-scrollbar--h.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ew) !important; }

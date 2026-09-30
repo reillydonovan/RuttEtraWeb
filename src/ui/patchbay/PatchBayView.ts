@@ -55,6 +55,7 @@ const REJECT_TIP_MS = 180;
 const ON_JACK_PX = 10;
 import { infoButton } from '../help/infoModal';
 import { moduleInfo, nodeInfo } from '../help/infoContent';
+import { attachEdgeScrollbars } from './edgeScrollbars';
 import { flowStateOf, moduleFlow, nodeFlow } from '../help/signalFlow';
 import { attachTooltip, scheduleTooltip, cancelTooltip, flashTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
@@ -164,6 +165,9 @@ export function createPatchBayView(
   const surface = document.createElement('div');
   surface.className = 'rw-pb-surface';
   root.appendChild(surface);
+  // Hover-revealed scroll rails on the right/bottom edges (native bars
+  // are hidden in the bay — see edgeScrollbars.ts). Re-synced in frame().
+  const edgeBars = attachEdgeScrollbars(root);
 
   // Narrow mode: below ~900px the three deck columns stack vertically
   // so the whole patch stays visible (vertical scroll, no horizontal
@@ -2172,7 +2176,7 @@ export function createPatchBayView(
     // "an uninteractable part of a patch bay node module"). Jacks, knobs,
     // the ✕ and the range ▾ also stop propagation on their own; headers
     // are the module-drag handle.
-    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-info-btn, .rw-range-menu-btn, input, select, button, textarea, a, [contenteditable="true"]')) return;
+    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-info-btn, .rw-range-menu-btn, .rw-pb-scrollbar, input, select, button, textarea, a, [contenteditable="true"]')) return;
     e.preventDefault();
     autoPan.stop();
     const pid = e.pointerId;
@@ -3248,7 +3252,7 @@ export function createPatchBayView(
   }
   root.addEventListener('contextmenu', (e) => {
     const t = e.target as HTMLElement;
-    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
+    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-rack-jack, .rw-pb-bus-cell, .rw-pb-scrollbar, input, select, button')) return;
     e.preventDefault();
     openAddNodeMenu(e.clientX, e.clientY);
   });
@@ -3338,6 +3342,7 @@ export function createPatchBayView(
     // Edge auto-pan runs BEFORE any rect is measured, so the scroll it
     // applies and the cables drawn below land in the same frame.
     autoPan.step(Math.min(0.05, Math.max(0, dt)));
+    edgeBars.update();
 
     const rect = surface.getBoundingClientRect();
     if (rect.width === 0) return;
