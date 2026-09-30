@@ -28,6 +28,9 @@
  *      off-canvas drawer on narrow viewports.
  */
 
+// Self-hosted fonts — static CSS + font files, no synth runtime.
+import '@fontsource/vt323';
+import '@fontsource/share-tech-mono';
 import './about.css';
 
 // Markdown sections — pre-rendered HTML strings emitted by the
