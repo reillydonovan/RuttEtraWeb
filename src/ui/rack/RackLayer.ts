@@ -10,10 +10,17 @@
  *     DRAGGABLE: grab an output jack to patch/re-patch, grab a plugged
  *     input jack to move that cable, drop in empty space to unplug.
  *   - cyan cables   = Graph engine bindings (graph → target param),
- *     read-only here — the graph editor is their editing surface.
+ *     DRAGGABLE by their param end: grab the plugged input jack to move
+ *     the cable to another param, drop in space to unplug.
+ *   - every jacked slider also has an OUTPUT jack: drag it onto another
+ *     param's input to patch param → param. That creates/reuses the same
+ *     `param-out` graph node the Patch Bay uses (rackGeometry
+ *     `bindParamOut`), so the cable shows in the Patch Bay too, and its
+ *     cyan cable starts at this slider's OUT jack.
  *
  * Cable edits are PATCH DATA edits: they write `Settings.modSlots[i]
- * .target` through `settings.set`, the same path as the Modulation
+ * .target` (or `modGraph`, plus `engine.setPatch` — the graph's
+ * two-write rule) through `settings.set`, the same path as the Modulation
  * section's Target dropdown (which updates live via its existing
  * subscription). Nothing here touches live values — the base/live split
  * is untouched by cables (skin invariants, PRINCIPLES.md).
@@ -28,11 +35,14 @@
 import { subscribeSkin, getSkin } from '../skin';
 import { TARGETS } from '../targets';
 import type { SettingsStore, ModTarget } from '../../state/Settings';
+import type { GraphPatch } from '../../modulation/graph/types';
+import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import { drawPatchCable, fitCableCanvas } from '../cableDraw';
 import { attachTooltip } from '../tooltip';
 import {
   classicCables, graphCables, applyCableTarget, slotForParam,
   nearestJack, rectCenter, Pt,
+  graphBindingForParam, applyGraphBindingTarget, bindParamOut, paramOutKeyOf,
 } from './rackGeometry';
 import './rack.css';
 
@@ -44,7 +54,13 @@ const TARGET_KEYS = new Set<string>(TARGETS.filter((t) => t.v !== 'none').map((t
 
 export interface RackLayerController { destroy(): void }
 
-export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore): RackLayerController {
+export function createRackLayer(
+  panelRoot: HTMLElement,
+  settings: SettingsStore,
+  /** Graph engine handle for graph-cable edits (modGraph writes must also
+   *  reach `engine.setPatch` — the engine never re-reads Settings). */
+  getEngine?: () => Promise<GraphEngine>,
+): RackLayerController {
   let active = false;
   let raf = 0;
   let canvas: HTMLCanvasElement | null = null;
@@ -62,6 +78,8 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
   const paramJacks = new Map<string, HTMLElement>();
   /** slotIndex -> injected output jack element. */
   const slotJacks = new Map<number, HTMLElement>();
+  /** paramKey -> injected param OUTPUT jack (param → param patching). */
+  const paramOutJacks = new Map<string, HTMLElement>();
 
   /**
    * In-progress drag (viewport coords). Bidirectional (Phase 0 of the
@@ -70,11 +88,18 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
    *   'to-param' — fixed end at slot `slotIndex`'s output jack; loose
    *                end seeks param INPUT jacks.
    *   'to-slot'  — fixed end at `paramKey`'s input jack; loose end
-   *                seeks slot OUTPUT jacks.
+   *                seeks slot OUTPUT jacks or other params' OUTPUT jacks.
+   *   'graph-to-param' — a graph binding's param end being moved; fixed
+   *                end at the binding's source; seeks param INPUT jacks.
+   *   'pout-to-param' — fixed end at `paramKey`'s OUTPUT jack; loose end
+   *                seeks other params' INPUT jacks.
    */
+  type OutHover = { kind: 'slot'; index: number } | { kind: 'pout'; key: string } | null;
   type Pending =
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
-    | { kind: 'to-slot'; paramKey: string; pos: Pt; hover: number | null };
+    | { kind: 'to-slot'; paramKey: string; pos: Pt; hover: OutHover }
+    | { kind: 'graph-to-param'; bindingId: string; pos: Pt; hover: string | null }
+    | { kind: 'pout-to-param'; paramKey: string; pos: Pt; hover: string | null };
   let pending: Pending | null = null;
 
   // ------------------------------------------------------------------
@@ -98,11 +123,22 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
       });
       jack.addEventListener('pointerdown', (ev) => {
         const i = slotForParam(settings.get('modSlots'), key);
-        if (i >= 0) beginDrag(ev, i, jack);
-        else beginReverseDrag(ev, key, jack);
+        if (i >= 0) { beginDrag(ev, i, jack); return; }
+        const bindingId = graphBindingForParam(settings.get('modGraph'), key);
+        if (bindingId) { beginGraphDrag(ev, bindingId, jack); return; }
+        beginReverseDrag(ev, key, jack);
       });
       el.appendChild(jack);
       paramJacks.set(key, jack);
+
+      // Output jack: this param's live value as a signal (param → param).
+      const out = doc.createElement('span');
+      out.className = 'rw-rack-jack rw-rack-jack--out rw-rack-jack--pout';
+      out.dataset.rackJackPout = key;
+      attachTooltip(out, 'Parameter output — drag to another parameter’s input jack to modulate it with this one (shows in the Patch Bay too).');
+      out.addEventListener('pointerdown', (ev) => beginParamOutDrag(ev, key, out));
+      el.appendChild(out);
+      paramOutJacks.set(key, out);
     }
 
     for (const card of Array.from(panelRoot.querySelectorAll<HTMLElement>('.rw-mod-slot[data-mod-slot]'))) {
@@ -225,29 +261,100 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
   }
 
   /** Drag from an UNPLUGGED input jack: the loose end seeks slot output
-   *  jacks; dropping on one patches that slot to this param. */
+   *  jacks or another param's output jack; dropping on a slot patches that
+   *  slot to this param, dropping on a param output patches param → param. */
   function beginReverseDrag(ev: PointerEvent, paramKey: string, grabbedJack: HTMLElement): void {
     const p: Pending = { kind: 'to-slot', paramKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    const elFor = (h: OutHover): HTMLElement | undefined => (
+      h?.kind === 'slot' ? slotJacks.get(h.index) : h?.kind === 'pout' ? paramOutJacks.get(h.key) : undefined);
+    runGesture(ev, grabbedJack,
+      (pos) => {
+        p.pos = pos;
+        const slotHit = nearestJack(jackCenters(slotJacks), pos, SNAP_PX);
+        const poutHit = nearestJack(jackCenters(paramOutJacks).filter((c) => c.id !== paramKey), pos, SNAP_PX);
+        const dist = (h: Pt | null): number => (h ? Math.hypot(h.x - pos.x, h.y - pos.y) : Infinity);
+        const next: OutHover = !slotHit && !poutHit ? null
+          : dist(slotHit) <= dist(poutHit) ? { kind: 'slot', index: slotHit!.id }
+          : { kind: 'pout', key: poutHit!.id };
+        const same = next?.kind === p.hover?.kind
+          && (next?.kind === 'slot' ? next.index === (p.hover as { index: number }).index
+            : next?.kind === 'pout' ? next.key === (p.hover as { key: string }).key : true);
+        if (!same) {
+          elFor(p.hover)?.classList.remove('rw-rack-jack--hover');
+          p.hover = next;
+          elFor(p.hover)?.classList.add('rw-rack-jack--hover');
+        }
+      },
+      () => {
+        elFor(p.hover)?.classList.remove('rw-rack-jack--hover');
+        pending = null;
+        const h = p.hover;
+        if (!h) return; // dropped in space — nothing was plugged
+        if (h.kind === 'pout') { commitGraph(bindParamOut(settings.get('modGraph'), h.key, paramKey)); return; }
+        const slots = settings.get('modSlots');
+        if (slots[h.index] && slots[h.index].target !== paramKey) {
+          settings.set('modSlots', applyCableTarget(slots, h.index, paramKey as ModTarget));
+        }
+      });
+  }
+
+  /** Move a graph binding's param end: snap to another param's input, or
+   *  drop in space to unplug (binding kept, retargeted to 'none' — the
+   *  same non-destructive unplug the Patch Bay uses). */
+  function beginGraphDrag(ev: PointerEvent, bindingId: string, grabbedJack: HTMLElement): void {
+    const p: Pending = { kind: 'graph-to-param', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
     runGesture(ev, grabbedJack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(jackCenters(slotJacks), pos, SNAP_PX);
+        const hit = nearestJack(jackCenters(paramJacks), pos, SNAP_PX);
         if ((hit?.id ?? null) !== p.hover) {
-          if (p.hover != null) slotJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+          if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
           p.hover = hit?.id ?? null;
-          if (p.hover != null) slotJacks.get(p.hover)?.classList.add('rw-rack-jack--hover');
+          if (p.hover) paramJacks.get(p.hover)?.classList.add('rw-rack-jack--hover');
         }
       },
       () => {
-        if (p.hover != null) slotJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+        if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
         pending = null;
-        if (p.hover == null) return; // dropped in space — nothing was plugged
-        const slots = settings.get('modSlots');
-        if (slots[p.hover] && slots[p.hover].target !== paramKey) {
-          settings.set('modSlots', applyCableTarget(slots, p.hover, paramKey as ModTarget));
-        }
+        const patch = settings.get('modGraph');
+        const binding = patch?.bindings.find((b) => b.id === bindingId);
+        const next = p.hover ?? 'none';
+        if (patch && binding && binding.paramKey !== next) commitGraph(applyGraphBindingTarget(patch, bindingId, next));
       });
+  }
+
+  /** Drag a param's OUTPUT jack onto another param's input: param → param. */
+  function beginParamOutDrag(ev: PointerEvent, paramKey: string, grabbedJack: HTMLElement): void {
+    const p: Pending = { kind: 'pout-to-param', paramKey, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    pending = p;
+    runGesture(ev, grabbedJack,
+      (pos) => {
+        p.pos = pos;
+        const hit = nearestJack(jackCenters(paramJacks).filter((c) => c.id !== paramKey), pos, SNAP_PX);
+        if ((hit?.id ?? null) !== p.hover) {
+          if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+          p.hover = hit?.id ?? null;
+          if (p.hover) paramJacks.get(p.hover)?.classList.add('rw-rack-jack--hover');
+        }
+      },
+      () => {
+        if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
+        pending = null;
+        if (p.hover) commitGraph(bindParamOut(settings.get('modGraph'), paramKey, p.hover));
+      });
+  }
+
+  /** The graph's two-write rule: Settings for persistence/UI, and the
+   *  engine for the live patch. Also switches a Classic-only session to
+   *  'both' so the new cable actually does something (the engine no-ops
+   *  in 'classic' — same guard every Patch Bay gesture applies). */
+  function commitGraph(updated: GraphPatch): void {
+    if (updated === settings.get('modGraph')) return;
+    if (settings.get('modMode') === 'classic') settings.set('modMode', 'both');
+    settings.set('modGraph', updated);
+    void getEngine?.().then((e) => e.setPatch(updated));
   }
 
   // ------------------------------------------------------------------
@@ -303,29 +410,53 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
       });
     }
 
-    // Graph binding cables — read-only, one per enabled binding.
-    const src = graphSourceAnchor();
-    if (src) {
-      for (const g of graphCables(settings.get('modGraph'))) {
-        const jack = paramJacks.get(g.paramKey);
-        if (!jack) continue;
-        const b = anchorFor(jack);
-        if (!b) continue;
-        plugged.add(g.paramKey);
-        drawPatchCable(ctx, local(src), local(b), GRAPH_COLOR, {
-          style: 'sag', dim: !g.enabled, dashed: false,
-        });
-      }
+    // Graph binding cables. A binding fed by a `param-out` node starts at
+    // that param's OUTPUT jack (a param → param patch); any other graph
+    // source starts at the Modulation section's header.
+    const graph = settings.get('modGraph');
+    const pluggedOut = new Set<string>();
+    /** Where a graph binding's source end is drawn. */
+    const graphSrcAnchor = (sourceNodeId: string): Pt | null => {
+      const fromKey = paramOutKeyOf(graph, sourceNodeId);
+      const outJack = fromKey ? paramOutJacks.get(fromKey) : undefined;
+      return outJack ? anchorFor(outJack) : graphSourceAnchor();
+    };
+    for (const g of graphCables(graph)) {
+      if (g.paramKey === 'none') continue;
+      if (pending?.kind === 'graph-to-param' && pending.bindingId === g.bindingId) continue;
+      const jack = paramJacks.get(g.paramKey);
+      if (!jack) continue;
+      const a = graphSrcAnchor(g.sourceNodeId);
+      const b = anchorFor(jack);
+      if (!a || !b) continue;
+      plugged.add(g.paramKey);
+      const fromKey = paramOutKeyOf(graph, g.sourceNodeId);
+      if (fromKey) pluggedOut.add(fromKey);
+      drawPatchCable(ctx, local(a), local(b), GRAPH_COLOR, {
+        style: 'sag', dim: !g.enabled, dashed: false,
+      });
     }
 
     // Pending (dragged) cable, highlighted, loose end on the pointer.
     if (pending) {
-      const fixedJack = pending.kind === 'to-param'
-        ? slotJacks.get(pending.slotIndex)
-        : paramJacks.get(pending.paramKey);
-      const a = fixedJack ? anchorFor(fixedJack) : null;
+      let a: Pt | null = null;
+      let color = CLASSIC_COLOR;
+      if (pending.kind === 'to-param') {
+        const j = slotJacks.get(pending.slotIndex); a = j ? anchorFor(j) : null;
+      } else if (pending.kind === 'to-slot') {
+        const j = paramJacks.get(pending.paramKey); a = j ? anchorFor(j) : null;
+        if (pending.hover?.kind === 'pout') color = GRAPH_COLOR;
+      } else if (pending.kind === 'pout-to-param') {
+        const j = paramOutJacks.get(pending.paramKey); a = j ? anchorFor(j) : null;
+        color = GRAPH_COLOR;
+      } else {
+        const id = pending.bindingId;
+        const b = graph?.bindings.find((x) => x.id === id);
+        a = b ? graphSrcAnchor(b.sourceNodeId) : null;
+        color = GRAPH_COLOR;
+      }
       if (a) {
-        drawPatchCable(ctx, local(a), local(pending.pos), CLASSIC_COLOR, {
+        drawPatchCable(ctx, local(a), local(pending.pos), color, {
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,
         });
       }
@@ -338,6 +469,9 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
     for (const [i, el] of slotJacks) {
       el.classList.toggle('rw-rack-jack--plugged',
         slots[i] ? slots[i].target !== 'none' : false);
+    }
+    for (const [key, el] of paramOutJacks) {
+      el.classList.toggle('rw-rack-jack--plugged', pluggedOut.has(key));
     }
   }
 
@@ -387,8 +521,10 @@ export function createRackLayer(panelRoot: HTMLElement, settings: SettingsStore)
       deactivate();
       for (const el of paramJacks.values()) el.remove();
       for (const el of slotJacks.values()) el.remove();
+      for (const el of paramOutJacks.values()) el.remove();
       paramJacks.clear();
       slotJacks.clear();
+      paramOutJacks.clear();
     },
   };
 }

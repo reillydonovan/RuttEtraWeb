@@ -816,7 +816,7 @@ async function bootSynth(): Promise<void> {
   // its MutationObserver, so order here doesn't matter).
   {
     const { createRackLayer } = await import('./ui/rack/RackLayer');
-    createRackLayer(panelHost, settings);
+    createRackLayer(panelHost, settings, ensureGraphEngine);
   }
 
   // Workspace regions (v29): the side/dock shells each get a view

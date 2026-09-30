@@ -147,13 +147,15 @@ The **skin picker** in the panel title bar (CRT / HW / RACK) switches
 between three looks. **HW** swaps the flat controls for a skeuomorphic
 hardware panel — rotary knobs (drag vertically; hold \`Shift\` for fine
 control), bat switches, LCD readouts. **RACK** adds modular chrome and
-**live patch cables**: every modulatable knob grows an input jack, each
+**live patch cables**: every modulatable knob grows an input and an
+output jack, each
 Classic mod slot gets an output jack, and dragging a cable between them
 — in either direction — sets that slot's Target, exactly the same edit
 as the Modulation panel's dropdown. Drop a cable in empty space to
-unplug it. Cyan cables
-show Graph-engine bindings (read-only here; edit them in the graph
-editor). Same parameters, same values in every skin; the choice is
+unplug it. Drag a knob's output jack onto another knob's input to
+modulate one parameter with another. Cyan cables show Graph-engine
+bindings; grab one by its input jack to move or unplug it. Every cable
+here is the same patch the Patch Bay shows. Same parameters, same values in every skin; the choice is
 remembered on this machine — it isn't part of your presets or projects.
 Touch layouts keep their touch-friendly controls regardless of skin.
 

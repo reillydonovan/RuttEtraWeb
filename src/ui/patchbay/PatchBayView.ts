@@ -62,6 +62,7 @@ import {
   slotForParam, nearestJack, rectCenter, Pt,
   graphBindingForParam, applyGraphBindingTarget,
   nodeWires, applyNodeInputRef, deleteGraphNode,
+  genGraphId, ensureParamOutNode, bindParamOut,
 } from '../rack/rackGeometry';
 import { buildFaceplate, SOURCE_JACKS } from './patchbayLayout';
 import { cvOutputTargets } from '../targets';
@@ -130,12 +131,9 @@ function splitJackKey(key: string): { nodeId: string; port: string } {
   return i < 0 ? { nodeId: key, port: '' } : { nodeId: key.slice(0, i), port: key.slice(i + 1) };
 }
 
-/** Matches the id format every other graph-editing surface uses
- *  (BeginnerView.ts, AdvancedView.ts) — not shared/exported anywhere,
- *  same small local-helper duplication those files already have. */
-function genId(prefix: string): string {
-  return `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
-}
+/** Graph id generator — shared (rackGeometry) with the rack skin's
+ *  Controls cables, which create the same kinds of nodes/bindings. */
+const genId = genGraphId;
 
 type JackId =
   | { kind: 'param'; key: string }
@@ -715,21 +713,17 @@ export function createPatchBayView(
         setPOHover(null);
         endDrag();
         if (!hover) return;
-        let patch: GraphPatch = settings.get('modGraph') ?? { nodes: [], bindings: [] };
-        let node = patch.nodes.find((n) => n.type === 'param-out' && String(n.params.key) === paramKey);
-        if (!node) {
-          node = { id: genId('n'), type: 'param-out', params: { key: paramKey }, inputs: {} };
-          patch = { ...patch, nodes: [...patch.nodes, node] };
+        const current = settings.get('modGraph');
+        let updated: GraphPatch;
+        if (hover.kind === 'in') {
+          const { patch, nodeId } = ensureParamOutNode(current, paramKey, genId);
+          const { nodeId: tId, port } = splitJackKey(hover.key);
+          updated = applyNodeInputRef(patch, tId, port, nodeId);
+        } else {
+          // Shared with the rack skin's Controls panel (rackGeometry).
+          updated = bindParamOut(current, paramKey, hover.key, genId);
         }
-        const updated: GraphPatch = hover.kind === 'in'
-          ? applyNodeInputRef(patch, splitJackKey(hover.key).nodeId, splitJackKey(hover.key).port, node.id)
-          : {
-            ...patch,
-            bindings: [...patch.bindings, {
-              id: genId('b'), paramKey: hover.key, sourceNodeId: node.id,
-              amount: 0.25, mode: 'additive',
-            }],
-          };
+        if (updated === current) return;
         ensureGraphLive();
         settings.set('modGraph', updated);
         void getEngine().then((e) => e.setPatch(updated));

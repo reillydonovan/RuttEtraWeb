@@ -230,3 +230,60 @@ export function nearestJack<T extends Pt>(jacks: readonly T[], p: Pt, maxDist: n
 export function rectCenter(r: { left: number; top: number; width: number; height: number }): Pt {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
+
+/** Graph node/binding id in the format every graph-editing surface uses
+ *  (BeginnerView, AdvancedView, PatchBayView). Never contains '#', which
+ *  the `nodeId#port` ref syntax relies on. */
+export function genGraphId(prefix: string): string {
+  return `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+}
+
+/**
+ * Find — or create — the `param-out` node that reads `paramKey`'s live
+ * value as a signal (one per param, so repeated drags from the same
+ * param's OUT jack reuse it instead of piling up duplicates).
+ */
+export function ensureParamOutNode(
+  patch: GraphPatch | null | undefined,
+  paramKey: string,
+  genId: (prefix: string) => string = genGraphId,
+): { patch: GraphPatch; nodeId: string } {
+  const p: GraphPatch = patch ?? { nodes: [], bindings: [] };
+  const existing = p.nodes.find((n) => n.type === 'param-out' && String(n.params.key) === paramKey);
+  if (existing) return { patch: p, nodeId: existing.id };
+  const nodeId = genId('n');
+  return {
+    patch: { ...p, nodes: [...p.nodes, { id: nodeId, type: 'param-out', params: { key: paramKey }, inputs: {} }] },
+    nodeId,
+  };
+}
+
+/**
+ * Patch one param's OUT jack into another param's IN jack: a binding
+ * from `fromKey`'s `param-out` node to `toKey`. Shared by the Patch Bay
+ * faceplate and the rack skin's Controls panel, so a param→param cable
+ * made on either surface is the same patch data and shows on both.
+ * Idempotent: an identical existing binding is left alone. Self-patching
+ * (fromKey === toKey) is refused — a degenerate one-frame loop.
+ */
+export function bindParamOut(
+  patch: GraphPatch | null | undefined,
+  fromKey: string,
+  toKey: string,
+  genId: (prefix: string) => string = genGraphId,
+): GraphPatch {
+  const base: GraphPatch = patch ?? { nodes: [], bindings: [] };
+  if (fromKey === toKey) return base;
+  const { patch: p, nodeId } = ensureParamOutNode(base, fromKey, genId);
+  if (p.bindings.some((b) => b.sourceNodeId === nodeId && b.paramKey === toKey)) return p;
+  return {
+    ...p,
+    bindings: [...p.bindings, { id: genId('b'), paramKey: toKey, sourceNodeId: nodeId, amount: 0.25, mode: 'additive' }],
+  };
+}
+
+/** The Settings key a `param-out` node reads, or null for any other node. */
+export function paramOutKeyOf(patch: GraphPatch | null | undefined, nodeId: string): string | null {
+  const n = patch?.nodes.find((x) => x.id === nodeId);
+  return n && n.type === 'param-out' ? String(n.params.key) : null;
+}

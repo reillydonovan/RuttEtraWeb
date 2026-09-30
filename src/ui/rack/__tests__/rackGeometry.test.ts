@@ -9,6 +9,7 @@ import {
   slotForParam, nearestJack, rectCenter,
   graphBindingForParam, applyGraphBindingTarget,
   nodeWires, applyNodeInputRef, deleteGraphNode,
+  ensureParamOutNode, bindParamOut, paramOutKeyOf, genGraphId,
 } from '../rackGeometry';
 import { cableControlPoints } from '../../cableDraw';
 import type { ModSlot } from '../../../state/Settings';
@@ -303,5 +304,44 @@ describe('cableControlPoints', () => {
     expect(c1.y).toBeGreaterThan(100);
     expect(c2.y).toBeGreaterThan(100);
     expect(c1.y).toBe(c2.y); // symmetric hang, unaffected by the vertical-case fix
+  });
+});
+
+describe('param → param patching (shared by Patch Bay and the rack Controls panel)', () => {
+  let n = 0;
+  const gen = (prefix: string): string => `${prefix}${++n}`;
+
+  it('creates a param-out node and a binding to the target', () => {
+    const out = bindParamOut(null, 'zPush', 'hSize', gen);
+    expect(out.nodes).toHaveLength(1);
+    expect(out.nodes[0]).toMatchObject({ type: 'param-out', params: { key: 'zPush' } });
+    expect(out.bindings).toHaveLength(1);
+    expect(out.bindings[0]).toMatchObject({ paramKey: 'hSize', sourceNodeId: out.nodes[0].id });
+    expect(paramOutKeyOf(out, out.nodes[0].id)).toBe('zPush');
+  });
+
+  it('reuses the same param-out node for a second target, and is idempotent', () => {
+    const a = bindParamOut(null, 'zPush', 'hSize', gen);
+    const b = bindParamOut(a, 'zPush', 'vSize', gen);
+    expect(b.nodes).toHaveLength(1);
+    expect(b.bindings.map((x) => x.paramKey)).toEqual(['hSize', 'vSize']);
+    expect(bindParamOut(b, 'zPush', 'vSize', gen)).toBe(b);
+  });
+
+  it('refuses a param feeding itself', () => {
+    const empty = { nodes: [], bindings: [] };
+    expect(bindParamOut(empty, 'zPush', 'zPush', gen)).toBe(empty);
+  });
+
+  it('ensureParamOutNode leaves an existing node alone', () => {
+    const a = bindParamOut(null, 'zPush', 'hSize', gen);
+    const r = ensureParamOutNode(a, 'zPush', gen);
+    expect(r.patch).toBe(a);
+    expect(r.nodeId).toBe(a.nodes[0].id);
+  });
+
+  it('paramOutKeyOf is null for other node types; ids never contain #', () => {
+    expect(paramOutKeyOf({ nodes: [{ id: 'x', type: 'lfo', params: {}, inputs: {} }], bindings: [] }, 'x')).toBeNull();
+    expect(genGraphId('n')).not.toContain('#');
   });
 });
