@@ -53,6 +53,8 @@ import { rejectReason, TWO_WAY_PATCHING, outputHint, type JackKind } from '../ra
 const REJECT_TIP_MS = 180;
 /** Pointer this close to a jack's center counts as "on" that jack. */
 const ON_JACK_PX = 10;
+import { infoButton } from '../help/infoModal';
+import { moduleInfo, nodeInfo } from '../help/infoContent';
 import { attachTooltip, scheduleTooltip, cancelTooltip, flashTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
@@ -180,6 +182,26 @@ export function createPatchBayView(
 
   // ---------------- jack registry (static — the whole point) ---------
   const paramJacks = new Map<string, HTMLElement>();
+
+  /** Header text of a module head / field title (its own text, not its
+   *  LED / ⓘ / row children). */
+  const unitTitle = (h: HTMLElement): string => {
+    const own = Array.from(h.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+    if (own) return own;
+    const span = Array.from(h.querySelectorAll<HTMLElement>(':scope > span')).find((e) => !e.className && e.textContent?.trim());
+    return span?.textContent?.trim() ?? h.textContent?.trim() ?? '';
+  };
+  /** Add an ⓘ to a hardware module head or field title (idempotent). */
+  const addUnitInfo = (h: HTMLElement): void => {
+    if (h.dataset.pbStatic || h.querySelector(':scope > .rw-info-btn') || h.closest('.rw-pb-graphnode')) return;
+    const title = unitTitle(h);
+    if (!title) return;
+    const unit = h.parentElement;
+    h.appendChild(infoButton(() => moduleInfo(
+      title,
+      unit ? [...paramJacks].filter(([, j]) => unit.contains(j)).map(([k]) => k) : [],
+    ), `About ${title}`));
+  };
   const slotOutJacks = new Map<number, HTMLElement>();
   const slotSrcJacks = new Map<number, HTMLElement>();
   const srcJacks = new Map<ModSource, HTMLElement>();
@@ -2051,6 +2073,7 @@ export function createPatchBayView(
     const grid = document.createElement('div');
     grid.className = 'rw-pb-grid';
     cvField.append(t, grid);
+    addUnitInfo(t);
     const cvOpts = cvOutputTargets(settings);
     if (!cvOpts.length) {
       const hint = document.createElement('div');
@@ -2132,7 +2155,7 @@ export function createPatchBayView(
     // "an uninteractable part of a patch bay node module"). Jacks, knobs,
     // the ✕ and the range ▾ also stop propagation on their own; headers
     // are the module-drag handle.
-    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-range-menu-btn, input, select, button, textarea, a, [contenteditable="true"]')) return;
+    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-info-btn, .rw-range-menu-btn, input, select, button, textarea, a, [contenteditable="true"]')) return;
     e.preventDefault();
     autoPan.stop();
     const pid = e.pointerId;
@@ -2592,6 +2615,12 @@ export function createPatchBayView(
     const busTitle = bus.querySelector<HTMLElement>('.rw-pb-field-title');
     if (busTitle) makeUnitDraggable(bus, busTitle);
   }
+  // ⓘ on every hardware module / faceplate field header (graph node
+  // modules add theirs in rebuildGraphModules; CV OUT re-adds its own on
+  // each rebuild).
+  for (const h of Array.from(surface.querySelectorAll<HTMLElement>('.rw-pb-module-head, .rw-pb-field-title'))) {
+    addUnitInfo(h);
+  }
   // GRAPH ENGINE — one module per graph node in the patch, full stop
   // (owner: "show all nodes, active or not" — a real node-editor
   // surface, not a filtered activity view). A node with no connections
@@ -2773,7 +2802,14 @@ export function createPatchBayView(
           void getEngine().then((e) => e.setPatch(updated));
         });
         attachTooltip(delBtn, 'Delete this node (with confirmation).');
-        head.appendChild(delBtn);
+        // ⓘ — the node type's reference, read lazily (a node's type can
+        // change in place under the same id).
+        const infoBtn = infoButton(() => {
+          const n = settings.get('modGraph')?.nodes.find((x) => x.id === nodeId);
+          const d = n ? getDef(n.type) : null;
+          return d ? nodeInfo(d) : moduleInfo(titleEl.textContent ?? 'Node', []);
+        }, 'About this node');
+        head.append(infoBtn, delBtn);
         mod.appendChild(head);
         makeUnitDraggable(mod, head);
         rail.appendChild(mod);

@@ -14,6 +14,8 @@ import './panel.css';
 import { SettingsStore } from '../state/Settings';
 import { attachTooltip } from './tooltip';
 import { SECTION_HINTS } from './help/sectionHints';
+import { infoButton } from './help/infoModal';
+import { sectionInfo } from './help/infoContent';
 import { SkinId, setSkin, subscribeSkin } from './skin';
 
 export type TabId = 'synth' | 'io' | 'help';
@@ -281,7 +283,13 @@ export class ControlPanel {
     const chev = document.createElement('span');
     chev.className = 'rw-chev';
     chev.textContent = '▾';
-    head.append(titleSpan, chev);
+    // ⓘ — opens this section's reference (keys gathered at click time,
+    // so controls added after construction are included).
+    const info = infoButton(() => sectionInfo(
+      section.title,
+      Array.from(wrap.querySelectorAll<HTMLElement>('[data-param-key]'), (n) => n.dataset.paramKey!),
+    ), `About ${section.title}`);
+    head.append(titleSpan, info, chev);
     const hint = SECTION_HINTS[section.title];
     if (hint) attachTooltip(head, hint);
 

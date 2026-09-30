@@ -119,6 +119,10 @@ const MD_QUICKSTART = `
 > Tutorial** walks it all with try-it buttons. Try
 > **Window ▸ Layout ▸ Patch Bay**.
 >
+> **ⓘ on every module, graph node and Controls section** opens a pop-up
+> explaining what it does, how to patch it and every parameter it
+> holds, with a link to the manual.
+>
 > **⧉ on any window bar** pops that window's view out to its own OS
 > window for multi-display rigs, with its OWN tab bar and `+` so a
 > popup isn't stuck with just the one view it opened with (Patch Bay/
