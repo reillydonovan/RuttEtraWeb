@@ -87,9 +87,12 @@
   letter-spacing: 0.04em;
 }
 
+/* Viewport-sized; frame() pins left/top over the visible area and sets
+   the size (never the whole zoomed board — see frame()). */
 .rw-pb-cables {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
   z-index: 6;
   pointer-events: none;
 }

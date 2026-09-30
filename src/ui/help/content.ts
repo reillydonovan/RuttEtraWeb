@@ -75,7 +75,9 @@ const MD_QUICKSTART = `
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate and a
 > node editor: scroll to zoom, click-drag empty background to pan, drag
-> a module's header to reorder or break it into free layout. The four
+> a module's header to reorder or break it into free layout. Drag a
+> cable or module to the edge of the view and the board glides along
+> so you can reach a jack that's off-screen. The four
 > Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
 > jacks, VIDEO SOURCE A/B modules switch webcam/screen/file feeds (A
 > mirrors the Source panel; B is independent), each with an OUT jack —

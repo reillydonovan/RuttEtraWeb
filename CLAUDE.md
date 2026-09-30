@@ -558,3 +558,11 @@ The README was reconciled to the v12+ state on 2026-07-05 (recent-changes sectio
 
 - `?debug=mod` — overlay showing base/live/Δ per modulated param (`ModDebugOverlay.ts`).
 - `?view=<peerId>` — viewer mode.
+
+### State of the patch-bay zoom lag + edge auto-pan fix (2026-09-29, branch `launch-hardening`, v1.30.0 → v1.30.1)
+
+Two owner reports: cables "hold their position then update when the zoom stops", and dragging a cable to the edge of a zoomed-in bay got stuck at the edge.
+
+- **Zoom lag**: the cable canvas covered the whole zoomed board, so every wheel-zoom step resized (reallocated) a canvas of up to 8K px; the compositor kept showing the old cables until zooming stopped. The canvas now covers only the bay's visible client area, pinned over the viewport each frame (`cableOrigin` in `PatchBayView.ts`; cable hit-tests measure from it). It only resizes with the window. Don't go back to a content-sized cable canvas.
+- **Edge auto-pan** (`src/ui/patchbay/edgePan.ts`, pure + tested): a velocity model — smoothstep pull from an edge band, exponential velocity easing (glide after release), speed capped by distance left so it eases into the scroll limit. `autoPan` in `PatchBayView.ts` steps it from `frame()` before any rects are measured, and re-runs the active drag at the unchanged pointer after each scroll so snap targets follow. Wired into `runGesture` (every cable drag) and `makeUnitDraggable` (module drags; free-mode position includes scroll since the drag began, so the module stays under the cursor). Pan-drag and wheel-zoom hard-stop it.
+- Verified: 585/585 tests (10 new in `edgePan.test.ts`), typecheck, build, about guard; headless Chromium confirmed 0px cable/jack error on every zoom step, a constant canvas size, auto-pan direction for cable and module drags, and the module staying under the cursor. Motion feel (speed/glide) could not be timed in the container (1–2 fps under SwiftShader) — check on real hardware.

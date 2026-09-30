@@ -45,6 +45,7 @@ import type {
   PatternKind, PatternAxis, PatternGradientShape, PatternScopeSourceKind,
 } from '../../state/Settings';
 import { drawPatchCable, fitCableCanvas, distanceToCable, type CablePoint, type CableStyle } from '../cableDraw';
+import { EDGE_PAN, edgePull, stepAxis, type AxisState } from './edgePan';
 import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
 import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
@@ -276,6 +277,60 @@ export function createPatchBayView(
     cancelTooltip(root.ownerDocument);
   }
 
+  /** Screen-space top-left of the cable canvas (the bay's visible
+   *  client area), refreshed every frame — cable hit-tests measure from
+   *  here. */
+  let cableOrigin: Pt = { x: 0, y: 0 };
+
+  // ---------------- edge auto-pan (motion system) ---------------------
+  // Owner: dragging a cable (or a module) to the edge of a zoomed-in bay
+  // should move the view so you can see where you're dropping — smooth
+  // and natural, no stutter. The motion model lives in edgePan.ts (pure,
+  // tested); this controller feeds it the pointer and the scroll range
+  // once per frame (from frame()), and after each scroll re-runs the
+  // active drag at the unchanged pointer position so snap targets follow
+  // the content moving underneath.
+  const autoPan = (() => {
+    const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let active = false;
+    let px = 0, py = 0;
+    let x: AxisState = { v: 0, pos: 0 };
+    let y: AxisState = { v: 0, pos: 0 };
+    let onScrolled: ((x: number, y: number) => void) | null = null;
+    return {
+      begin(cx: number, cy: number, cb: (x: number, y: number) => void): void {
+        active = true; px = cx; py = cy; onScrolled = cb;
+        x = { v: x.v, pos: root.scrollLeft };
+        y = { v: y.v, pos: root.scrollTop };
+      },
+      update(cx: number, cy: number): void { px = cx; py = cy; },
+      /** Release: stop steering, let the view glide to rest. */
+      end(): void { active = false; onScrolled = null; },
+      /** Hard stop (the user grabbed the board or zoomed). */
+      stop(): void { active = false; onScrolled = null; x.v = 0; y.v = 0; },
+      step(dt: number): void {
+        if (!active && x.v === 0 && y.v === 0) return;
+        let tx = 0, ty = 0;
+        if (active) {
+          const r = root.getBoundingClientRect();
+          const k = root.offsetWidth > 0 ? r.width / root.offsetWidth : 1;
+          const l = r.left + root.clientLeft * k, t = r.top + root.clientTop * k;
+          tx = edgePull(px, l, l + root.clientWidth * k) * EDGE_PAN.maxSpeed;
+          ty = edgePull(py, t, t + root.clientHeight * k) * EDGE_PAN.maxSpeed;
+        }
+        // Someone else moved the scroll (pan, zoom, scrollbar): follow it.
+        if (Math.abs(x.pos - root.scrollLeft) > 1.5) x.pos = root.scrollLeft;
+        if (Math.abs(y.pos - root.scrollTop) > 1.5) y.pos = root.scrollTop;
+        const bx = root.scrollLeft, by = root.scrollTop;
+        x = stepAxis(x, tx, Math.max(0, root.scrollWidth - root.clientWidth), dt, calm);
+        y = stepAxis(y, ty, Math.max(0, root.scrollHeight - root.clientHeight), dt, calm);
+        if (x.pos !== bx) root.scrollLeft = x.pos;
+        if (y.pos !== by) root.scrollTop = y.pos;
+        if (active && onScrolled && (root.scrollLeft !== bx || root.scrollTop !== by)) onScrolled(px, py);
+      },
+    };
+  })();
+
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
     const out: Array<Pt & { id: K }> = [];
     for (const [id, el] of m) {
@@ -297,9 +352,11 @@ export function createPatchBayView(
     const id = ev.pointerId;
     grabbed.classList.add('rw-rack-jack--grab');
     root.classList.add('rw-rack-dragging');
+    autoPan.begin(ev.clientX, ev.clientY, (x, y) => onMove({ x, y }));
     const move = (e: PointerEvent): void => {
       if (e.pointerId !== id) return;
       e.preventDefault();
+      autoPan.update(e.clientX, e.clientY);
       onMove({ x: e.clientX, y: e.clientY });
     };
     const up = (e: PointerEvent): void => {
@@ -309,6 +366,7 @@ export function createPatchBayView(
       doc.removeEventListener('pointercancel', up);
       grabbed.classList.remove('rw-rack-jack--grab');
       root.classList.remove('rw-rack-dragging');
+      autoPan.end();
       onDrop();
     };
     doc.addEventListener('pointermove', move, { passive: false });
@@ -1892,6 +1950,7 @@ export function createPatchBayView(
   // pointing devices without a wheel.
   root.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (!pending && !root.classList.contains('rw-pb-node-dragging')) autoPan.stop();
     applyZoom(zoom * Math.exp(-e.deltaY * 0.0012), e.clientX, e.clientY);
   }, { passive: false });
 
@@ -1903,6 +1962,7 @@ export function createPatchBayView(
     const t = e.target as HTMLElement;
     if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
     e.preventDefault();
+    autoPan.stop();
     const pid = e.pointerId;
     const startX = e.clientX, startY = e.clientY;
     const startLeft = root.scrollLeft, startTop = root.scrollTop;
@@ -1934,8 +1994,7 @@ export function createPatchBayView(
       // so clicks here already fall through from it — no separate
       // canvas listener needed.
       if (!started) {
-        const sRect = surface.getBoundingClientRect();
-        const p: Pt = { x: ev.clientX - sRect.left, y: ev.clientY - sRect.top };
+        const p: Pt = { x: ev.clientX - cableOrigin.x, y: ev.clientY - cableOrigin.y };
         let bestId: string | null = null;
         let bestDist = 12;
         for (const c of drawnThisFrame) {
@@ -1966,8 +2025,7 @@ export function createPatchBayView(
       if (hoveredCableId !== null) hoveredCableId = null;
       return;
     }
-    const sRect = surface.getBoundingClientRect();
-    const p: Pt = { x: e.clientX - sRect.left, y: e.clientY - sRect.top };
+    const p: Pt = { x: e.clientX - cableOrigin.x, y: e.clientY - cableOrigin.y };
     let bestId: string | null = null;
     let bestDist = 10;
     for (const c of drawnThisFrame) {
@@ -2216,10 +2274,18 @@ export function createPatchBayView(
       const canStack = unit !== bus; // the bus stays a top strip
       const doc = root.ownerDocument;
 
+      // Scroll at the moment free-dragging began: edge auto-pan moves the
+      // board under a still pointer, so the unit's position must include
+      // how far the view has scrolled since, or it would drift off the
+      // cursor.
+      let sl0 = 0, st0 = 0;
+      let lastX = startX, lastY = startY;
       const beginFree = (e: PointerEvent): void => {
         freeze();
         baseL = parseFloat(unit.style.left) || 0;
         baseT = parseFloat(unit.style.top) || 0;
+        sl0 = root.scrollLeft;
+        st0 = root.scrollTop;
         // Re-base the gesture so the unit doesn't jump.
         (unit.dataset.dragBaseX as unknown) = undefined;
         unit.classList.add('rw-pb-unit-dragging');
@@ -2241,15 +2307,21 @@ export function createPatchBayView(
           root.classList.add('rw-pb-node-dragging');
           if (!freeMode) unit.classList.add('rw-pb-unit-lifting');
           else { beginFree(e); }
+          autoPan.begin(e.clientX, e.clientY, (x, y) => place(x, y));
         }
         e.preventDefault();
+        lastX = e.clientX; lastY = e.clientY;
+        autoPan.update(lastX, lastY);
+        place(lastX, lastY);
+      };
 
+      const place = (cx: number, cy: number): void => {
         if (!freeMode) {
           // TIDY mode: reorder within a stack (insertion line), or lift
           // out past every stack to break into free layout on drop.
-          stackTarget = canStack ? stackUnder(e.clientX, e.clientY) : null;
+          stackTarget = canStack ? stackUnder(cx, cy) : null;
           if (stackTarget) {
-            const ref = insertRefIn(stackTarget, e.clientY, unit);
+            const ref = insertRefIn(stackTarget, cy, unit);
             if (ref) stackTarget.insertBefore(insertLine, ref);
             else stackTarget.appendChild(insertLine);
           } else {
@@ -2260,9 +2332,12 @@ export function createPatchBayView(
 
         // FREE mode: absolute move (pointer deltas are visual pixels;
         // unit coords are board units) + magnetic snapping to nearby
-        // nodes (x-align, top-align, or stack directly beneath).
-        let nl = Math.max(0, baseL + (e.clientX - startX) / zoom);
-        let nt = Math.max(0, baseT + (e.clientY - startY) / zoom);
+        // nodes (x-align, top-align, or stack directly beneath). Scroll
+        // since the drag began counts as pointer travel (auto-pan).
+        const rr = root.getBoundingClientRect();
+        const k = root.offsetWidth > 0 ? rr.width / root.offsetWidth : 1;
+        let nl = Math.max(0, baseL + ((cx - startX) + (root.scrollLeft - sl0) * k) / zoom);
+        let nt = Math.max(0, baseT + ((cy - startY) + (root.scrollTop - st0) * k) / zoom);
         const SNAP = 12;
         for (const other of Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free'))) {
           if (other === unit) continue;
@@ -2290,6 +2365,7 @@ export function createPatchBayView(
         doc.removeEventListener('pointercancel', onUp);
         unit.classList.remove('rw-pb-unit-dragging', 'rw-pb-unit-lifting');
         root.classList.remove('rw-pb-node-dragging');
+        autoPan.end();
         if (!started) {
           // A plain click (never crossed the drag threshold) selects this
           // unit instead — the same click-to-select affordance the
@@ -3031,6 +3107,10 @@ export function createPatchBayView(
     lastT = t;
     if (!reduceMotion) dashOffset += dt * 24;
 
+    // Edge auto-pan runs BEFORE any rect is measured, so the scroll it
+    // applies and the cables drawn below land in the same frame.
+    autoPan.step(Math.min(0.05, Math.max(0, dt)));
+
     const rect = surface.getBoundingClientRect();
     if (rect.width === 0) return;
     // Popout-safety, same as RackLayer: an adopted 2D canvas can lose
@@ -3043,26 +3123,26 @@ export function createPatchBayView(
       ctx = canvas.getContext('2d');
       if (!ctx) return;
     }
-    // Coverage: the surface's box PLUS everything laid out inside it —
-    // the board can be far taller than the surface's own box (the bay
-    // root scrolls it), and a box-sized canvas only covered the top
-    // scrollport-slice: cables to jacks below the fold drew into
-    // clipped space and silently vanished. Children rects also include
-    // the board's zoom transform and free-mode breakout units. The
-    // canvas itself is deliberately excluded (see fitCableCanvas docs).
-    let covW = rect.width, covH = rect.height;
-    for (const child of Array.from(surface.children)) {
-      if (child === canvas || !(child instanceof HTMLElement)) continue;
-      const cr = child.getBoundingClientRect();
-      covW = Math.max(covW, cr.right - rect.left);
-      covH = Math.max(covH, cr.bottom - rect.top);
-    }
+    // Coverage = the bay's VISIBLE client area only, pinned over the
+    // viewport each frame. The canvas used to cover the whole zoomed
+    // board, so every wheel-zoom step resized (reallocated) a canvas of
+    // up to 8K px — the compositor kept showing the old cables until
+    // zooming stopped (owner: "they hold their position then update
+    // when the zoom stops"). A viewport-sized canvas only resizes when
+    // the window does. Cables to off-screen jacks are simply clipped at
+    // the view edge, like any node editor.
+    const rr = root.getBoundingClientRect();
+    const k = root.offsetWidth > 0 ? rr.width / root.offsetWidth : 1; // text-scale zoom
+    cableOrigin = { x: rr.left + root.clientLeft * k, y: rr.top + root.clientTop * k };
+    canvas.style.left = `${(cableOrigin.x - rect.left) / k}px`;
+    canvas.style.top = `${(cableOrigin.y - rect.top) / k}px`;
     // Zoom-aware sizing (Global Text Size): keeps the canvas's VISUAL
     // size equal to the coverage so anchors measured in screen pixels
     // land exactly where drawn — see fitCableCanvas's docs.
-    const { w, h } = fitCableCanvas(canvas, ctx, { width: covW, height: covH });
+    const { w, h } = fitCableCanvas(canvas, ctx, { width: root.clientWidth * k, height: root.clientHeight * k });
     ctx.clearRect(0, 0, w, h);
-    const local = (p: Pt): Pt => ({ x: p.x - rect.left, y: p.y - rect.top });
+    const origin = cableOrigin;
+    const local = (p: Pt): Pt => ({ x: p.x - origin.x, y: p.y - origin.y });
     const anchor = (el: HTMLElement | undefined): Pt | null => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
