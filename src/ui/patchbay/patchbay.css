@@ -21,14 +21,14 @@
     radial-gradient(circle at 30% 0%, rgba(95, 255, 133, 0.05), transparent 55%),
     linear-gradient(180deg, #131a13, #0b100b);
 }
-/* Module/field bodies don't pan (pointerdown there is ignored by the pan
-   handler), so they must not inherit the hand — plain arrow instead.
-   Their headers, jacks, knobs and inputs keep their own cursors. */
-.rw-patchbay .rw-pb-module,
-.rw-patchbay .rw-pb-field,
-.rw-patchbay .rw-pb-graphnode,
-.rw-patchbay .rw-pb-bus-cell {
-  cursor: var(--rw-cur-default);
+/* The hand is inherited everywhere on the board, module bodies included —
+   pressing any non-control part of a module grabs the board too. Real
+   controls must therefore claim their own cursor so they never show the
+   hand: headers (move glyph), jacks, knobs, inputs/selects/textarea
+   (global rules) and these. */
+.rw-patchbay button,
+.rw-patchbay .rw-pb-graphnode-del {
+  cursor: var(--rw-cur-pointer);
 }
 /* Closed fist from press until release, over everything the pointer
    crosses (fast drags can outrun the element under the cursor). */

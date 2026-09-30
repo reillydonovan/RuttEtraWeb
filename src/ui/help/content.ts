@@ -74,7 +74,8 @@ const MD_QUICKSTART = `
 > spotlights each control as you go (opt-in — never runs on its own).
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate and a
-> node editor: scroll to zoom, click-drag empty background to pan, drag
+> node editor: scroll to zoom, grab the board anywhere the cursor
+> shows an open hand (empty space or a module's non-control parts) to pan, drag
 > a module's header to reorder or break it into free layout. Drag a
 > cable or module to the edge of the view and the board glides along
 > so you can reach a jack that's off-screen. The four

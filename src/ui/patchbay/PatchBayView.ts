@@ -1960,7 +1960,13 @@ export function createPatchBayView(
   root.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.button !== 1) return;
     const t = e.target as HTMLElement;
-    if (t.closest('.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-rack-jack, .rw-pb-bus-cell, input, select, button')) return;
+    // Only real controls are excluded — the non-interactive parts of a
+    // module (its body, labels, LCD readouts, previews) grab the board
+    // too, like Figma/TouchDesigner (owner: the hand should work over
+    // "an uninteractable part of a patch bay node module"). Jacks, knobs,
+    // the ✕ and the range ▾ also stop propagation on their own; headers
+    // are the module-drag handle.
+    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-range-menu-btn, input, select, button, textarea, a, [contenteditable="true"]')) return;
     e.preventDefault();
     autoPan.stop();
     const pid = e.pointerId;
