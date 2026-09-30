@@ -8,11 +8,13 @@
  * safe because nothing there holds a WebGL context), the render canvas
  * has a LIVE WebGL context tied to this window's browsing context.
  * Moving the actual `<canvas>` via `adoptNode` is not reliable across
- * browsers — most drop the GL context on transfer. Instead this feeds
- * the popup a `canvas.captureStream()` `MediaStream` into a `<video>`
- * element: same-process, no network, effectively zero added latency,
- * and (unlike moving the node) works everywhere `captureStream` does
- * — which this codebase already leans on for recording and broadcast.
+ * browsers — most drop the GL context on transfer. Instead the popup
+ * holds a plain 2D canvas that its own rAF loop fills from the main
+ * canvas every frame (`drawImage`; same process, no network). This used
+ * to be a `canvas.captureStream()` into a `<video>`, but that stream
+ * stops producing frames while the main window is hidden — which is
+ * what fullscreening this popup does on macOS — so the output froze
+ * (v1.31.1). frameDriver.ts keeps the main frame rendering meanwhile.
  *
  * The popup owns a self-contained fullscreen toggle: a corner button
  * that requests/exits the Fullscreen API on the POPUP window (not the
@@ -32,23 +34,21 @@
 export interface RenderPopoutController {
   /** True while the output lives in the popup window. */
   isOpen(): boolean;
-  /** Open the popup and start streaming the canvas into it. No-op if already open. */
+  /** Open the popup and start copying the canvas into it. No-op if already open. */
   popOut(): void;
-  /** Close the popup and stop the capture stream. No-op if not open. */
+  /** Close the popup and stop copying. No-op if not open. */
   popIn(): void;
   toggle(): void;
 }
 
 import { driveFromWindow } from './frameDriver';
 
-const CAPTURE_FPS = 60;
 
 export function createRenderPopout(
   canvas: HTMLCanvasElement,
   onChange?: (open: boolean) => void,
 ): RenderPopoutController {
   let popup: Window | null = null;
-  let stream: MediaStream | null = null;
   let stopDrive: (() => void) | null = null;
 
   function popOut(): void {
@@ -61,9 +61,6 @@ export function createRenderPopout(
     const w = window.open('', 'ruttetra-output', `popup=yes,width=${w0},height=${h0}`);
     if (!w) return; // popup blocked — nothing to do, button stays inert
     popup = w;
-    // Keep the render loop going if this window hides the main one
-    // (fullscreen on macOS = its own Space) — see frameDriver.ts.
-    stopDrive = driveFromWindow(w);
     const doc = w.document;
     doc.title = 'RUTT/ETRA — Output';
 
@@ -71,7 +68,7 @@ export function createRenderPopout(
     style.textContent = `
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-      video {
+      canvas {
         width: 100%; height: 100%; object-fit: contain; background: #000;
         display: block;
       }
@@ -102,14 +99,26 @@ export function createRenderPopout(
     `;
     doc.head.appendChild(style);
 
-    const video = doc.createElement('video');
-    video.autoplay = true;
-    video.muted = true;
-    video.playsInline = true;
-    stream = canvas.captureStream(CAPTURE_FPS);
-    video.srcObject = stream;
-    doc.body.appendChild(video);
-    void video.play().catch(() => { /* autoplay is muted+gesture-initiated; ignore */ });
+    // The output is COPIED into a canvas here every popup frame, not
+    // streamed (v1.31.1, owner report): a captureStream() of the main
+    // canvas stops producing frames while the main window is hidden —
+    // which is exactly what fullscreening this popup does on macOS (own
+    // Space). The copy runs on THIS window's rAF (it's the visible one),
+    // right after frameDriver has rendered a frame if the main loop
+    // stalled; the renderer keeps its drawing buffer
+    // (preserveDrawingBuffer: true), so the copy is valid at any time.
+    const out = doc.createElement('canvas');
+    doc.body.appendChild(out);
+    const outCtx = out.getContext('2d', { alpha: false });
+    const copyFrame = (): void => {
+      if (!outCtx || canvas.width === 0 || canvas.height === 0) return;
+      if (out.width !== canvas.width || out.height !== canvas.height) {
+        out.width = canvas.width;
+        out.height = canvas.height;
+      }
+      outCtx.drawImage(canvas, 0, 0);
+    };
+    stopDrive = driveFromWindow(w, copyFrame);
 
     const fsBtn = doc.createElement('button');
     fsBtn.id = 'rw-fs-btn';
@@ -156,7 +165,7 @@ export function createRenderPopout(
       }
     });
 
-    // Either side closing tears the stream down.
+    // Either side closing tears the popup down.
     w.addEventListener('pagehide', popIn);
     window.addEventListener('pagehide', closePopup);
     onChange?.(true);
@@ -165,10 +174,6 @@ export function createRenderPopout(
   function closePopup(): void {
     stopDrive?.();
     stopDrive = null;
-    if (stream) {
-      for (const track of stream.getTracks()) track.stop();
-      stream = null;
-    }
     if (popup && !popup.closed) popup.close();
     popup = null;
   }

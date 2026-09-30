@@ -38,9 +38,11 @@ export function shouldDriveBackup(now: number, last: number, stallMs = STALL_MS)
 
 /**
  * Tick `win`'s rAF and run a frame whenever the main loop has stalled.
+ * `afterTick` (optional) runs every tick after that — the render popout
+ * uses it to copy the finished frame into its own canvas.
  * Returns a stop function; also stops on its own once `win` closes.
  */
-export function driveFromWindow(win: Window): () => void {
+export function driveFromWindow(win: Window, afterTick?: () => void): () => void {
   let stopped = false;
   const tick = (): void => {
     if (stopped || win.closed) return;
@@ -49,6 +51,7 @@ export function driveFromWindow(win: Window): () => void {
       lastFrameAt = now;
       runner();
     }
+    afterTick?.();
     win.requestAnimationFrame(tick);
   };
   win.requestAnimationFrame(tick);
