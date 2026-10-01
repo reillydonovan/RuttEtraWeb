@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:04.193
+The Display Control Unit is the scan processor itself.
+
+2
+00:00:04.193 --> 00:00:06.588
+It decides where every line is drawn.
+
+3
+00:00:07.043 --> 00:00:09.600
+H Size and V Size stretch the raster.
+
+4
+00:00:09.600 --> 00:00:12.504
+H Position and V Position slide it around.
+
+5
+00:00:13.546 --> 00:00:17.060
+Z Push is depth: how far bright areas lift toward you.
+
+6
+00:00:17.060 --> 00:00:19.988
+Z Bias moves the whole sheet forward or back.
+
+7
+00:00:20.440 --> 00:00:23.064
+Rotation turns the raster in its own plane.
+
+8
+00:00:24.026 --> 00:00:26.607
+V Spin turns it around its vertical axis.
+
+9
+00:00:27.575 --> 00:00:32.396
+Threshold hides the darkest parts of the picture, so only the brighter areas draw.
+
+10
+00:00:32.855 --> 00:00:35.479
+Intensity sets the brightness of the beam.
+
+11
+00:00:35.479 --> 00:00:37.292
+Focus softens or sharpens it.
+
+12
+00:00:39.143 --> 00:00:41.569
+Double-click any knob to put it back.
+
+13
+00:00:41.569 --> 00:00:43.601
+Next: color, glow, and presets.

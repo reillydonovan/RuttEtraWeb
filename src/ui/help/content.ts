@@ -72,6 +72,8 @@ const MD_QUICKSTART = `
 > patch in cables (Patch Bay) and dropdowns (Modulation panel). Or try
 > **Help ▸ Start Tutorial** for a guided, in-app walkthrough that
 > spotlights each control as you go (opt-in — never runs on its own).
+> **Help ▸ Video Tutorials** opens a short narrated video course:
+> getting started, the Controls panel, the Timeline, and the Patch Bay.
 >
 > The **PATCH BAY** view is the instrument as a hardware faceplate and a
 > node editor: scroll to zoom, grab the board anywhere the cursor

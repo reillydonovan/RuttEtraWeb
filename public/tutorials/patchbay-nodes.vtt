@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:05.510
+Nodes are extra modules: oscillators, envelopes, logic, and more.
+
+2
+00:00:05.510 --> 00:00:08.544
+Right-click empty board space to add one.
+
+3
+00:00:08.544 --> 00:00:09.062
+An LFO.
+
+4
+00:00:09.515 --> 00:00:10.809
+Add a Scope beside it.
+
+5
+00:00:10.809 --> 00:00:13.632
+A scope draws whatever signal passes through it.
+
+6
+00:00:14.084 --> 00:00:16.886
+Drag the LFO's output into the Scope's input.
+
+7
+00:00:16.886 --> 00:00:17.945
+There's the wave.
+
+8
+00:00:18.402 --> 00:00:20.336
+The Scope passes its signal on.
+
+9
+00:00:20.336 --> 00:00:24.204
+Patch its output into Z Push, and the raster follows the wave.
+
+10
+00:00:24.658 --> 00:00:27.794
+Turn the LFO's rate knob, and watch the trace speed up.
+
+11
+00:00:28.703 --> 00:00:31.475
+To remove a node, click its X and confirm.
+
+12
+00:00:31.475 --> 00:00:32.927
+Its cables go with it.
+
+13
+00:00:33.378 --> 00:00:37.685
+Every node type is listed in the Node Catalog on the About page.
+
+14
+00:00:37.685 --> 00:00:39.031
+Next: routing video.

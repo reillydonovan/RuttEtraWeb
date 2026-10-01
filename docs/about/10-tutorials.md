@@ -4,6 +4,39 @@ Hands-on lessons, each a few minutes long. Screenshots land here as the
 collection grows — for now, every step names the exact control so you
 can follow along in the app.
 
+<!-- video-course:start -->
+
+### Video course
+
+Short narrated lessons, each building on the one before, on the
+[Video Tutorials page](./tutorials.html) (also **Help ▸ Video Tutorials** in the app).
+
+**Getting started**
+
+1. [First look](./tutorials.html#first-look) — Pick a source, orbit the camera, turn up Z Push, and make your first patch.
+2. [Windows, tabs and layouts](./tutorials.html#workspace) — Switch tabs, maximize a window, try layout presets, and change the panel skin.
+3. [Sources](./tutorials.html#sources) — Pattern Generator kinds, and loading a video file as the picture.
+
+**The Controls panel**
+
+4. [Finding your way around](./tutorials.html#controls-tour) — Tabs, sections, search, knobs, ranges, and the ⓘ help.
+5. [Shaping the raster](./tutorials.html#shaping) — Size, depth, rotation and luminance — the scan processor itself.
+6. [Color, glow and presets](./tutorials.html#look) — Bloom, feedback, the virtual camera, and one-click presets.
+7. [Modulation](./tutorials.html#modulation) — A Classic modulation slot: a sine wave moving a parameter.
+
+**The Timeline**
+
+8. [Keyframes](./tutorials.html#timeline-keyframes) — Create a timeline, key a parameter at two bars, and play it back.
+9. [Scenes](./tutorials.html#timeline-scenes) — Snapshot whole looks as scenes and let the timeline move between them.
+
+**The Patch Bay**
+
+10. [Cables](./tutorials.html#patchbay-cables) — Waveforms into a function generator, its output into a parameter; move and unplug.
+11. [Nodes and the Scope](./tutorials.html#patchbay-nodes) — Add nodes with a right-click, watch signals on a Scope, delete what you do not need.
+12. [Video routing](./tutorials.html#patchbay-video) — Composite a video file with the Pattern Generator and feed the renderer.
+
+<!-- video-course:end -->
+
 ### The interactive walkthrough (Help ▸ Start Tutorial)
 
 The written lessons below are one way in. There's also a guided,

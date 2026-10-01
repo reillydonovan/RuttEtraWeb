@@ -1,0 +1,5 @@
+.venv/
+voices/
+out/
+probe.mjs
+fixtures/

@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:05.628
+The Timeline, along the bottom, plays changes back over time, locked to the tempo.
+
+2
+00:00:06.089 --> 00:00:07.765
+Click New to make a timeline.
+
+3
+00:00:07.765 --> 00:00:11.465
+It is sixteen bars long, at one hundred twenty beats per minute.
+
+4
+00:00:11.920 --> 00:00:14.059
+Click the ruler to move the playhead.
+
+5
+00:00:14.059 --> 00:00:14.522
+Bar one.
+
+6
+00:00:14.974 --> 00:00:17.490
+Every knob has a small diamond above it.
+
+7
+00:00:17.490 --> 00:00:21.075
+Click Z Push's diamond to set a keyframe at the playhead.
+
+8
+00:00:21.523 --> 00:00:23.986
+Move to bar three, and turn Z Push up.
+
+9
+00:00:23.986 --> 00:00:28.200
+Once a parameter has a lane, every change is keyed automatically.
+
+10
+00:00:28.661 --> 00:00:32.245
+The lane below draws the curve, in the same numbers as the knob.
+
+11
+00:00:32.701 --> 00:00:33.421
+Press Play.
+
+12
+00:00:33.421 --> 00:00:38.205
+The depth rises from bar one to bar three, holds, and the timeline loops.
+
+13
+00:00:40.082 --> 00:00:42.339
+Key as many parameters as you like.
+
+14
+00:00:42.339 --> 00:00:45.500
+Next: scenes, which capture a whole look at once.

@@ -1,0 +1,81 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:10.086
+This is Rutt Etra Web, a browser recreation of the 1973 Rutt Etra scan processor, an analog video synthesizer.
+
+2
+00:00:10.538 --> 00:00:12.312
+No camera needed for this tour.
+
+3
+00:00:12.312 --> 00:00:16.319
+Click Pattern, and the built-in pattern generator becomes the picture.
+
+4
+00:00:16.779 --> 00:00:19.587
+The image is drawn as horizontal scan lines.
+
+5
+00:00:19.587 --> 00:00:24.501
+Brighter areas push the lines toward you, so the picture becomes a landscape.
+
+6
+00:00:24.962 --> 00:00:28.503
+Drag in the render window to orbit the virtual camera around it.
+
+7
+00:00:30.164 --> 00:00:33.692
+The Controls panel on the right holds every parameter.
+
+8
+00:00:33.692 --> 00:00:35.979
+Type in the search box to find one.
+
+9
+00:00:35.979 --> 00:00:38.462
+Here, Z Push, the depth of the raster.
+
+10
+00:00:38.917 --> 00:00:40.738
+Drag a knob up to turn it up.
+
+11
+00:00:40.738 --> 00:00:42.309
+More push, deeper relief.
+
+12
+00:00:42.770 --> 00:00:48.034
+The Patch Bay on the left is the same instrument, laid out as a hardware faceplate.
+
+13
+00:00:48.034 --> 00:00:49.938
+Maximize it to see every jack.
+
+14
+00:00:50.400 --> 00:00:52.800
+Right-click empty space to add a node.
+
+15
+00:00:52.800 --> 00:00:55.200
+We will add an LFO, a slow oscillator.
+
+16
+00:00:55.656 --> 00:00:59.279
+Drag from the LFO's output jack onto Z Push's input.
+
+17
+00:00:59.279 --> 00:01:00.882
+The cable is the patch.
+
+18
+00:01:01.333 --> 00:01:04.426
+Restore the window, and the raster now breathes on its own.
+
+19
+00:01:04.884 --> 00:01:07.898
+Pick a source, shape it, and patch movement into it.
+
+20
+00:01:07.898 --> 00:01:10.622
+Next, we will learn our way around the windows.

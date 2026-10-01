@@ -1,0 +1,12 @@
+{
+  "name": "rutt-etra-tutorials",
+  "private": true,
+  "type": "module",
+  "description": "Generated video tutorials: Playwright tour + Piper narration + ffmpeg mux",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

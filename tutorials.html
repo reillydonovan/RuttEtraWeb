@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0e0a" />
+    <meta name="color-scheme" content="dark" />
+    <title>Rutt/Etra — Video Tutorials</title>
+    <meta name="description" content="Short narrated video lessons for the browser-based Rutt/Etra video synthesizer: getting started, the Controls panel, the Timeline, and the Patch Bay." />
+    <meta property="og:title" content="Rutt/Etra — Video Tutorials" />
+    <meta property="og:description" content="Short narrated lessons for the browser-based Rutt/Etra video synthesizer." />
+    <meta property="og:type" content="website" />
+  </head>
+  <body class="tut-body">
+    <header id="tut-header">
+      <a class="tut-home" href="./index.html" title="Open the synth">← RUTT/ETRA</a>
+      <span class="tut-title">VIDEO TUTORIALS</span>
+      <a class="tut-manual" href="./about.html#tutorials">Manual</a>
+    </header>
+    <div id="tut-shell">
+      <main id="tut-main">
+        <div id="tut-stage">
+          <video id="tut-video" controls playsinline preload="metadata"></video>
+          <div id="tut-missing" hidden>This video isn't available yet.</div>
+        </div>
+        <div id="tut-meta">
+          <div id="tut-kicker"></div>
+          <h1 id="tut-lesson-title"></h1>
+          <p id="tut-blurb"></p>
+          <div id="tut-nav">
+            <button id="tut-prev" type="button">◀ Previous</button>
+            <label id="tut-autoplay"><input type="checkbox" id="tut-autoplay-box" /> Play next automatically</label>
+            <button id="tut-next" type="button">Next ▶</button>
+          </div>
+          <h2 class="tut-sub">In this lesson</h2>
+          <ol id="tut-chapters"></ol>
+        </div>
+      </main>
+      <aside id="tut-outline" aria-label="Course outline"></aside>
+    </div>
+    <script type="module" src="/src/tutorials/main.ts"></script>
+  </body>
+</html>

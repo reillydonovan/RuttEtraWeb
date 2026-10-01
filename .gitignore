@@ -13,3 +13,8 @@ public/samples/*.webm
 public/samples/*.mov
 public/samples/*.mkv
 public/samples/*.avi
+
+# Tutorial videos (tools/tutorials/build.mjs) — too big for git. Posters,
+# captions and manifest.json are tracked; upload the MP4s to the server's
+# public_html/tutorials/ separately.
+public/tutorials/*.mp4

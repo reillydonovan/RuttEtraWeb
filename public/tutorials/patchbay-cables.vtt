@@ -1,0 +1,65 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:04.625
+The Patch Bay is the whole instrument as one hardware faceplate.
+
+2
+00:00:04.625 --> 00:00:06.097
+Maximize it to see more.
+
+3
+00:00:06.548 --> 00:00:12.377
+Along the top, the Sources bus offers signals: waveforms, audio, beats, MIDI, and more.
+
+4
+00:00:12.377 --> 00:00:16.532
+Every parameter has an input jack, a knob, and an output jack.
+
+5
+00:00:16.992 --> 00:00:19.377
+Cables run from an output to an input.
+
+6
+00:00:19.377 --> 00:00:24.274
+Drag the triangle wave toward the bottom edge, and the board scrolls with you.
+
+7
+00:00:24.274 --> 00:00:29.045
+Drop it on Function Generator one, the same slot as in the Modulation panel.
+
+8
+00:00:29.506 --> 00:00:30.496
+Now its output.
+
+9
+00:00:30.496 --> 00:00:33.666
+Grab the output jack, and carry it up to H Size.
+
+10
+00:00:34.120 --> 00:00:35.221
+Restore the window.
+
+11
+00:00:35.221 --> 00:00:38.642
+The raster now stretches in and out with the triangle wave.
+
+12
+00:00:39.101 --> 00:00:42.747
+Back in the bay, grab a cable by its input end to move it.
+
+13
+00:00:42.747 --> 00:00:43.879
+Drop it on V Size.
+
+14
+00:00:44.342 --> 00:00:46.710
+Drop a cable in empty space to unplug it.
+
+15
+00:00:47.167 --> 00:00:51.138
+Cables and the Modulation panel are two views of one patch.
+
+16
+00:00:51.138 --> 00:00:51.945
+Next: nodes.

@@ -106,13 +106,14 @@ export default defineConfig({
     assetsInlineLimit: 0,
     rollupOptions: {
       // Multi-page: the synth at index.html, the long-form manual at
-      // about.html. The about page is fully static (no synth code,
+      // about.html, the video course at tutorials.html (static like about). The about page is fully static (no synth code,
       // no three.js, no Web Audio) so it ships as its own tiny chunk
       // and Vite's tree-shaking keeps the synth's vendor chunks out
       // of its dependency graph.
       input: {
         main:  resolve(__dirname, 'index.html'),
         about: resolve(__dirname, 'about.html'),
+        tutorials: resolve(__dirname, 'tutorials.html'),
       },
       output: {
         manualChunks: (id) => {

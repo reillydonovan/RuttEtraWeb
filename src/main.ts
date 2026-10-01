@@ -1065,6 +1065,10 @@ async function bootSynth(): Promise<void> {
         run: () => { window.open('./about.html', '_blank'); },
       },
       {
+        id: 'help.videoTutorials', label: 'Video Tutorials',
+        run: () => { window.open('./tutorials.html', '_blank'); },
+      },
+      {
         id: 'help.startTutorial', label: 'Start Tutorial',
         run: async () => {
           const [{ startTutorial }, { buildTutorialSteps }] = await Promise.all([
@@ -1270,6 +1274,7 @@ async function bootSynth(): Promise<void> {
           { actionId: 'help.startTutorial' },
           { actionId: 'help.startPatchTutorial' },
           { actionId: 'help.manual' },
+          { actionId: 'help.videoTutorials' },
           { actionId: 'help.about' },
         ],
       },

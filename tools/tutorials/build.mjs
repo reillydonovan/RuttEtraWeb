@@ -1,0 +1,348 @@
+// Generate the narrated video course.
+//
+//   node build.mjs                      every lesson in curriculum.mjs
+//   node build.mjs sources look         just these lessons
+//   node build.mjs --vtt                rewrite every lesson's captions (no re-recording)
+//   node build.mjs --index              only rewrite manifest.json + the About page listing
+//   options: --voice kokoro:af_heart | piper   --speed 1.0
+//
+// Per lesson:
+// 1. TTS: one WAV per narration line (cached by voice+text); durations pace the tour.
+// 2. Playwright drives the real app in headed Chrome (real GPU) at 1920×1080
+//    with a painted cursor, recording video; each segment's start is stamped.
+//    `pre(page, h)` runs first and is trimmed out (setup the viewer needn't see).
+// 3. Captions (.vtt) from the same lines + timestamps.
+// 4. ffmpeg: place each line at its timestamp, mux H.264 (NVENC) + AAC.
+// Then public/tutorials/manifest.json (read by tutorials.html) and the
+// video-course block in docs/about/10-tutorials.md are regenerated.
+
+//
+// Needs `npm run dev` on :5190 in the repo root, `npm install` here, and the
+// .venv (piper-tts, kokoro-onnx, soundfile, imageio-ffmpeg) + voices/ models.
+
+import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { LESSONS, TRACKS } from './curriculum.mjs';
+import { helpers } from './lib/helpers.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '../..');
+const PY = path.join(HERE, '.venv', 'Scripts', 'python.exe');
+const APP_URL = process.env.APP_URL ?? 'http://localhost:5190/';
+const DEST = path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
+const W = 1920, H = 1080;
+const PAD_MS = 450;          // breath after each line
+const LEAD_MS = 700;         // picture before the first word
+const TAIL_MS = 2200;        // picture after the last word
+
+const args = process.argv.slice(2);
+const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : dflt; };
+const VOICE = opt('--voice', 'kokoro:af_heart');
+const SPEED = Number(opt('--speed', '1.0'));
+const VTT_ONLY = args.includes('--vtt');   // rewrite captions from saved timings
+const indexOnly = args.includes('--index');
+const DRY = args.includes('--dry');   // validate a tour fast: no TTS, recording or encoding
+const ids = args.filter((a) => !a.startsWith('--'));
+const todo = indexOnly ? [] : ids.length ? ids.map((id) => {
+  const l = LESSONS.find((x) => x.id === id);
+  if (!l) throw new Error(`unknown lesson ${id}`);
+  return l;
+}) : LESSONS;
+
+fs.mkdirSync(DEST, { recursive: true });
+const ffmpeg = execFileSync(PY, ['-c', 'import imageio_ffmpeg as f; print(f.get_ffmpeg_exe())']).toString().trim();
+
+// ---- fixtures ---------------------------------------------------------------
+// A neutral moving clip for lessons that load a video FILE (no webcam needed).
+const FIXTURES = path.join(HERE, 'fixtures');
+const CLIP = path.join(FIXTURES, 'clip.mp4');
+if (!fs.existsSync(CLIP)) {
+  fs.mkdirSync(FIXTURES, { recursive: true });
+  execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
+    'gradients=size=1280x720:rate=30:n=5:speed=0.015:type=spiral:c0=black:c1=white:c2=0x303030:c3=0xd0d0d0:c4=black', '-t', '40',
+    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', CLIP]);
+}
+
+// ---- TTS --------------------------------------------------------------------
+const TTS_CACHE = path.join(HERE, 'out', 'tts-cache');
+fs.mkdirSync(TTS_CACHE, { recursive: true });
+
+function wavDurationMs(file) {
+  const b = fs.readFileSync(file);
+  const byteRate = b.readUInt32LE(28);
+  let off = 12;
+  while (off < b.length - 8) {
+    const idc = b.toString('ascii', off, off + 4);
+    const size = b.readUInt32LE(off + 4);
+    if (idc === 'data') return (Math.min(size, b.length - off - 8) / byteRate) * 1000;
+    off += 8 + size + (size % 2);
+  }
+  throw new Error(`no data chunk in ${file}`);
+}
+
+/** Synthesize every uncached line in one go; returns [{wav, ms}] in order. */
+function speakAll(texts) {
+  const [engine, voice] = VOICE.split(':');
+  const jobs = texts.map((text) => {
+    const key = crypto.createHash('sha1').update(`${VOICE}|${SPEED}|${text}`).digest('hex').slice(0, 16);
+    return { text, out: path.join(TTS_CACHE, `${key}.wav`) };
+  });
+  const todo = jobs.filter((j) => !fs.existsSync(j.out));
+  if (todo.length && engine === 'kokoro') {
+    const jf = path.join(TTS_CACHE, 'jobs.json');
+    fs.writeFileSync(jf, JSON.stringify(todo.map((j) => ({ ...j, voice: voice ?? 'af_heart', speed: SPEED }))));
+    execFileSync(PY, [path.join(HERE, 'tts_kokoro.py'), jf], { stdio: ['ignore', 'ignore', 'inherit'] });
+  } else if (todo.length && engine === 'piper') {
+    for (const j of todo) {
+      execFileSync(PY, ['-m', 'piper', '-m', path.join(HERE, 'voices', `${voice ?? 'en_US-lessac-medium'}.onnx`), '-f', j.out,
+        '--length-scale', String(1 / SPEED), '--sentence-silence', '0.15'], { input: j.text });
+    }
+  } else if (todo.length) throw new Error(`unknown voice engine ${engine}`);
+  return jobs.map((j) => ({ wav: j.out, ms: wavDurationMs(j.out) }));
+}
+
+// ---- recording ----------------------------------------------------------------
+// Playwright's mouse doesn't move the OS cursor and the recording wouldn't
+// show one anyway, so paint our own (plus a click ring: green left, amber right).
+const CURSOR_SCRIPT = `
+addEventListener('DOMContentLoaded', () => {
+  const c = document.createElement('div');
+  c.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28"><path d="M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.8 L19.5 15.8 Z" fill="#e8ffe8" stroke="#0a120a" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  Object.assign(c.style, { position: 'fixed', left: '0', top: '0', zIndex: '2147483647', pointerEvents: 'none',
+    transform: 'translate(-100px,-100px)', filter: 'drop-shadow(0 0 4px rgba(0,0,0,.8))' });
+  document.documentElement.appendChild(c);
+  const move = (e) => { c.style.transform = 'translate(' + (e.clientX - 3) + 'px,' + (e.clientY - 2) + 'px)'; };
+  addEventListener('pointermove', move, true);
+  addEventListener('pointerdown', (e) => {
+    move(e);
+    const r = document.createElement('div');
+    Object.assign(r.style, { position: 'fixed', left: (e.clientX - 18) + 'px', top: (e.clientY - 18) + 'px', width: '36px', height: '36px',
+      borderRadius: '50%', border: '2px solid ' + (e.button === 2 ? '#ffb347' : '#7dff9a'), zIndex: '2147483646', pointerEvents: 'none',
+      transition: 'transform .45s ease-out, opacity .45s ease-out' });
+    document.documentElement.appendChild(r);
+    requestAnimationFrame(() => { r.style.transform = 'scale(1.8)'; r.style.opacity = '0'; });
+    setTimeout(() => r.remove(), 600);
+  }, true);
+});`;
+
+async function record(lesson) {
+  const tour = await import(`./tours/${lesson.id}.mjs?t=${Date.now()}`);
+  const work = path.join(HERE, 'out', lesson.id);
+  fs.rmSync(work, { recursive: true, force: true });
+  fs.mkdirSync(work, { recursive: true });
+
+  const spoken = DRY ? null : speakAll(tour.lines.map((l) => l.text));
+  const lines = tour.lines.map((l, i) => ({ ...l, ...(DRY ? { ms: 400 } : spoken[i]) }));
+  const byId = new Map(lines.map((l) => [l.id, l]));
+  console.log(`[${lesson.id}] tts: ${lines.length} lines, ${(lines.reduce((s, l) => s + l.ms, 0) / 1000).toFixed(1)}s`);
+
+  const browser = await chromium.launch({
+    channel: 'chrome',
+    headless: false,
+    args: [`--window-size=${W + 20},${H + 140}`, '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required',
+      // Lessons that need a camera or mic get Chrome's fake devices (a test
+      // pattern + a beeping tone) with permission prompts auto-accepted.
+      ...(tour.fakeMedia ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] : [])],
+  });
+  const ctx = await browser.newContext({
+    viewport: { width: W, height: H },
+    deviceScaleFactor: 1,
+    ...(DRY ? {} : { recordVideo: { dir: work, size: { width: W, height: H } } }),
+  });
+  await ctx.addInitScript(CURSOR_SCRIPT);
+  const page = await ctx.newPage();
+  const t0 = Date.now();
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('dialog', (d) => d.type() === 'prompt' ? d.accept(tour.promptAnswer ?? 'Tutorial') : d.accept());
+
+  const h = helpers(page);
+  h.fixtures = { clip: CLIP };
+  const stamps = [];
+  let failure = null;
+  try {
+    await page.goto(APP_URL);
+    await page.waitForSelector('#rw-splash', { state: 'detached', timeout: 60000 });
+    await page.waitForTimeout(600);
+    if (tour.pre) await tour.pre(page, h);
+    await page.mouse.move(W / 2, H / 2);
+    await page.waitForTimeout(400);
+
+    const seg = async (id, fn) => {
+      const line = byId.get(id);
+      if (!line) throw new Error(`segment ${id} has no narration line`);
+      const start = Date.now() - t0;
+      stamps.push({ id, start });
+      if (stamps.length === 1) await h.card(`LESSON ${lesson.number} · ${lesson.level.toUpperCase()} · ${lesson.track.toUpperCase()}`, lesson.title, Math.min(2600, line.ms - 300));
+      await fn();
+      const left = start + line.ms + PAD_MS - (Date.now() - t0);
+      if (left > 0) await page.waitForTimeout(left);
+    };
+    await page.waitForTimeout(LEAD_MS);
+    await tour.run(page, seg, h);
+    await page.waitForTimeout(TAIL_MS);
+  } catch (e) {
+    failure = e;
+    await page.screenshot({ path: path.join(work, 'failure.png') }).catch(() => {});
+  }
+  const tEnd = Date.now() - t0;
+  const video = page.video();
+  await ctx.close();
+  await browser.close();
+  if (errors.length) console.warn(`[${lesson.id}] page errors:\n  ${errors.slice(0, 8).join('\n  ')}`);
+  if (failure) throw failure;
+  if (DRY) { console.log(`[${lesson.id}] dry run ok (${stamps.length} segments)`); return; }
+  const rawVideo = await video.path();
+
+  // ---- captions
+  const trimMs = Math.max(0, stamps[0].start - LEAD_MS);
+  writeVtt(lesson.id, stamps, byId, trimMs);
+
+  // ---- mux
+  const durS = ((tEnd - trimMs) / 1000).toFixed(3);
+  const inputs = ['-ss', (trimMs / 1000).toFixed(3), '-i', rawVideo];
+  const filters = [];
+  stamps.forEach((s, i) => {
+    inputs.push('-i', byId.get(s.id).wav);
+    const d = Math.round(s.start - trimMs);
+    filters.push(`[${i + 1}:a]aresample=48000,adelay=${d}|${d}[a${i}]`);
+  });
+  filters.push(`${stamps.map((_, i) => `[a${i}]`).join('')}amix=inputs=${stamps.length}:normalize=0,apad[aout]`);
+  const mp4 = path.join(DEST, `${lesson.id}.mp4`);
+  execFileSync(ffmpeg, [
+    '-y', '-hide_banner', '-loglevel', 'error',
+    ...inputs,
+    '-filter_complex', filters.join(';'),
+    '-map', '0:v', '-map', '[aout]', '-t', durS,
+    '-c:v', 'h264_nvenc', '-preset', 'p6', '-rc', 'vbr', '-cq', '23', '-b:v', '0', '-maxrate', '6M', '-bufsize', '12M',
+    '-pix_fmt', 'yuv420p', '-r', '30',
+    '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
+    '-movflags', '+faststart',
+    mp4,
+  ]);
+  const posterId = tour.poster ?? stamps[Math.floor(stamps.length / 2)].id;
+  const ps = stamps.find((s) => s.id === posterId) ?? stamps[0];
+  execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-ss', ((ps.start - trimMs + 2500) / 1000).toFixed(2),
+    '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(DEST, `${lesson.id}.jpg`)]);
+  fs.writeFileSync(path.join(work, 'timings.json'), JSON.stringify({ trimMs, tEnd, stamps }, null, 1));
+  built.set(lesson.id, {
+    duration: Math.round((tEnd - trimMs) / 100) / 10,
+    chapters: stamps.map((s) => ({ t: Math.round((s.start - trimMs) / 100) / 10, text: byId.get(s.id).text })),
+  });
+  console.log(`[${lesson.id}] done: ${durS}s, ${(fs.statSync(mp4).size / 1e6).toFixed(1)} MB`);
+}
+
+// ---- captions -----------------------------------------------------------------
+/**
+ * One cue per sentence (a whole narration line can run three caption lines
+ * deep over the picture). A line's time is shared out by character count,
+ * which tracks TTS speaking time closely enough for captions.
+ */
+function writeVtt(id, stamps, byId, trimMs) {
+  const fmt = (ms) => {
+    const t = Math.max(0, ms);
+    const hh = Math.floor(t / 3.6e6), m = Math.floor(t / 6e4) % 60, s = Math.floor(t / 1000) % 60, f = Math.floor(t % 1000);
+    return `${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(f).padStart(3, '0')}`;
+  };
+  const cues = [];
+  for (const s of stamps) {
+    const l = byId.get(s.id);
+    const sentences = l.text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g).map((x) => x.trim()).filter(Boolean);
+    const total = sentences.reduce((n, x) => n + x.length, 0);
+    let a = s.start - trimMs;
+    for (const x of sentences) {
+      const d = l.ms * (x.length / total);
+      cues.push(`${cues.length + 1}\n${fmt(a)} --> ${fmt(a + d)}\n${x}\n`);
+      a += d;
+    }
+  }
+  fs.writeFileSync(path.join(DEST, `${id}.vtt`), `WEBVTT\n\n${cues.join('\n')}`);
+}
+
+/** --vtt: rewrite captions from saved timings (no re-recording; TTS is cached). */
+async function rewriteVtt(lesson) {
+  const t = JSON.parse(fs.readFileSync(path.join(HERE, 'out', lesson.id, 'timings.json'), 'utf8'));
+  const tour = await import(`./tours/${lesson.id}.mjs`);
+  const spoken = speakAll(tour.lines.map((l) => l.text));
+  const byId = new Map(tour.lines.map((l, i) => [l.id, { ...l, ...spoken[i] }]));
+  writeVtt(lesson.id, t.stamps, byId, t.trimMs);
+  console.log(`[${lesson.id}] captions rewritten`);
+}
+
+// ---- manifest + About page listing -----------------------------------------
+const built = new Map();   // lesson id -> { duration, chapters } from this run
+
+/** Lesson timing from a previous run's out/<id>/timings.json (+ the tour's lines). */
+async function savedMeta(id) {
+  try {
+    const t = JSON.parse(fs.readFileSync(path.join(HERE, 'out', id, 'timings.json'), 'utf8'));
+    const tour = await import(`./tours/${id}.mjs`);
+    const text = new Map(tour.lines.map((l) => [l.id, l.text]));
+    return {
+      duration: Math.round((t.tEnd - t.trimMs) / 100) / 10,
+      chapters: t.stamps.map((s) => ({ t: Math.round((s.start - t.trimMs) / 100) / 10, text: text.get(s.id) })),
+    };
+  } catch { return null; }
+}
+
+async function writeManifest() {
+  for (const l of LESSONS) {
+    if (!built.has(l.id) && fs.existsSync(path.join(DEST, `${l.id}.mp4`))) {
+      const m = await savedMeta(l.id);
+      if (m) built.set(l.id, m);
+    }
+  }
+  const file = path.join(DEST, 'manifest.json');
+  let prev = {};
+  try { prev = Object.fromEntries(JSON.parse(fs.readFileSync(file, 'utf8')).tracks.flatMap((t) => t.lessons).map((l) => [l.id, l])); } catch { /* first run */ }
+  const manifest = {
+    note: 'Generated by tools/tutorials/build.mjs from curriculum.mjs. Do not edit by hand.',
+    voice: VOICE,
+    tracks: TRACKS.map((t) => ({
+      level: t.level,
+      title: t.title,
+      lessons: t.lessons.map((l) => {
+        const L = LESSONS.find((x) => x.id === l.id);
+        const meta = built.get(l.id) ?? (prev[l.id] ? { duration: prev[l.id].duration, chapters: prev[l.id].chapters } : null);
+        return { id: l.id, number: L.number, title: l.title, blurb: l.blurb, ...(meta ?? { duration: null, chapters: [] }) };
+      }),
+    })),
+  };
+  fs.writeFileSync(file, `${JSON.stringify(manifest, null, 1)}\n`);
+}
+
+function writeIndex() {
+  const md = path.join(REPO, 'docs', 'about', '10-tutorials.md');
+  const START = '<!-- video-course:start -->', END = '<!-- video-course:end -->';
+  const parts = [START, '', '### Video course', '',
+    'Short narrated lessons, each building on the one before, on the',
+    '[Video Tutorials page](./tutorials.html) (also **Help ▸ Video Tutorials** in the app).', ''];
+  let level = null;
+  for (const t of TRACKS) {
+    if (t.level !== level) { level = t.level; parts.push(`#### ${level}`, ''); }
+    parts.push(`**${t.title}**`, '');
+    for (const l of t.lessons) {
+      const L = LESSONS.find((x) => x.id === l.id);
+      parts.push(`${L.number}. [${l.title}](./tutorials.html#${l.id}) — ${l.blurb}`);
+    }
+    parts.push('');
+  }
+  parts.push(END);
+  let src = fs.readFileSync(md, 'utf8');
+  const block = parts.join('\n');
+  if (src.includes(START)) src = src.replace(new RegExp(`${START}[\\s\\S]*?${END}`), block);
+  else src = src.replace(/\n### /, `\n${block}\n\n### `);
+  fs.writeFileSync(md, src);
+}
+
+const failed = [];
+for (const l of todo) {
+  try { await (VTT_ONLY ? rewriteVtt(l) : record(l)); } catch (e) { failed.push(l.id); console.error(`[${l.id}] FAILED: ${e.message}`); }
+}
+if (!DRY) { await writeManifest(); writeIndex(); }
+if (failed.length) { console.error(`failed: ${failed.join(', ')}`); process.exitCode = 1; }
