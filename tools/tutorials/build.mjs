@@ -144,6 +144,8 @@ async function record(lesson) {
     channel: 'chrome',
     headless: false,
     args: [`--window-size=${W + 20},${H + 140}`, '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required',
+      // Keep rendering at full rate even if another window covers this one.
+      '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
       // Lessons that need a camera or mic get Chrome's fake devices (a test
       // pattern + a beeping tone) with permission prompts auto-accepted.
       ...(tour.fakeMedia ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] : [])],
@@ -154,6 +156,10 @@ async function record(lesson) {
     ...(DRY ? {} : { recordVideo: { dir: work, size: { width: W, height: H } } }),
   });
   await ctx.addInitScript(CURSOR_SCRIPT);
+  // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
+  // helper servers (e.g. a WebSocket standing in for the OSC/MCP bridge).
+  for (const script of tour.initScripts ?? []) await ctx.addInitScript(script);
+  const teardown = tour.setup ? await tour.setup({ ctx }) : null;
   const page = await ctx.newPage();
   const t0 = Date.now();
   const errors = [];
@@ -169,6 +175,12 @@ async function record(lesson) {
     await page.goto(APP_URL);
     await page.waitForSelector('#rw-splash', { state: 'detached', timeout: 60000 });
     await page.waitForTimeout(600);
+    // The panel auto-opens its Help tab once that lazy section mounts; every
+    // lesson starts on Synth instead (switching away also marks Help seen,
+    // so it doesn't come back). Lessons that need I/O or Help click there.
+    await page.waitForFunction(() => [...document.querySelectorAll('#panel-root .rw-section-head span')]
+      .some((e) => e.textContent.trim() === 'Manual'), null, { timeout: 15000 }).catch(() => {});
+    await page.click('#panel-root .rw-tab[data-tab="synth"]').catch(() => {});
     if (tour.pre) await tour.pre(page, h);
     await page.mouse.move(W / 2, H / 2);
     await page.waitForTimeout(400);
@@ -191,6 +203,7 @@ async function record(lesson) {
     await page.screenshot({ path: path.join(work, 'failure.png') }).catch(() => {});
   }
   const tEnd = Date.now() - t0;
+  await teardown?.();
   const video = page.video();
   await ctx.close();
   await browser.close();

@@ -49,6 +49,50 @@ export const TRACKS = [
       { id: 'graph-advanced', title: 'The Advanced canvas', blurb: 'Add nodes, wire them, edit them in the inspector, bind to the synth, and probe a signal.' },
     ],
   },
+  {
+    level: 'Intermediate',
+    title: 'Video and sound',
+    lessons: [
+      { id: 'dual-raster', title: 'Dual Raster', blurb: 'A second raster with its own geometry, wipe and interleave modes, and its own picture from the Patch Bay.' },
+      { id: 'audio-reactive', title: 'Audio-reactive', blurb: 'The Audio section, beat detector, spectrum displacement, and an audio-reactive graph patch.' },
+      { id: 'oscilloscope', title: 'The Oscilloscope', blurb: 'Draw any signal as a trace and let the raster turn it into terrain.' },
+    ],
+  },
+  {
+    level: 'Intermediate',
+    title: 'Looks and output',
+    lessons: [
+      { id: 'looks-deep', title: 'Render modes and Post FX', blurb: 'Wireframe and dot rasters, custom tint, shaped feedback, analog character, chroma, scanlines.' },
+      { id: 'save-share', title: 'Save, record, share', blurb: 'User presets, project files, recording a clip, and live sharing with a link and QR code.' },
+    ],
+  },
+  {
+    level: 'Advanced',
+    title: 'Deep patching',
+    lessons: [
+      { id: 'clocks-sequencer', title: 'Clocks, sequencers, envelopes', blurb: 'A tempo clock driving a step sequencer, a divided clock firing an ADSR envelope, probed live.' },
+      { id: 'feedback-chaos', title: 'Feedback and chaos', blurb: 'Resonant filtered noise, Param Out, a frame delay, and a patch that feeds on itself.' },
+      { id: 'video-modulation', title: 'The camera as a source', blurb: 'Video Luma with a picked region, Video Motion through a Slew, and the motion-glitch patch.' },
+    ],
+  },
+  {
+    level: 'Advanced',
+    title: 'I/O',
+    lessons: [
+      { id: 'io-midi-osc', title: 'MIDI and OSC', blurb: 'Connect a controller, learn a mapping, MIDI clock in and out, and OSC over the network.' },
+      { id: 'io-cv-mcp', title: 'CV, gamepads and MCP', blurb: 'Control voltage inputs, OSC CV, gamepads, and an AI assistant driving the synth over MCP.' },
+      { id: 'io-outputs', title: 'Outputs', blurb: 'Sonification and the Sonify node, CV Out to a modular, MIDI clock out, and the safety stack.' },
+    ],
+  },
+  {
+    level: 'Advanced',
+    title: 'Performance',
+    lessons: [
+      { id: 'stereo-3d', title: 'Stereo and 3D', blurb: 'Red-cyan anaglyph, side-by-side stereo recording, and WebXR headsets.' },
+      { id: 'performance-rig', title: 'A performance rig', blurb: 'Layouts, HUD, shortcuts, performance profiles, output resolution, fly mode, timecode and popouts.' },
+      { id: 'showcase', title: 'Showcase: getting weird', blurb: 'Five strange setups: a feedback tunnel, interleaved worlds, resonant chaos, sound terrain, anaglyph Lissajous.' },
+    ],
+  },
 ];
 
 export const LESSONS = TRACKS.flatMap((t, ti) =>

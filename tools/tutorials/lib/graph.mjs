@@ -3,7 +3,7 @@
 /** In-page: center of a node's port dot. Nodes are found by header label (last match wins). */
 export function findPort([label, port, side, nth]) {
   const nodes = [...document.querySelectorAll('#panel-root .rw-graph-node')]
-    .filter((n) => n.querySelector('.rw-graph-node-head')?.textContent.trim().startsWith(label));
+    .filter((n) => n.querySelector('.rw-graph-node-head')?.textContent.trim().replace(/\s*·muted$/, '') === label);
   const node = nth == null ? nodes[nodes.length - 1] : nodes[nth];
   const dot = node?.querySelector(`.rw-graph-port-dot[data-port="${port}"][data-side="${side}"]`);
   if (!dot) return null;
@@ -14,7 +14,7 @@ export function findPort([label, port, side, nth]) {
 /** In-page: center of a node's header. */
 export function findNodeHead([label, nth]) {
   const nodes = [...document.querySelectorAll('#panel-root .rw-graph-node')]
-    .filter((n) => n.querySelector('.rw-graph-node-head')?.textContent.trim().startsWith(label));
+    .filter((n) => n.querySelector('.rw-graph-node-head')?.textContent.trim().replace(/\s*·muted$/, '') === label);
   const node = nth == null ? nodes[nodes.length - 1] : nodes[nth];
   const b = node?.querySelector('.rw-graph-node-head')?.getBoundingClientRect();
   return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;

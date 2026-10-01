@@ -1,0 +1,73 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:03.805
+Nodes can feed each other, and they can feed back.
+
+2
+00:00:03.805 --> 00:00:07.036
+Start with Noise: a new random value on every frame.
+
+3
+00:00:07.499 --> 00:00:08.821
+Raw noise is jittery.
+
+4
+00:00:08.821 --> 00:00:12.853
+A resonant low-pass filter turns it into a slow, rubbery wobble.
+
+5
+00:00:15.324 --> 00:00:19.201
+Send the filtered noise to H Position, Rotation and Z Push.
+
+6
+00:00:19.201 --> 00:00:21.830
+The raster drifts like it is underwater.
+
+7
+00:00:22.290 --> 00:00:26.211
+Param Out reads any parameter's live value back into the graph.
+
+8
+00:00:26.211 --> 00:00:27.580
+This one reads Z Push.
+
+9
+00:00:28.042 --> 00:00:31.242
+Delay it by thirty frames, half a second, and scale it up.
+
+10
+00:00:47.091 --> 00:00:51.193
+Now close the loop: send the delayed copy back into Z Push.
+
+11
+00:00:51.193 --> 00:00:53.279
+The depth chases its own echo.
+
+12
+00:00:53.279 --> 00:00:56.477
+Keep the loop gain below one, or it runs away.
+
+13
+00:00:56.934 --> 00:00:57.820
+Probe the loop.
+
+14
+00:00:57.820 --> 00:00:59.771
+No two cycles are quite the same.
+
+15
+00:01:01.625 --> 00:01:03.523
+Restore the window, and let it run.
+
+16
+00:01:07.375 --> 00:01:10.078
+Feedback is where the strange stuff lives.
+
+17
+00:01:10.078 --> 00:01:12.266
+Keep the amounts small, and nudge.
+
+18
+00:01:12.266 --> 00:01:14.841
+Next: the camera as a modulation source.

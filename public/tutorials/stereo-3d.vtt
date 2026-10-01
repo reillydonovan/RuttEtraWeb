@@ -1,0 +1,45 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:05.532
+The raster is a real 3D object, so it can be shown in real 3D.
+
+2
+00:00:05.532 --> 00:00:10.364
+Three ways: anaglyph, side-by-side stereo, and WebXR headsets.
+
+3
+00:00:10.823 --> 00:00:13.471
+Anaglyph is in the Virtual Camera section.
+
+4
+00:00:13.471 --> 00:00:16.497
+Switch it on and grab some red and cyan glasses.
+
+5
+00:00:16.953 --> 00:00:19.637
+Eye Sep sets how far apart the two eyes are.
+
+6
+00:00:19.637 --> 00:00:21.345
+More separation, more depth.
+
+7
+00:00:21.345 --> 00:00:23.054
+Orbit the camera to feel it.
+
+8
+00:00:23.513 --> 00:00:31.299
+For VR players and YouTube, the Record section can capture side-by-side stereo, with an optional 3D metadata tag.
+
+9
+00:00:31.759 --> 00:00:36.431
+Preview stereo shows both eyes for three seconds, before you commit to a recording.
+
+10
+00:00:36.888 --> 00:00:45.144
+With a WebXR headset connected, the XR section puts you inside the raster, at tabletop, room or architectural scale.
+
+11
+00:00:45.603 --> 00:00:47.608
+Next: building a performance rig.

@@ -57,6 +57,13 @@ export function helpers(page) {
       }
     },
 
+    /** Reset the virtual camera (R) — blur first: keys are ignored while an input has focus. */
+    async resetView() {
+      await page.evaluate(() => document.activeElement?.blur?.());
+      await page.keyboard.press('r');
+      await page.waitForTimeout(300);
+    },
+
     async glide(pt, steps = 30) { await page.mouse.move(pt.x, pt.y, { steps }); },
 
     async click(sel, text, opts = {}) {
@@ -171,6 +178,59 @@ export function helpers(page) {
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       }, [pt.x, pt.y, value]);
       void selector;
+    },
+
+    /**
+     * Selector prefix for one visible panel section, by title — labels like
+     * "Connect" or "URL" repeat across sections. Usage: `${await h.sec('OSC')} .rw-btn`.
+     */
+    async sec(title) {
+      const tag = title.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      const ok = await page.evaluate(([t, tg]) => {
+        const head = [...document.querySelectorAll('#panel-root .rw-section-head')]
+          .find((e) => e.querySelector('span')?.textContent.trim() === t && e.getBoundingClientRect().width > 0);
+        if (!head) return false;
+        head.parentElement.dataset.tut = tg;
+        return true;
+      }, [title, tag]);
+      if (!ok) throw new Error(`no visible section ${title}`);
+      return `#panel-root [data-tut="${tag}"]`;
+    },
+
+    /** Selector prefix for one visible `.rw-group` by its heading text. */
+    async grp(title) {
+      const tag = `g-${title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+      const ok = await page.evaluate(([t, tg]) => {
+        const head = [...document.querySelectorAll('#panel-root .rw-group-head')]
+          .find((e) => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
+        if (!head) return false;
+        head.closest('.rw-group').dataset.tut = tg;
+        return true;
+      }, [title, tag]);
+      if (!ok) throw new Error(`no visible group ${title}`);
+      return `#panel-root [data-tut="${tag}"]`;
+    },
+
+    /** Center of the visible leaf element inside `scope` whose text is exactly `text`
+     *  (for hand-built controls that don't use the standard row markup). */
+    async text(scope, text) {
+      const find = ([sc, t, scroll]) => {
+        const els = [...document.querySelectorAll(`${sc} *`)].filter((e) => e.children.length === 0
+          && e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
+        const ok = els.find((e) => { const b = e.getBoundingClientRect(); return b.y >= 40 && b.bottom <= innerHeight; });
+        if (ok) { const b = ok.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }
+        if (scroll && els[0]) { els[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); return 'scrolled'; }
+        return null;
+      };
+      let pt = await page.evaluate(find, [scope, text, true]);
+      if (pt === 'scrolled') { await h.settle(); pt = await page.evaluate(find, [scope, text, false]); }
+      if (!pt) throw new Error(`tour: no visible text "${text}" in ${scope}`);
+      return pt;
+    },
+
+    /** Center of `inner` in the row labelled `label` inside section `title`. */
+    async secRow(title, label, inner) {
+      return h.row(label, inner, await h.sec(title));
     },
 
     /** Open a (visible) panel section by title, if closed, and scroll it into view. */

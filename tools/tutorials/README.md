@@ -6,12 +6,27 @@ the real app in headed Chrome (real GPU), narrated with Kokoro TTS, captioned,
 and muxed with ffmpeg (NVENC H.264).
 
 - `curriculum.mjs` — tracks and lessons, in order. One source for build
-  order, numbering, the website's course outline, and the About page list.
+  order, numbering, the website's course outline (grouped by level), and the About page list.
 - `tours/<id>.mjs` — one lesson: narration `lines`, optional `pre()` setup
   (trimmed from the video), and `run(page, seg, h)` where each `seg(id, fn)`
   pairs a narration line with the actions that illustrate it.
 - `lib/helpers.mjs` — cursor/drag/knob/menu/section helpers (`h`).
-- `lib/bay.mjs` — Patch Bay jack finder.
+- `lib/bay.mjs` — Patch Bay jack finder; `lib/graph.mjs` — Advanced graph
+  editor (add/place/wire/select/param/bind); `lib/fakeio.mjs` — a fake MIDI
+  controller and a WebSocket stand-in for the OSC/MCP bridges.
+
+Optional per-lesson exports (see the Advanced I/O tours):
+
+- `fakeMedia = true` — launch Chrome with a fake webcam (test pattern) and
+  microphone (beeping tone), permission prompts auto-accepted.
+- `initScripts = [...]` — scripts injected before the page loads (e.g.
+  `FAKE_MIDI_SCRIPT`, or disabling the native file pickers so saves download).
+- `setup({ ctx })` — runs before the page opens (grant permissions, start a
+  stand-in bridge server); return a teardown function.
+- `promptAnswer` — the text typed into `window.prompt` dialogs.
+
+Every lesson starts on the Controls panel's Synth tab (the build waits for
+the Help section's first-run auto-open, then switches).
 
 ## Setup (once)
 

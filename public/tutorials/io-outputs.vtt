@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:02.952
+The synth can send signals out, too.
+
+2
+00:00:02.952 --> 00:00:10.961
+Every output starts switched off and quiet, with a soft start and a limiter, so nothing surprises your speakers or your modular.
+
+3
+00:00:11.413 --> 00:00:14.182
+Sonification turns the picture into sound.
+
+4
+00:00:14.182 --> 00:00:20.117
+A voice reads the raster: its brightness, motion and shape set pitch, loudness and filter.
+
+5
+00:00:20.583 --> 00:00:23.317
+Each voice parameter has a source and a curve.
+
+6
+00:00:23.317 --> 00:00:27.836
+Pick Graph Node, and a Sonify node in the graph can play the voice directly.
+
+7
+00:00:28.294 --> 00:00:31.384
+Master volume starts at minus eighteen decibels.
+
+8
+00:00:31.384 --> 00:00:38.726
+Test Tone checks your levels, and Sonification mutes itself whenever a microphone is listening, to avoid feedback.
+
+9
+00:00:39.188 --> 00:00:44.423
+CV Out sends control voltage to a modular through a DC-coupled interface.
+
+10
+00:00:44.423 --> 00:00:51.668
+Add an output and choose its type: continuous CV, gate, trigger, clock, or one volt per octave pitch.
+
+11
+00:00:52.119 --> 00:00:59.180
+Its source can be a modulation slot, a graph node, any parameter, the Pattern Generator, MIDI notes, or the tempo clock.
+
+12
+00:00:59.634 --> 00:01:05.159
+And MIDI Clock Out, in the MIDI section, sends the tempo to drum machines and DAWs.
+
+13
+00:01:05.610 --> 00:01:10.667
+Inputs and outputs together make the synth one module in a bigger system.
+
+14
+00:01:10.667 --> 00:01:12.052
+Next: stereo and 3D.

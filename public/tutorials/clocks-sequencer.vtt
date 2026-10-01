@@ -1,0 +1,73 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:02.505
+Clocks turn time into events.
+
+2
+00:00:02.505 --> 00:00:03.252
+Add a Clock.
+
+3
+00:00:03.252 --> 00:00:06.801
+It ticks in step with the tempo, which the Timeline sets.
+
+4
+00:00:07.265 --> 00:00:11.414
+Add a Sequencer, and patch the Clock's pulse into its clock input.
+
+5
+00:00:11.414 --> 00:00:13.238
+Every tick advances one step.
+
+6
+00:00:13.697 --> 00:00:15.251
+Each step holds a value.
+
+7
+00:00:15.251 --> 00:00:19.073
+Shape the pattern: a spike on step two, a dip on step four.
+
+8
+00:00:19.533 --> 00:00:22.818
+Bind the sequencer to Z Push, and the depth steps in rhythm.
+
+9
+00:00:23.273 --> 00:00:25.651
+Clock divide by N slows a clock down.
+
+10
+00:00:25.651 --> 00:00:28.094
+Here it passes only every fourth tick.
+
+11
+00:00:29.713 --> 00:00:32.720
+Trigger to Gate stretches each tick into a gate.
+
+12
+00:00:32.720 --> 00:00:36.667
+The ADSR envelope turns that gate into a swell and a slow fade.
+
+13
+00:00:41.877 --> 00:00:45.802
+Send the envelope to Bloom Intensity: the glow swells once a bar.
+
+14
+00:00:46.257 --> 00:00:50.694
+Probe the envelope to see its shape: attack, decay, sustain, release.
+
+15
+00:00:51.154 --> 00:00:52.238
+Restore the window.
+
+16
+00:00:52.238 --> 00:00:55.719
+Stepped depth, and a breathing glow, both locked to the beat.
+
+17
+00:00:56.492 --> 00:00:59.266
+Change the tempo, and the whole patch follows.
+
+18
+00:00:59.266 --> 00:01:01.377
+Next: feedback, and a little chaos.
