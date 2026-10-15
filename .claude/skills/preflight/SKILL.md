@@ -301,6 +301,40 @@ Run these in order; stop and report on the first failure:
   replacement wherever a project-specific control still needs the
   click-to-nudge affordance, not a value-path fork.
 
+## Modern theme + window chrome invariants (v1.33)
+
+- **Modern is the default theme** (`theme.ts`, no stored value = modern;
+  the About/Tutorials/splash inline scripts agree). Theme tests assert it.
+  Classic (`phosphor`) must still render unchanged — check both.
+- **`theme-modern.css`**: add a new component to the BEHAVIOUR's selector
+  list, don't restyle it inline; add pointer-glow surfaces to
+  `GLOW_SELECTOR` (`themeGlow.ts`) too. In an `:is()` list wrap element
+  parts in `:where()` (an `:is()` takes its strongest entry's
+  specificity). Never use the `background` shorthand on a CARD, FLOAT,
+  `.rw-select` or stepper (glow + chevrons are background-image). No
+  `backdrop-filter` on menus (fixed-position submenus). A rule that sets
+  `display` must not un-hide collapsed sections or `[hidden]`.
+- **Tokens, not values**: spacing `--sp-*`, type `--fs-*`, heights
+  `--ctl-*`, radii `--r-*`, select chevrons `--sel-*`. Hovers are green
+  tints (`--a-08/16`), never grey.
+- **Section titles are lookup keys** (`h.section()` in the tutorial tours,
+  `tutorialSteps.reveal`, `LayoutGroups`, `SECTION_HINTS`, `getSection`).
+  Renaming one (e.g. "Source" → "Video Source A") means grepping and
+  renaming every key and doc reference in the same change.
+- **Window chrome is one system** for all four windows (same ⧉ ⤢ –
+  buttons, one collapse model, one resize grip, one tab style); don't add
+  a per-window special case. New collapse state = Settings key +
+  migration (v36 added `leftCollapsed`/`centerCollapsed`).
+- **Scrolling surfaces** use the shared edge rails
+  (`attachEdgeScrollbars`); a cable canvas over a scroller must live
+  INSIDE it (RackLayer `cableHost()`), sized from content that excludes
+  the canvas — never from `scrollHeight` (fitCableCanvas feedback rule).
+- **No self-modulation**: any new path that creates or re-targets a graph
+  binding goes through `isSelfModulation()` (rackGeometry).
+- **Headless screenshots**: launch with `reducedMotion: 'reduce'` — under
+  SwiftShader transitions stall and screenshots show half-transitioned
+  states; headless also hides scrollbars (`--hide-scrollbars`).
+
 ## Deploy warning
 
 Pushing to `main` triggers the production FTP deploy

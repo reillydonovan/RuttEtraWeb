@@ -178,26 +178,82 @@ reveal more rows or sit as blank canvas below the last one — never
 inflate existing content. If you add a new fixed-role strip to the dock
 (a second marker track, say), give it `flex: 0 0 <px>`, not `flex: 1`.
 
-## Themes (Phosphor / Modern)
+## Themes (Modern — the default — and Classic)
 
-`src/ui/theme.ts` (`body[data-theme="modern"]`, localStorage `rw-ui-theme`,
-not a Settings key) layers `src/ui/theme-modern.css` over the phosphor
-stylesheets; Phosphor removes the attribute and is unchanged. The Modern
-file is built like NBDC's `apple.css`: tokens first (the `--re-*` tokens
-are restated, so ~600 existing `var(--re-*)` uses follow automatically),
-then each behaviour — LABEL, MONO, SURFACE, GLOW, CONTROLS — declared
-**once over one selector list**.
+`src/ui/theme.ts` stamps `data-theme="modern"` on `<html>` and `<body>`
+(localStorage `rw-ui-theme`, deliberately NOT a Settings key). **Modern is
+the default since v1.33.0**; **Classic** (id `phosphor`) removes the
+attribute and is the original green CRT look, untouched. The About and
+Tutorials pages and the boot splash read the same key in an inline head
+script (no stored choice = Modern; `?theme=phosphor|modern` flips them).
+
+`src/ui/theme-modern.css` is built like NBDC's `apple.css`. Read its header
+before touching it; the short version:
+
+**Layout system (tokens, section 1 of the file).** Nothing below the token
+block hardcodes a size, colour or duration a token names.
+- Space: a 4px grid, `--sp-1..6` = 4 8 12 16 24 32. Card padding `--sp-3`,
+  gaps between controls `--sp-2`, between groups `--sp-3`.
+- Type: `--fs-xs` 10.5 (labels), `--fs-s` 11.5 (controls, readouts),
+  `--fs-m` 12.5 (body, rows), `--fs-l` 13.5 (titles); weights 400 / 500 / 600.
+- Heights: `--ctl-s` 22 (dense in-card buttons), `--ctl-m` 26 (inputs,
+  toolbar), `--ctl-l` 32 (primary); tab bars `--bar-h` 32; card headers
+  `--head-h` 34. A collapsed window is exactly `--rw-strip` (= `--bar-h`).
+- Radius: `--r-s` 6 (controls), `--r-m` 10 (cards), `--r-l` 14 (floating
+  sheets), `--r-tab` 8 (window tabs, top corners only).
+- Surfaces, darkest at the back: BAR `#000` (menu bar + every tab bar) →
+  WINDOW `#0e0e0f` → CARD `#18181a`. The `--re-*` tokens are restated from
+  these, so the ~600 existing `var(--re-*)` uses follow.
+- Select chevrons: `--sel-inset` / `--sel-caret` / `--sel-pad-r` — one rule
+  for every dropdown.
+
+**Colour.** Phosphor green is spent on state, not decoration: lit, active,
+focused, and every HOVER is a green tint (never grey); a faint green catch
+on the top-left corner of card edges; the pointer glow (soft, wide).
+Amber = "the timeline owns this value". Red = warn / reject.
+
+**Behaviours, each declared once over one selector list:** LABEL (mono
+uppercase tracked), TITLE (card names), CARD (rounded card + gradient edge
++ glow), FLOAT (menus, popovers, modals), CONTROLS (tinted / primary /
+icon / input / segmented / window tabs).
 
 **The rule: to round, label, light or restyle a new component in Modern,
-add its selector to the behaviour's list in `theme-modern.css`; do not
-restate the behaviour on the component.** For the pointer glow, also add
-it to `GLOW_SELECTOR` in `src/ui/themeGlow.ts` (the two lists are kept
-in step by hand). Specificity: skin rules are `(0,3,1)`, so theme rules
-use `html body[data-theme="modern"][data-theme]` (`(0,2,2)` + the
-selector). Never set the `background` shorthand on `.rw-select` or the
-number stepper in the theme (chevrons live on `background-image`
-longhands). Docked window shells stay square; canvas colours (cables,
-scope, lanes) are not themed.
+add its selector to the behaviour's list; do not restate the behaviour on
+the component.** For the pointer glow, also add it to `GLOW_SELECTOR` in
+`src/ui/themeGlow.ts` (kept in step by hand).
+
+Gotchas that have bitten (each is commented in the file):
+- An `:is()` list takes the specificity of its STRONGEST entry —
+  `:is(.a, .x button)` silently outranks single-class overrides written
+  after it. Wrap element parts in `:where()`.
+- Theme rules use `html body[data-theme="modern"][data-theme]` (+ the
+  selector) to beat the skins' `(0,3,1)` rules without `!important`.
+- Never set the `background` shorthand on `.rw-select`, the number stepper,
+  a CARD or a FLOAT surface — chevrons and the glow live on
+  `background-image`; use `background-color`.
+- No `backdrop-filter` on a menu: it becomes the containing block for its
+  `position: fixed` submenus (Window ▸ Layout floated mid-screen).
+- A rule that sets `display` on a section body / group must not un-hide
+  it: scope to `.rw-section:not(.collapsed) > .rw-section-body`, honour
+  `[hidden]`.
+
+**Shared window chrome (both themes).**
+- *Window tabs* are document tabs on the bar's bottom edge. Every window
+  has the same ⧉ ⤢ – buttons; the Renderer gets no special case.
+- *Collapse* is one model (`Workspace.ts` + `workspace.css` "COLLAPSED
+  WINDOWS"): the window shrinks to its tab strip on its own edge (vertical
+  rail left/right, bar bottom/center); a click on the strip restores it.
+  Collapsing the Renderer gives its space to the dock.
+- *Resize grips* are one design (`workspace.css` "RESIZE GRIPS"): a 10px
+  hit area centred on the window border with a drawn 3×28 pill.
+- *Scrolling* in the Controls panel and the Patch Bay uses the same edge
+  rails (`patchbay/edgeScrollbars.ts` + `src/ui/edgeScrollRails.css`); the
+  Controls body reserves a 20px rail gutter.
+- *Cursors* are one set (`src/ui/cursors.css`): in Modern a single green
+  arrow for rest and pointer; glyphs that carry meaning (grab, jack,
+  resize, accept / reject) are shared by both themes.
+- *Jack ripple* (`rack/jackRipple.css`): idle hover, drop target in the
+  cable's colour, one red pulse on reject.
 
 ## Checklist for a new panel row
 
