@@ -84,10 +84,10 @@ a { color: var(--re-accent); }
   background: transparent;
   border: 1px solid var(--re-line-hi);
   padding: 4px 14px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer, pointer);
 }
 #tut-nav button:hover:not(:disabled) { background: rgba(95, 255, 133, 0.08); box-shadow: var(--re-glow); }
-#tut-nav button:disabled { opacity: 0.35; cursor: default; }
+#tut-nav button:disabled { opacity: 0.35; cursor: var(--rw-cur-default, default); }
 #tut-autoplay { flex: 1; text-align: center; color: var(--re-text-dim); font-size: 13px; }
 #tut-autoplay input { accent-color: var(--re-accent); vertical-align: middle; }
 
@@ -108,7 +108,7 @@ a { color: var(--re-accent); }
   border: 0;
   border-left: 2px solid transparent;
   padding: 5px 10px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer, pointer);
 }
 #tut-chapters button:hover { background: rgba(95, 255, 133, 0.06); }
 #tut-chapters li.current button { border-left-color: var(--re-accent); color: var(--re-accent); }

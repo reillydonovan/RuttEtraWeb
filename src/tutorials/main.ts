@@ -12,6 +12,7 @@
 import '@fontsource/vt323';
 import '@fontsource/share-tech-mono';
 import './tutorials.css';
+import '../ui/cursors.css';   // the app's cursor set (green in both themes)
 import '../about/modern-pages.css';
 import { attachModernGlow } from '../about/modernGlow';
 attachModernGlow();

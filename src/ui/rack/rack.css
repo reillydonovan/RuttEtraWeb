@@ -86,6 +86,9 @@ body[data-skin="rack"]:not([data-layout="compact"]) .rw-slider .rw-rack-jack--in
 body[data-skin="rack"]:not([data-layout="compact"]) .rw-slider .rw-rack-jack--pout {
   order: 100;
   margin-left: 3px;
+  /* Clear of the panel edge (owner: the OUT jack was pressed against it);
+     also leaves room for its hover ripple. */
+  margin-right: 8px;
   background:
     radial-gradient(circle at 50% 50%,
       #000 0 3.5px,

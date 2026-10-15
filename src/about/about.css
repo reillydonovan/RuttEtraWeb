@@ -172,7 +172,7 @@ body.about-body::before {
 .about-result {
   padding: 8px 12px;
   border-bottom: 1px solid var(--re-line);
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer, pointer);
 }
 .about-result:last-child { border-bottom: none; }
 .about-result:hover, .about-result-active {
@@ -275,7 +275,7 @@ body.about-body::before {
   font-size: 14px;
   letter-spacing: 0.08em;
   padding: 8px 12px;
-  cursor: pointer;
+  cursor: var(--rw-cur-pointer, pointer);
   border-radius: 2px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
