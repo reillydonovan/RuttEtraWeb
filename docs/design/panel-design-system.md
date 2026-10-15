@@ -178,6 +178,27 @@ reveal more rows or sit as blank canvas below the last one — never
 inflate existing content. If you add a new fixed-role strip to the dock
 (a second marker track, say), give it `flex: 0 0 <px>`, not `flex: 1`.
 
+## Themes (Phosphor / Modern)
+
+`src/ui/theme.ts` (`body[data-theme="modern"]`, localStorage `rw-ui-theme`,
+not a Settings key) layers `src/ui/theme-modern.css` over the phosphor
+stylesheets; Phosphor removes the attribute and is unchanged. The Modern
+file is built like NBDC's `apple.css`: tokens first (the `--re-*` tokens
+are restated, so ~600 existing `var(--re-*)` uses follow automatically),
+then each behaviour — LABEL, MONO, SURFACE, GLOW, CONTROLS — declared
+**once over one selector list**.
+
+**The rule: to round, label, light or restyle a new component in Modern,
+add its selector to the behaviour's list in `theme-modern.css`; do not
+restate the behaviour on the component.** For the pointer glow, also add
+it to `GLOW_SELECTOR` in `src/ui/themeGlow.ts` (the two lists are kept
+in step by hand). Specificity: skin rules are `(0,3,1)`, so theme rules
+use `html body[data-theme="modern"][data-theme]` (`(0,2,2)` + the
+selector). Never set the `background` shorthand on `.rw-select` or the
+number stepper in the theme (chevrons live on `background-image`
+longhands). Docked window shells stay square; canvas colours (cables,
+scope, lanes) are not themed.
+
 ## Checklist for a new panel row
 
 1. Building a single control? Use `slider()`/`toggle()`/`dropdown()`/

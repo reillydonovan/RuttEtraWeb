@@ -27,6 +27,15 @@ The **skin picker** in the panel title bar (CRT / HW / RACK) switches between th
 
 Same parameters, same values in every skin — only the faces change, and every slider trick below still works. The skin choice is remembered on this machine, not in your presets or projects, and touch layouts keep their touch-friendly controls regardless.
 
+### Themes
+
+Independent of the skin, **View ▸ Theme** (or the **PHOS / MOD** picker in the panel title bar) chooses the overall look:
+
+- **Phosphor** — the original green-on-black terminal. The default.
+- **Modern** — neutral Apple-style greys with phosphor green kept for lit and active state: a system sans-serif for headings and buttons (numbers and small labels stay monospaced), rounded surfaces on every Patch Bay module, graph node and Controls section, a soft green glow that follows the pointer, a lift on Patch Bay modules when you hover them, light pill buttons, iOS-style switches and round-thumb sliders. Amber still means "the timeline owns this value" and red still means warning or a rejected cable. Cables, the Scope trace and timeline lanes keep their colours.
+
+A theme works with every skin (RACK + Modern gives rounded modules with live cables and knobs), follows into pop-out windows, and respects your system's reduced-motion setting (no lift, glow or press animation). Like the skin it is remembered on this machine only — never in presets, projects or timelines.
+
 ### Workspace windows & tabs
 
 The interface is four windows (**left**, **center**, **right**, **bottom**), and each holds a strip of **tabs**, exactly like Unity or Blender.

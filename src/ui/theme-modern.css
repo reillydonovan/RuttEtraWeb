@@ -601,7 +601,12 @@ html body[data-theme="modern"][data-theme] {
     /* !important: this must beat every component's own transition/animation
        declaration, whatever its specificity. */
     & * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-    & .rw-patchbay :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):hover { transform: none; }
+    /* Same :not() chain as the lift rule so specificity is not lower. */
+    & .rw-patchbay:not(.rw-pb-node-dragging):not(.rw-rack-dragging):not(.rw-pb-panning)
+      :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):not(.rw-pb-unit-dragging):not(.rw-pb-unit-lifting):hover {
+      transform: none;
+      box-shadow: none;
+    }
     & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) { transform: none; }
   }
 }

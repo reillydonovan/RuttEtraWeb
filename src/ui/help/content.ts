@@ -52,7 +52,7 @@ const MD_QUICKSTART = `
 
 > Desktop has a traditional **menu bar** along the top: **File** (project
 > New/Open/Save + backup), **Edit** (timeline undo/redo), **View** (skins,
-> HUD, fullscreen, docking, **Text Size**), **Window** (pop-out controls/output,
+> **Theme**, HUD, fullscreen, docking, **Text Size**), **Window** (pop-out controls/output,
 > workspace regions, layout presets), and **Help** (this manual and more).
 > Everything in it is also reachable the old ways — same actions, one
 > implementation.
@@ -166,6 +166,13 @@ here is the same patch the Patch Bay shows. While dragging, the cable's end turn
 red over a jack it can't go into, and a short note says why. Same parameters, same values in every skin; the choice is
 remembered on this machine — it isn't part of your presets or projects.
 Touch layouts keep their touch-friendly controls regardless of skin.
+
+Separately, **View ▸ Theme** (or the PHOS/MOD picker next to the skin
+picker) switches between **Phosphor** — the original green-on-black CRT
+look — and **Modern**: neutral greys, a system sans-serif, rounded
+surfaces, a soft green glow that follows the pointer, pill buttons and
+iOS-style switches. The theme works with every skin and, like the skin,
+is remembered on this machine only.
 
 > Tip: the floating **?** button (bottom-left) re-opens this manual at any time.
 `;
