@@ -104,7 +104,7 @@ other as you go.
 
 1. Load the synth and pick any source on the boot screen — or click
    *continue without video* and enable the Pattern Generator
-   (Source → Pattern Generator → Enable) so there's an image to modulate.
+   (Video Source A → Pattern Generator → Enable) so there's an image to modulate.
 2. Turn the mic on: open **CONTROLS → Synth tab → Modulation**, and under
    *Audio Interface (mic)* click **Enable Mic**. Grant the browser
    permission. (Audio analysis is opt-in per session, on purpose —

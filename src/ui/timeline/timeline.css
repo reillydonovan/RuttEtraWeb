@@ -577,3 +577,25 @@
   background: var(--re-line);
   margin: 10px 0 8px;
 }
+
+/* ---- Transport toolbar: three zones (Resolve / After Effects pattern) --
+   SCORE (which timeline + a ⋯ file menu) · TRANSPORT (the time, then the
+   deck: prev · stop · play · next · loop) · CLOCK & VIEW (tempo, length,
+   meter, sync, display format, zoom). One line when there's room; when
+   there isn't, whole zones wrap — never single buttons. */
+.rw-tl-header { gap: 8px 18px; }
+.rw-tl-zone { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.rw-tl-zone--score { flex: 1 1 240px; }
+.rw-tl-zone .rw-tl-info { margin-left: 0; }
+.rw-tl-zone--score > .rw-select { flex: 1 1 auto; min-width: 110px; max-width: 260px; width: auto; }
+.rw-tl-zone--transport { flex: 0 0 auto; gap: 10px; margin-left: auto; }
+/* Clock & view always takes its own line under score + transport: two
+   predictable rows instead of whatever flex-wrap happens to produce. */
+.rw-tl-zone--clock { flex: 1 1 100%; justify-content: flex-start; flex-wrap: wrap; row-gap: 6px; column-gap: 14px; }
+.rw-tl-zone--clock label { gap: 6px; margin-left: 0; }
+.rw-tl-zone--clock .rw-num { width: 52px !important; }   /* inline 64px is set in TimelineTransport */
+.rw-tl-zone--clock > label:last-child { margin-left: auto; }
+.rw-tl-zone--clock .rw-tl-counter-cluster { margin-left: 0; }
+.rw-tl-header .rw-tl-time { min-width: 9.5em; text-align: center; font-size: 15px; }
+.rw-tl-header .rw-tl-icon { min-width: 28px; padding-left: 6px; padding-right: 6px; text-align: center; }
+.rw-tl-header .rw-tl-deck .rw-btn.active { color: var(--re-accent); border-color: var(--re-accent); }

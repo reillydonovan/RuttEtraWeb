@@ -9,7 +9,8 @@
  * breaks.
  */
 export const SECTION_HINTS: Record<string, string> = {
-  Source: 'The video signal feeding the synth — webcam, screen capture, a file, or a stream URL — plus the Pattern Generator, a built-in synthesized signal.',
+  'Video Source A': 'The main video signal feeding the synth — webcam, screen capture, a file, or a stream URL — plus the Pattern Generator, a built-in synthesized signal.',
+  'Video Source B': 'A second, independent video input (another camera, the same camera, a file or a stream) for Composite and Dual Raster in the Patch Bay.',
   'Display Control Unit': 'The core Rutt/Etra control set: how video maps onto the scanline mesh — position, size, depth (Z) displacement, beam focus/intensity, and rotation.',
   'Dual Raster': 'A second, independently modulated raster fed by the same video — wipe or interleave it against the main raster.',
   'Virtual Camera': 'The free-flight 3D camera that views the scanline mesh (not your webcam): orbit/fly modes, field of view, and the saved default view.',

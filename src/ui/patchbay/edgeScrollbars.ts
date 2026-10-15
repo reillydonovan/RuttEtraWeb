@@ -14,6 +14,8 @@
  * offset so they stay pinned to the visible edge.
  */
 
+import '../edgeScrollRails.css';
+
 export const REVEAL_PX = 22;
 const HIDE_MS = 900;
 const RAIL = 10;
@@ -47,6 +49,7 @@ export interface EdgeScrollbars {
 
 export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
   const doc = scroller.ownerDocument;
+  scroller.classList.add('rw-edge-scroller');
   const mk = (axis: 'v' | 'h'): { rail: HTMLElement; thumb: HTMLElement } => {
     const rail = doc.createElement('div');
     rail.className = `rw-pb-scrollbar rw-pb-scrollbar--${axis}`;

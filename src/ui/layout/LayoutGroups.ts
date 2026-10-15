@@ -19,7 +19,7 @@ export interface CompactTabSpec {
 }
 
 export const COMPACT_TABS: CompactTabSpec[] = [
-  { id: 'source', label: 'Source', icon: 'IN',  sections: ['Source'] },
+  { id: 'source', label: 'Source', icon: 'IN',  sections: ['Video Source A', 'Video Source B'] },
   { id: 'synth',  label: 'Synth',  icon: 'DCU', sections: ['Display Control Unit'] },
   { id: 'mod',    label: 'Mod',    icon: 'MOD', sections: ['Modulation', 'Audio', 'MIDI', 'OSC'] },
   { id: 'fx',     label: 'FX',     icon: 'FX',  sections: ['Color / Post FX', 'Geometry'] },

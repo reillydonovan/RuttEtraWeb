@@ -15,6 +15,7 @@ import {
   lengthDisplayFromBars, lengthBarsFromDisplay,
 } from '../../sequencer/timecode';
 import { attachTooltip } from '../tooltip';
+import { showContextMenu } from './contextMenu';
 import { infoButton } from '../help/infoModal';
 import { TIMELINE_INFO } from '../help/infoContent';
 import { attachNumberDragScrub } from '../widgets';
@@ -99,58 +100,85 @@ export class TimelineTransport {
     const info = infoButton(() => TIMELINE_INFO, 'How the timeline works');
     info.classList.add('rw-tl-info');
     attachTooltip(info, 'How the timeline works');
-    this.el.appendChild(info);
 
-    // Timeline picker
+    // ---- Zone 1: SCORE — which timeline, plus its file actions ------
+    // (Resolve/AE pattern: the document picker is primary; the rarely
+    // used file verbs live behind one ⋯ menu instead of six buttons.)
+    const zone = (cls: string): HTMLElement => {
+      const z = document.createElement('div');
+      z.className = `rw-tl-zone ${cls}`;
+      this.el.appendChild(z);
+      return z;
+    };
+    const score = zone('rw-tl-zone--score');
+    score.appendChild(info);
     this.timelinePicker = document.createElement('select');
     this.timelinePicker.className = 'rw-select';
     attachTooltip(this.timelinePicker, 'Active timeline — the score currently loaded into the dock');
     this.timelinePicker.addEventListener('change', () => this.onPickTimeline());
-    this.el.appendChild(this.timelinePicker);
+    score.appendChild(this.timelinePicker);
+    const newBtn = this.btn('+', () => this.onNewTimeline(), 'New timeline');
+    newBtn.dataset.tl = 'new';
+    newBtn.classList.add('rw-tl-icon');
+    const moreBtn = this.btn('⋯', () => {
+      const r = moreBtn.getBoundingClientRect();
+      const dock = this.settings.get('timelineDock');
+      // Deferred a tick: the menu's outside-click dismiss listens on the
+      // document, and this very click would otherwise close it at once.
+      setTimeout(() => showContextMenu(r.left, r.bottom + 4, [
+        { label: 'Save timeline', onClick: () => this.onSaveTimeline() },
+        { label: 'Rename…', onClick: () => this.onRenameTimeline() },
+        { label: 'Export JSON…', onClick: () => this.onExportTimeline() },
+        { label: 'Import JSON…', onClick: () => this.onImportTimeline() },
+        { label: '', separator: true },
+        { label: 'Delete timeline…', onClick: () => this.onDeleteTimeline() },
+        { label: '', separator: true },
+        { label: `${dock === 'top' ? '✓ ' : ''}Dock at top`, onClick: () => this.settings.set('timelineDock', 'top') },
+        { label: `${dock === 'bottom' ? '✓ ' : ''}Dock at bottom`, onClick: () => this.settings.set('timelineDock', 'bottom') },
+        { label: 'Hide dock', onClick: () => this.settings.set('timelineDock', 'hidden') },
+      ]), 0);
+    }, 'Timeline file actions: save, rename, export, import, delete, dock position');
+    moreBtn.dataset.tl = 'more';
+    moreBtn.classList.add('rw-tl-icon');
+    score.append(newBtn, moreBtn);
 
-    // Buttons come in clusters (file actions / transport) — each one
-    // `.rw-tl-group`, drawn as a single segmented control in the Modern
-    // theme and as plain spacing in Phosphor.
-    const cluster = (...els: HTMLElement[]): HTMLElement => {
-      const g = document.createElement('span');
-      g.className = 'rw-tl-group';
-      g.append(...els);
-      this.el.appendChild(g);
-      return g;
-    };
-    cluster(
-      this.btn('+ NEW', () => this.onNewTimeline()),
-      this.btn('SAVE',  () => this.onSaveTimeline()),
-      this.btn('REN',   () => this.onRenameTimeline(), 'Rename'),
-      this.btn('DEL',   () => this.onDeleteTimeline(), 'Delete', 'warn'),
-      this.btn('EXPORT', () => this.onExportTimeline(), 'Export JSON'),
-      this.btn('IMPORT', () => this.onImportTimeline(), 'Import JSON'),
-    );
-
-    // Transport buttons
-    this.playBtn = this.btn('PLAY', () => this.onPlayPause()) as HTMLButtonElement;
+    // ---- Zone 2: TRANSPORT — the time, then the deck controls --------
+    const transport = zone('rw-tl-zone--transport');
+    this.readout = document.createElement('span');
+    this.readout.className = 'rw-readout rw-tl-time';
+    this.readout.textContent = 'bar 0.00 / 16';
+    attachTooltip(this.readout, 'Playhead position in the selected DISPLAY format. Non-Bars/Beats readings append the bar position (e.g. "frame 60 · bar 1.00") so it always ties back to where the playhead sits on the ruler.');
+    transport.appendChild(this.readout);
+    const deck = document.createElement('span');
+    deck.className = 'rw-tl-group rw-tl-deck';
+    const prev = this.btn('|◀', () => this.events.onJumpKeyframe?.(-1), 'Previous keyframe (,)');
+    prev.dataset.tl = 'prev';
+    this.stopBtn = this.btn('■', () => this.seq.stop()) as HTMLButtonElement;
+    this.stopBtn.dataset.tl = 'stop';
+    attachTooltip(this.stopBtn, 'Stop and return the playhead to bar 0');
+    this.playBtn = this.btn('▶', () => this.onPlayPause()) as HTMLButtonElement;
+    this.playBtn.dataset.tl = 'play';
     this.playBtn.classList.add('primary');
     attachTooltip(this.playBtn, () => this.seq.isPlaying ? 'Pause (Space)' : 'Play (Space)');
-    this.stopBtn = this.btn('STOP', () => this.seq.stop()) as HTMLButtonElement;
-    attachTooltip(this.stopBtn, 'Stop and return the playhead to bar 0');
-    this.loopBtn = this.btn('LOOP', () => {
+    const next = this.btn('▶|', () => this.events.onJumpKeyframe?.(1), 'Next keyframe (.)');
+    next.dataset.tl = 'next';
+    this.loopBtn = this.btn('⟲', () => {
       const t = this.seq.timeline;
       if (!t) return;
       this.seq.setLoop(!t.loop);
     }) as HTMLButtonElement;
+    this.loopBtn.dataset.tl = 'loop';
     attachTooltip(this.loopBtn, () =>
       this.seq.timeline?.loop
-        ? 'Looping — the playhead wraps to bar 0 at the end. Click to play once and stop.'
-        : 'Plays once and stops at the end. Click to loop back to bar 0.');
-    // Keyframe navigation: jump to the previous / next scene or lane
-    // point (the selected lane's points when a lane point is selected).
-    cluster(
-      this.playBtn,
-      this.stopBtn,
-      this.btn('|◀', () => this.events.onJumpKeyframe?.(-1), 'Jump to previous keyframe (,)'),
-      this.btn('▶|', () => this.events.onJumpKeyframe?.(1), 'Jump to next keyframe (.)'),
-      this.loopBtn,
-    );
+        ? 'Loop is on — the playhead wraps to bar 0 at the end. Click to play once and stop.'
+        : 'Loop is off — plays once and stops at the end. Click to loop.');
+    for (const b of [prev, this.stopBtn, this.playBtn, next, this.loopBtn]) b.classList.add('rw-tl-icon');
+    deck.append(prev, this.stopBtn, this.playBtn, next, this.loopBtn);
+    transport.appendChild(deck);
+
+    // ---- Zone 3: CLOCK & VIEW — tempo, length, meter, sync, format, zoom
+    const clock = zone('rw-tl-zone--clock');
+    const into = (el: HTMLElement): void => { clock.appendChild(el); };
 
     // BPM
     {
@@ -168,7 +196,7 @@ export class TimelineTransport {
       attachNumberDragScrub(this.bpmInput, () => 1);
       lbl.appendChild(this.bpmInput);
       attachTooltip(lbl, 'Tempo — the single shared clock every LFO, Graph clock node, and this timeline reads (Settings.internalBpm)');
-      this.el.appendChild(lbl);
+      into(lbl);
     }
 
     // Length — follows the DISPLAY format (bars by default; total
@@ -203,7 +231,7 @@ export class TimelineTransport {
         if (fmt === 'samples') return 'Timeline length as a total sample count — converts to/from the underlying bar count';
         return 'Timeline length in bars — where the loop point and the end of the ruler sit';
       });
-      this.el.appendChild(this.lenLabel);
+      into(this.lenLabel);
     }
 
     // Beats per bar
@@ -222,7 +250,7 @@ export class TimelineTransport {
       attachNumberDragScrub(this.bpbInput, () => 1);
       lbl.appendChild(this.bpbInput);
       attachTooltip(lbl, 'Beats per bar — sets the ruler\'s minor gridlines and beat-snap spacing');
-      this.el.appendChild(lbl);
+      into(lbl);
     }
 
     // Sync mode
@@ -237,40 +265,23 @@ export class TimelineTransport {
       this.syncSel.addEventListener('change', () => this.seq.setSyncMode(this.syncSel.value as 'internal' | 'midi'));
       lbl.appendChild(this.syncSel);
       attachTooltip(lbl, 'Clock source: Internal runs off the BPM above; MIDI locks the transport to an incoming MIDI clock');
-      this.el.appendChild(lbl);
+      into(lbl);
     }
 
-    // Zoom +/-
+    // Zoom +/- (appended last, after DISPLAY)
+    let zoomLbl: HTMLElement | null = null;
     {
       const lbl = document.createElement('label');
       lbl.textContent = 'ZOOM';
       const minus = this.btn('−', () => this.changeZoom(0.66), 'Zoom out (fewer pixels per bar)');
       const plus  = this.btn('+', () => this.changeZoom(1.5), 'Zoom in (more pixels per bar)');
-      lbl.append(minus, plus);
-      this.el.appendChild(lbl);
+      minus.classList.add('rw-tl-icon'); plus.classList.add('rw-tl-icon');
+      const zg = document.createElement('span');
+      zg.className = 'rw-tl-group';
+      zg.append(minus, plus);
+      lbl.append(zg);
+      zoomLbl = lbl;
     }
-
-    // Dock position toggle
-    {
-      const container = document.createElement('span');
-      container.className = 'rw-tl-dock-cluster';
-      container.style.display = 'inline-flex';
-      container.style.alignItems = 'center';
-      container.style.gap = '4px';
-      // A <label> like BPM / BARS / ZOOM, so it takes the header's label style.
-      const label = document.createElement('label');
-      label.textContent = 'DOCK';
-      const top = this.btn('TOP',    () => this.settings.set('timelineDock', 'top'), 'Dock the timeline to the top of the window');
-      const bot = this.btn('BOT',    () => this.settings.set('timelineDock', 'bottom'), 'Dock the timeline to the bottom of the window');
-      const hide = this.btn('HIDE', () => this.settings.set('timelineDock', 'hidden'), 'Hide the timeline dock (its lanes and keyframes are unaffected)');
-      container.append(label, top, bot, hide);
-      this.el.appendChild(container);
-    }
-
-    // Spacer
-    const spacer = document.createElement('span');
-    spacer.className = 'rw-tl-spacer';
-    this.el.appendChild(spacer);
 
     // Counter cluster: format picker + rate picker + the readout itself,
     // grouped in ONE container so they wrap together as a single unit
@@ -285,7 +296,7 @@ export class TimelineTransport {
     // notational references for those formats, shown only when relevant.
     const counterCluster = document.createElement('div');
     counterCluster.className = 'rw-tl-counter-cluster';
-    this.el.appendChild(counterCluster);
+    into(counterCluster);
 
     {
       const lbl = document.createElement('label');
@@ -333,16 +344,8 @@ export class TimelineTransport {
     });
     counterCluster.appendChild(this.srSel);
 
-    // Bar readout. Non-Bars/Beats formats append the bar position as a
-    // trailing anchor (e.g. "frame 58 · bar 0.97") so the reading is
-    // never disconnected from where the playhead actually sits on the
-    // ruler below — the exact confusion a frame/timecode count in
-    // isolation invites ("I'm on frame 58 but really just at bar 1").
-    this.readout = document.createElement('span');
-    this.readout.className = 'rw-readout';
-    this.readout.textContent = 'bar 0.00 / 16';
-    attachTooltip(this.readout, 'Playhead position in the selected DISPLAY format. Non-Bars/Beats readings append the bar position (e.g. "frame 60 · bar 1.00") so it always ties back to where the playhead sits on the ruler.');
-    counterCluster.appendChild(this.readout);
+    // (The playhead readout itself leads the TRANSPORT zone above.)
+    if (zoomLbl) into(zoomLbl);
   }
 
   /** Show the FPS picker for Timecode/Frames, the sample-rate picker
@@ -421,7 +424,7 @@ export class TimelineTransport {
       this.timelinePicker.appendChild(opt);
     }
     // Transport state
-    this.playBtn.textContent = this.seq.isPlaying ? 'PAUSE' : 'PLAY';
+    this.playBtn.textContent = this.seq.isPlaying ? '❚❚' : '▶';
     // BPM is the global Settings.internalBpm (single shared source) — the
     // timeline no longer owns its own value, so we always show the global
     // BPM here regardless of whether a timeline is loaded.
@@ -429,8 +432,8 @@ export class TimelineTransport {
     if (t) {
       this.bpbInput.value = String(t.beatsPerBar);
       this.syncSel.value  = t.syncMode;
-      this.loopBtn.classList.toggle('primary', t.loop);
-      this.loopBtn.textContent = t.loop ? 'LOOP ON' : 'LOOP OFF';
+      this.loopBtn.classList.toggle('active', t.loop);
+      this.loopBtn.setAttribute('aria-pressed', String(t.loop));
     } else {
       this.bpbInput.value = '4';
       this.syncSel.value = 'internal';

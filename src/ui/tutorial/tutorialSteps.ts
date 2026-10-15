@@ -60,8 +60,8 @@ export function buildTutorialSteps(deps: TutorialDeps): TutorialStep[] {
         'Webcam, Screen, or a File — the mesh reacts to whatever it sees. ' +
         'No source yet? The Pattern Generator further down makes its own ' +
         'test image.',
-      before: () => { settings.set('panelTab', 'synth'); reveal(panel, 'Source'); },
-      target: () => byButtonText('Use Webcam') ?? panel.getSection('Source'),
+      before: () => { settings.set('panelTab', 'synth'); reveal(panel, 'Video Source A'); },
+      target: () => byButtonText('Use Webcam') ?? panel.getSection('Video Source A'),
     },
     {
       title: 'Z Push — the core effect',

@@ -13,6 +13,7 @@
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
 import { attachTooltip } from './tooltip';
+import { attachEdgeScrollbars } from './patchbay/edgeScrollbars';
 import { SECTION_HINTS } from './help/sectionHints';
 import { infoButton } from './help/infoModal';
 import { sectionInfo } from './help/infoContent';
@@ -193,6 +194,17 @@ export class ControlPanel {
       body.appendChild(this.tabPanes[id].pane);
     }
     this.applyActiveTab();
+
+    // The same scroll control as the Patch Bay (owner: continuity) — rails
+    // that reveal near the right edge, a draggable thumb with the axis
+    // cursor, track click pages. Re-synced whenever the body or a tab
+    // pane changes size (tab switch, a section opening).
+    const rails = attachEdgeScrollbars(body);
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => rails.update());
+      ro.observe(body);
+      for (const id of ['synth', 'io', 'help'] as TabId[]) ro.observe(this.tabPanes[id].pane);
+    }
 
     // Always re-apply on every change. We deliberately don't early-return on
     // `v === this.activeTab` because external callers (e.g. the help FAB,

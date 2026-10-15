@@ -15,7 +15,7 @@
 export const GLOW_SELECTOR = [
   '.rw-section', '.rw-pb-module', '.rw-pb-field', '.rw-pb-graphnode', '.rw-pb-bus',
   '.rw-graph-node', '.rw-mod-slot', '.rw-menu', '.rw-info-card', '.rw-numeric-modal-card',
-  '.rw-about-dialog-card', '.rw-tut-callout',
+  '.rw-about-dialog-card', '.rw-tut-callout', '.rw-pb-addnode-menu', '.rw-kf-menu',
 ].join(', ');
 
 /**

@@ -879,14 +879,9 @@ async function bootSynth(): Promise<void> {
   let renderPopoutCtl: { toggle(): void; isOpen(): boolean } | null = null;
   {
     const { createPanelPopout } = await import('./ui/PanelPopout');
-    const popoutBtn = document.createElement('button');
-    popoutBtn.title = 'Pop controls out into a separate window (two-screen setup)';
-    popoutBtn.textContent = '⧉';
+    // No title-bar button: the Controls window's own ⧉ and Window ▸ Pop
+    // out Controls run this (one control per job, owner 2026-10-15).
     const popout = createPanelPopout(panelHost, (open) => {
-      popoutBtn.textContent = open ? '⧈' : '⧉';
-      popoutBtn.title = open
-        ? 'Return controls to this window'
-        : 'Pop controls out into a separate window (two-screen setup)';
       // While the panel lives in the popup the main window has no panel
       // footprint — let the timeline dock reclaim the full width. On
       // pop-in the panel recomputes its insets.
@@ -901,8 +896,6 @@ async function bootSynth(): Promise<void> {
       // Settings writes), restore the arrangement on pop-in.
       workspace.onPanelPopout(open);
     });
-    popoutBtn.addEventListener('click', () => popout.toggle());
-    panel.addTitleAction(popoutBtn);
     panelPopoutCtl = popout;
   }
 
@@ -912,15 +905,9 @@ async function bootSynth(): Promise<void> {
   // which carries its own fullscreen toggle for "seamless" projector use.
   {
     const { createRenderPopout } = await import('./renderer/RenderPopout');
-    const renderPopoutBtn = document.createElement('button');
-    renderPopoutBtn.title = 'Pop the output out into a separate window (fullscreen there for a projector/second display)';
-    renderPopoutBtn.textContent = '⛶';
-    const renderPopout = createRenderPopout(canvas, (open) => {
-      renderPopoutBtn.textContent = open ? '⛶•' : '⛶';
-      renderPopoutBtn.title = open
-        ? 'Output window is open — click to bring it back / close it'
-        : 'Pop the output out into a separate window (fullscreen there for a projector/second display)';
-    }, {
+    // No title-bar button: the Renderer window's ⧉ and Window ▸ Pop out
+    // Output run this.
+    const renderPopout = createRenderPopout(canvas, () => { /* state shown by the window itself */ }, {
       // Host both source videos in the output window while it's open, so
       // they keep playing when fullscreen hides this one (RenderPopout.ts).
       videos: [video, videoB],
@@ -929,8 +916,6 @@ async function bootSynth(): Promise<void> {
         if (videoB.readyState >= 1) attachVideoB();
       },
     });
-    renderPopoutBtn.addEventListener('click', () => renderPopout.toggle());
-    panel.addTitleAction(renderPopoutBtn);
     renderPopoutCtl = renderPopout;
   }
 
@@ -1347,7 +1332,7 @@ async function bootSynth(): Promise<void> {
     }, 250);
   }
 
-  panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source) });
+  panel.addSection({ tab: 'synth', title: 'Video Source A',        body: createSourceSection(settings, source) });
   panel.addSection({ tab: 'synth', title: 'Video Source B',        body: createSourceBSection(settings, sourceB) });
   panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings, rasterSourceSize) });
   panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
@@ -1493,7 +1478,7 @@ async function bootSynth(): Promise<void> {
     const host = document.createElement('div');
     host.className = 'rw-panel-multihost';
     const extra = new ControlPanel(host, settings);
-    extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source) });
+    extra.addSection({ tab: 'synth', title: 'Video Source A',       body: createSourceSection(settings, source) });
     extra.addSection({ tab: 'synth', title: 'Video Source B',       body: createSourceBSection(settings, sourceB) });
     extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings, rasterSourceSize) });
     extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });

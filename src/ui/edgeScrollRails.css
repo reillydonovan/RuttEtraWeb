@@ -1,0 +1,51 @@
+/* Edge scroll rails (patchbay/edgeScrollbars.ts) — the ONE scroll
+   control for the app's custom scrollers (the Patch Bay board and the
+   Controls panel body): hidden native scrollbar, a rail that fades in
+   near the right/bottom edge or while scrolling, a thumb with the axis
+   resize cursor, track click pages. attachEdgeScrollbars() marks its
+   host .rw-edge-scroller. */
+.rw-edge-scroller { position: relative; scrollbar-width: none; }
+.rw-edge-scroller::-webkit-scrollbar { display: none; }
+.rw-pb-scrollbar {
+  position: absolute; left: 0; top: 0;
+  /* Below the window resize handle (z 12, workspace.css). */
+  z-index: 11;
+  opacity: 0; transition: opacity 0.18s ease;
+  /* Invisible rails never catch the pointer. */
+  pointer-events: none;
+  background: rgba(8, 14, 8, 0.55);
+  border-radius: 5px;
+  cursor: var(--rw-cur-pointer) !important;
+}
+.rw-pb-scrollbar--v { width: 10px; }
+.rw-pb-scrollbar--h { height: 10px; }
+.rw-pb-scrollbar--on, .rw-pb-scrollbar--drag { opacity: 1; pointer-events: auto; }
+.rw-pb-scrollbar-thumb {
+  position: absolute; left: 1px; top: 1px;
+  border-radius: 4px;
+  /* Pale neutral, not green: the green axis cursor has to read on top of
+     it (owner: same colour + overlapping was hard to see). */
+  background: rgba(207, 232, 216, 0.38);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+/* Scroll handles take the axis resize cursor (not the 4-way move glyph). */
+.rw-pb-scrollbar--v .rw-pb-scrollbar-thumb { width: 8px; cursor: var(--rw-cur-resize-ns) !important; }
+.rw-pb-scrollbar--h .rw-pb-scrollbar-thumb { height: 8px; cursor: var(--rw-cur-resize-ew) !important; }
+.rw-pb-scrollbar-thumb:hover,
+.rw-pb-scrollbar--drag .rw-pb-scrollbar-thumb {
+  background: rgba(207, 232, 216, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(95, 255, 133, 0.35);
+}
+/* Keep the axis cursor for the whole drag, even off the thumb. */
+.rw-edge-scroller:has(> .rw-pb-scrollbar--v.rw-pb-scrollbar--drag),
+.rw-edge-scroller:has(> .rw-pb-scrollbar--v.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ns) !important; }
+.rw-edge-scroller:has(> .rw-pb-scrollbar--h.rw-pb-scrollbar--drag),
+.rw-edge-scroller:has(> .rw-pb-scrollbar--h.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ew) !important; }
+
+
+/* The Controls body reserves the rail's track as a right gutter, so the
+   rail never sits on top of a section (owner). Rail = 10px wide, inset
+   6px from the edge (edgeScrollbars.ts RAIL + EDGE_GAP) -> 16px, plus 4px
+   of air. The Patch Bay board is a free canvas and needs no gutter. */
+#panel-root .rw-panel-body.rw-edge-scroller,
+.rw-panel-view .rw-panel-body.rw-edge-scroller { padding-right: 20px; }

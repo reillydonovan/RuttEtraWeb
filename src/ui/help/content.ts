@@ -83,7 +83,7 @@ const MD_QUICKSTART = `
 > so you can reach a jack that's off-screen. The four
 > Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
 > jacks, VIDEO SOURCE A/B modules switch webcam/screen/file feeds (A
-> mirrors the Source panel; B is independent), each with an OUT jack —
+> mirrors Controls ▸ Video Source A; B is independent), each with an OUT jack —
 > drag both onto a COMPOSITE module's two inputs (Add/Subtract/
 > Multiply/Screen/Difference/Mask/Crossfade/B-only + mix) and its OUT
 > onto RENDERER's IN to blend two sources into the mesh's video input.
@@ -134,7 +134,7 @@ const MD_QUICKSTART = `
 > commands, the graph patch, screenshots — via **I/O ▸ MCP** plus the
 > bridge in tools/mcp-server (opt-in; see its README).
 
-1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, **STREAM URL**, or **PATTERN** — PATTERN (and **continue without video**) starts a moving Pattern Generator image that needs no camera, microphone or file. If a sample video has been deployed, a **Load Sample Video** button also appears in Source → Video File.
+1. On the welcome screen, pick a video source: **WEBCAM**, **SCREEN**, **FILE**, **STREAM URL**, or **PATTERN** — PATTERN (and **continue without video**) starts a moving Pattern Generator image that needs no camera, microphone or file. If a sample video has been deployed, a **Load Sample Video** button also appears in Video Source A → Video File.
 2. Drag with the mouse to orbit. Scroll to zoom. Press \`R\` to reset the view.
 3. Try a preset: open the **Presets** panel and click any chip ( *Phosphor Green*, *Burn-In*, ... ). *Noise Terrain*, *Lissajous Scope* and *Worley Cells* need no camera. A preset only changes the settings it names — your bindings, patch and layout stay put.
 4. Open the **MIDI** or **Audio** tab to add reactive control.
@@ -1071,7 +1071,7 @@ const MD_TIPS = `
 # Tips & gotchas
 
 - **Webcam permission denied.** Click the address-bar lock icon and grant camera permission, then reload. Some browsers block webcam on \`http://\` — use \`https://\` or \`localhost\`.
-- **Black screen but FPS is fine.** Check the **Source** panel; the active source might be paused or disconnected. Reconnect from the Source panel.
+- **Black screen but FPS is fine.** Check the **Video Source A** panel; the active source might be paused or disconnected. Reconnect from the Source panel.
 - **MIDI device not listed.** Web MIDI requires a secure context (\`https://\` or \`localhost\`). Safari ships an experimental flag.
 - **OSC won't connect.** Start the bridge in \`tools/osc-bridge/\` — see its README. Default URL is \`ws://localhost:8081\`.
 - **Recording produces tiny files.** Some browsers don't expose \`MediaRecorder\` for canvases at high resolution. Try lowering FPS or switching format to \`webm-vp8\`.
@@ -1309,7 +1309,7 @@ const MD_VIDEO_AUDIO = `
 
 The synth is silent by default. When a **video file** or **stream URL** source
 is active you can optionally pass its audio track through to your system
-speakers using the **Video Audio** group in the Source panel.
+speakers using the **Video Audio** group in the Video Source A panel.
 
 ## Controls
 
@@ -1354,7 +1354,7 @@ the synth's scanline mesh exactly like a webcam or file source.
 
 ## How to connect
 
-1. Open **Source → Stream URL**.
+1. Open **Video Source A → Stream URL**.
 2. Paste a URL and click **Use Stream**.
 3. A "Connecting…" status appears while the stream loads. Errors are
    displayed inline — no silent failures.

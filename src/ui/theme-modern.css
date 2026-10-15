@@ -287,7 +287,7 @@ html body[data-theme="modern"][data-theme] {
   html body[data-theme="modern"][data-theme] {
     & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
           .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
-          .rw-about-dialog-card, .rw-tut-callout):hover { --glow: 1; }
+          .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-kf-menu):hover { --glow: 1; }
     /* Patch Bay units rise a little under the pointer — never while
        anything is being dragged (a moving box under a moving cursor
        reads as jitter). */
@@ -300,11 +300,14 @@ html body[data-theme="modern"][data-theme] {
 }
 
 /* FLOAT — menus, popovers, tooltips, modals: frosted glass, a plain
-   hairline, a real shadow. */
+   hairline, a real shadow — and the same pointer glow as the cards
+   (owner: every info panel lights under the cursor). */
 html body[data-theme="modern"][data-theme] {
   & :is(.rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card,
         .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost, .rw-kf-menu, .rw-tl-ctx) {
-    background: var(--c-glass);
+    /* background-COLOR only: the pointer-glow layer is a background-image
+       (GLOW below) and a shorthand here would wipe it. */
+    background-color: var(--c-glass);
     -webkit-backdrop-filter: saturate(180%) blur(24px);
     backdrop-filter: saturate(180%) blur(24px);
     border: 1px solid var(--c-hair-hi);
@@ -312,6 +315,13 @@ html body[data-theme="modern"][data-theme] {
     box-shadow: var(--sh-float);
     color: var(--t-body);
     font-family: var(--mx-sans);
+  }
+  & :is(.rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-menu, .rw-kf-menu),
+  & :is(.rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-menu, .rw-kf-menu):hover {
+    background-image: radial-gradient(var(--glow-size) circle at var(--mx, 50%) var(--my, 50%),
+      rgba(var(--a-rgb), calc(var(--glow) * 0.06)),
+      rgba(var(--a-rgb), calc(var(--glow) * 0.02)) 40%, transparent 72%);
+    transition: --glow var(--t-slow) var(--ease);
   }
   & :is(.rw-menu, .rw-kf-menu, .rw-pb-addnode-menu) { padding: var(--sp-1); border-radius: var(--r-m); }
   /* Menus host their submenus as children placed with FIXED screen
@@ -322,7 +332,7 @@ html body[data-theme="modern"][data-theme] {
   & :is(.rw-menu, .rw-kf-menu) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    background: rgba(30, 30, 32, 0.98);
+    background-color: rgba(30, 30, 32, 0.98);
   }
   & .rw-hover-tip { border-radius: var(--r-s); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-s); line-height: 1.4; }
 }
@@ -667,7 +677,9 @@ html body[data-theme="modern"][data-theme] {
   & .rw-panel-search :where(input) { width: 100%; padding: 0 var(--sp-2); }
 
   /* Sections: a card per section; a 34px header; 12px body padding. */
-  & .rw-section { margin: 0 var(--sp-3) var(--sp-2); }
+  /* Right margin 0: the body's 20px rail gutter (edgeScrollRails.css)
+     already spaces the cards from the edge. */
+  & .rw-section { margin: 0 0 var(--sp-2) var(--sp-3); }
   & .rw-section-head {
     min-height: var(--head-h);
     padding: 0 var(--sp-2) 0 var(--sp-3);
@@ -732,6 +744,31 @@ html body[data-theme="modern"][data-theme] {
     min-width: var(--ctl-m) !important;   /* !important: SourceSection sets min-width inline */
     padding: 0 !important;                /* …and padding */
   }
+
+  /* ---- SCROLLBARS (timeline lanes, info bodies; the Controls body and
+          the Patch Bay use the shared edge rails instead): an
+          always-visible rail you can see, grab and scrub — macOS's
+          overlay bar hides itself. The standard scrollbar-width/-color
+          properties are reset first: in Chromium they take precedence
+          over (and disable) ::-webkit-scrollbar styling. ---- */
+  & :is(.rw-tl-scroller, .rw-info-body) {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 1px solid var(--c-hair);
+  }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    border: 3px solid transparent;
+    border-radius: var(--pill);
+    background: rgba(245, 245, 247, 0.26) padding-box;
+  }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar-thumb:hover { background: var(--a-55) padding-box; }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar-thumb:active { background: var(--a) padding-box; }
+  & :is(.rw-tl-scroller, .rw-info-body)::-webkit-scrollbar-corner { background: transparent; }
 
   /* ---- SLIDER (standard face): a thin track, a round white thumb ---- */
   & input[type="range"] { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); }
@@ -844,7 +881,7 @@ html body[data-theme="modern"][data-theme] {
     background: transparent;
     border-bottom: 1px solid var(--c-hair);
   }
-  & .rw-tl-header label { gap: var(--sp-2); margin-left: var(--sp-2); }
+  & .rw-tl-header label { gap: 6px; margin-left: 0; }
   & .rw-tl-header :is(.rw-btn, .rw-num, .rw-select, .rw-text) {
     min-height: var(--ctl-m);
     font-family: var(--mx-sans);
@@ -868,8 +905,14 @@ html body[data-theme="modern"][data-theme] {
   & .rw-tl-group .rw-btn:hover:not(:disabled) { background: var(--a-16); box-shadow: none; }
   & .rw-tl-group .rw-btn.primary { background: var(--t-max); color: #0a0a0b; }
   & .rw-tl-group .rw-btn.warn { background: transparent; color: var(--red); }
+  & .rw-tl-group .rw-btn.active { background: var(--a-16); color: var(--a); }
+  & .rw-tl-deck .rw-btn { font-size: 12px; min-width: 30px; padding: 0 8px; }
+  & .rw-tl-deck .rw-btn.primary { min-width: 40px; }
+  /* The time is the transport's headline: big, mono, green, recessed. */
+  & .rw-tl-header .rw-tl-time { font-size: var(--fs-l); min-height: var(--ctl-m); padding: 0 var(--sp-3); }
+  & .rw-tl-icon { font-family: var(--mx-sans); }
   & .rw-tl-group .rw-btn.warn:hover { background: rgba(255, 92, 92, 0.16); }
-  & .rw-tl-header > .rw-select { flex: 0 1 220px; min-width: 140px; }
+  & .rw-tl-zone--score > .rw-select { min-height: var(--ctl-m); }
   & .rw-tl-info { width: 22px; height: 22px; flex: 0 0 22px; font-size: 12px; }
   & .rw-tl-dock-cluster .rw-btn, & .rw-tl-header label .rw-btn { min-width: var(--ctl-m); }
   & .rw-tl-header .rw-num { font-family: var(--mx-code); font-size: var(--fs-s); width: 56px; }

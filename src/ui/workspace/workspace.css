@@ -348,13 +348,23 @@ body.viewer-mode #rw-center-shell {
   padding: 8px 0;
   border-bottom: none;
 }
-:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-tabstrip { margin: 0; padding: 0; overflow: visible; }
+/* Centre everything on the rail's axis: in vertical writing mode the flex
+   cross axis is horizontal, so the bar's and strip's normal end-alignment
+   (tabs sitting on the bar's bottom edge) would shove the labels to one
+   side of the rail. */
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-region-bar { align-items: center; justify-content: flex-start; padding: 8px 0 !important; }
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-region-bar > * { align-self: center; }
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-tabstrip { margin: 0; padding: 0; overflow: visible; align-items: center; width: 100%; }
 /* A tab's thickness rules are written for a horizontal bar; on the rail
    its length runs down the page, so let it size to its label. */
 :is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-wtab {
   height: auto !important;
-  width: auto;
-  padding: 10px 0 !important;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  line-height: 1;
+  margin: 0;
+  padding: 16px 0 !important;   /* breathing room above and below the rotated label */
   border: none;
   border-radius: 0;
 }
