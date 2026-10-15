@@ -366,8 +366,15 @@ body.viewer-mode #rw-center-shell {
    older fixed 22px !important. */
 body #timeline-dock[data-dock="hidden"] { height: var(--rw-strip) !important; }
 #rw-center-shell.rw-window-collapsed { height: var(--rw-strip) !important; bottom: auto !important; }
-/* The center window's view is the render output: collapsing it hides it. */
+/* The center window's view is the render output: collapsing it hides it,
+   and — like collapsing any window — its space goes to its neighbour:
+   the bottom/top dock grows to fill everything but the center's strip
+   (availableCanvasRect() then measures the canvas rect down to that
+   strip, so the center shell lands exactly on it). */
 body.rw-center-collapsed #stage { visibility: hidden; }
+body.rw-center-collapsed #timeline-dock:not([data-dock="hidden"]) {
+  height: calc(100vh - var(--rw-menubar-h, 0px) - var(--rw-strip)) !important;
+}
 
 /* ============================================================
    View popout (ViewPopout.ts) — one or more fresh view instances in
