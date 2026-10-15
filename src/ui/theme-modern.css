@@ -98,6 +98,18 @@ body[data-theme="modern"] {
   --mx-focus: 0 0 0 2px #000, 0 0 0 4px rgba(95, 255, 133, 0.75);
 }
 
+
+/* CURSORS (inside TOKENS): the Modern theme replaces the green CRT arrow,
+   hand-dot and caret with NBDC's bone arrow (ink edge) and a phosphor-
+   green gradient arrow over anything pressable. Same hotspots as the
+   shapes they replace' native fallbacks; every other glyph (grab, jack,
+   resize, accept/reject...) stays — those carry meaning, not branding. */
+:root[data-theme="modern"] {
+  --rw-cur-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='26'%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='%230a0a0b' fill-opacity='.45' stroke='%230a0a0b' stroke-opacity='.45' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='%23f5f5f7' stroke='%230a0a0b' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E") 4 2, default;
+  --rw-cur-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='28' shape-rendering='crispEdges'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23b8ffca'/%3E%3Cstop offset='.55' stop-color='%235fff85'/%3E%3Cstop offset='1' stop-color='%232fbf5c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' transform='translate(2 2)' fill='%230a0a0b' fill-opacity='.85'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='url(%23g)'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='none' stroke='%230a0a0b' stroke-width='1.2' stroke-linejoin='miter'/%3E%3C/svg%3E") 4 2, pointer;
+  --rw-cur-text: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='26'%3E%3Cg stroke='%230a0a0b' stroke-opacity='.5' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M9 4v18M5 4h8M5 22h8'/%3E%3C/g%3E%3Cg stroke='%23f5f5f7' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M9 4v18M5 4h8M5 22h8'/%3E%3C/g%3E%3C/svg%3E") 9 13, text;
+}
+
 /* ============================================================== 2 BASE */
 
 html body[data-theme="modern"],
@@ -116,6 +128,7 @@ html body[data-theme="modern"].rw-popout-body { background: var(--re-bg); }
 /* The panel title: sans, not the phosphor glow. */
 html body[data-theme="modern"] .rw-panel-title-text {
   color: var(--mx-text-max);
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
   text-shadow: none;
@@ -197,7 +210,8 @@ html body[data-theme="modern"][data-theme] {
 
   /* Docked window shells: neutral surface, hairline edge. */
   & :is(#panel-root, #rw-left-shell, #rw-center-shell:not(.rw-center-passthrough), #timeline-dock) {
-    background: var(--mx-glass);
+    /* Near-opaque: the HUD line and render canvas sit under the shells. */
+    background: rgba(20, 20, 21, 0.97);
     border-color: var(--mx-edge);
     box-shadow: none;
   }
@@ -254,5 +268,340 @@ html body[data-theme="modern"][data-theme] {
       transform: translateY(var(--mx-lift));
       box-shadow: var(--mx-lift-shadow);
     }
+  }
+}
+
+/* CONTROLS -- four kinds, one set of states (ported from apple.css).
+   PRIMARY   .rw-btn.primary, tutorial primary   a light pill; brightens and
+             glows green on hover
+   SECONDARY .rw-btn and kin                     an outlined pill
+   ICON      ⓘ ✕ ⤢ – ⧉ ▾                         round glass
+   INPUT     select / number / text / LCD wells  radius-s, soft inset
+   TABS      Synth/I/O/Help and window tabs      a segmented control
+   States everywhere: :active scales to --mx-press; :focus-visible a green
+   ring; :disabled 35%; transitions on the long ease-out.
+   (Select + stepper chevrons live on background-image LONGHANDS in
+   panel.css — only ever set background-color / background-image-less
+   shorthands here, never `background:` on .rw-select or the stepper.) */
+html body[data-theme="modern"][data-theme] {
+  /* ---- SECONDARY buttons ---- */
+  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle, .boot-src,
+        #boot-stream-connect, .rw-graph-view-btn, .rw-top-btn) {
+    border-radius: var(--mx-pill);
+    background: transparent;
+    border: 1px solid var(--mx-btn2-edge);
+    color: var(--mx-text-max);
+    font-family: var(--mx-sans);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-shadow: none;
+    box-shadow: none;
+    transition: background var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease),
+      border-color var(--mx-fast) linear, color var(--mx-fast) linear, transform var(--mx-fast) var(--mx-ease);
+  }
+  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle, .boot-src,
+        #boot-stream-connect, .rw-graph-view-btn, .rw-top-btn):hover:not(:disabled) {
+    background: var(--mx-btn2-hover);
+    border-color: var(--mx-text-max);
+    color: var(--mx-text-max);
+    text-shadow: none;
+  }
+  /* ---- PRIMARY: the light object on the dark page ---- */
+  & :is(.rw-btn.primary, .rw-tut-btn--primary, .rw-tut-btn--action) {
+    background: var(--mx-btn-bg);
+    color: var(--mx-btn-fg);
+    border-color: transparent;
+    font-weight: 600;
+  }
+  & :is(.rw-btn.primary, .rw-tut-btn--primary, .rw-tut-btn--action):hover:not(:disabled) {
+    background: var(--mx-btn-bg-hover);
+    color: var(--mx-btn-fg);
+    border-color: transparent;
+    box-shadow: var(--mx-btn-glow);
+  }
+  & .rw-btn.danger { border-color: rgba(255, 92, 92, 0.6); color: var(--re-warn); }
+  & .rw-btn.danger:hover:not(:disabled) { background: rgba(255, 92, 92, 0.14); border-color: var(--re-warn); color: var(--re-warn); }
+  & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) {
+    transform: scale(var(--mx-press));
+  }
+  & :is(.rw-btn, .rw-tut-btn):disabled { opacity: 0.35; }
+  /* Buttons that are a segment/lit-state keep their lit look (a Classic
+     slot's enable, the active graph view, etc.) via .active/.on. */
+  & :is(.rw-btn.active, .rw-btn.on, .rw-graph-view-btn.active) {
+    background: rgba(95, 255, 133, 0.14);
+    border-color: rgba(95, 255, 133, 0.6);
+    color: var(--re-accent);
+  }
+
+  /* ---- ICON: round glass ---- */
+  & :is(.rw-info-btn, .rw-panel-actions button, .rw-region-btn, .rw-range-menu-btn,
+        .rw-pb-graphnode-del, .rw-wtab-close, .rw-info-close, .rw-graph-probe-close) {
+    border-radius: 50%;
+    background: var(--mx-icon-bg);
+    border: 1px solid var(--mx-edge);
+    color: var(--mx-text-max);
+    opacity: 1;
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    transition: background var(--mx-fast) linear, color var(--mx-fast) linear, transform var(--mx-fast) var(--mx-ease);
+  }
+  & :is(.rw-info-btn, .rw-panel-actions button, .rw-region-btn, .rw-range-menu-btn,
+        .rw-pb-graphnode-del, .rw-wtab-close, .rw-info-close):hover {
+    background: var(--mx-icon-hover);
+    color: #fff;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+  & .rw-info-btn { font-family: var(--mx-sans); font-style: normal; font-weight: 600; }
+  & .rw-region-btn { border-radius: var(--mx-radius-s); width: 18px; height: 16px; }
+  & .rw-wtab-close { opacity: 0.6; }
+  & .rw-wtab-close:hover { background: rgba(255, 92, 92, 0.25); color: #fff; }
+  & .rw-pb-graphnode-del:hover { color: var(--re-red); }
+
+  /* ---- INPUT wells (and the LCD readouts: recessed, mono, green) ---- */
+  & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select,
+        .rw-pb-row input[type="number"], .rw-pb-cell-value, .rw-pb-note-text,
+        .rw-panel-search input, .rw-help-search, .rw-numeric-modal input) {
+    border-radius: var(--mx-radius-s);
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--mx-edge);
+    color: var(--mx-text-max);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    text-shadow: none;
+    transition: border-color var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease);
+  }
+  & :is(.rw-text, .rw-num, .rw-panel-search input, .rw-help-search, .rw-pb-note-text) { font-family: var(--mx-sans); }
+  & :is(.rw-slider-readout, .rw-pb-lcd, .rw-readout) {
+    border-radius: var(--mx-radius-s);
+    background-color: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--mx-edge);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+    text-shadow: none;
+  }
+  & :is(.rw-slider-readout, .rw-pb-lcd, .rw-pb-cell-value, .rw-pb-row input[type="number"]) { color: var(--re-accent); }
+  & .rw-readout { border-style: solid; }
+  & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select, .rw-pb-cell-value,
+        .rw-pb-note-text, .rw-panel-search input, .rw-numeric-modal input):hover { border-color: rgba(255, 255, 255, 0.2); }
+  & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-pb-cell-value, .rw-pb-note-text,
+        .rw-panel-search input, .rw-numeric-modal input):focus {
+    outline: none;
+    border-color: rgba(95, 255, 133, 0.7);
+    box-shadow: 0 0 0 3px rgba(95, 255, 133, 0.16);
+  }
+  /* Title-bar pickers: pill, lit when a non-default skin/theme is active. */
+  & :is(.rw-skin-select) { border-radius: var(--mx-pill); background-color: transparent; color: var(--re-text-dim); padding: 0 2px; font-size: 11px; font-family: var(--mx-sans); font-weight: 600; }
+  & .rw-skin-select.active { color: var(--re-accent); border-color: rgba(95, 255, 133, 0.5); box-shadow: none; }
+  & .rw-slider--tl :is(.rw-num, .rw-slider-readout) { color: var(--re-accent-2); border-color: rgba(255, 179, 71, 0.45); }
+  & .rw-slider--custom-range .rw-num { border-color: rgba(95, 255, 133, 0.5); }
+  /* number stepper: outer corners follow the input's radius */
+  & .rw-num-stepper-btn { background-color: rgba(255, 255, 255, 0.05); border-color: var(--mx-edge); }
+  & .rw-num-stepper-up { border-top-right-radius: var(--mx-radius-s); }
+  & .rw-num-stepper-down { border-bottom-right-radius: var(--mx-radius-s); }
+  & .rw-num-stepper-btn:hover { background-color: rgba(95, 255, 133, 0.16); border-color: rgba(95, 255, 133, 0.5); }
+  & .rw-preset-chip { border-radius: var(--mx-pill); background: rgba(255, 255, 255, 0.05); border-color: var(--mx-edge); padding: 2px 10px; }
+  & .rw-preset-chip:hover { border-color: rgba(95, 255, 133, 0.6); color: var(--re-accent); }
+  & .rw-color { border-radius: var(--mx-radius-s); border: 1px solid var(--mx-edge); box-shadow: none; }
+
+  /* ---- TABS: a segmented control ---- */
+  & .rw-tabs {
+    margin: 8px 8px 4px;
+    padding: 3px;
+    gap: 2px;
+    border: 1px solid var(--mx-edge);
+    border-radius: var(--mx-pill);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  & .rw-tab {
+    border: none;
+    border-radius: var(--mx-pill);
+    min-height: 28px;
+    padding: 4px 4px;
+    font-family: var(--mx-sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    text-shadow: none;
+    box-shadow: none;
+    transition: background var(--mx-fast) linear, color var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease);
+  }
+  & .rw-tab:hover { color: var(--mx-text-max); background: rgba(255, 255, 255, 0.06); }
+  & .rw-tab.active {
+    color: var(--mx-text-max);
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(95, 255, 133, 0.0);
+    text-shadow: none;
+  }
+  & .rw-tab:focus-visible { outline: none; box-shadow: var(--mx-focus); }
+  /* Window tabs (the strip in every region bar) */
+  & .rw-region-bar {
+    background: transparent;
+    border-bottom: 1px solid var(--mx-edge);
+    flex-basis: 26px;
+    padding: 0 8px;
+  }
+  & .rw-tabstrip { gap: 3px; align-items: center; }
+  & .rw-wtab {
+    height: 20px;
+    border: none;
+    border-radius: var(--mx-pill);
+    background: transparent;
+    color: var(--re-text-dim);
+    font-family: var(--mx-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0 8px 0 6px;
+    box-shadow: none;
+    transition: background var(--mx-fast) linear, color var(--mx-fast) linear;
+  }
+  & .rw-wtab:hover { background: rgba(255, 255, 255, 0.08); color: var(--mx-text-max); box-shadow: none; }
+  & .rw-wtab.active { background: rgba(255, 255, 255, 0.16); color: var(--mx-text-max); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+  & .rw-wtab.active:hover { background: rgba(255, 255, 255, 0.2); }
+  & .rw-wtab-caret { border-radius: 2px; box-shadow: none; }
+  & .rw-region-bar.rw-strip-hover { background: rgba(95, 255, 133, 0.10); box-shadow: inset 0 0 0 1px rgba(95, 255, 133, 0.4); }
+  /* Menu bar + menus */
+  & .rw-menubar-item { border-radius: var(--mx-radius-s); font-family: var(--mx-sans); font-size: 13px; font-weight: 500; letter-spacing: 0; margin: 3px 0; color: var(--re-text-dim); }
+  & .rw-menubar-item:hover, & .rw-menubar-item.open { color: var(--mx-text-max); background: rgba(255, 255, 255, 0.10); }
+  & .rw-menu > li { border-radius: var(--mx-radius-s); padding: 5px 12px 5px 6px; font-family: var(--mx-sans); }
+  & .rw-menu > li:hover:not(.disabled):not(.rw-menu-sep) { background: rgba(255, 255, 255, 0.10); color: var(--mx-text-max); }
+  & .rw-menu-sep { background: var(--mx-edge); }
+  & .rw-graph-palette-item { border-radius: var(--mx-radius-s); }
+  & .rw-graph-palette-item:hover { background: rgba(255, 255, 255, 0.10); color: var(--mx-text-max); border-color: transparent; }
+}
+
+/* COMPONENTS -- what is particular to one component. */
+html body[data-theme="modern"][data-theme] {
+  /* Section headers: a sans 600 title; the chevron rotates (panel.css). */
+  & .rw-section-head {
+    font-family: var(--mx-sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    color: var(--mx-text-max);
+    text-shadow: none;
+  }
+  & .rw-section-head:hover { background: rgba(255, 255, 255, 0.04); }
+  & .rw-section-head .rw-chev { transition: transform var(--mx-base) var(--mx-ease); }
+  & .rw-label { font-size: 13px; letter-spacing: 0; }
+  & .rw-toggle-txt { font-size: 13px; }
+  & .rw-pb-module-head {
+    font-family: var(--mx-sans);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--mx-text-max);
+    border-radius: var(--mx-radius-s);
+  }
+  & .rw-pb-unit-handle:hover { background: rgba(255, 255, 255, 0.06); box-shadow: none; }
+  & .rw-pb-unit-selected { outline: 2px solid rgba(95, 255, 133, 0.75); box-shadow: 0 0 0 4px rgba(95, 255, 133, 0.12); }
+  & .rw-pb-unit-free { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55); }
+  & .rw-pb-unit-dragging { outline: none; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(95, 255, 133, 0.5); }
+  & .rw-pb-field-title { text-shadow: none; }
+
+  /* Slider (standard CRT face): a thin neutral track, a round white thumb. */
+  & input[type="range"] { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.16); }
+  & input[type="range"]::-webkit-slider-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #f5f5f7;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.2);
+    transition: box-shadow var(--mx-base) var(--mx-ease);
+  }
+  & input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #f5f5f7; border: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+  & input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 5px rgba(95, 255, 133, 0.22); }
+  & .rw-slider--tl input[type="range"]::-webkit-slider-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 179, 71, 0.2); }
+  & .rw-slider--tl input[type="range"]::-moz-range-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+
+  /* Toggle: an iOS-style switch (green when on). Overrides the standard
+     face AND the hardware/rack bat switch + LED lens. */
+  & .rw-toggle-sw {
+    width: 34px; height: 20px;
+    border: 1px solid var(--mx-edge);
+    border-radius: var(--mx-pill);
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
+    transition: background var(--mx-base) var(--mx-ease), border-color var(--mx-base) var(--mx-ease);
+  }
+  & .rw-toggle-sw::after {
+    content: '';
+    position: absolute;
+    top: 1px; left: 1px; right: auto; bottom: auto;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #f5f5f7;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: left var(--mx-base) var(--mx-ease);
+  }
+  & .rw-toggle input:checked + .rw-toggle-sw { background: var(--re-accent); border-color: var(--re-accent); }
+  & .rw-toggle input:checked + .rw-toggle-sw::after {
+    left: 15px; right: auto; top: 1px; width: 16px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  & .rw-toggle-txt::before { display: none; }
+  & input[type="checkbox"], & input[type="radio"] { accent-color: var(--re-accent); }
+  & .rw-pb-led-toggle { background: rgba(255, 255, 255, 0.14); border-color: var(--mx-edge); }
+  & .rw-pb-led-toggle:checked { background: var(--re-accent); box-shadow: 0 0 8px rgba(95, 255, 133, 0.5); }
+
+  /* Knob faces (HW / RACK + Patch Bay mini knobs): a flat ring, no bevel. */
+  & :is(.rw-knob-track, .rw-pbknob-track) { stroke: rgba(255, 255, 255, 0.12); }
+  & :is(.rw-knob-fill, .rw-pbknob-fill) { filter: none; }
+  & :is(.rw-knob-cap, .rw-pbknob-cap) { fill: #1d1d1f; stroke: rgba(255, 255, 255, 0.14); }
+  & :is(.rw-knob-ptr, .rw-pbknob-ptr) { stroke: #f5f5f7; }
+  & :is(.rw-pbknob-liveptr) { filter: none; }
+  & .rw-slider--tl :is(.rw-knob-ptr, .rw-knob-fill) { filter: none; }
+
+  /* Jacks: flat concentric rings — dark bore, light edge. State colours
+     (plugged / hover / reject / grab) come from the existing rules; only
+     the ring artwork is replaced, and box-shadow/border-color are left
+     alone on purpose so those states still show. */
+  & :is(.rw-pb-jack, .rw-rack-jack) {
+    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2a2a2c 3.5px 5px, #86868b 5px 6.5px, #161617 6.5px);
+  }
+  & .rw-rack-jack--pout {
+    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2a2a2c 3.5px 5px, #f5f5f7 5px 6.5px, #161617 6.5px);
+  }
+
+  /* Patch Bay board: black with a faint dot grid that scrolls with content. */
+  & .rw-patchbay {
+    background-color: #000;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
+    background-size: 20px 20px;
+    background-attachment: local;
+  }
+  & .rw-pb-scrollbar { background: rgba(29, 29, 31, 0.7); }
+  & .rw-pb-scrollbar-thumb { background: rgba(245, 245, 247, 0.32); }
+
+  /* Timeline: rounded chips and keyframes; ruler is mono (see MONO). */
+  & .rw-tl-lane-chip { border-radius: var(--mx-pill); background: var(--mx-glass); border: 1px solid var(--mx-edge); }
+  & .rw-tl-kf { border-radius: 4px; box-shadow: none; }
+  & .rw-tl-kf:hover { box-shadow: 0 0 10px rgba(95, 255, 133, 0.6); }
+  & .rw-tl-ctx { border-radius: var(--mx-radius-m); background: var(--mx-glass); border: 1px solid var(--mx-edge); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6); }
+  & .rw-tl-kf-label { border-radius: var(--mx-radius-s); }
+
+  /* Windows' title bar and misc terminal glows off */
+  & .rw-panel-title { background: transparent; border-bottom-color: var(--mx-edge); }
+  & .rw-pb-led-toggle, & .rw-status-dot { box-shadow: none; }
+  & .boot-line { text-shadow: none; color: var(--mx-text-max); font-family: var(--mx-sans); }
+  & #overlay { background: radial-gradient(circle at 50% 40%, rgba(95, 255, 133, 0.06), transparent 60%), #000; }
+  & .rw-help-md :is(h1, h2) { color: var(--mx-text-max); text-shadow: none; font-family: var(--mx-sans); }
+  & .rw-info-btn:hover { box-shadow: none; }
+}
+
+/* MOTION -- reduced motion: no lift, no glow transition, no press scale. */
+@media (prefers-reduced-motion: reduce) {
+  html body[data-theme="modern"][data-theme] {
+    /* !important: this must beat every component's own transition/animation
+       declaration, whatever its specificity. */
+    & * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    & .rw-patchbay :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):hover { transform: none; }
+    & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) { transform: none; }
   }
 }
