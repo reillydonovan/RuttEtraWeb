@@ -96,6 +96,17 @@ body[data-theme="modern"] {
   --mx-icon-bg: rgba(51, 51, 54, 0.72);
   --mx-icon-hover: rgba(80, 80, 84, 0.85);
   --mx-focus: 0 0 0 2px #000, 0 0 0 4px rgba(95, 255, 133, 0.75);
+
+  /* phosphor accents (restrained): hairline borders catch green at two
+     corners, labels lean very slightly green, panels get a faint haze. */
+  --mx-border-grad: linear-gradient(160deg, rgba(95, 255, 133, 0.35), rgba(255, 255, 255, 0.05) 35%,
+                                    rgba(255, 255, 255, 0.04) 65%, rgba(95, 255, 133, 0.18));
+  --mx-border-grad-hi: linear-gradient(160deg, rgba(95, 255, 133, 0.6), rgba(255, 255, 255, 0.09) 35%,
+                                       rgba(255, 255, 255, 0.07) 65%, rgba(95, 255, 133, 0.34));
+  --mx-label: #8a948d;
+  --mx-title-tint: #dcf7e5;
+  --mx-haze: radial-gradient(130% 240px at 50% 0, rgba(95, 255, 133, 0.075), transparent 72%);
+  --mx-placeholder: #6b736e;
 }
 
 
@@ -158,7 +169,7 @@ html body[data-theme="modern"] :is(
   letter-spacing: var(--mx-track-caps);
   font-size: 11px;
   font-weight: 500;
-  color: var(--re-text-dim);
+  color: var(--mx-label);
 }
 
 /* SURFACE -- a rounded panel on a neutral grey with a hairline edge. The
@@ -211,7 +222,7 @@ html body[data-theme="modern"][data-theme] {
   /* Docked window shells: neutral surface, hairline edge. */
   & :is(#panel-root, #rw-left-shell, #rw-center-shell:not(.rw-center-passthrough), #timeline-dock) {
     /* Near-opaque: the HUD line and render canvas sit under the shells. */
-    background: rgba(20, 20, 21, 0.97);
+    background: var(--mx-haze), rgba(20, 20, 21, 0.97);
     border-color: var(--mx-edge);
     box-shadow: none;
   }
@@ -219,7 +230,8 @@ html body[data-theme="modern"][data-theme] {
     background: rgba(22, 22, 23, 0.80);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 1px solid var(--mx-edge);
+    border-bottom: 1px solid transparent;
+    border-image: linear-gradient(90deg, rgba(95, 255, 133, 0.5), rgba(255, 255, 255, 0.10) 45%, transparent) 1;
   }
   & .rw-patchbay { background: #000; }
 }
@@ -249,6 +261,42 @@ html body[data-theme="modern"][data-theme] {
       border-color var(--mx-fast) linear;
   }
 }
+/* GRADIENT HAIRLINE -- surface cards only (glass floaters keep a plain
+   edge: their translucent fill can't sit on an opaque border trick).
+   Three layers: pointer glow (padding-box) over an opaque fill
+   (padding-box) over the green-cornered gradient (border-box) seen
+   through a transparent 1px border. Hover brightens the hairline. `:hover`
+   is listed for the same reason as in GLOW above. */
+html body[data-theme="modern"][data-theme] {
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot) {
+    --mx-fill: var(--mx-surface);
+    border-color: transparent;
+  }
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot),
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
+    background-image:
+      radial-gradient(var(--mx-glow-size) circle at var(--mx, 50%) var(--my, 50%),
+        rgba(var(--mx-glow-core), calc(var(--glow) * 0.12)),
+        rgba(var(--mx-glow-core), calc(var(--glow) * 0.04)) 40%,
+        transparent 70%),
+      linear-gradient(var(--mx-fill), var(--mx-fill)),
+      var(--mx-border-grad);
+    background-clip: padding-box, padding-box, border-box;
+    background-origin: padding-box, padding-box, border-box;
+    border-color: transparent;
+  }
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
+    --mx-border-grad: var(--mx-border-grad-hi);
+  }
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus):hover { --mx-fill: var(--mx-surface-hover); }
+  & .rw-graph-node { --mx-fill: #161617; }
+  & .rw-graph-node.selected, & .rw-mod-slot.expanded { border-color: rgba(95, 255, 133, 0.55); }
+  /* glass floaters: faint green edge instead */
+  & :is(.rw-menu, .rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu) {
+    border-color: rgba(95, 255, 133, 0.22);
+  }
+}
+
 @media (hover: hover) {
   html body[data-theme="modern"][data-theme] {
     & :is(
@@ -257,7 +305,6 @@ html body[data-theme="modern"][data-theme] {
       .rw-about-dialog-card, .rw-tut-callout
     ):hover { --glow: 1; }
     & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus):hover {
-      border-color: rgba(255, 255, 255, 0.16);
       background-color: var(--mx-surface-hover);
     }
     /* Lift only on Patch Bay units, and never while something is being
@@ -371,6 +418,8 @@ html body[data-theme="modern"][data-theme] {
     text-shadow: none;
     transition: border-color var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease);
   }
+  & :is(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea) { caret-color: var(--re-accent); }
+  & :is(input, textarea)::placeholder { color: var(--mx-placeholder); opacity: 1; }
   & :is(.rw-text, .rw-num, .rw-panel-search input, .rw-help-search, .rw-pb-note-text) { font-family: var(--mx-sans); }
   & :is(.rw-slider-readout, .rw-pb-lcd, .rw-readout) {
     border-radius: var(--mx-radius-s);
@@ -430,7 +479,7 @@ html body[data-theme="modern"][data-theme] {
   & .rw-tab.active {
     color: var(--mx-text-max);
     background: rgba(255, 255, 255, 0.16);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(95, 255, 133, 0.0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(95, 255, 133, 0.16), 0 0 0 1px rgba(95, 255, 133, 0.30);
     text-shadow: none;
   }
   & .rw-tab:focus-visible { outline: none; box-shadow: var(--mx-focus); }
@@ -457,7 +506,7 @@ html body[data-theme="modern"][data-theme] {
     transition: background var(--mx-fast) linear, color var(--mx-fast) linear;
   }
   & .rw-wtab:hover { background: rgba(255, 255, 255, 0.08); color: var(--mx-text-max); box-shadow: none; }
-  & .rw-wtab.active { background: rgba(255, 255, 255, 0.16); color: var(--mx-text-max); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+  & .rw-wtab.active { background: rgba(255, 255, 255, 0.14); color: var(--mx-text-max); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 0 rgba(95, 255, 133, 0.7); }
   & .rw-wtab.active:hover { background: rgba(255, 255, 255, 0.2); }
   & .rw-wtab-caret { border-radius: 2px; box-shadow: none; }
   & .rw-region-bar.rw-strip-hover { background: rgba(95, 255, 133, 0.10); box-shadow: inset 0 0 0 1px rgba(95, 255, 133, 0.4); }
@@ -487,19 +536,38 @@ html body[data-theme="modern"][data-theme] {
   & .rw-section-head .rw-chev { transition: transform var(--mx-base) var(--mx-ease); }
   & .rw-label { font-size: 13px; letter-spacing: 0; }
   & .rw-toggle-txt { font-size: 13px; }
+  /* Patch Bay headers: a balanced bar spanning the card (negative side/top
+     margin cancels the card's 8px padding), text and ⓘ inset by that same
+     8px so they align with the body content, equal top/bottom padding,
+     radius sitting inside the card's. */
+  & .rw-pb-module-head,
+  & :is(.rw-pb-field, .rw-pb-bus) > .rw-pb-field-title {
+    box-sizing: border-box;
+    min-height: 32px;
+    margin: -8px -8px 8px;
+    padding: 6px 8px;
+    border-radius: calc(var(--mx-radius-m) - 1px) calc(var(--mx-radius-m) - 1px) 0 0;
+    border-bottom: 1px solid var(--mx-edge);
+    display: flex;
+    align-items: center;
+    line-height: 1.2;
+  }
+  & .rw-pb-bus > .rw-pb-field-title { margin: -8px -12px 8px; padding: 6px 12px; }
   & .rw-pb-module-head {
     font-family: var(--mx-sans);
     font-weight: 600;
     font-size: 12px;
     letter-spacing: 0.02em;
-    color: var(--mx-text-max);
-    border-radius: var(--mx-radius-s);
+    color: var(--mx-title-tint);
   }
-  & .rw-pb-unit-handle:hover { background: rgba(255, 255, 255, 0.06); box-shadow: none; }
+  & .rw-pb-graphnode .rw-pb-module-head { color: var(--mx-title-tint); }
+  & .rw-pb-graphnode--inert .rw-pb-module-head { color: var(--re-text-dim); }
+  & .rw-pb-unit-handle:hover { background: rgba(95, 255, 133, 0.07); box-shadow: none; }
   & .rw-pb-unit-selected { outline: 2px solid rgba(95, 255, 133, 0.75); box-shadow: 0 0 0 4px rgba(95, 255, 133, 0.12); }
   & .rw-pb-unit-free { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55); }
   & .rw-pb-unit-dragging { outline: none; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(95, 255, 133, 0.5); }
   & .rw-pb-field-title { text-shadow: none; }
+  & .rw-section-head .rw-chev { color: rgba(95, 255, 133, 0.75); }
 
   /* Slider (standard CRT face): a thin neutral track, a round white thumb. */
   & input[type="range"] { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.16); }
@@ -514,7 +582,7 @@ html body[data-theme="modern"][data-theme] {
     background: #f5f5f7; border: none;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
   }
-  & input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 5px rgba(95, 255, 133, 0.22); }
+  & input[type="range"]:is(:hover, :active)::-webkit-slider-thumb { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 5px rgba(95, 255, 133, 0.22); }
   & .rw-slider--tl input[type="range"]::-webkit-slider-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 179, 71, 0.2); }
   & .rw-slider--tl input[type="range"]::-moz-range-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
 
@@ -572,9 +640,10 @@ html body[data-theme="modern"][data-theme] {
   /* Patch Bay board: black with a faint dot grid that scrolls with content. */
   & .rw-patchbay {
     background-color: #000;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
-    background-size: 20px 20px;
-    background-attachment: local;
+    background-image: var(--mx-haze), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
+    background-size: 100% 260px, 20px 20px;
+    background-repeat: no-repeat, repeat;
+    background-attachment: scroll, local;
   }
   & .rw-pb-scrollbar { background: rgba(29, 29, 31, 0.7); }
   & .rw-pb-scrollbar-thumb { background: rgba(245, 245, 247, 0.32); }
@@ -589,8 +658,6 @@ html body[data-theme="modern"][data-theme] {
   /* Windows' title bar and misc terminal glows off */
   & .rw-panel-title { background: transparent; border-bottom-color: var(--mx-edge); }
   & .rw-pb-led-toggle, & .rw-status-dot { box-shadow: none; }
-  & .boot-line { text-shadow: none; color: var(--mx-text-max); font-family: var(--mx-sans); }
-  & #overlay { background: radial-gradient(circle at 50% 40%, rgba(95, 255, 133, 0.06), transparent 60%), #000; }
   & .rw-help-md :is(h1, h2) { color: var(--mx-text-max); text-shadow: none; font-family: var(--mx-sans); }
   & .rw-info-btn:hover { box-shadow: none; }
 }
@@ -609,4 +676,59 @@ html body[data-theme="modern"][data-theme] {
     }
     & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) { transform: none; }
   }
+}
+
+/* BOOT -- the intro screen in the nothingbutdatacenters hero manner: a mono
+   tracked kicker, a big tight headline with a phosphor-green gradient fill,
+   a one-line lede, a light primary pill (PATTERN: works with no camera) and
+   outlined secondary pills. The extra spans are display:none in Phosphor. */
+html body[data-theme="modern"][data-theme] {
+  & #overlay {
+    background: radial-gradient(60% 50% at 50% 38%, rgba(95, 255, 133, 0.10), transparent 70%), #000;
+  }
+  & #boot-message { max-width: 640px; padding: 24px; letter-spacing: 0; }
+  & .boot-line:not(.dim) {
+    font-family: var(--mx-code);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--mx-track-caps);
+    color: var(--mx-label);
+    text-shadow: none;
+    margin-bottom: 14px;
+  }
+  & .boot-name, & .boot-line.dim { display: none; }
+  & .boot-line:not(.dim)::before { content: "1973 \00B7  Scan Processor \00B7  "; }
+  & .boot-headline {
+    display: block;
+    font-family: var(--mx-sans);
+    font-size: clamp(48px, 9vw, 92px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    padding-bottom: 0.08em;
+    background: linear-gradient(90deg, #b9ffd0 0%, #5fff85 52%, #1fd1a0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  & .boot-lede {
+    display: block;
+    margin-top: 14px;
+    font-size: clamp(16px, 2vw, 21px);
+    font-weight: 600;
+    line-height: 1.32;
+    letter-spacing: -0.01em;
+    color: var(--mx-text-max);
+  }
+  & #boot-sources { margin-top: 28px; gap: 10px; }
+  & .boot-src { padding: 0 22px; min-height: 42px; font-size: 15px; min-width: 0; }
+  & #boot-pattern { order: -1; background: var(--mx-btn-bg); color: var(--mx-btn-fg); border-color: transparent; font-weight: 600; }
+  & #boot-pattern:hover:not(:disabled) { background: var(--mx-btn-bg-hover); color: var(--mx-btn-fg); border-color: transparent; box-shadow: var(--mx-btn-glow); }
+  & #boot-stream-input { background: rgba(255, 255, 255, 0.05); color: var(--mx-text-max); border: 1px solid var(--mx-edge); border-radius: var(--mx-pill); padding: 8px 16px; font-family: var(--mx-sans); caret-color: var(--re-accent); }
+  & #boot-stream-input:focus { outline: none; border-color: rgba(95, 255, 133, 0.7); box-shadow: 0 0 0 3px rgba(95, 255, 133, 0.16); }
+  & #boot-stream-connect { padding: 0 18px; min-height: 36px; }
+  & #boot-skip { margin-top: 22px; font-family: var(--mx-sans); font-size: 14px; letter-spacing: 0; color: var(--re-text-dim); }
+  & #boot-skip:hover { color: var(--mx-text-max); }
 }

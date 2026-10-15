@@ -32,6 +32,9 @@
 import '@fontsource/vt323';
 import '@fontsource/share-tech-mono';
 import './about.css';
+import './modern-pages.css';
+import { attachModernGlow } from './modernGlow';
+attachModernGlow();
 
 // Markdown sections — pre-rendered HTML strings emitted by the
 // `aboutMarkdown` Vite plugin (see vite.config.ts). Each import yields

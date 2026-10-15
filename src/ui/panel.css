@@ -122,6 +122,8 @@ html, body, #app {
   margin-bottom: 4px;
 }
 .boot-line.dim { color: var(--re-text-dim); text-shadow: none; }
+/* Modern-theme-only boot copy (styled in theme-modern.css). */
+.boot-headline, .boot-lede { display: none; }
 
 /* Source picker grid */
 #boot-sources {

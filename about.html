@@ -9,6 +9,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0e0a" />
     <meta name="color-scheme" content="dark" />
+    <script>
+      // Theme (Modern | Phosphor): ?theme= wins and is remembered; otherwise the synth's own choice.
+      try {
+        var q = new URLSearchParams(location.search).get('theme');
+        if (q === 'modern' || q === 'phosphor') localStorage.setItem('rw-ui-theme', q);
+        if (localStorage.getItem('rw-ui-theme') === 'modern') document.documentElement.dataset.theme = 'modern';
+      } catch (e) {}
+    </script>
     <title>Rutt/Etra — Manual</title>
     <meta name="description" content="The Rutt/Etra browser video synthesizer manual. Long-form documentation for every control, modulation source, MIDI / OSC / CV connection, and recording workflow." />
     <meta property="og:title" content="Rutt/Etra — Manual" />

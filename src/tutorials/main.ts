@@ -12,6 +12,9 @@
 import '@fontsource/vt323';
 import '@fontsource/share-tech-mono';
 import './tutorials.css';
+import '../about/modern-pages.css';
+import { attachModernGlow } from '../about/modernGlow';
+attachModernGlow();
 
 interface Chapter { t: number; text: string }
 interface Lesson {

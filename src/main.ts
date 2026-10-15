@@ -1320,7 +1320,7 @@ async function bootSynth(): Promise<void> {
   void (async () => {
     const psMod = await import('./ui/sections/ProjectSection');
     panel.addSection({
-      tab: 'synth', title: 'Project', initiallyOpen: true, pinTop: true,
+      tab: 'synth', title: 'Project', pinTop: true,
       body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
     });
   })();
@@ -1347,9 +1347,9 @@ async function bootSynth(): Promise<void> {
     }, 250);
   }
 
-  panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source),       initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Source',                body: createSourceSection(settings, source) });
   panel.addSection({ tab: 'synth', title: 'Video Source B',        body: createSourceBSection(settings, sourceB) });
-  panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings, rasterSourceSize),                  initiallyOpen: true });
+  panel.addSection({ tab: 'synth', title: 'Display Control Unit',  body: createDcuSection(settings, rasterSourceSize) });
   panel.addSection({ tab: 'synth', title: 'Dual Raster',           body: createDualRasterSection(settings) });
   panel.addSection({ tab: 'synth', title: 'Virtual Camera',        body: createCameraSection(settings, cameraRig) });
   panel.addSection({ tab: 'synth', title: 'XR',                    body: createXrSection(settings, xrManager) });
@@ -1421,8 +1421,8 @@ async function bootSynth(): Promise<void> {
       toast: { show: projectToast },
     }) });
     panel.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, whipPublisher, canvas) });
-    panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
-    panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
+    panel.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager) });
+    panel.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues) });
     panel.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
     panel.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
     panel.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
@@ -1433,7 +1433,7 @@ async function bootSynth(): Promise<void> {
   void (async () => {
     const helpMod = await import('./ui/sections/HelpSection');
     const fabMod  = await import('./ui/help/fab');
-    panel.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });
+    panel.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings) });
     fabMod.mountHelpFab(settings);
     fabMod.maybeAutoOpenHelp(settings);
     responsive.notifyHelpReady();
@@ -1493,9 +1493,9 @@ async function bootSynth(): Promise<void> {
     const host = document.createElement('div');
     host.className = 'rw-panel-multihost';
     const extra = new ControlPanel(host, settings);
-    extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Source',               body: createSourceSection(settings, source) });
     extra.addSection({ tab: 'synth', title: 'Video Source B',       body: createSourceBSection(settings, sourceB) });
-    extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings, rasterSourceSize), initiallyOpen: true });
+    extra.addSection({ tab: 'synth', title: 'Display Control Unit', body: createDcuSection(settings, rasterSourceSize) });
     extra.addSection({ tab: 'synth', title: 'Dual Raster',          body: createDualRasterSection(settings) });
     extra.addSection({ tab: 'synth', title: 'Virtual Camera',       body: createCameraSection(settings, cameraRig) });
     extra.addSection({ tab: 'synth', title: 'XR',                   body: createXrSection(settings, xrManager) });
@@ -1510,7 +1510,7 @@ async function bootSynth(): Promise<void> {
     void (async () => {
       const psMod = await import('./ui/sections/ProjectSection');
       extra.addSection({
-        tab: 'synth', title: 'Project', initiallyOpen: true, pinTop: true,
+        tab: 'synth', title: 'Project', pinTop: true,
         body: psMod.createProjectSection({ projectStore, autoSave, toast: projectToast }),
       });
       const [rs, ss, ms, as, os, cvs, cvos, sons] = await Promise.all([
@@ -1527,8 +1527,8 @@ async function bootSynth(): Promise<void> {
         recorder, sequencer, stereoCompositor, stereoPreview, toast: { show: projectToast },
       }) });
       extra.addSection({ tab: 'synth', title: 'Share',  body: ss.createShareSection(settings, broadcaster, whipPublisher, canvas) });
-      extra.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager), initiallyOpen: true });
-      extra.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues), initiallyOpen: true });
+      extra.addSection({ tab: 'io',    title: 'MIDI',  body: ms.createMidiSection(settings, io.midiManager) });
+      extra.addSection({ tab: 'io',    title: 'Audio', body: as.createAudioSection(settings, io.fft, io.beat, liveValues) });
       extra.addSection({ tab: 'io',    title: 'OSC',   body: os.createOscSection(settings, io.osc) });
       extra.addSection({ tab: 'io',    title: 'CV',    body: cvs.createCVSection({ settings, cv: io.cv, gamepad: io.gamepad, osc: io.osc }) });
       extra.addSection({ tab: 'io',    title: 'CV Out', body: cvos.createCVOutputSection({ settings, cvOut: io.cvOut }) });
@@ -1538,7 +1538,7 @@ async function bootSynth(): Promise<void> {
       }
       extra.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
       const helpMod = await import('./ui/sections/HelpSection');
-      extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });
+      extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings) });
     })();
     return extra.viewRoot;
   });
