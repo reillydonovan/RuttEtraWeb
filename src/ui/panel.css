@@ -389,6 +389,13 @@ html, body, #app {
 }
 .rw-skin-select.active { box-shadow: var(--re-glow); }
 .rw-skin-select option { background: var(--re-bg); color: var(--re-text); }
+/* Safety net: EVERY native dropdown's option list follows the theme. Without
+   it the OS popup renders white (and the light text unreadable) wherever the
+   select's own colours don't reach the popup. color-scheme makes the popup
+   itself dark; the option colours cover browsers that ignore that. */
+select { color-scheme: dark; }
+select option, select optgroup { background-color: var(--re-bg, #0e0e0f); color: var(--re-text, #d1d1d6); }
+
 .rw-panel-body {
   flex: 1;
   overflow-y: auto;

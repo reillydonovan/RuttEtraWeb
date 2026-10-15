@@ -9,19 +9,19 @@ Control voltage connects modular synthesizers.
 Through a DC-coupled audio interface, each input channel becomes a modulation source.
 
 3
-00:00:09.932 --> 00:00:14.324
+00:00:09.928 --> 00:00:14.320
 Pick the interface, choose how many channels, and start the CV reader.
 
 4
-00:00:14.324 --> 00:00:17.462
+00:00:14.320 --> 00:00:17.458
 A test signal stands in for a real interface here.
 
 5
-00:00:17.918 --> 00:00:20.297
+00:00:17.922 --> 00:00:20.301
 Each channel shows its live voltage.
 
 6
-00:00:20.297 --> 00:00:27.368
+00:00:20.301 --> 00:00:27.372
 Set its range, plus or minus five volts for Eurorack, its polarity and smoothing, and Calibrate to zero it.
 
 7
@@ -37,19 +37,19 @@ A Raspberry Pi with an analog to digital converter can send CV as OSC instead.
 Add an OSC CV channel and give it an address.
 
 10
-00:00:38.802 --> 00:00:41.826
+00:00:38.805 --> 00:00:41.829
 Gamepads and HID controllers appear here, too.
 
 11
-00:00:41.826 --> 00:00:44.391
+00:00:41.829 --> 00:00:44.394
 Every axis and button becomes a source.
 
 12
-00:00:44.851 --> 00:00:50.901
+00:00:44.855 --> 00:00:50.905
 MCP lets an AI assistant, like Claude, drive the synth through the bridge in the tools folder.
 
 13
-00:00:50.901 --> 00:00:52.317
+00:00:50.905 --> 00:00:52.321
 Connect to the bridge.
 
 14
@@ -61,9 +61,9 @@ Now the assistant is in control.
 It deepens the raster, widens it, turns it, and then builds a modulation patch from scratch.
 
 16
-00:01:01.243 --> 00:01:07.266
+00:01:01.242 --> 00:01:07.265
 Anything an assistant can set, it can also read back: parameters, patches, even a screenshot.
 
 17
-00:01:07.266 --> 00:01:08.432
+00:01:07.265 --> 00:01:08.431
 Next: the outputs.

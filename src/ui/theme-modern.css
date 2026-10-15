@@ -447,6 +447,9 @@ html body[data-theme="modern"][data-theme] {
     transition: border-color var(--t-fast) linear, box-shadow var(--t-base) var(--ease);
   }
   & :is(.rw-text, .rw-panel-search :where(input), .rw-help-search, .rw-pb-note-text, .rw-select, .rw-skin-select) { font-family: var(--mx-sans); }
+  /* SELECT POPUP: option lists sit on the CARD tier, never the OS white. */
+  & select :is(option, optgroup) { background-color: var(--c-card); color: var(--t-body); }
+
   /* SELECT: one chevron rule for every dropdown — inset --sel-inset from
      the right edge, label kept --sel-pad-r clear of it. Longhands only
      (the chevron itself is a background-image set in panel.css). */

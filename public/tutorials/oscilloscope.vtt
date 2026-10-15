@@ -9,45 +9,45 @@ The Pattern Generator has an Oscilloscope kind: it draws a signal as a glowing t
 Turn it on over the camera, set Kind to Oscilloscope, and Blend to Add.
 
 3
-00:00:11.028 --> 00:00:14.428
+00:00:11.032 --> 00:00:14.432
 A thin trace barely lifts the raster, so make it thick.
 
 4
-00:00:14.428 --> 00:00:17.086
+00:00:14.432 --> 00:00:17.090
 Now it rides across the picture as a ridge.
 
 5
-00:00:17.541 --> 00:00:22.703
+00:00:17.744 --> 00:00:22.906
 Set the scope's source to Classic Slot, and its reference to one: modulation slot one.
 
 6
-00:00:23.153 --> 00:00:24.412
+00:00:23.356 --> 00:00:24.615
 Switch slot one on.
 
 7
-00:00:24.412 --> 00:00:26.267
+00:00:24.615 --> 00:00:26.470
 Its sine wave is drawn live.
 
 8
-00:00:27.943 --> 00:00:32.145
+00:00:28.115 --> 00:00:32.317
 Change the waveform to a square wave, and the trace snaps between two levels.
 
 9
-00:00:32.598 --> 00:00:35.511
+00:00:32.775 --> 00:00:35.688
 Sweep sets how fast the trace crosses the screen.
 
 10
-00:00:35.511 --> 00:00:37.355
+00:00:35.688 --> 00:00:37.532
 Persist sets how long it glows.
 
 11
-00:00:40.175 --> 00:00:44.868
+00:00:45.177 --> 00:00:49.870
 The scope can also draw audio, a graph node, any parameter, or the beat pulse.
 
 12
-00:00:45.324 --> 00:00:49.958
+00:00:50.333 --> 00:00:54.967
 A scope as a video source: any signal in the synth can become the picture.
 
 13
-00:00:49.958 --> 00:00:51.148
+00:00:54.967 --> 00:00:56.157
 Next: deeper looks.

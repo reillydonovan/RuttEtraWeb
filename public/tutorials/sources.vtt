@@ -1,73 +1,73 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:02.691
+00:00:00.700 --> 00:00:02.712
 Every picture starts with a source.
 
 2
-00:00:02.691 --> 00:00:07.697
-You can pick one on the start screen, or any time in the Source section of the Controls.
+00:00:02.712 --> 00:00:08.230
+You can pick one on the start screen, or any time in the Video Source A section of the Controls.
 
 3
-00:00:08.158 --> 00:00:09.354
+00:00:08.682 --> 00:00:09.878
 Open the Synth tab.
 
 4
-00:00:09.354 --> 00:00:10.803
+00:00:09.878 --> 00:00:11.327
 Source is near the top.
 
 5
-00:00:11.254 --> 00:00:14.866
+00:00:12.099 --> 00:00:15.711
 The Pattern Generator makes pictures with no camera at all.
 
 6
-00:00:14.866 --> 00:00:17.254
+00:00:15.711 --> 00:00:18.099
 Change its Kind to try another pattern.
 
 7
-00:00:17.254 --> 00:00:17.867
+00:00:18.099 --> 00:00:18.712
 Lissajous.
 
 8
-00:00:18.323 --> 00:00:18.766
+00:00:19.172 --> 00:00:19.615
 Spiral.
 
 9
-00:00:18.766 --> 00:00:19.844
+00:00:19.615 --> 00:00:20.693
 And Worley cells.
 
 10
-00:00:19.844 --> 00:00:22.760
+00:00:20.693 --> 00:00:23.609
 Each kind brings its own controls, just below.
 
 11
-00:00:23.211 --> 00:00:26.156
+00:00:24.069 --> 00:00:27.014
 To use your own footage, choose a video file.
 
 12
-00:00:26.156 --> 00:00:29.952
+00:00:27.014 --> 00:00:30.810
 Webcam, screen capture, and stream URLs work the same way.
 
 13
-00:00:30.417 --> 00:00:34.982
+00:00:31.270 --> 00:00:35.835
 The pattern was covering the whole picture, so loading a video switched it off.
 
 14
-00:00:34.982 --> 00:00:36.369
+00:00:35.835 --> 00:00:37.222
 This is the video alone.
 
 15
-00:00:36.824 --> 00:00:39.712
+00:00:37.685 --> 00:00:40.573
 Turn the pattern back on, and set Blend to Screen.
 
 16
-00:00:39.712 --> 00:00:40.984
+00:00:40.573 --> 00:00:41.845
 Now both show through.
 
 17
-00:00:41.444 --> 00:00:43.262
+00:00:42.304 --> 00:00:44.122
 Any source can feed the raster.
 
 18
-00:00:43.262 --> 00:00:46.372
+00:00:44.122 --> 00:00:47.232
 Next, we will find our way around the Controls panel.
