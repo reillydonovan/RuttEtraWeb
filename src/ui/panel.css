@@ -135,6 +135,7 @@ html, body, #app {
 }
 .boot-src {
   padding: 10px 18px;
+  text-transform: uppercase;   /* markup is Title Case for the Modern theme */
   background: transparent;
   color: var(--re-accent);
   border: 1px solid var(--re-accent);
@@ -169,6 +170,7 @@ html, body, #app {
 #boot-stream-input::placeholder { color: var(--re-text-dim); opacity: 0.7; }
 #boot-stream-connect {
   padding: 6px 14px;
+  text-transform: uppercase;
   background: transparent;
   color: var(--re-accent);
   border: 1px solid var(--re-accent);
@@ -194,7 +196,7 @@ html, body, #app {
 /* Skip / dismiss link */
 #boot-skip {
   display: block;
-  margin-top: 16px;
+  margin: 16px auto 0;   /* a block button shrinks to fit: centre it on the column */
   background: none;
   border: none;
   color: var(--re-text-dim);

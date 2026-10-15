@@ -14,18 +14,18 @@
       try {
         var q = new URLSearchParams(location.search).get('theme');
         if (q === 'modern' || q === 'phosphor') localStorage.setItem('rw-ui-theme', q);
-        if (localStorage.getItem('rw-ui-theme') === 'modern') document.documentElement.dataset.theme = 'modern';
+        if (localStorage.getItem('rw-ui-theme') !== 'phosphor') document.documentElement.dataset.theme = 'modern';
       } catch (e) {}
     </script>
-    <title>Rutt/Etra — Video Tutorials</title>
+    <title>Rutt/Etra Web — Video Tutorials</title>
     <meta name="description" content="Short narrated video lessons for the browser-based Rutt/Etra video synthesizer: getting started, the Controls panel, the Timeline, and the Patch Bay." />
-    <meta property="og:title" content="Rutt/Etra — Video Tutorials" />
+    <meta property="og:title" content="Rutt/Etra Web — Video Tutorials" />
     <meta property="og:description" content="Short narrated lessons for the browser-based Rutt/Etra video synthesizer." />
     <meta property="og:type" content="website" />
   </head>
   <body class="tut-body">
     <header id="tut-header">
-      <a class="tut-home" href="./index.html" title="Open the synth">← RUTT/ETRA</a>
+      <a class="tut-home" href="./index.html" title="Open the synth">← RUTT/ETRA WEB</a>
       <span class="tut-title">VIDEO TUTORIALS</span>
       <a class="tut-manual" href="./about.html#tutorials">Manual</a>
     </header>

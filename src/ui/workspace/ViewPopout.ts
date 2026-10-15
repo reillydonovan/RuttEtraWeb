@@ -75,7 +75,7 @@ export function popoutView(opts: {
   // running if this window hides the main one (see frameDriver.ts).
   // Stops by itself when the popup closes.
   driveFromWindow(w);
-  w.document.title = `RUTT/ETRA — ${opts.label}`;
+  w.document.title = `RUTT/ETRA WEB — ${opts.label}`;
 
   // Same stylesheet/skin/text-scale propagation as PanelPopout — this
   // is also how the popup gets `.rw-region-bar`/`.rw-wtab` styling for

@@ -259,31 +259,34 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     });
     bar.appendChild(popBtn);
 
-    if (id === 'right' || id === 'bottom') {
-      const maxBtn = document.createElement('button');
-      maxBtn.type = 'button';
-      maxBtn.className = 'rw-region-btn rw-region-max-btn';
-      maxBtn.textContent = '⤢';
-      attachTooltip(maxBtn, 'Maximize this window (near-fullscreen); click again to restore.');
-      maxBtn.addEventListener('click', () => toggleMaximize(id));
+    // Every window maximizes (the center's maximize hides the side
+    // windows — see body.rw-center-max in workspace.css and
+    // availableCanvasRect()). Every DOCKED window (left / right / bottom)
+    // also collapses — one model for all three: the window shrinks to its
+    // own tab strip along its edge, and clicking the strip restores it.
+    const maxBtn = document.createElement('button');
+    maxBtn.type = 'button';
+    maxBtn.className = 'rw-region-btn rw-region-max-btn';
+    maxBtn.textContent = '⤢';
+    attachTooltip(maxBtn, 'Maximize this window (near-fullscreen); click again to restore.');
+    maxBtn.addEventListener('click', () => toggleMaximize(id));
+    bar.append(maxBtn);
+    {
       const colBtn = document.createElement('button');
       colBtn.type = 'button';
-      colBtn.className = 'rw-region-btn';
+      colBtn.className = 'rw-region-btn rw-region-collapse-btn';
       colBtn.textContent = '–';
-      attachTooltip(colBtn, 'Collapse this window (a strip remains to restore it).');
-      colBtn.addEventListener('click', () => toggleCollapse(id));
-      bar.append(maxBtn, colBtn);
-    } else if (id === 'left' || id === 'center') {
-      // The center (Renderer) window maximizes too (owner ask): the raster
-      // fills everything under the menu bar and the side windows hide —
-      // see body.rw-center-max in workspace.css and availableCanvasRect().
-      const maxBtn = document.createElement('button');
-      maxBtn.type = 'button';
-      maxBtn.className = 'rw-region-btn rw-region-max-btn';
-      maxBtn.textContent = '⤢';
-      attachTooltip(maxBtn, 'Maximize this window (near-fullscreen); click again to restore.');
-      maxBtn.addEventListener('click', () => toggleMaximize(id));
-      bar.append(maxBtn);
+      attachTooltip(colBtn, () => isCollapsed(id)
+        ? 'Restore this window.'
+        : 'Collapse this window to its tab strip (click the strip to restore).');
+      colBtn.addEventListener('click', (ev) => { ev.stopPropagation(); toggleCollapse(id); });
+      bar.append(colBtn);
+      // A collapsed window is only its strip: any click on it restores.
+      bar.addEventListener('click', (ev) => {
+        if (!isCollapsed(id)) return;
+        if ((ev.target as HTMLElement).closest('.rw-region-btn')) return;
+        toggleCollapse(id);
+      });
     }
 
     shell.insertBefore(bar, shell.firstChild);
@@ -364,15 +367,44 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     window.dispatchEvent(new Event('rw:layout-resize'));
   }
 
+  /** One question for all three docked windows, answered from each one's
+   *  own persisted key (panelCollapsed / leftCollapsed / timelineDock). */
+  function isCollapsed(id: WindowId): boolean {
+    if (id === 'right') return !!settings.get('panelCollapsed');
+    if (id === 'left') return !!settings.get('leftCollapsed');
+    if (id === 'bottom') return settings.get('timelineDock') === 'hidden';
+    return !!settings.get('centerCollapsed');
+  }
+
   function toggleCollapse(id: WindowId): void {
     if (maximized === id) toggleMaximize(id);
     if (id === 'right') {
       settings.set('panelCollapsed', !settings.get('panelCollapsed'));
+    } else if (id === 'left') {
+      settings.set('leftCollapsed', !settings.get('leftCollapsed'));
+    } else if (id === 'center') {
+      settings.set('centerCollapsed', !settings.get('centerCollapsed'));
     } else if (id === 'bottom') {
       const cur = settings.get('timelineDock');
       settings.set('timelineDock', cur === 'hidden' ? settings.get('timelineLastDock') : 'hidden');
     }
   }
+
+  /** Stamp `.rw-window-collapsed` (the shared CSS model) and flip the
+   *  collapse button's glyph, then let the canvas re-measure. */
+  function syncCollapsed(): void {
+    for (const w of windows.values()) {
+      const on = isCollapsed(w.id);
+      w.shell.classList.toggle('rw-window-collapsed', on);
+      const b = w.bar.querySelector<HTMLElement>('.rw-region-collapse-btn');
+      if (b) b.textContent = on ? '□' : '–';
+    }
+    // A collapsed center hides the render output too (it is that window's view).
+    document.body.classList.toggle('rw-center-collapsed', isCollapsed('center'));
+    publishLeftInset();
+    window.dispatchEvent(new Event('rw:layout-resize'));
+  }
+  for (const k of ['panelCollapsed', 'leftCollapsed', 'centerCollapsed', 'timelineDock'] as const) settings.subscribe(k, () => syncCollapsed());
 
   // ------------------- "+" add-view menu -----------------------------
   function openAddMenu(anchor: HTMLElement, win: WindowId): void {
@@ -677,7 +709,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   return {
     attachDockRegion(dockShell: HTMLElement, timelineViewEl: HTMLElement): void {
       instances.set('timeline:bottom', timelineViewEl);
-      if (!windows.has('bottom')) buildWindow('bottom', dockShell);
+      if (!windows.has('bottom')) { buildWindow('bottom', dockShell); syncCollapsed(); }
       refresh();
     },
     registerView(id: ViewId, el: HTMLElement | (() => HTMLElement)): void {
@@ -695,6 +727,8 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       if (!p) return;
       writeState(p.state);
       settings.set('panelCollapsed', p.panelCollapsed);
+      settings.set('leftCollapsed', false);
+      settings.set('centerCollapsed', false);
       settings.set('panelWidth', p.panelWidth);
       settings.set('leftPanelWidth', p.leftPanelWidth);
       settings.set('timelineDock', p.timelineDock);

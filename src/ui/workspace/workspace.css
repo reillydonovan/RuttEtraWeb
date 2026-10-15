@@ -311,13 +311,63 @@ body[data-layout="compact"] #rw-center-shell,
 body.viewer-mode #rw-center-shell {
   display: none;
 }
-/* The center bar floats subtly over the image while pass-through. */
-#rw-center-shell.rw-center-passthrough .rw-region-bar {
-  background: rgba(0, 0, 0, 0.35);
-  border-bottom-color: rgba(95, 255, 133, 0.12);
-  opacity: 0.75;
+/* No window is special (owner, 2026-10-15): the Renderer's tab bar is
+   as opaque as every other window's — it used to float translucent over
+   the image. The bar background is whatever .rw-region-bar sets. */
+
+/* ============================================================
+   COLLAPSED WINDOWS — one model for all four (owner: "collapse and
+   expand states on the sides, top, and bottom all follow the same
+   window management system"). Workspace.ts stamps .rw-window-collapsed
+   from each window's own persisted key (panelCollapsed / leftCollapsed /
+   centerCollapsed / timelineDock 'hidden'). A collapsed window is ONLY
+   its tab strip, exactly as thick as that strip, on the window's own
+   edge: side windows become a vertical rail with sideways tab labels,
+   the bottom and center windows a horizontal strip. Any click on the
+   strip restores it (Workspace.ts). --rw-strip is the bar's thickness
+   (the Modern theme restates it).
+   ============================================================ */
+:root { --rw-strip: 21px; }
+
+.rw-window-collapsed > :not(.rw-region-bar) { display: none !important; }
+.rw-window-collapsed .rw-region-bar { cursor: var(--rw-cur-pointer); }
+.rw-window-collapsed .rw-region-bar :is(.rw-tab-add, .rw-region-btn:not(.rw-region-collapse-btn), .rw-wtab-close, .rw-wtab-caret) { display: none !important; }
+
+/* Side windows: a vertical rail the width of a tab bar. */
+#rw-left-shell.rw-window-collapsed,
+#panel-root.rw-window-collapsed:not(.rw-panel--popout) {
+  width: var(--rw-strip) !important;
+  min-width: 0 !important;
 }
-#rw-center-shell.rw-center-passthrough .rw-region-bar:hover { opacity: 1; }
+#panel-root.collapsed.rw-window-collapsed .rw-region-bar { display: flex; }
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-region-bar {
+  writing-mode: vertical-rl;
+  flex: 1 1 auto;
+  height: auto;
+  width: 100%;
+  padding: 8px 0;
+  border-bottom: none;
+}
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-tabstrip { margin: 0; padding: 0; overflow: visible; }
+/* A tab's thickness rules are written for a horizontal bar; on the rail
+   its length runs down the page, so let it size to its label. */
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-wtab {
+  height: auto !important;
+  width: auto;
+  padding: 10px 0 !important;
+  border: none;
+  border-radius: 0;
+}
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-wtab::before { display: none; }
+:is(#rw-left-shell, #panel-root).rw-window-collapsed .rw-region-collapse-btn { writing-mode: horizontal-tb; margin-top: auto; }
+
+/* Bottom (timeline) and center windows: a horizontal strip. */
+/* body-prefixed: timeline.css (lazy-loaded, so later) still carries an
+   older fixed 22px !important. */
+body #timeline-dock[data-dock="hidden"] { height: var(--rw-strip) !important; }
+#rw-center-shell.rw-window-collapsed { height: var(--rw-strip) !important; bottom: auto !important; }
+/* The center window's view is the render output: collapsing it hides it. */
+body.rw-center-collapsed #stage { visibility: hidden; }
 
 /* ============================================================
    View popout (ViewPopout.ts) — one or more fresh view instances in
@@ -349,3 +399,9 @@ body.viewer-mode #rw-center-shell {
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* The panel's own title-bar collapse toggle duplicated the window bar's
+   (one control per job): the window bar's – / □ is the collapse now, in
+   the workspace. Popouts and the compact layout have no window bar, so
+   they keep it. */
+body:not([data-layout="compact"]) #panel-root:not(.rw-panel--popout) .rw-panel-actions > button:last-child { display: none; }

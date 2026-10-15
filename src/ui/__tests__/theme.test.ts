@@ -19,7 +19,14 @@ beforeEach(() => {
 });
 
 describe('theme module', () => {
-  it('defaults to phosphor with no attribute stamped', async () => {
+  it('defaults to modern (stamped) with nothing stored', async () => {
+    const t = await freshTheme();
+    expect(t.getTheme()).toBe('modern');
+    expect(document.body.dataset.theme).toBe('modern');
+  });
+
+  it('respects a stored phosphor (classic) preference', async () => {
+    localStorage.setItem('rw-ui-theme', 'phosphor');
     const t = await freshTheme();
     expect(t.getTheme()).toBe('phosphor');
     expect(document.body.dataset.theme).toBeUndefined();
@@ -33,13 +40,14 @@ describe('theme module', () => {
     expect(document.documentElement.dataset.theme).toBe('modern');
   });
 
-  it('normalizes garbage stored values to phosphor', async () => {
+  it('normalizes garbage stored values to the default (modern)', async () => {
     localStorage.setItem('rw-ui-theme', 'neon-1999');
     const t = await freshTheme();
-    expect(t.getTheme()).toBe('phosphor');
+    expect(t.getTheme()).toBe('modern');
   });
 
   it('setTheme persists, stamps, notifies; phosphor removes the attribute', async () => {
+    localStorage.setItem('rw-ui-theme', 'phosphor');
     const t = await freshTheme();
     const seen: string[] = [];
     t.subscribeTheme((x) => seen.push(x));
@@ -52,6 +60,7 @@ describe('theme module', () => {
   });
 
   it('stamps registered popout documents and stops after release', async () => {
+    localStorage.setItem('rw-ui-theme', 'phosphor');
     const t = await freshTheme();
     const popDoc = document.implementation.createHTMLDocument('popout');
     t.applyThemeToDocument(popDoc);

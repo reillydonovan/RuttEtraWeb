@@ -26,7 +26,7 @@ export class TopStrip {
     presetBtn.setAttribute('aria-label', 'Open presets');
     const presetIcon = document.createElement('span');
     presetIcon.className = 'rw-top-icon';
-    presetIcon.textContent = 'RUTT/ETRA';
+    presetIcon.textContent = 'RUTT/ETRA WEB';
     this.presetLabel = document.createElement('span');
     this.presetLabel.className = 'rw-top-preset-name';
     this.presetLabel.textContent = '— pick a preset —';

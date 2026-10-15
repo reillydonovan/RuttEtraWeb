@@ -741,12 +741,12 @@ async function bootSynth(): Promise<void> {
   // Document title reflects project state — "Project Name * — RUTT/ETRA"
   // when modified, "Project Name — RUTT/ETRA" when saved, or just
   // "RUTT/ETRA - Web Video Synthesizer" when no project is open.
-  const BASE_TITLE = 'RUTT/ETRA - Web Video Synthesizer';
+  const BASE_TITLE = 'RUTT/ETRA WEB - Video Synthesizer';
   projectStore.subscribe((s) => {
     if (s.name) {
-      document.title = `${s.name}${s.dirty ? ' *' : ''} — RUTT/ETRA`;
+      document.title = `${s.name}${s.dirty ? ' *' : ''} — RUTT/ETRA WEB`;
     } else if (s.dirty) {
-      document.title = `Untitled * — RUTT/ETRA`;
+      document.title = `Untitled * — RUTT/ETRA WEB`;
     } else {
       document.title = BASE_TITLE;
     }
@@ -1011,8 +1011,8 @@ async function bootSynth(): Promise<void> {
     const { getSkin, setSkin } = await import('./ui/skin');
     const { getTheme, setTheme } = await import('./ui/theme');
     registerActions([
-      { id: 'view.theme.phosphor', label: 'Theme: Phosphor (original)', run: () => setTheme('phosphor'), checked: () => getTheme() === 'phosphor' },
       { id: 'view.theme.modern', label: 'Theme: Modern', run: () => setTheme('modern'), checked: () => getTheme() === 'modern' },
+      { id: 'view.theme.phosphor', label: 'Theme: Classic (phosphor CRT)', run: () => setTheme('phosphor'), checked: () => getTheme() === 'phosphor' },
     ]);
     const { exportEverything, importEverything } = await import('./state/exportEverything');
     const download = (name: string, text: string): void => {
@@ -1124,14 +1124,14 @@ async function bootSynth(): Promise<void> {
         },
       },
       {
-        id: 'help.about', label: 'About RUTT/ETRA…',
+        id: 'help.about', label: 'About RUTT/ETRA WEB…',
         run: () => {
           const overlay = document.createElement('div');
           overlay.className = 'rw-about-dialog';
           const card = document.createElement('div');
           card.className = 'rw-about-dialog-card';
           card.innerHTML = `
-            <h2>RUTT/ETRA</h2>
+            <h2>RUTT/ETRA WEB</h2>
             <p>Web recreation of the 1973 Rutt/Etra Scan Processor.</p>
             <p>v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit}</p>
             <p class="dim">Built ${__BUILD_INFO__.builtAt}</p>`;
@@ -1433,7 +1433,7 @@ async function bootSynth(): Promise<void> {
   void (async () => {
     const helpMod = await import('./ui/sections/HelpSection');
     const fabMod  = await import('./ui/help/fab');
-    panel.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings) });
+    panel.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });  // the Help tab's only section
     fabMod.mountHelpFab(settings);
     fabMod.maybeAutoOpenHelp(settings);
     responsive.notifyHelpReady();
@@ -1538,7 +1538,7 @@ async function bootSynth(): Promise<void> {
       }
       extra.addSection({ tab: 'io',    title: 'Sonification', body: sons.createSonificationSection({ settings, sonification }) });
       const helpMod = await import('./ui/sections/HelpSection');
-      extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings) });
+      extra.addSection({ tab: 'help', title: 'Manual', body: helpMod.createHelpSection(settings), initiallyOpen: true });  // the Help tab's only section
     })();
     return extra.viewRoot;
   });
@@ -1705,7 +1705,7 @@ async function bootSynth(): Promise<void> {
     } catch (err) {
       bootErr((err as Error).message);
     } finally {
-      bootStreamConnect.textContent = 'CONNECT';
+      bootStreamConnect.textContent = 'Connect';
       bootStreamConnect.disabled = false;
     }
   }
@@ -1836,7 +1836,7 @@ async function bootSynth(): Promise<void> {
   // Safety net for non-drag layout changes (collapse/expand buttons,
   // dock-side toggle, TOP/BOT/HIDE) that don't go through a drag
   // gesture at all, so there's no `rw:layout-resize` tick to catch them.
-  for (const key of ['panelWidth', 'panelCollapsed', 'panelDock', 'timelineHeight', 'timelineDock', 'timelineLastDock'] as const) {
+  for (const key of ['panelWidth', 'panelCollapsed', 'leftCollapsed', 'panelDock', 'timelineHeight', 'timelineDock', 'timelineLastDock'] as const) {
     settings.subscribe(key, () => scheduleResize());
   }
   window.addEventListener('resize', scheduleResize);

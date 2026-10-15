@@ -167,11 +167,11 @@ red over a jack it can't go into, and a short note says why. Same parameters, sa
 remembered on this machine — it isn't part of your presets or projects.
 Touch layouts keep their touch-friendly controls regardless of skin.
 
-Separately, **View ▸ Theme** (or the PHOS/MOD picker next to the skin
-picker) switches between **Phosphor** — the original green-on-black CRT
-look — and **Modern**: neutral greys, a system sans-serif, rounded
-surfaces, a soft green glow that follows the pointer, pill buttons and
-iOS-style switches. The theme works with every skin and, like the skin,
+Separately, **View ▸ Theme** (or the MODERN/CLASSIC picker next to the skin
+picker) switches between **Modern** (the default: neutral greys, a
+system sans-serif, rounded surfaces, a soft green glow that follows the
+pointer, pill buttons and iOS-style switches) and **Classic**, the
+original green-on-black phosphor CRT look. The theme works with every skin and, like the skin,
 is remembered on this machine only.
 
 > Tip: the floating **?** button (bottom-left) re-opens this manual at any time.

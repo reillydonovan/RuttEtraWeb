@@ -56,7 +56,7 @@ export function createPanelPopout(
     const w = window.open('', 'ruttetra-controls', 'popup=yes,width=460,height=920');
     if (!w) return; // popup blocked — nothing to do, button stays inert
     popup = w;
-    w.document.title = 'RUTT/ETRA — Controls';
+    w.document.title = 'RUTT/ETRA WEB — Controls';
     copyStyles(w.document);
     w.document.body.className = document.body.className;
     w.document.body.classList.add('rw-popout-body');

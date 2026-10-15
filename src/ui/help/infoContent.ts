@@ -208,3 +208,40 @@ export function nodeInfo(def: Pick<NodeDef, 'type' | 'label' | 'category' | 'des
     aboutHash: `node-${def.type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
   };
 }
+
+/**
+ * The Timeline dock's ⓘ (owner: "the timeline feels like it needs an info
+ * button… it's something I'm having a hard time using myself"). A quick
+ * start in the order you actually do things, then a glossary of the
+ * dock's parts. The long form is the manual's "Timeline sequencer (full
+ * walkthrough)"; the video course has lessons 8 (Keyframes) and 9 (Scenes).
+ */
+export const TIMELINE_INFO: InfoContent = {
+  kicker: 'Workspace window',
+  title: 'Timeline',
+  summary:
+    'A score for the synth, laid out in bars at the shared BPM. Keyframe one knob (a lane) or the whole look (a scene), press Play, and the timeline animates them for you.',
+  tips: [
+    'Make a timeline: + NEW, then give it a length in BARS. Nothing is animated until you add keyframes.',
+    'Key one knob: in Controls, park the playhead (click or drag the ruler), then click the ◆ diamond on any slider. That creates its lane with a point at the playhead.',
+    'Add more points: move the playhead to another bar and just turn the knob. Once a knob has a lane, every change is keyed at the playhead (auto-key).',
+    'Key the whole look: press K (or double-click the SCENES track) to snapshot every setting at the playhead. The playhead blends between neighbouring scenes.',
+    'Play: PLAY / Space. LOOP wraps at the end. |◀ ▶| (or , and .) jump between keyframes.',
+    'Shape a lane: drag its points (left/right = bar, up/down = value), double-click a lane row to add a point, right-click a point for its easing or to delete it.',
+    'Watch it: Help ▸ Video Tutorials, lessons 8 (Keyframes) and 9 (Scenes).',
+  ],
+  sections: [
+    {
+      heading: 'The parts',
+      rows: [
+        { name: 'Ruler', text: 'Bars along the top. Click or drag it to move the playhead. Ctrl/Cmd+wheel zooms, Shift+wheel pans.' },
+        { name: 'SCENES', text: 'Whole-look snapshots. Each marker sets everything; the easing on a scene is the curve into it.' },
+        { name: 'Lanes', text: 'One knob each, drawn in that knob\'s own numbers. The dashed line is the knob\'s base value. A lane adds to LFOs and CV rather than fighting them.' },
+        { name: 'Inspector', text: 'The right column: the selected point\'s bar, value and easing; mute or delete its lane.' },
+        { name: 'Amber knobs', text: 'In Controls, an amber readout means the timeline owns that knob right now.' },
+        { name: 'DISPLAY', text: 'How the counter reads (bars, timecode, frames, samples). It never changes playback.' },
+      ],
+    },
+  ],
+  aboutHash: 'timeline-sequencer-full-walkthrough',
+};

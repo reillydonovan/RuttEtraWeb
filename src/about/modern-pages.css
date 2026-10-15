@@ -73,7 +73,7 @@ html[data-theme="modern"] #about-search-results {
   border: 1px solid rgba(95, 255, 133, 0.22); border-radius: 12px; top: calc(100% - 4px);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
 }
-html[data-theme="modern"] .about-result:hover, html[data-theme="modern"] .about-result-active { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="modern"] .about-result:hover, html[data-theme="modern"] .about-result-active { background: rgba(95, 255, 133, 0.12); color: #c4ffd2; }
 html[data-theme="modern"] .about-result-trail { color: var(--mx-title); font-size: 14px; font-weight: 600; letter-spacing: 0; }
 html[data-theme="modern"] .about-result-snippet { font-size: 13px; }
 html[data-theme="modern"] .about-result-snippet mark { background: rgba(95, 255, 133, 0.22); color: var(--re-accent); border-radius: 3px; }
@@ -85,7 +85,7 @@ html[data-theme="modern"] #about-toc > a {
 }
 html[data-theme="modern"] .about-toc-l1, html[data-theme="modern"] .about-toc-l2 { font-size: 13px; padding: 4px 10px 4px 18px; }
 html[data-theme="modern"] .about-toc-l2 { padding-left: 30px; }
-html[data-theme="modern"] #about-toc a:hover { color: var(--mx-title); background: rgba(255, 255, 255, 0.06); }
+html[data-theme="modern"] #about-toc a:hover { color: #c4ffd2; background: rgba(95, 255, 133, 0.10); }
 html[data-theme="modern"] #about-toc a.about-toc-section-active { color: var(--mx-title); }
 html[data-theme="modern"] #about-toc a.about-toc-active {
   color: var(--mx-title); background: rgba(255, 255, 255, 0.10); text-shadow: none;
@@ -100,9 +100,10 @@ html[data-theme="modern"] #about-toc-toggle {
 html[data-theme="modern"] #about-doc { font-size: 17px; line-height: 1.55; }
 html[data-theme="modern"] #about-doc :is(h1, h2, h3, h4) { font-family: var(--mx-sans); text-shadow: none; }
 html[data-theme="modern"] #about-doc h1 {
-  font-size: 48px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.05;
-  background: linear-gradient(90deg, #b9ffd0, #5fff85 55%, #1fd1a0);
-  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  /* Solid white, like the synth's intro: the one green on the page is the
+     accent, not the headline. */
+  font-size: 48px; font-weight: 700; letter-spacing: -0.035em; line-height: 1.05;
+  color: #f5f5f7;
 }
 html[data-theme="modern"] #about-doc h2 {
   font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: var(--mx-title);
@@ -169,7 +170,7 @@ html[data-theme="modern"] #tut-header {
 html[data-theme="modern"] .tut-home, html[data-theme="modern"] .tut-manual {
   color: var(--mx-title); font-weight: 600; padding: 4px 12px; border-radius: var(--mx-pill); border: 1px solid transparent;
 }
-html[data-theme="modern"] :is(.tut-home, .tut-manual):hover { text-shadow: none; border-color: rgba(245, 245, 247, 0.3); background: rgba(245, 245, 247, 0.08); }
+html[data-theme="modern"] :is(.tut-home, .tut-manual):hover { text-shadow: none; border-color: rgba(95, 255, 133, 0.3); background: rgba(95, 255, 133, 0.12); color: #c4ffd2; }
 html[data-theme="modern"] .tut-title { font-family: var(--re-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.13em; color: var(--mx-label); text-shadow: none; }
 html[data-theme="modern"] #tut-stage {
   border: 1px solid transparent; border-radius: 18px; overflow: hidden;
@@ -179,10 +180,8 @@ html[data-theme="modern"] #tut-stage {
 html[data-theme="modern"] #tut-missing { font-family: var(--mx-sans); font-size: 18px; }
 html[data-theme="modern"] #tut-kicker { font-family: var(--re-mono); font-size: 11px; letter-spacing: 0.13em; color: var(--mx-label); text-transform: uppercase; }
 html[data-theme="modern"] #tut-lesson-title {
-  font: 700 clamp(30px, 4vw, 46px)/1.05 var(--mx-sans); letter-spacing: -0.04em; text-shadow: none;
-  background: linear-gradient(90deg, #b9ffd0, #5fff85 55%, #1fd1a0);
-  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
-  padding-bottom: 0.06em;
+  font: 700 clamp(28px, 3.4vw, 40px)/1.08 var(--mx-sans); letter-spacing: -0.03em; text-shadow: none;
+  color: #f5f5f7;
 }
 html[data-theme="modern"] #tut-blurb { font-size: 16px; color: var(--re-text); }
 html[data-theme="modern"] #tut-nav button {
@@ -190,14 +189,14 @@ html[data-theme="modern"] #tut-nav button {
   border: 1px solid rgba(245, 245, 247, 0.3); border-radius: var(--mx-pill); padding: 8px 18px;
   transition: background 120ms linear, border-color 120ms linear, transform 120ms ease;
 }
-html[data-theme="modern"] #tut-nav button:hover:not(:disabled) { background: rgba(245, 245, 247, 0.08); border-color: var(--mx-title); box-shadow: none; }
+html[data-theme="modern"] #tut-nav button:hover:not(:disabled) { background: rgba(95, 255, 133, 0.14); border-color: rgba(95, 255, 133, 0.35); color: #c4ffd2; box-shadow: none; }
 html[data-theme="modern"] #tut-nav button:active:not(:disabled) { transform: scale(0.97); }
 html[data-theme="modern"] #tut-next:not(:disabled) { background: #f5f5f7; color: #0a0a0b; border-color: transparent; font-weight: 600; }
 html[data-theme="modern"] #tut-next:hover:not(:disabled) { background: #fff; color: #0a0a0b; box-shadow: 0 8px 26px rgba(95, 255, 133, 0.3); }
 html[data-theme="modern"] #tut-autoplay { font-size: 13px; }
 html[data-theme="modern"] .tut-sub { font-family: var(--re-mono); font-size: 11px; letter-spacing: 0.13em; color: var(--mx-label); }
 html[data-theme="modern"] #tut-chapters button { font-family: var(--mx-sans); font-size: 14px; border-left-width: 0; border-radius: 8px; }
-html[data-theme="modern"] #tut-chapters button:hover { background: rgba(255, 255, 255, 0.06); }
+html[data-theme="modern"] #tut-chapters button:hover { background: rgba(95, 255, 133, 0.10); color: #c4ffd2; }
 html[data-theme="modern"] #tut-chapters li.current button { color: var(--mx-title); background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 rgba(95, 255, 133, 0.8); }
 html[data-theme="modern"] .tut-t { font-family: var(--re-mono); font-variant-numeric: tabular-nums; }
 html[data-theme="modern"] #tut-outline {
@@ -208,7 +207,7 @@ html[data-theme="modern"] #tut-outline {
 html[data-theme="modern"] .tut-level { font: 600 17px var(--mx-sans); letter-spacing: -0.01em; color: var(--mx-title); text-shadow: none; }
 html[data-theme="modern"] .tut-track { font-family: var(--re-mono); letter-spacing: 0.13em; color: var(--mx-label); }
 html[data-theme="modern"] .tut-item { font-family: var(--mx-sans); font-size: 14px; border-left-width: 0; border-radius: 8px; margin: 0 6px; padding: 6px 8px; }
-html[data-theme="modern"] .tut-item:hover { background: rgba(255, 255, 255, 0.06); }
+html[data-theme="modern"] .tut-item:hover { background: rgba(95, 255, 133, 0.10); }
 html[data-theme="modern"] .tut-item.active { color: var(--mx-title); background: rgba(255, 255, 255, 0.10); box-shadow: inset 0 0 12px rgba(95, 255, 133, 0.14), inset 2px 0 0 rgba(95, 255, 133, 0.8); }
 html[data-theme="modern"] .tut-item.watched .tut-num { color: var(--re-accent); }
 html[data-theme="modern"] :is(.tut-num, .tut-dur) { font-family: var(--re-mono); font-variant-numeric: tabular-nums; }
@@ -219,7 +218,7 @@ html[data-theme="modern"] :is(.tut-num, .tut-dur) { font-family: var(--re-mono);
   html[data-theme="modern"] :is(.about-node, #about-doc pre, #about-doc blockquote, #tut-outline):hover { --glow: 1; }
   html[data-theme="modern"] :is(.about-node, #about-doc pre, #about-doc blockquote, #tut-outline) {
     background:
-      radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(95, 255, 133, calc(var(--glow) * 0.10)), transparent 70%) padding-box,
+      radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(95, 255, 133, calc(var(--glow) * 0.045)), transparent 72%) padding-box,
       linear-gradient(var(--mx-surface), var(--mx-surface)) padding-box,
       var(--mx-border-grad) border-box;
     transition: --glow 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -233,3 +232,33 @@ html[data-theme="modern"] :is(.tut-num, .tut-dur) { font-family: var(--re-mono);
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="modern"] * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* ------------------------------------------------- COLOUR (owner: "more
+   design system coloring — right now it's largely streaming white text").
+   One rule for the whole manual: white is for reading, green marks
+   STRUCTURE (titles, sub-titles, labels, bullets, rules) and EMPHASIS
+   (bold, code, links), amber stays "the timeline". Body copy steps back
+   a shade so the green reads. */
+html[data-theme="modern"] #about-doc { color: #c7c7cc; }
+html[data-theme="modern"] #about-doc h1 { color: #5fff85; }
+html[data-theme="modern"] #about-doc h2 { color: #f5f5f7; }
+html[data-theme="modern"] #about-doc h2::before {
+  content: ''; display: inline-block; width: 6px; height: 0.72em; margin-right: 12px;
+  border-radius: 2px; background: #5fff85; box-shadow: 0 0 12px rgba(95, 255, 133, 0.55);
+  vertical-align: 0.02em;
+}
+html[data-theme="modern"] #about-doc h3 { color: #8dffaa; }
+html[data-theme="modern"] #about-doc h4 { color: #6fbf86; }
+html[data-theme="modern"] #about-doc strong { color: #c4ffd2; }
+html[data-theme="modern"] #about-doc li::marker { color: #5fff85; }
+html[data-theme="modern"] #about-doc code { color: #9dffb5; background: rgba(95, 255, 133, 0.08); }
+html[data-theme="modern"] #about-doc pre code { color: #c7c7cc; background: none; }
+html[data-theme="modern"] #about-doc blockquote {
+  border-left: 3px solid #5fff85;
+  background: linear-gradient(90deg, rgba(95, 255, 133, 0.07), rgba(22, 22, 23, 0.9) 40%) padding-box;
+}
+html[data-theme="modern"] :is(#about-doc th, .about-table th) { color: #8dffaa; background: rgba(95, 255, 133, 0.07); }
+html[data-theme="modern"] #about-doc hr { border-top-color: rgba(95, 255, 133, 0.25); }
+html[data-theme="modern"] .about-node h4 { color: #8dffaa !important; }
+html[data-theme="modern"] #about-toc a.about-toc-active { color: #5fff85; background: rgba(95, 255, 133, 0.12); }
+html[data-theme="modern"] #about-toc a.about-toc-section-active { color: #c4ffd2; }

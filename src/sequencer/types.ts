@@ -95,7 +95,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
   'videoDualRasterInA', 'videoDualRasterInB',
 
   // Panel UI
-  'panelDock', 'panelCollapsed', 'panelTab', 'hudVisible',
+  'panelDock', 'panelCollapsed', 'leftCollapsed', 'centerCollapsed', 'panelTab', 'hudVisible',
 
   // I/O bindings
   'midiInputId', 'midiOutputId', 'midiBindings',

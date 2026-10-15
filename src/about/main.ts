@@ -232,6 +232,29 @@ function updateSpy(): void {
     t.link.classList.toggle('about-toc-active', t === current);
     t.link.classList.toggle('about-toc-section-active', current != null && t.owner === current.owner);
   }
+  if (current && current !== lastSpy) {
+    lastSpy = current;
+    keepTocLinkVisible(current.link);
+  }
+}
+let lastSpy: SpyTarget | null = null;
+
+/** The sidebar scrolls on its own; as the page moves past its bounds the
+ *  highlighted entry would slide out of view (owner report). Keep it in
+ *  the sidebar's middle band by scrolling the SIDEBAR only — never
+ *  scrollIntoView(), which would also scroll the page under the reader. */
+function keepTocLinkVisible(link: HTMLElement): void {
+  const side = document.getElementById('about-sidebar');
+  if (!side) return;
+  const head = document.getElementById('about-sidebar-head');
+  const s = side.getBoundingClientRect();
+  const l = link.getBoundingClientRect();
+  const top = s.top + (head?.offsetHeight ?? 0) + 24;
+  const bottom = s.bottom - 24;
+  if (l.top < top || l.bottom > bottom) {
+    const target = side.scrollTop + (l.top - s.top) - side.clientHeight / 2 + l.height / 2;
+    side.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }
 }
 let spyRaf = 0;
 window.addEventListener('scroll', () => {

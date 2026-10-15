@@ -1,0 +1,67 @@
+/* ============================================================
+   Jack ripple — a light that radiates from a patch point's rim while
+   it is the thing you are about to act on. One file, imported by both
+   surfaces that draw jacks (PatchBayView.ts, RackLayer.ts), in both
+   themes.
+
+     idle hover    the jack under the resting pointer: a slow green
+                   ripple — "you can grab this"
+     drop target   the jack a dragged cable has snapped to: a faster,
+                   brighter ripple in the colour the cable will be
+                   (--rw-hover-color, set inline per drag)
+     reject        a jack that won't take the cable: one red pulse
+                   (the red ring and the "why" tooltip stay as they are)
+
+   Two staggered rings (::before / ::after) drawn on the jack's own
+   outline, so nothing in the layout moves. Reduced motion: a steady
+   halo instead of motion.
+   ============================================================ */
+
+.rw-rack-jack { position: relative; }
+
+.rw-rack-jack::before,
+.rw-rack-jack::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rw-ripple, rgba(95, 255, 133, 0.85));
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes rw-jack-ripple {
+  0%   { transform: scale(1);   opacity: 0.85; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+
+/* Idle hover. */
+.rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--reject)::before,
+.rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--reject)::after {
+  animation: rw-jack-ripple 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--reject)::after { animation-delay: 0.8s; }
+/* During a drag the ripple belongs to the snap target alone: the jack
+   that merely sits under the pointer stays quiet. Same specificity as
+   the rule above and later, so it wins. */
+.rw-rack-dragging .rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--reject)::before,
+.rw-rack-dragging .rw-rack-jack:hover:not(.rw-rack-jack--hover):not(.rw-rack-jack--reject)::after { animation: none; }
+
+/* Drop target — the cable's own colour, quicker. */
+.rw-rack-jack--hover { --rw-ripple: var(--rw-hover-color, rgba(95, 255, 133, 0.95)); }
+.rw-rack-jack--hover::before,
+.rw-rack-jack--hover::after {
+  animation: rw-jack-ripple 1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.rw-rack-jack--hover::after { animation-delay: 0.5s; }
+
+/* Reject — one red pulse, then still. */
+.rw-rack-jack--reject { --rw-ripple: #ff5566; }
+.rw-rack-jack--reject::before { animation: rw-jack-ripple 0.7s cubic-bezier(0.22, 1, 0.36, 1) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-rack-jack::before, .rw-rack-jack::after { animation: none !important; }
+  .rw-rack-jack:hover::before,
+  .rw-rack-jack--hover::before,
+  .rw-rack-jack--reject::before { opacity: 0.6; transform: scale(1.6); }
+}

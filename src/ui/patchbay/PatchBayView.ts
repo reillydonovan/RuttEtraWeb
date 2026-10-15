@@ -39,6 +39,7 @@
  */
 
 import './patchbay.css';
+import '../rack/jackRipple.css';
 import '../graph/graph.css';
 import type {
   Settings, SettingsStore, ModSlot, ModTarget, ModSource, PatternBlendMode,

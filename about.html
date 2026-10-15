@@ -14,12 +14,12 @@
       try {
         var q = new URLSearchParams(location.search).get('theme');
         if (q === 'modern' || q === 'phosphor') localStorage.setItem('rw-ui-theme', q);
-        if (localStorage.getItem('rw-ui-theme') === 'modern') document.documentElement.dataset.theme = 'modern';
+        if (localStorage.getItem('rw-ui-theme') !== 'phosphor') document.documentElement.dataset.theme = 'modern';
       } catch (e) {}
     </script>
-    <title>Rutt/Etra — Manual</title>
+    <title>Rutt/Etra Web — Manual</title>
     <meta name="description" content="The Rutt/Etra browser video synthesizer manual. Long-form documentation for every control, modulation source, MIDI / OSC / CV connection, and recording workflow." />
-    <meta property="og:title" content="Rutt/Etra — Manual" />
+    <meta property="og:title" content="Rutt/Etra Web — Manual" />
     <meta property="og:description" content="Long-form reference for the browser-based Rutt/Etra video synthesizer." />
     <meta property="og:type" content="article" />
   </head>
@@ -39,7 +39,7 @@
            ======================================================= -->
       <aside id="about-sidebar">
         <div id="about-sidebar-head">
-          <a class="about-nav-home" href="./index.html" title="Back to the synth">← RUTT/ETRA</a>
+          <a class="about-nav-home" href="./index.html" title="Back to the synth">← RUTT/ETRA WEB</a>
           <input
             id="about-search"
             type="search"

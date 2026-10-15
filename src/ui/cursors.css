@@ -103,6 +103,13 @@ input[type="url"], input[type="email"], input[type="password"],
 textarea, [contenteditable="true"] {
   cursor: var(--rw-cur-text);
 }
+/* Read-only text you may want to copy (the project name, status lines,
+   LCD readouts, the help manual): selectable, with the caret. */
+.rw-readout, .rw-help-md :is(p, li, blockquote, code, pre, td) {
+  cursor: var(--rw-cur-text);
+  user-select: text;
+  -webkit-user-select: text;
+}
 
 /* Clickable native form controls that render their OWN default cursor
  * without any explicit `cursor` rule anywhere in the app today — most

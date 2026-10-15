@@ -19,11 +19,11 @@
     <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="RUTT/ETRA" />
+    <meta name="apple-mobile-web-app-title" content="RUTT/ETRA WEB" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <script>try{if(localStorage.getItem('rw-ui-theme')==='modern')document.documentElement.dataset.theme='modern'}catch(e){}</script>
-    <title>RUTT/ETRA - Web Video Synthesizer</title>
+    <script>try{if(localStorage.getItem('rw-ui-theme')!=='phosphor')document.documentElement.dataset.theme='modern'}catch(e){document.documentElement.dataset.theme='modern'}</script>
+    <title>RUTT/ETRA WEB - Video Synthesizer</title>
     <!-- Startup splash (v1.31.3, owner ask): inline so it paints before any
          JS/CSS loads; main.ts fades it out after the first rendered frame
          (hideSplash). Uses system mono — web fonts aren't loaded yet. -->
@@ -56,7 +56,7 @@
   </head>
   <body>
     <div id="rw-splash" role="status" aria-live="polite">
-      <div class="rw-splash-title">RUTT/ETRA</div>
+      <div class="rw-splash-title">RUTT/ETRA WEB</div>
       <div class="rw-splash-bar"></div>
       <div class="rw-splash-sub" id="rw-splash-sub">warming up the scan processor…</div>
     </div>
@@ -79,19 +79,19 @@
                overlay can never show a stale hardcoded number. -->
           <div class="boot-line"><span class="boot-name">RUTT/ETRA WEB SYNTHESIZER</span> <span id="boot-version"></span></div>
           <!-- Modern theme only (display:none in Phosphor): headline + lede. -->
-          <div class="boot-headline" aria-hidden="true">Rutt/Etra</div>
+          <div class="boot-headline" aria-hidden="true">Rutt/Etra Web</div>
           <div class="boot-lede" aria-hidden="true">Video, bent into landscape. Pick a source to begin.</div>
           <div class="boot-line dim">select a source to begin</div>
           <div id="boot-sources">
-            <button class="boot-src" id="boot-webcam">WEBCAM</button>
-            <button class="boot-src" id="boot-screen">SCREEN</button>
-            <button class="boot-src" id="boot-file">FILE</button>
-            <button class="boot-src" id="boot-stream-btn">STREAM URL</button>
-            <button class="boot-src" id="boot-pattern">PATTERN</button>
+            <button class="boot-src" id="boot-webcam">Webcam</button>
+            <button class="boot-src" id="boot-screen">Screen</button>
+            <button class="boot-src" id="boot-file">File</button>
+            <button class="boot-src" id="boot-stream-btn">Stream URL</button>
+            <button class="boot-src" id="boot-pattern">Pattern</button>
           </div>
           <div id="boot-stream-row">
             <input id="boot-stream-input" type="url" placeholder="https://…/stream.m3u8" />
-            <button id="boot-stream-connect">CONNECT</button>
+            <button id="boot-stream-connect">Connect</button>
           </div>
           <input id="boot-file-input" type="file" accept="video/*" style="display:none" />
           <div class="boot-error" id="boot-error"></div>

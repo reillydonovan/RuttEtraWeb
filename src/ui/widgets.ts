@@ -398,7 +398,10 @@ export function slider(
     const v = toDisplay(base);
     wrap.classList.toggle('rw-slider--tl', tlOffset !== 0);
     range.value = String(v);
-    num.value = formatNum(v, step);
+    // Never rewrite the number field while someone is typing in it: each
+    // keystroke writes the value, and reformatting "1." back to "1" mid-entry
+    // made decimals impossible to type. It is reformatted on blur instead.
+    if (num.ownerDocument.activeElement !== num) num.value = formatNum(v, step);
     readoutBtn.textContent = formatNum(v, step);
     const t = effMax === effMin ? 0 : (v - effMin) / (effMax - effMin);
     const pct = Math.max(0, Math.min(1, t)) * 100;
@@ -457,6 +460,8 @@ export function slider(
     const v = parseFloat(num.value);
     if (!Number.isNaN(v)) setFromDisplay(v, true);
   });
+  num.addEventListener('blur', () => apply(settings.get(key) as number));
+  num.addEventListener('keydown', (e) => { if (e.key === 'Enter') num.blur(); });
 
   attachModulationIndicator(wrap, key as string);
   markParamKey(wrap, key as string);

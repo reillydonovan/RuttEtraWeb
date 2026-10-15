@@ -927,6 +927,10 @@ export interface Settings {
   // ---------- UI ----------
   panelDock: 'left' | 'right';
   panelCollapsed: boolean;
+  /** v36: the LEFT workspace window (Patch Bay by default) collapsed to its tab strip — the same window-collapse model as panelCollapsed / timelineDock 'hidden'. */
+  leftCollapsed: boolean;
+  /** v36: the CENTER window (Renderer by default) collapsed to its tab strip — no window is special. */
+  centerCollapsed: boolean;
   /** v27: width of the side control panel (drag its inner edge; clamped 220–1400 since v1.10.1). */
   panelWidth: number;
   panelTab: 'synth' | 'io' | 'help';
@@ -1433,6 +1437,8 @@ export const DEFAULTS: Settings = {
 
   panelDock: 'right',
   panelCollapsed: false,
+  leftCollapsed: false,
+  centerCollapsed: false,
   panelWidth: 360,
   panelTab: 'synth',
   hudVisible: true,
@@ -1541,7 +1547,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 35;
+const CURRENT_VERSION = 36;
 /** The Settings schema version this build writes (`_v`). Stamp it on every
  *  settings snapshot you save (projects, user presets, exports) so a later
  *  load migrates FROM the right version instead of re-running every step
@@ -2204,6 +2210,16 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 35) {
     s.deviceIdB = (s.deviceIdB as string | undefined) ?? '';
     s._v = 35;
+  }
+
+  // v35 -> v36: the left workspace window can collapse to its tab strip
+  // like the right and bottom windows (owner: "collapse and expand states
+  // on the sides, top, and bottom all follow the same window management
+  // system"). Plain additive default.
+  if ((s._v ?? 1) < 36) {
+    s.leftCollapsed = (s.leftCollapsed as boolean | undefined) ?? false;
+    s.centerCollapsed = (s.centerCollapsed as boolean | undefined) ?? false;
+    s._v = 36;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

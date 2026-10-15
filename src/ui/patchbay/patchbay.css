@@ -719,3 +719,17 @@
 .rw-patchbay:has(.rw-pb-scrollbar--v.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ns) !important; }
 .rw-patchbay:has(.rw-pb-scrollbar--h.rw-pb-scrollbar--drag),
 .rw-patchbay:has(.rw-pb-scrollbar--h.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ew) !important; }
+
+/* Button rows inside a module (WEBCAM / SCREEN / FILE, the preview
+   toggles…) are part of the card's responsive layout: the buttons share
+   the row width equally, shrink with an ellipsis, and wrap to a second
+   line when the card is too narrow — they never spill past the card's
+   edge at small widths or a zoomed-out board (owner report). */
+.rw-pb-row:has(> .rw-pb-tidy) { flex-wrap: wrap; gap: 4px; }
+.rw-pb-row:has(> .rw-pb-tidy) > .rw-pb-tidy {
+  flex: 1 1 0;
+  min-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -46,6 +46,7 @@ import {
   graphBindingForParam, applyGraphBindingTarget, bindParamOut, paramOutKeyOf,
 } from './rackGeometry';
 import './rack.css';
+import './jackRipple.css';
 
 const CLASSIC_COLOR = '#5fff85';
 const GRAPH_COLOR   = '#5fffd0';

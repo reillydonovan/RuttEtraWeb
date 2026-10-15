@@ -17,17 +17,22 @@ export function mountHelpFab(_settings: SettingsStore): void {
 }
 
 export function maybeAutoOpenHelp(settings: SettingsStore): void {
-  // First-run: open Help → Quick start automatically.
+  // First run used to switch the panel to Help → Quick start. The owner
+  // wants Controls to land on Synth every time (2026-10-15); the first-run
+  // pointer now is the Quick start tab being pre-selected for whenever the
+  // user opens Help, plus the boot screen and Help ▸ Start Tutorial.
   if (!settings.get('helpSeen') && settings.get('helpAutoOpen')) {
-    settings.set('panelTab', 'help');
     settings.set('helpActiveTab', 'quickstart');
-    settings.set('panelCollapsed', false);
   }
   // Mark as seen the first time the user navigates AWAY from the help tab.
-  const off = settings.subscribe('panelTab', (v) => {
-    if (v && v !== 'help') {
-      settings.set('helpSeen', true);
-      off();
-    }
+  // `let` + a deferred off: subscribe() may call back synchronously (now that
+  // the panel starts on Synth, it does), before `off` would exist as a const.
+  let off: (() => void) | null = null;
+  let done = false;
+  off = settings.subscribe('panelTab', (v) => {
+    if (done || !v || v === 'help') return;
+    done = true;
+    settings.set('helpSeen', true);
+    if (off) off(); else queueMicrotask(() => off?.());
   });
 }

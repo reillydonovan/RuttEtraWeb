@@ -1,4 +1,4 @@
-# Rutt/Etra — Manual
+# Rutt/Etra Web — Manual
 
 Rutt/Etra is a browser-based recreation of the analog video synthesizer designed by Steve Rutt and Bill Etra at Rutt Electrophysics, New York, in 1973. Their machine took an incoming video signal — a camera, a tape, a test pattern — and displaced each scanline along the Z axis in proportion to the brightness of each pixel. The result was a wireframe terrain made of TV. It became the foundation visual instrument of a generation of video artists: Nam June Paik, Steina Vasulka, Bill Viola, Gary Hill.
 

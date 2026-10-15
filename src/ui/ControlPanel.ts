@@ -85,14 +85,22 @@ export class ControlPanel {
 
     const titleText = document.createElement('div');
     titleText.className = 'rw-panel-title-text';
-    titleText.textContent = 'RUTT/ETRA';
+    titleText.textContent = 'RUTT/ETRA WEB';
     title.appendChild(titleText);
 
     // Build stamp — answers "which version is live?" at a glance. Also
     // logged to the console for bug reports from the field.
     const build = document.createElement('div');
     build.className = 'rw-panel-build';
-    build.textContent = `v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit}`;
+    // Version and commit as separate spans: the version always shows (the
+    // owner tracks builds by it); the commit may give way when it's tight.
+    const ver = document.createElement('span');
+    ver.className = 'rw-panel-build-ver';
+    ver.textContent = `v${__BUILD_INFO__.version}`;
+    const sha = document.createElement('span');
+    sha.className = 'rw-panel-build-sha';
+    sha.textContent = ` · ${__BUILD_INFO__.commit}`;
+    build.append(ver, sha);
     build.title = `Built ${__BUILD_INFO__.builtAt} from commit ${__BUILD_INFO__.commit}`;
     title.appendChild(build);
     // eslint-disable-next-line no-console
@@ -120,11 +128,11 @@ export class ControlPanel {
     });
     attachTooltip(skinSel, 'Panel skin: flat CRT, hardware (knobs and switches), or full rack with patch cables. Remembered on this machine, not in your patches.');
 
-    // Theme picker — Phosphor (original) / Modern. Independent of the skin;
+    // Theme picker — Modern (default) / Classic (the original phosphor CRT). Independent of the skin;
     // also a local preference (theme.ts), not a Settings key.
     const themeSel = document.createElement('select');
     themeSel.className = 'rw-skin-select rw-theme-select';
-    for (const [value, label] of [['phosphor', 'PHOS'], ['modern', 'MOD']] as const) {
+    for (const [value, label] of [['modern', 'MODERN'], ['phosphor', 'CLASSIC']] as const) {
       const opt = document.createElement('option');
       opt.value = value;
       opt.textContent = label;
@@ -133,9 +141,9 @@ export class ControlPanel {
     themeSel.addEventListener('change', () => { if (!runAction(`view.theme.${themeSel.value}`)) setTheme(themeSel.value as ThemeId); });
     subscribeTheme((t) => {
       themeSel.value = t;
-      themeSel.classList.toggle('active', t !== 'phosphor');
+      themeSel.classList.toggle('active', t !== 'modern');   // lit when not on the default
     });
-    attachTooltip(themeSel, 'Visual theme: Phosphor (original green CRT) or Modern (neutral greys, rounded, soft glow). Works with any skin. Remembered on this machine, not in your patches.');
+    attachTooltip(themeSel, 'Visual theme: Modern (the default: neutral greys, rounded, soft glow) or Classic (the original green phosphor CRT). Works with any skin. Remembered on this machine, not in your patches.');
 
     // (The old ↔ dock-side toggle is gone: since the v31 tab model the
     // panel shell IS the right window — the left side belongs to the

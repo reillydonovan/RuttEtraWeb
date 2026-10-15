@@ -2,29 +2,48 @@
    Modern theme — the nothingbutdatacenters.com design system in
    RuttEtraWeb's colours. Layered OVER the phosphor stylesheets and
    scoped to `body[data-theme="modern"]` (stamped by src/ui/theme.ts);
-   Phosphor, the default, removes the attribute and is byte-identical to
-   before. Delete this file and the app is the terminal again.
+   Phosphor, the default, removes the attribute and is untouched.
+   Delete this file and the app is the terminal again.
 
-   HOW THIS FILE IS BUILT (same rule as NBDC's apple.css): every value is
-   a token; every behaviour is declared ONCE over one selector list.
-   To round, label or light a new component, ADD ITS SELECTOR TO THE
-   BEHAVIOUR'S LIST — do not restate the behaviour on the component.
+   HOW THIS FILE IS BUILT (same rule as NBDC's apple.css):
+     - every value is a TOKEN (section 1). Nothing below hardcodes a
+       size, colour or duration that a token already names.
+     - every behaviour is declared ONCE over one selector list. To round,
+       label or light a new component, ADD ITS SELECTOR TO THE LIST — do
+       not restate the behaviour on the component.
 
-     1 TOKENS      colour, type, radius, glow, motion, control sizes
+     1 TOKENS      space, type, control heights, radii, colour, motion
      2 BASE        page, type
-     3 BEHAVIOURS  LABEL / MONO / SURFACE / GLOW / CONTROLS
-     4 COMPONENTS  what is particular to one component
-     5 MOTION      reduced motion
+     3 LAYOUT      the three surface tiers: bar / window / card
+     4 BEHAVIOURS  LABEL, MONO, CARD, GLOW, FLOAT
+     5 CONTROLS    buttons, icon buttons, inputs, segmented, window tabs
+     6 COMPONENTS  what is particular to one component
+     7 BOOT        the intro screen
+     8 MOTION      reduced motion
+
+   THE LAYOUT SYSTEM
+     Space   a 4px grid: --sp-1..6 = 4 8 12 16 24 32. Card padding is
+             --sp-3; gaps between controls --sp-2; between groups --sp-3.
+     Type    four sizes: --fs-xs 10.5 (labels), --fs-s 11.5 (controls,
+             readouts), --fs-m 12.5 (body, rows), --fs-l 13.5 (titles).
+             Weights: 400 body, 500 controls, 600 titles.
+     Height  three control heights: --ctl-s 22 (dense: in-card buttons,
+             steppers), --ctl-m 26 (inputs, toolbar), --ctl-l 32 (primary).
+             Window bars are --bar-h 32; card headers --head-h 34.
+     Radius  --r-s 6 (controls), --r-m 10 (cards), --r-l 14 (floating
+             sheets); window tabs --r-tab (top corners only).
 
    Specificity: skin rules are `body:is([data-skin..]):not([data-layout])
-   .x` = (0,3,1). Prefix `html body[data-theme="modern"]` is (0,1,2) —
-   fine against plain rules; where a skin rule must be beaten the prefix
-   gains `[data-skin]` (0,2,2 + class) or a doubled attribute. No
-   !important unless commented.
+   .x` = (0,3,1). The prefix `html body[data-theme="modern"][data-theme]`
+   is (0,2,2) and every rule under it adds a class, so it beats them
+   without !important. Native CSS nesting (Chromium 120+, Safari 17.2+,
+   Firefox 117+).
 
-   Colour: neutral Apple greys; phosphor green (#5fff85) only for lit /
-   active state, the pointer glow and the lift shadow; amber still means
-   "the timeline owns this value"; red still means warn / reject.
+   Colour: neutral Apple greys. Phosphor green is the instrument's one
+   colour and is spent where it means something — lit, focused, active,
+   hovered — plus a faint corner catch on card edges and the pointer
+   glow. Amber still means "the timeline owns this value"; red still
+   means warn / reject.
    ============================================================ */
 
 /* ============================================================ 1 TOKENS */
@@ -33,88 +52,104 @@
 
 :root[data-theme="modern"],
 body[data-theme="modern"] {
-  /* The existing --re-* tokens, restated: ~600 var(--re-*) uses follow. */
-  --re-bg:        #000000;
-  --re-bg-2:      #0a0a0b;
-  --re-panel:     #161617;
-  --re-panel-hi:  #1d1d1f;
-  --re-line:      rgba(255, 255, 255, 0.08);
-  --re-line-hi:   #424245;
-  --re-text:      #d2d2d7;
-  --re-text-dim:  #86868b;
-  --re-accent:    #5fff85;
-  --re-accent-2:  #ffb347;
-  --re-warn:      #ff5c5c;
-  --re-glow:      0 8px 28px rgba(95, 255, 133, 0.18);
-  --re-mono:      var(--mx-sans);     /* body face is the sans; mono is opt-in (--mx-code) */
-  --re-phosphor:  #5fff85;
-  --re-amber:     #ffb347;
-  --re-bg-deep:   #000000;
-  --re-dim:       #86868b;
-  --re-red:       #ff5c5c;
-  --re-fg:        #f5f5f7;
+  /* -- space: a 4px grid -- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;  --sp-5: 24px;  --sp-6: 32px;
 
-  /* type */
-  --mx-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue",
+  /* -- type -- */
+  --mx-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
              "Segoe UI", Helvetica, Arial, sans-serif;
   --mx-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-  --mx-track-caps: 0.13em;
-  --mx-text-max: #f5f5f7;
+  --fs-xs: 10.5px;  --fs-s: 11.5px;  --fs-m: 12.5px;  --fs-l: 13.5px;
+  --track-caps: 0.08em;          /* sans uppercase (titles, buttons) */
+  --track-label: 0.12em;         /* mono uppercase labels */
 
-  /* shape (NBDC 28/18/12 scaled down for a dense instrument panel) */
-  --mx-radius-l: 18px;
-  --mx-radius-m: 12px;
-  --mx-radius-s: 8px;
-  --mx-pill: 980px;
+  /* -- control heights -- */
+  --ctl-s: 22px;  --ctl-m: 26px;  --ctl-l: 32px;
+  --bar-h: 32px;                 /* window tab bars */
+  --rw-strip: var(--bar-h);      /* a collapsed window is exactly its tab bar (workspace.css) */
+  --head-h: 34px;                /* card headers (sections, modules) */
 
-  /* surfaces */
-  --mx-edge: rgba(255, 255, 255, 0.08);
-  --mx-surface: #161617;
-  --mx-surface-hover: #1d1d1f;
-  --mx-glass: rgba(22, 22, 23, 0.80);
-  --mx-lift: -2px;
-  --mx-lift-shadow: 0 10px 30px rgba(95, 255, 133, 0.14);
+  /* -- radii -- */
+  --r-s: 6px;  --r-m: 10px;  --r-l: 14px;  --r-tab: 8px;  --pill: 980px;
 
-  /* the glow: one light, everywhere it appears (phosphor green) */
-  --mx-glow-size: 260px;
-  --mx-glow-core: 95, 255, 133;
+  /* -- the three surface tiers (darkest = furthest back) -- */
+  --c-bar:     #000000;          /* menu bar + window tab bars */
+  --c-window:  #0e0e0f;          /* window content */
+  --c-card:    #18181a;          /* cards on a window */
+  --c-card-hi: #1e1e20;          /* a card under the pointer */
+  --c-well:    rgba(255, 255, 255, 0.045);   /* inputs, recessed groups */
+  --c-fill:    rgba(255, 255, 255, 0.07);    /* tinted buttons */
+  --c-fill-hi: rgba(255, 255, 255, 0.12);
+  --c-glass:   rgba(28, 28, 30, 0.82);       /* menus, popovers, modals */
+  --c-hair:    rgba(255, 255, 255, 0.08);    /* hairlines */
+  --c-hair-hi: rgba(255, 255, 255, 0.16);
 
-  /* motion: a long ease-out, nothing springy */
-  --mx-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --mx-fast: 120ms;
-  --mx-base: 240ms;
-  --mx-slow: 420ms;
-  --mx-press: 0.97;
+  /* -- text -- */
+  --t-max:   #f5f5f7;
+  --t-body:  #d1d1d6;
+  --t-dim:   #8e8e93;
+  --t-faint: #5c5c61;
 
-  /* controls */
-  --mx-btn-bg: #f5f5f7;
-  --mx-btn-fg: #0a0a0b;
-  --mx-btn-bg-hover: #ffffff;
-  --mx-btn-glow: 0 8px 26px rgba(95, 255, 133, 0.30), 0 0 0 1px rgba(255, 255, 255, 0.5);
-  --mx-btn2-edge: rgba(245, 245, 247, 0.30);
-  --mx-btn2-hover: rgba(245, 245, 247, 0.08);
-  --mx-icon-bg: rgba(51, 51, 54, 0.72);
-  --mx-icon-hover: rgba(80, 80, 84, 0.85);
-  --mx-focus: 0 0 0 2px #000, 0 0 0 4px rgba(95, 255, 133, 0.75);
+  /* -- the accent (phosphor) and its tints -- */
+  --a:        #5fff85;
+  --a-fill:   #2fd462;           /* large fills (a switch, a primary state): calmer than the glow green */
+  --a-rgb:    95, 255, 133;
+  --a-08: rgba(95, 255, 133, 0.08);
+  --a-16: rgba(95, 255, 133, 0.16);
+  --a-30: rgba(95, 255, 133, 0.30);
+  --a-55: rgba(95, 255, 133, 0.55);
+  --a-text: #c4ffd2;             /* text on a green tint: lighter than the accent, still green */
+  --amber: #ffb347;
+  --red:   #ff5c5c;
 
-  /* phosphor accents (restrained): hairline borders catch green at two
-     corners, labels lean very slightly green, panels get a faint haze. */
-  --mx-border-grad: linear-gradient(160deg, rgba(95, 255, 133, 0.35), rgba(255, 255, 255, 0.05) 35%,
-                                    rgba(255, 255, 255, 0.04) 65%, rgba(95, 255, 133, 0.18));
-  --mx-border-grad-hi: linear-gradient(160deg, rgba(95, 255, 133, 0.6), rgba(255, 255, 255, 0.09) 35%,
-                                       rgba(255, 255, 255, 0.07) 65%, rgba(95, 255, 133, 0.34));
-  --mx-label: #8a948d;
-  --mx-title-tint: #dcf7e5;
-  --mx-haze: radial-gradient(130% 240px at 50% 0, rgba(95, 255, 133, 0.075), transparent 72%);
-  --mx-placeholder: #6b736e;
+  /* -- card edge: a specular hairline that catches green at the top-left
+        corner; brighter under the pointer -- */
+  --edge-card: linear-gradient(160deg, rgba(95, 255, 133, 0.30) 0%, rgba(255, 255, 255, 0.09) 18%,
+                               rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.07) 100%);
+  --edge-card-hi: linear-gradient(160deg, rgba(95, 255, 133, 0.65) 0%, rgba(95, 255, 133, 0.16) 22%,
+                                  rgba(255, 255, 255, 0.07) 55%, rgba(95, 255, 133, 0.20) 100%);
+
+  /* -- elevation -- */
+  --sh-card:  0 1px 2px rgba(0, 0, 0, 0.5);
+  --sh-lift:  0 10px 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(95, 255, 133, 0.10);
+  --sh-float: 0 20px 50px rgba(0, 0, 0, 0.65);
+  --focus:    0 0 0 3px rgba(95, 255, 133, 0.28);
+
+  /* -- glow: one light, everywhere it appears -- */
+  --glow-size: 320px;            /* wide and faint: a hint of light, not a spotlight */
+
+  /* -- motion: a long ease-out, nothing springy -- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms;  --t-base: 220ms;  --t-slow: 420ms;
+  --press: 0.97;
+  --lift: -2px;
+
+  /* -- the existing --re-* tokens, restated so ~600 var(--re-*) uses
+        across the phosphor stylesheets follow without edits -- */
+  --re-bg:       var(--c-bar);
+  --re-bg-2:     var(--c-window);
+  --re-panel:    var(--c-card);
+  --re-panel-hi: var(--c-card-hi);
+  --re-line:     var(--c-hair);
+  --re-line-hi:  var(--c-hair-hi);
+  --re-text:     var(--t-body);
+  --re-text-dim: var(--t-dim);
+  --re-accent:   var(--a);
+  --re-accent-2: var(--amber);
+  --re-warn:     var(--red);
+  --re-glow:     0 0 0 transparent;
+  --re-mono:     var(--mx-sans);
+  --re-phosphor: var(--a);
+  --re-amber:    var(--amber);
+  --re-bg-deep:  #000;
+  --re-dim:      var(--t-dim);
+  --re-red:      var(--red);
+  --re-fg:       var(--t-max);
 }
 
-
-/* CURSORS (inside TOKENS): the Modern theme replaces the green CRT arrow,
-   hand-dot and caret with NBDC's bone arrow (ink edge) and a phosphor-
-   green gradient arrow over anything pressable. Same hotspots as the
-   shapes they replace' native fallbacks; every other glyph (grab, jack,
-   resize, accept/reject...) stays — those carry meaning, not branding. */
+/* CURSORS (inside TOKENS): NBDC's bone arrow with an ink edge, and a
+   phosphor gradient arrow over anything pressable. Glyphs that carry
+   meaning (grab, jack, resize, accept/reject) are left as they are. */
 :root[data-theme="modern"] {
   --rw-cur-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='26'%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='%230a0a0b' fill-opacity='.45' stroke='%230a0a0b' stroke-opacity='.45' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='%23f5f5f7' stroke='%230a0a0b' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E") 4 2, default;
   --rw-cur-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='28' shape-rendering='crispEdges'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23b8ffca'/%3E%3Cstop offset='.55' stop-color='%235fff85'/%3E%3Cstop offset='1' stop-color='%232fbf5c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' transform='translate(2 2)' fill='%230a0a0b' fill-opacity='.85'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='url(%23g)'/%3E%3Cpath d='M4 2v18l4.3-4.2 2.8 5.9 3-1.4-2.8-5.8H17z' fill='none' stroke='%230a0a0b' stroke-width='1.2' stroke-linejoin='miter'/%3E%3C/svg%3E") 4 2, pointer;
@@ -123,34 +158,45 @@ body[data-theme="modern"] {
 
 /* ============================================================== 2 BASE */
 
+:root[data-theme="modern"] { color-scheme: dark; background: var(--c-bar); }
 html body[data-theme="modern"],
-html body[data-theme="modern"] #app {
-  background: var(--re-bg);
-  color: var(--re-text);
+html body[data-theme="modern"] #app,
+html body[data-theme="modern"].rw-popout-body {
+  background: var(--c-bar);
+  color: var(--t-body);
   font-family: var(--mx-sans);
-  letter-spacing: -0.01em;
+  font-size: var(--fs-m);
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
-}
-:root[data-theme="modern"] { color-scheme: dark; background: var(--re-bg); }
-
-/* Popout windows have their own body background in panel.css. */
-html body[data-theme="modern"].rw-popout-body { background: var(--re-bg); }
-
-/* The panel title: sans, not the phosphor glow. */
-html body[data-theme="modern"] .rw-panel-title-text {
-  color: var(--mx-text-max);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-shadow: none;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========================================================= 3 BEHAVIOURS */
+/* ============================================================ 3 LAYOUT */
 
-/* MONO -- numbers and values. Tabular so a changing readout never jitters. */
+/* Three tiers, darkest at the back: BAR (menu bar + every window's tab
+   bar, one continuous black band like a unified macOS toolbar) →
+   WINDOW (content area) → CARD (sections, modules). */
+html body[data-theme="modern"][data-theme] {
+  & #rw-menubar {
+    background: var(--c-bar);
+    border-bottom: 1px solid var(--c-hair);
+    box-shadow: none;
+  }
+  & :is(#panel-root, #rw-left-shell, #rw-center-shell:not(.rw-center-passthrough), #timeline-dock) {
+    background: var(--c-window);
+    border-color: var(--c-hair);
+    box-shadow: none;
+  }
+  & .rw-patchbay { background-color: var(--c-window); }
+  & .rw-panel-body { background: transparent; }
+}
+
+/* ======================================================== 4 BEHAVIOURS */
+
+/* MONO — numbers and values. Tabular, so a changing readout never jitters. */
 html body[data-theme="modern"] :is(
   .rw-num, .rw-slider-readout, .rw-readout, .rw-pb-cell-value, .rw-pb-cell-live,
-  .rw-pb-lcd, .rw-live-badge, .rw-tl-counter-cluster, .rw-tl-ruler, .rw-panel-build,
+  .rw-pb-lcd, .rw-live-badge, .rw-tl-counter-cluster .rw-readout, .rw-tl-ruler, .rw-panel-build,
   .rw-menu-shortcut, #hud, .rw-numeric-modal-range, .rw-cv-num, .rw-cv-live
 ) {
   font-family: var(--mx-code);
@@ -158,577 +204,791 @@ html body[data-theme="modern"] :is(
   letter-spacing: 0;
 }
 
-/* LABEL -- the small, mono, uppercase, tracked label. */
-html body[data-theme="modern"] :is(
-  .rw-group-head, .rw-pb-field-title, .rw-pb-subhead, .rw-tl-track-label,
-  .rw-region-bar-label, .rw-info-kicker, .rw-tut-step-label, .rw-graph-palette-cat,
-  .rw-graph-inspector-subtitle, .rw-numeric-modal-subtitle, .rw-learn-head
+/* LABEL — the small mono, uppercase, tracked label: sub-group names,
+   toolbar field names, tab-bar captions. Not for titles (see TITLE). */
+html body[data-theme="modern"][data-theme] :is(
+  .rw-group-head, .rw-pb-subhead, .rw-tl-track-label, .rw-region-bar-label, .rw-info-kicker,
+  .rw-tut-step-label, .rw-graph-palette-cat, .rw-graph-inspector-subtitle,
+  .rw-numeric-modal-subtitle, .rw-learn-head, .rw-tl-header label, .rw-pb-graph-title
 ) {
   font-family: var(--mx-code);
-  text-transform: uppercase;
-  letter-spacing: var(--mx-track-caps);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 500;
-  color: var(--mx-label);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--t-dim);
+  text-shadow: none;
 }
 
-/* SURFACE -- a rounded panel on a neutral grey with a hairline edge. The
-   radius is on the box only (no overflow:hidden), so rounding can never
-   clip a jack, tooltip or menu. Docked window shells (#panel-root etc.)
-   stay square — they meet the screen edge — but take the neutral surface.
-   `[data-theme]` doubled = (0,3,2) so these also beat the skins'
-   (0,3,1) module rules (rack.css sections, skin.css faces).
-
-   KEEP THE LIST BELOW IN STEP WITH GLOW'S (themeGlow.ts GLOW_SELECTOR). */
+/* TITLE — every card's name, one style: sans, semibold, uppercase,
+   lightly tracked, full white. Controls sections are sentence-case
+   (their titles are written that way); the hardware units shout. */
 html body[data-theme="modern"][data-theme] {
-  & :is(
-    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
-    .rw-graph-node, .rw-mod-slot, .rw-graph-palette, .rw-graph-library-card,
-    .rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card,
-    .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost
-  ) {
-    border-radius: var(--mx-radius-m);
-    background-color: var(--mx-surface);
-    border: 1px solid var(--mx-edge);
+  & :is(.rw-pb-module-head, .rw-pb-field-title, .rw-section-head) {
+    font-family: var(--mx-sans);
+    font-weight: 600;
+    color: var(--t-max);
+    text-shadow: none;
   }
-  /* Menus / popovers / modals float: glass + a real shadow, edge not green. */
-  & :is(.rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card,
-        .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost) {
-    background-color: var(--mx-glass);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    color: var(--re-text);
+  & :is(.rw-pb-module-head, .rw-pb-field-title) {
+    font-size: var(--fs-s);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
   }
-  & :is(.rw-hover-tip) { border-radius: var(--mx-radius-s); }
-  & :is(.rw-menu) { padding: 6px; border-radius: var(--mx-radius-m); }
-  /* Graph-editor nodes are drawn over a dark canvas. */
-  & .rw-graph-node { background-color: rgba(22, 22, 23, 0.94); }
-  & .rw-graph-node.selected { border-color: rgba(95, 255, 133, 0.7); box-shadow: 0 0 0 1px rgba(95, 255, 133, 0.25), var(--mx-lift-shadow); }
-  /* A Controls section as a card (the rack skin gives it chrome too). */
-  & .rw-section { margin: 8px 8px 0; }
-  & .rw-section-head { background: transparent; border-radius: var(--mx-radius-m); }
-  & .rw-section-body { background: transparent; }
-  & .rw-mod-slot.expanded { border-color: rgba(95, 255, 133, 0.45); box-shadow: none; }
-  /* Rack screws and dashed group frames are terminal marks: off. */
+  & .rw-section-head { font-size: var(--fs-l); letter-spacing: -0.01em; text-transform: none; }
+}
+
+/* CARD — sections, Patch Bay units, graph nodes, Classic slots. A
+   rounded neutral card with a specular hairline that catches green at
+   the top-left corner. Three background layers: pointer glow → opaque
+   fill → edge gradient (seen through a transparent 1px border). The
+   radius is on the box only (no overflow:hidden), so it never clips a
+   jack, tooltip or menu.
+   KEEP THIS LIST IN STEP WITH GLOW_SELECTOR (themeGlow.ts). */
+html body[data-theme="modern"][data-theme] {
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot),
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
+    --fill: var(--c-card);
+    border: 1px solid transparent;
+    border-radius: var(--r-m);
+    background-color: var(--fill);
+    background-image:
+      radial-gradient(var(--glow-size) circle at var(--mx, 50%) var(--my, 50%),
+        rgba(var(--a-rgb), calc(var(--glow) * 0.045)),
+        rgba(var(--a-rgb), calc(var(--glow) * 0.015)) 40%, transparent 72%),
+      linear-gradient(var(--fill), var(--fill)),
+      var(--edge-card);
+    background-clip: padding-box, padding-box, border-box;
+    background-origin: padding-box, padding-box, border-box;
+    box-shadow: var(--sh-card);
+    transition: --glow var(--t-slow) var(--ease), transform var(--t-base) var(--ease),
+      box-shadow var(--t-base) var(--ease);
+  }
+  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
+    --edge-card: var(--edge-card-hi);
+  }
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node):hover { --fill: var(--c-card-hi); }
+  /* Selected / expanded: the edge goes fully lit. */
+  & :is(.rw-graph-node.selected, .rw-mod-slot.expanded, .rw-pb-unit-selected) {
+    --edge-card: linear-gradient(var(--a-55), var(--a-55));
+  }
+  /* Terminal marks off: rack screws, dashed frames. */
   & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode)::before,
   & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode)::after,
   &[data-skin="rack"] .rw-section-head::before,
   &[data-skin="rack"] .rw-section-head::after { display: none; }
-  & .rw-group { border: 1px solid var(--mx-edge); border-radius: var(--mx-radius-s); }
-  /* Rack section header reserved room for the screws. */
-  &[data-skin="rack"] .rw-section-head { padding-left: 12px; padding-right: 12px; }
-
-  /* Docked window shells: neutral surface, hairline edge. */
-  & :is(#panel-root, #rw-left-shell, #rw-center-shell:not(.rw-center-passthrough), #timeline-dock) {
-    /* Near-opaque: the HUD line and render canvas sit under the shells. */
-    background: var(--mx-haze), rgba(20, 20, 21, 0.97);
-    border-color: var(--mx-edge);
-    box-shadow: none;
-  }
-  & #rw-menubar {
-    background: rgba(22, 22, 23, 0.80);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 1px solid transparent;
-    border-image: linear-gradient(90deg, rgba(95, 255, 133, 0.5), rgba(255, 255, 255, 0.10) 45%, transparent) 1;
-  }
-  & .rw-patchbay { background: #000; }
 }
-
-/* GLOW -- the pointer's light on a surface (phosphor green, low).
-   themeGlow.ts sets --mx/--my on the surface under the pointer; --glow
-   fades 0 -> 1 on :hover. The `:hover` copy of the selector is listed
-   too: a `background` shorthand on hover elsewhere would reset
-   background-image and the glow would vanish exactly when it matters. */
-html body[data-theme="modern"][data-theme] {
-  & :is(
-    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
-    .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
-    .rw-about-dialog-card, .rw-tut-callout
-  ),
-  & :is(
-    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
-    .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
-    .rw-about-dialog-card, .rw-tut-callout
-  ):hover {
-    background-image: radial-gradient(var(--mx-glow-size) circle at var(--mx, 50%) var(--my, 50%),
-      rgba(var(--mx-glow-core), calc(var(--glow) * 0.12)),
-      rgba(var(--mx-glow-core), calc(var(--glow) * 0.04)) 40%,
-      transparent 70%);
-    transition: --glow var(--mx-slow) var(--mx-ease), transform var(--mx-base) var(--mx-ease),
-      box-shadow var(--mx-base) var(--mx-ease), background-color var(--mx-fast) linear,
-      border-color var(--mx-fast) linear;
-  }
-}
-/* GRADIENT HAIRLINE -- surface cards only (glass floaters keep a plain
-   edge: their translucent fill can't sit on an opaque border trick).
-   Three layers: pointer glow (padding-box) over an opaque fill
-   (padding-box) over the green-cornered gradient (border-box) seen
-   through a transparent 1px border. Hover brightens the hairline. `:hover`
-   is listed for the same reason as in GLOW above. */
-html body[data-theme="modern"][data-theme] {
-  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot) {
-    --mx-fill: var(--mx-surface);
-    border-color: transparent;
-  }
-  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot),
-  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
-    background-image:
-      radial-gradient(var(--mx-glow-size) circle at var(--mx, 50%) var(--my, 50%),
-        rgba(var(--mx-glow-core), calc(var(--glow) * 0.12)),
-        rgba(var(--mx-glow-core), calc(var(--glow) * 0.04)) 40%,
-        transparent 70%),
-      linear-gradient(var(--mx-fill), var(--mx-fill)),
-      var(--mx-border-grad);
-    background-clip: padding-box, padding-box, border-box;
-    background-origin: padding-box, padding-box, border-box;
-    border-color: transparent;
-  }
-  & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus, .rw-graph-node, .rw-mod-slot):hover {
-    --mx-border-grad: var(--mx-border-grad-hi);
-  }
-  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus):hover { --mx-fill: var(--mx-surface-hover); }
-  & .rw-graph-node { --mx-fill: #161617; }
-  & .rw-graph-node.selected, & .rw-mod-slot.expanded { border-color: rgba(95, 255, 133, 0.55); }
-  /* glass floaters: faint green edge instead */
-  & :is(.rw-menu, .rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu) {
-    border-color: rgba(95, 255, 133, 0.22);
-  }
-}
-
 @media (hover: hover) {
   html body[data-theme="modern"][data-theme] {
-    & :is(
-      .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
-      .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
-      .rw-about-dialog-card, .rw-tut-callout
-    ):hover { --glow: 1; }
-    & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus):hover {
-      background-color: var(--mx-surface-hover);
-    }
-    /* Lift only on Patch Bay units, and never while something is being
-       dragged (module drag, reorder lift, or a cable drag) — a moving
-       box under a moving cursor reads as jitter. */
+    & :is(.rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
+          .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
+          .rw-about-dialog-card, .rw-tut-callout):hover { --glow: 1; }
+    /* Patch Bay units rise a little under the pointer — never while
+       anything is being dragged (a moving box under a moving cursor
+       reads as jitter). */
     & .rw-patchbay:not(.rw-pb-node-dragging):not(.rw-rack-dragging):not(.rw-pb-panning)
       :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):not(.rw-pb-unit-dragging):not(.rw-pb-unit-lifting):hover {
-      transform: translateY(var(--mx-lift));
-      box-shadow: var(--mx-lift-shadow);
+      transform: translateY(var(--lift));
+      box-shadow: var(--sh-lift);
     }
   }
 }
 
-/* CONTROLS -- four kinds, one set of states (ported from apple.css).
-   PRIMARY   .rw-btn.primary, tutorial primary   a light pill; brightens and
-             glows green on hover
-   SECONDARY .rw-btn and kin                     an outlined pill
-   ICON      ⓘ ✕ ⤢ – ⧉ ▾                         round glass
-   INPUT     select / number / text / LCD wells  radius-s, soft inset
-   TABS      Synth/I/O/Help and window tabs      a segmented control
-   States everywhere: :active scales to --mx-press; :focus-visible a green
-   ring; :disabled 35%; transitions on the long ease-out.
-   (Select + stepper chevrons live on background-image LONGHANDS in
-   panel.css — only ever set background-color / background-image-less
-   shorthands here, never `background:` on .rw-select or the stepper.) */
+/* FLOAT — menus, popovers, tooltips, modals: frosted glass, a plain
+   hairline, a real shadow. */
 html body[data-theme="modern"][data-theme] {
-  /* ---- SECONDARY buttons ---- */
-  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle, .boot-src,
-        #boot-stream-connect, .rw-graph-view-btn, .rw-top-btn) {
-    border-radius: var(--mx-pill);
-    background: transparent;
-    border: 1px solid var(--mx-btn2-edge);
-    color: var(--mx-text-max);
+  & :is(.rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card, .rw-about-dialog-card,
+        .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost, .rw-kf-menu, .rw-tl-ctx) {
+    background: var(--c-glass);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--c-hair-hi);
+    border-radius: var(--r-l);
+    box-shadow: var(--sh-float);
+    color: var(--t-body);
     font-family: var(--mx-sans);
+  }
+  & :is(.rw-menu, .rw-kf-menu, .rw-pb-addnode-menu) { padding: var(--sp-1); border-radius: var(--r-m); }
+  & .rw-hover-tip { border-radius: var(--r-s); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-s); line-height: 1.4; }
+}
+
+/* ========================================================== 5 CONTROLS */
+
+/* Four kinds of control, one set of states (from apple.css):
+   TINTED     .rw-btn and kin — a soft filled pill (the default)
+   PRIMARY    .rw-btn.primary — the light pill; glows green on hover
+   ICON       ⓘ ✕ ⤢ – ⧉ ▾ — borderless; a fill appears on hover
+   INPUT      select / number / text — a recessed well
+   States: :active scales to --press; :focus-visible a green ring;
+   :disabled 35%. Select + stepper chevrons live on background-image
+   LONGHANDS in panel.css — never set `background:` on them here. */
+html body[data-theme="modern"][data-theme] {
+  /* ---- TINTED (default) ---- */
+  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle,
+        .rw-graph-view-btn, .rw-top-btn, .rw-preset-chip) {
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+    min-height: var(--ctl-m);
+    padding: 0 var(--sp-3);
+    border-radius: var(--pill);
+    background: var(--c-fill);
+    border: 1px solid transparent;
+    color: var(--t-max);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-s);
     font-weight: 500;
-    letter-spacing: 0;
+    letter-spacing: 0.02em;
+    line-height: 1;
     text-shadow: none;
     box-shadow: none;
-    transition: background var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease),
-      border-color var(--mx-fast) linear, color var(--mx-fast) linear, transform var(--mx-fast) var(--mx-ease);
+    white-space: nowrap;
+    transition: background-color var(--t-fast) linear, box-shadow var(--t-base) var(--ease),
+      color var(--t-fast) linear, transform var(--t-fast) var(--ease);
   }
-  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle, .boot-src,
-        #boot-stream-connect, .rw-graph-view-btn, .rw-top-btn):hover:not(:disabled) {
-    background: var(--mx-btn2-hover);
-    border-color: var(--mx-text-max);
-    color: var(--mx-text-max);
+  & :is(.rw-btn, .rw-tut-btn, .rw-toast-btn, .rw-pb-tidy, .rw-pb-preview-toggle,
+        .rw-graph-view-btn, .rw-top-btn, .rw-preset-chip):hover:not(:disabled) {
+    background: var(--a-16);
+    border-color: transparent;
+    color: var(--a-text);
+    box-shadow: inset 0 0 0 1px var(--a-30);
     text-shadow: none;
   }
-  /* ---- PRIMARY: the light object on the dark page ---- */
+  /* ---- PRIMARY ---- */
   & :is(.rw-btn.primary, .rw-tut-btn--primary, .rw-tut-btn--action) {
-    background: var(--mx-btn-bg);
-    color: var(--mx-btn-fg);
-    border-color: transparent;
+    background: var(--t-max);
+    color: #0a0a0b;
     font-weight: 600;
   }
   & :is(.rw-btn.primary, .rw-tut-btn--primary, .rw-tut-btn--action):hover:not(:disabled) {
-    background: var(--mx-btn-bg-hover);
-    color: var(--mx-btn-fg);
-    border-color: transparent;
-    box-shadow: var(--mx-btn-glow);
+    background: #fff;
+    color: #0a0a0b;
+    box-shadow: 0 6px 22px rgba(var(--a-rgb), 0.28), 0 0 0 1px rgba(255, 255, 255, 0.6);
   }
-  & .rw-btn.danger { border-color: rgba(255, 92, 92, 0.6); color: var(--re-warn); }
-  & .rw-btn.danger:hover:not(:disabled) { background: rgba(255, 92, 92, 0.14); border-color: var(--re-warn); color: var(--re-warn); }
-  & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) {
-    transform: scale(var(--mx-press));
+  /* ---- lit state (an on/active button) and danger ---- */
+  & :is(.rw-btn.active, .rw-btn.on, .rw-graph-view-btn.active, .rw-preset-chip.active) {
+    background: var(--a-16);
+    color: var(--a);
+    box-shadow: inset 0 0 0 1px var(--a-30);
+  }
+  & .rw-btn.danger { background: rgba(255, 92, 92, 0.12); color: var(--red); }
+  & .rw-btn.danger:hover:not(:disabled) { background: rgba(255, 92, 92, 0.22); color: #ff8a8a; }
+  & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item, .rw-preset-chip):active:not(:disabled) {
+    transform: scale(var(--press));
   }
   & :is(.rw-btn, .rw-tut-btn):disabled { opacity: 0.35; }
-  /* Buttons that are a segment/lit-state keep their lit look (a Classic
-     slot's enable, the active graph view, etc.) via .active/.on. */
-  & :is(.rw-btn.active, .rw-btn.on, .rw-graph-view-btn.active) {
-    background: rgba(95, 255, 133, 0.14);
-    border-color: rgba(95, 255, 133, 0.6);
-    color: var(--re-accent);
-  }
+  & :is(.rw-btn, .rw-tut-btn, .rw-preset-chip, .rw-tab, .rw-wtab):focus-visible { outline: none; box-shadow: var(--focus); }
 
-  /* ---- ICON: round glass ---- */
-  & :is(.rw-info-btn, .rw-panel-actions button, .rw-region-btn, .rw-range-menu-btn,
+  /* ---- ICON: borderless; a fill appears on hover ---- */
+  & :is(.rw-info-btn, .rw-panel-actions :where(button), .rw-region-btn, .rw-range-menu-btn,
         .rw-pb-graphnode-del, .rw-wtab-close, .rw-info-close, .rw-graph-probe-close) {
-    border-radius: 50%;
-    background: var(--mx-icon-bg);
-    border: 1px solid var(--mx-edge);
-    color: var(--mx-text-max);
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none;
+    border-radius: var(--r-s);
+    background: transparent;
+    color: var(--t-dim);
     opacity: 1;
     box-shadow: none;
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    transition: background var(--mx-fast) linear, color var(--mx-fast) linear, transform var(--mx-fast) var(--mx-ease);
+    text-shadow: none;
+    font-family: var(--mx-sans);
+    font-style: normal;
+    transition: background-color var(--t-fast) linear, color var(--t-fast) linear;
   }
-  & :is(.rw-info-btn, .rw-panel-actions button, .rw-region-btn, .rw-range-menu-btn,
-        .rw-pb-graphnode-del, .rw-wtab-close, .rw-info-close):hover {
-    background: var(--mx-icon-hover);
-    color: #fff;
+  & :is(.rw-info-btn, .rw-panel-actions :where(button), .rw-region-btn, .rw-range-menu-btn,
+        .rw-pb-graphnode-del, .rw-wtab-close, .rw-info-close, .rw-graph-probe-close):hover {
+    background: var(--a-16);
+    color: var(--a);
     box-shadow: none;
-    border-color: rgba(255, 255, 255, 0.18);
   }
-  & .rw-info-btn { font-family: var(--mx-sans); font-style: normal; font-weight: 600; }
-  & .rw-region-btn { border-radius: var(--mx-radius-s); width: 18px; height: 16px; }
-  & .rw-wtab-close { opacity: 0.6; }
-  & .rw-wtab-close:hover { background: rgba(255, 92, 92, 0.25); color: #fff; }
-  & .rw-pb-graphnode-del:hover { color: var(--re-red); }
+  /* ⓘ: a hairline circle, like the system glyph — a bare "i" reads as a typo. */
+  & .rw-info-btn {
+    width: 16px; height: 16px; flex: 0 0 16px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10px; font-weight: 700; font-style: italic;
+    line-height: 1;
+  }
+  & .rw-info-btn:hover { box-shadow: inset 0 0 0 1px var(--a-55); color: var(--a); background: var(--a-08); }
+  & .rw-panel-actions button { width: var(--ctl-m); height: var(--ctl-m); font-size: 14px; }
+  & .rw-region-btn { width: 22px; height: 22px; font-size: 12px; }
+  & :is(.rw-wtab-close, .rw-pb-graphnode-del) { width: 16px; height: 16px; font-size: 10px; border-radius: 50%; }
+  & .rw-wtab-close:hover, & .rw-pb-graphnode-del:hover { background: rgba(255, 92, 92, 0.22); color: #fff; }
 
-  /* ---- INPUT wells (and the LCD readouts: recessed, mono, green) ---- */
+  /* ---- INPUT wells ---- */
   & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select,
-        .rw-pb-row input[type="number"], .rw-pb-cell-value, .rw-pb-note-text,
-        .rw-panel-search input, .rw-help-search, .rw-numeric-modal input) {
-    border-radius: var(--mx-radius-s);
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--mx-edge);
-    color: var(--mx-text-max);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+        .rw-pb-row :where(input[type="number"]), .rw-pb-cell-value, .rw-pb-note-text,
+        .rw-panel-search :where(input), .rw-help-search, .rw-numeric-modal :where(input)) {
+    min-height: var(--ctl-m);
+    border-radius: var(--r-s);
+    background-color: var(--c-well);
+    border: 1px solid var(--c-hair);
+    color: var(--t-max);
+    font-size: var(--fs-s);
+    box-shadow: none;
     text-shadow: none;
-    transition: border-color var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease);
+    transition: border-color var(--t-fast) linear, box-shadow var(--t-base) var(--ease);
   }
-  & :is(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea) { caret-color: var(--re-accent); }
-  & :is(input, textarea)::placeholder { color: var(--mx-placeholder); opacity: 1; }
-  & :is(.rw-text, .rw-num, .rw-panel-search input, .rw-help-search, .rw-pb-note-text) { font-family: var(--mx-sans); }
-  & :is(.rw-slider-readout, .rw-pb-lcd, .rw-readout) {
-    border-radius: var(--mx-radius-s);
-    background-color: rgba(0, 0, 0, 0.55);
-    border: 1px solid var(--mx-edge);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
-    text-shadow: none;
-  }
-  & :is(.rw-slider-readout, .rw-pb-lcd, .rw-pb-cell-value, .rw-pb-row input[type="number"]) { color: var(--re-accent); }
-  & .rw-readout { border-style: solid; }
+  & :is(.rw-text, .rw-panel-search :where(input), .rw-help-search, .rw-pb-note-text, .rw-select, .rw-skin-select) { font-family: var(--mx-sans); }
   & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select, .rw-pb-cell-value,
-        .rw-pb-note-text, .rw-panel-search input, .rw-numeric-modal input):hover { border-color: rgba(255, 255, 255, 0.2); }
-  & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-pb-cell-value, .rw-pb-note-text,
-        .rw-panel-search input, .rw-numeric-modal input):focus {
+        .rw-pb-note-text, .rw-panel-search :where(input), .rw-numeric-modal :where(input)):hover { border-color: var(--a-30); }
+  & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select, .rw-pb-cell-value, .rw-pb-note-text,
+        .rw-panel-search :where(input), .rw-help-search, .rw-numeric-modal :where(input), .rw-pb-row :where(input[type="number"])):focus {
     outline: none;
-    border-color: rgba(95, 255, 133, 0.7);
-    box-shadow: 0 0 0 3px rgba(95, 255, 133, 0.16);
+    border-color: var(--a-55);
+    box-shadow: var(--focus);
   }
-  /* Title-bar pickers: pill, lit when a non-default skin/theme is active. */
-  & :is(.rw-skin-select) { border-radius: var(--mx-pill); background-color: transparent; color: var(--re-text-dim); padding: 0 2px; font-size: 11px; font-family: var(--mx-sans); font-weight: 600; }
-  & .rw-skin-select.active { color: var(--re-accent); border-color: rgba(95, 255, 133, 0.5); box-shadow: none; }
-  & .rw-slider--tl :is(.rw-num, .rw-slider-readout) { color: var(--re-accent-2); border-color: rgba(255, 179, 71, 0.45); }
-  & .rw-slider--custom-range .rw-num { border-color: rgba(95, 255, 133, 0.5); }
-  /* number stepper: outer corners follow the input's radius */
-  & .rw-num-stepper-btn { background-color: rgba(255, 255, 255, 0.05); border-color: var(--mx-edge); }
-  & .rw-num-stepper-up { border-top-right-radius: var(--mx-radius-s); }
-  & .rw-num-stepper-down { border-bottom-right-radius: var(--mx-radius-s); }
-  & .rw-num-stepper-btn:hover { background-color: rgba(95, 255, 133, 0.16); border-color: rgba(95, 255, 133, 0.5); }
-  & .rw-preset-chip { border-radius: var(--mx-pill); background: rgba(255, 255, 255, 0.05); border-color: var(--mx-edge); padding: 2px 10px; }
-  & .rw-preset-chip:hover { border-color: rgba(95, 255, 133, 0.6); color: var(--re-accent); }
-  & .rw-color { border-radius: var(--mx-radius-s); border: 1px solid var(--mx-edge); box-shadow: none; }
+  & :is(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea) { caret-color: var(--a); }
+  & :is(input, textarea)::placeholder { color: var(--t-faint); opacity: 1; }
+  /* Values read in the accent: the number IS the instrument's state. */
+  & :is(.rw-pb-cell-value, .rw-pb-row :where(input[type="number"])) { color: var(--a); }
+  /* LCD readouts: recessed black, mono, green. */
+  & :is(.rw-slider-readout, .rw-pb-lcd, .rw-readout) {
+    border-radius: var(--r-s);
+    background-color: #000;
+    border: 1px solid var(--c-hair);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+    color: var(--a);
+    text-shadow: none;
+  }
+  & .rw-slider--tl :is(.rw-num, .rw-slider-readout) { color: var(--amber); border-color: rgba(255, 179, 71, 0.45); }
+  & .rw-slider--custom-range .rw-num { border-color: var(--a-30); }
+  /* Number stepper: sits flush in the well's right edge. */
+  & .rw-num-stepper-btn { background-color: transparent; border-color: var(--c-hair); }
+  & .rw-num-stepper-up { border-top-right-radius: var(--r-s); }
+  & .rw-num-stepper-down { border-bottom-right-radius: var(--r-s); }
+  & .rw-num-stepper-btn:hover { background-color: var(--a-16); }
+  & .rw-color { border-radius: var(--r-s); border: 1px solid var(--c-hair); box-shadow: none; }
 
-  /* ---- TABS: a segmented control ---- */
+  /* ---- SEGMENTED control (Synth / I/O / Help) ---- */
   & .rw-tabs {
-    margin: 8px 8px 4px;
-    padding: 3px;
+    display: flex;
+    margin: 0 var(--sp-3) var(--sp-3);
+    padding: 2px;
     gap: 2px;
-    border: 1px solid var(--mx-edge);
-    border-radius: var(--mx-pill);
-    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: var(--r-s);
+    background: var(--c-fill);
   }
   & .rw-tab {
+    flex: 1;
+    min-height: calc(var(--ctl-m) - 4px);
+    padding: 0 var(--sp-2);
     border: none;
-    border-radius: var(--mx-pill);
-    min-height: 28px;
-    padding: 4px 4px;
+    border-radius: calc(var(--r-s) - 2px);
+    background: transparent;
+    color: var(--t-dim);
     font-family: var(--mx-sans);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--fs-s);
+    font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
     text-shadow: none;
     box-shadow: none;
-    transition: background var(--mx-fast) linear, color var(--mx-fast) linear, box-shadow var(--mx-base) var(--mx-ease);
+    transition: background-color var(--t-fast) linear, color var(--t-fast) linear;
   }
-  & .rw-tab:hover { color: var(--mx-text-max); background: rgba(255, 255, 255, 0.06); }
+  & .rw-tab:hover { color: var(--a); background: var(--a-08); }
   & .rw-tab.active {
-    color: var(--mx-text-max);
-    background: rgba(255, 255, 255, 0.16);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(95, 255, 133, 0.16), 0 0 0 1px rgba(95, 255, 133, 0.30);
+    color: var(--t-max);
+    background: #48484a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* ---- WINDOW TABS: document tabs that sit on the bar's bottom edge.
+          The active tab takes the window's colour and covers the bar's
+          hairline, so it reads as the top of the window below it. ---- */
+  & .rw-region-bar {
+    flex: 0 0 var(--bar-h);
+    height: var(--bar-h);
+    align-items: stretch;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-2) 0 var(--sp-2);
+    background: var(--c-bar);
+    border-bottom: 1px solid var(--c-hair);
+    font-family: var(--mx-sans);
+  }
+  & .rw-region-bar > :not(.rw-tabstrip) { align-self: center; }
+  & .rw-tabstrip { align-items: flex-end; gap: 2px; padding-top: 6px; margin-bottom: -1px; }
+  & .rw-wtab {
+    position: relative;
+    height: calc(var(--bar-h) - 6px);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    gap: var(--sp-2);
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--r-tab) var(--r-tab) 0 0;
+    background: transparent;
+    color: var(--t-dim);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-s);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    box-shadow: none;
+    transition: background-color var(--t-fast) linear, color var(--t-fast) linear;
+  }
+  & .rw-wtab:hover { background: var(--a-08); color: var(--a-text); border-color: transparent; box-shadow: none; }
+  & .rw-wtab.active,
+  & .rw-wtab.active:hover {
+    background: var(--c-window);
+    border-color: var(--c-hair);
+    color: var(--t-max);
+    box-shadow: none;
+  }
+  /* The one green mark: a short lit line on the active tab's top edge. */
+  & .rw-wtab.active::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: var(--sp-3); right: var(--sp-3);
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--a);
+    box-shadow: 0 0 8px var(--a-55);
+  }
+  & .rw-wtab .rw-region-grip { display: none; }
+  & .rw-wtab-caret { border-radius: 2px; box-shadow: none; height: 18px; }
+  & .rw-region-bar.rw-strip-hover { background: var(--a-08); box-shadow: inset 0 -2px 0 var(--a-55); }
+
+  /* ---- MENU BAR + menus ---- */
+  & .rw-menubar-item {
+    border-radius: var(--r-s);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-m);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--t-body);
+    padding: 0 var(--sp-2);
+    margin: 3px 0;
     text-shadow: none;
   }
-  & .rw-tab:focus-visible { outline: none; box-shadow: var(--mx-focus); }
-  /* Window tabs (the strip in every region bar) */
-  & .rw-region-bar {
-    background: transparent;
-    border-bottom: 1px solid var(--mx-edge);
-    flex-basis: 26px;
-    padding: 0 8px;
-  }
-  & .rw-tabstrip { gap: 3px; align-items: center; }
-  & .rw-wtab {
-    height: 20px;
-    border: none;
-    border-radius: var(--mx-pill);
-    background: transparent;
-    color: var(--re-text-dim);
+  & .rw-menubar-item:hover, & .rw-menubar-item.open { color: var(--a); background: var(--a-16); }
+  & :is(.rw-menu, .rw-kf-menu) > li {
+    border-radius: var(--r-s);
+    padding: 5px var(--sp-3) 5px var(--sp-2);
     font-family: var(--mx-sans);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0 8px 0 6px;
-    box-shadow: none;
-    transition: background var(--mx-fast) linear, color var(--mx-fast) linear;
+    font-size: var(--fs-m);
+    letter-spacing: 0;
+    text-transform: none;
   }
-  & .rw-wtab:hover { background: rgba(255, 255, 255, 0.08); color: var(--mx-text-max); box-shadow: none; }
-  & .rw-wtab.active { background: rgba(255, 255, 255, 0.14); color: var(--mx-text-max); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 0 rgba(95, 255, 133, 0.7); }
-  & .rw-wtab.active:hover { background: rgba(255, 255, 255, 0.2); }
-  & .rw-wtab-caret { border-radius: 2px; box-shadow: none; }
-  & .rw-region-bar.rw-strip-hover { background: rgba(95, 255, 133, 0.10); box-shadow: inset 0 0 0 1px rgba(95, 255, 133, 0.4); }
-  /* Menu bar + menus */
-  & .rw-menubar-item { border-radius: var(--mx-radius-s); font-family: var(--mx-sans); font-size: 13px; font-weight: 500; letter-spacing: 0; margin: 3px 0; color: var(--re-text-dim); }
-  & .rw-menubar-item:hover, & .rw-menubar-item.open { color: var(--mx-text-max); background: rgba(255, 255, 255, 0.10); }
-  & .rw-menu > li { border-radius: var(--mx-radius-s); padding: 5px 12px 5px 6px; font-family: var(--mx-sans); }
-  & .rw-menu > li:hover:not(.disabled):not(.rw-menu-sep) { background: rgba(255, 255, 255, 0.10); color: var(--mx-text-max); }
-  & .rw-menu-sep { background: var(--mx-edge); }
-  & .rw-graph-palette-item { border-radius: var(--mx-radius-s); }
-  & .rw-graph-palette-item:hover { background: rgba(255, 255, 255, 0.10); color: var(--mx-text-max); border-color: transparent; }
+  & :is(.rw-menu, .rw-kf-menu) > li:hover:not(.disabled):not(.rw-menu-sep) { background: var(--a-fill); color: #000; }
+  & :is(.rw-menu, .rw-kf-menu) > li:hover:not(.disabled):not(.rw-menu-sep) .rw-menu-shortcut { color: rgba(0, 0, 0, 0.6); }
+  & .rw-menu-sep { background: var(--c-hair); margin: var(--sp-1) var(--sp-2); }
+  & .rw-menu-shortcut { color: var(--t-faint); }
+  & .rw-graph-palette-item { border-radius: var(--r-s); font-family: var(--mx-sans); }
+  & .rw-graph-palette-item:hover { background: var(--a-fill); color: #000; border-color: transparent; }
 }
 
-/* COMPONENTS -- what is particular to one component. */
-html body[data-theme="modern"][data-theme] {
-  /* Section headers: a sans 600 title; the chevron rotates (panel.css). */
-  & .rw-section-head {
-    font-family: var(--mx-sans);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    text-transform: none;
-    color: var(--mx-text-max);
-    text-shadow: none;
-  }
-  & .rw-section-head:hover { background: rgba(255, 255, 255, 0.04); }
-  & .rw-section-head .rw-chev { transition: transform var(--mx-base) var(--mx-ease); }
-  & .rw-label { font-size: 13px; letter-spacing: 0; }
-  & .rw-toggle-txt { font-size: 13px; }
-  /* Patch Bay headers: a balanced bar spanning the card (negative side/top
-     margin cancels the card's 8px padding), text and ⓘ inset by that same
-     8px so they align with the body content, equal top/bottom padding,
-     radius sitting inside the card's. */
-  & .rw-pb-module-head,
-  & :is(.rw-pb-field, .rw-pb-bus) > .rw-pb-field-title {
-    box-sizing: border-box;
-    min-height: 32px;
-    margin: -8px -8px 8px;
-    padding: 6px 8px;
-    border-radius: calc(var(--mx-radius-m) - 1px) calc(var(--mx-radius-m) - 1px) 0 0;
-    border-bottom: 1px solid var(--mx-edge);
-    display: flex;
-    align-items: center;
-    line-height: 1.2;
-  }
-  & .rw-pb-bus > .rw-pb-field-title { margin: -8px -12px 8px; padding: 6px 12px; }
-  & .rw-pb-module-head {
-    font-family: var(--mx-sans);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.02em;
-    color: var(--mx-title-tint);
-  }
-  & .rw-pb-graphnode .rw-pb-module-head { color: var(--mx-title-tint); }
-  & .rw-pb-graphnode--inert .rw-pb-module-head { color: var(--re-text-dim); }
-  & .rw-pb-unit-handle:hover { background: rgba(95, 255, 133, 0.07); box-shadow: none; }
-  & .rw-pb-unit-selected { outline: 2px solid rgba(95, 255, 133, 0.75); box-shadow: 0 0 0 4px rgba(95, 255, 133, 0.12); }
-  & .rw-pb-unit-free { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55); }
-  & .rw-pb-unit-dragging { outline: none; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(95, 255, 133, 0.5); }
-  & .rw-pb-field-title { text-shadow: none; }
-  & .rw-section-head .rw-chev { color: rgba(95, 255, 133, 0.75); }
+/* ======================================================== 6 COMPONENTS */
 
-  /* Slider (standard CRT face): a thin neutral track, a round white thumb. */
-  & input[type="range"] { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.16); }
+html body[data-theme="modern"][data-theme] {
+  /* ---- CONTROLS PANEL ---- */
+  /* Title block: the name on one line, the build (always visible — the
+     owner tracks builds by it) under it, the pickers on the right. */
+  & .rw-panel-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: var(--sp-2);
+    row-gap: 1px;
+    min-height: 44px;
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+    background: transparent;
+    border-bottom: none;
+  }
+  & .rw-panel-title > .rw-panel-title-text { grid-column: 1; grid-row: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  & .rw-panel-title > .rw-panel-build { grid-column: 1; grid-row: 2; }
+  & .rw-panel-title > .rw-panel-actions { grid-column: 2; grid-row: 1 / span 2; }
+  & .rw-panel-title-text { color: var(--t-max); font-size: var(--fs-l); font-weight: 700; letter-spacing: 0.02em; text-shadow: none; }
+  & .rw-panel-build-ver { flex-shrink: 0; color: var(--t-dim); }
+  & .rw-panel-build {
+    display: flex;
+    flex: 0 1 auto;
+    align-self: center;
+    margin: 0 auto 0 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+    color: var(--t-faint);
+  }
+  & .rw-panel-actions { gap: 2px; align-items: center; flex-shrink: 0; }
+  & .rw-skin-select {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    min-height: var(--ctl-s);
+    height: var(--ctl-s);
+    padding: 0 20px 0 var(--sp-2);
+    border-radius: var(--r-s);
+    background-color: var(--c-fill);
+    border-color: transparent;
+    color: var(--t-body);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0;
+    box-shadow: none;
+    background-position: right 5px center;
+    background-size: 9px;
+  }
+  & .rw-skin-select.active { color: var(--t-max); border-color: transparent; box-shadow: none; }
+  & .rw-panel-search { padding: 0 var(--sp-3) var(--sp-2); }
+  & .rw-panel-search :where(input) { width: 100%; padding: 0 var(--sp-2); }
+
+  /* Sections: a card per section; a 34px header; 12px body padding. */
+  & .rw-section { margin: 0 var(--sp-3) var(--sp-2); }
+  & .rw-section-head {
+    min-height: var(--head-h);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    gap: var(--sp-2);
+    background: transparent;
+    border-radius: calc(var(--r-m) - 1px);
+    transition: background-color var(--t-fast) linear;
+  }
+  & .rw-section-head:hover { background: var(--a-08); }
+  & .rw-section:not(.collapsed) > .rw-section-head {
+    border-bottom: 1px solid var(--c-hair);
+    border-radius: calc(var(--r-m) - 1px) calc(var(--r-m) - 1px) 0 0;
+  }
+  &[data-skin="rack"] .rw-section-head { padding-left: var(--sp-3); padding-right: var(--sp-2); }
+  & .rw-section-head .rw-chev { color: var(--t-dim); font-size: 10px; transition: transform var(--t-base) var(--ease), color var(--t-fast) linear; }
+  & .rw-section-head:hover .rw-chev { color: var(--a); }
+  & .rw-section-body { padding: var(--sp-2) var(--sp-3) var(--sp-3); background: transparent; }
+  & .rw-group {
+    margin: var(--sp-2) 0;
+    padding: var(--sp-2) var(--sp-3);
+    border: none;
+    border-radius: var(--r-s);
+    background: rgba(255, 255, 255, 0.025);
+  }
+  /* Vertical rhythm, once for every sub-panel: children of a group and of
+     a section body sit on one 8px gap — hint text, toggles, button rows
+     and readouts never touch. (Margins are zeroed so the gap is the only
+     spacing; rows keep their own small internal padding.) */
+  & :is(.rw-group, .rw-group-body, .rw-section:not(.collapsed) > .rw-section-body) { display: flex; flex-direction: column; gap: var(--sp-2); }
+  & :is(.rw-group, .rw-group-body, .rw-section-body) > :is(.rw-group-head, .rw-hint, .rw-readout, .rw-btn-row, p) { margin-top: 0; margin-bottom: 0; }
+  /* A toggle row is a flex line, not a block of text: keep it to its content width. */
+  & .rw-group-body > .rw-toggle { align-self: flex-start; }
+  & .rw-section-body > .rw-group { margin: 0; }
+  /* The flex display above must never un-hide anything: honour [hidden]. */
+  & :is(.rw-group, .rw-group-body)[hidden] { display: none; }
+  & .rw-group-head { margin-bottom: 0; }
+  & .rw-row { gap: var(--sp-2); padding: 3px 0; }
+  & :is(.rw-label, .rw-toggle-txt) { font-size: var(--fs-m); color: var(--t-body); letter-spacing: 0; }
+  & .rw-hint { font-size: var(--fs-s); color: var(--t-dim); line-height: 1.45; }
+  & .rw-help-md :is(h1, h2, h3) { color: var(--t-max); text-shadow: none; font-family: var(--mx-sans); letter-spacing: -0.01em; }
+  & .rw-help-md blockquote { border-left-color: var(--a-30); }
+
+  /* Knob readout (HW/RACK faces): SF Mono runs wider than VT323, so it
+     takes the small size, a fixed floor width and clips rather than
+     spilling onto the jacks beside it. */
+  & .rw-slider-readout {
+    min-width: 56px;
+    min-height: var(--ctl-m);
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-s);
+    line-height: var(--ctl-m);
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+  /* A trailing button in an inline group (the per-param "+" patch
+     button): a square control on the row's centre line, not a stretched
+     slab. */
+  & .rw-inline-group > .rw-btn:not(:first-child) {
+    align-self: center;
+    width: var(--ctl-m);
+    min-width: var(--ctl-m) !important;   /* !important: SourceSection sets min-width inline */
+    padding: 0 !important;                /* …and padding */
+  }
+
+  /* ---- SLIDER (standard face): a thin track, a round white thumb ---- */
+  & input[type="range"] { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); }
   & input[type="range"]::-webkit-slider-thumb {
     width: 16px; height: 16px; border-radius: 50%;
     background: #f5f5f7;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.2);
-    transition: box-shadow var(--mx-base) var(--mx-ease);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(0, 0, 0, 0.3);
+    transition: box-shadow var(--t-base) var(--ease);
   }
-  & input[type="range"]::-moz-range-thumb {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: #f5f5f7; border: none;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  }
-  & input[type="range"]:is(:hover, :active)::-webkit-slider-thumb { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 5px rgba(95, 255, 133, 0.22); }
-  & .rw-slider--tl input[type="range"]::-webkit-slider-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 179, 71, 0.2); }
-  & .rw-slider--tl input[type="range"]::-moz-range-thumb { background: var(--re-accent-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+  & input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #f5f5f7; border: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+  & input[type="range"]:is(:hover, :active)::-webkit-slider-thumb { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 0 5px var(--a-30); }
+  & .rw-slider--tl input[type="range"]::-webkit-slider-thumb { background: var(--amber); }
+  & .rw-slider--tl input[type="range"]::-moz-range-thumb { background: var(--amber); }
 
-  /* Toggle: an iOS-style switch (green when on). Overrides the standard
-     face AND the hardware/rack bat switch + LED lens. */
+  /* ---- TOGGLE: an iOS switch, over the standard face AND the bat switch ---- */
   & .rw-toggle-sw {
-    width: 34px; height: 20px;
-    border: 1px solid var(--mx-edge);
-    border-radius: var(--mx-pill);
+    width: 32px; height: 18px;
+    border: none;
+    border-radius: var(--pill);
     background: rgba(255, 255, 255, 0.16);
-    box-shadow: none;
-    transition: background var(--mx-base) var(--mx-ease), border-color var(--mx-base) var(--mx-ease);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+    transition: background-color var(--t-base) var(--ease);
   }
   & .rw-toggle-sw::after {
     content: '';
     position: absolute;
-    top: 1px; left: 1px; right: auto; bottom: auto;
-    width: 16px; height: 16px;
+    top: 2px; left: 2px; right: auto; bottom: auto;
+    width: 14px; height: 14px;
     border-radius: 50%;
-    background: #f5f5f7;
-    border: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-    transition: left var(--mx-base) var(--mx-ease);
-  }
-  & .rw-toggle input:checked + .rw-toggle-sw { background: var(--re-accent); border-color: var(--re-accent); }
-  & .rw-toggle input:checked + .rw-toggle-sw::after {
-    left: 15px; right: auto; top: 1px; width: 16px;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    transition: left var(--t-base) var(--ease);
   }
+  & .rw-toggle input:checked + .rw-toggle-sw { background: var(--a-fill); border: none; }
+  & .rw-toggle input:checked + .rw-toggle-sw::after { left: 16px; right: auto; top: 2px; width: 14px; background: #fff; }
   & .rw-toggle-txt::before { display: none; }
-  & input[type="checkbox"], & input[type="radio"] { accent-color: var(--re-accent); }
-  & .rw-pb-led-toggle { background: rgba(255, 255, 255, 0.14); border-color: var(--mx-edge); }
-  & .rw-pb-led-toggle:checked { background: var(--re-accent); box-shadow: 0 0 8px rgba(95, 255, 133, 0.5); }
+  & :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--a-fill); }
+  & .rw-pb-led-toggle { background: rgba(255, 255, 255, 0.14); border-color: var(--c-hair); box-shadow: none; }
+  & .rw-pb-led-toggle:checked { background: var(--a); box-shadow: 0 0 6px var(--a-55); }
 
-  /* Knob faces (HW / RACK + Patch Bay mini knobs): a flat ring, no bevel. */
-  & :is(.rw-knob-track, .rw-pbknob-track) { stroke: rgba(255, 255, 255, 0.12); }
-  & :is(.rw-knob-fill, .rw-pbknob-fill) { filter: none; }
-  & :is(.rw-knob-cap, .rw-pbknob-cap) { fill: #1d1d1f; stroke: rgba(255, 255, 255, 0.14); }
+  /* ---- KNOBS (HW / RACK + Patch Bay mini knobs): a flat ring ---- */
+  & :is(.rw-knob-track, .rw-pbknob-track) { stroke: rgba(255, 255, 255, 0.10); }
+  & :is(.rw-knob-fill, .rw-pbknob-fill, .rw-pbknob-liveptr) { filter: none; }
+  & :is(.rw-knob-cap, .rw-pbknob-cap) { fill: #242426; stroke: rgba(255, 255, 255, 0.12); }
   & :is(.rw-knob-ptr, .rw-pbknob-ptr) { stroke: #f5f5f7; }
-  & :is(.rw-pbknob-liveptr) { filter: none; }
   & .rw-slider--tl :is(.rw-knob-ptr, .rw-knob-fill) { filter: none; }
 
-  /* Jacks: flat concentric rings — dark bore, light edge. State colours
-     (plugged / hover / reject / grab) come from the existing rules; only
-     the ring artwork is replaced, and box-shadow/border-color are left
-     alone on purpose so those states still show. */
+  /* ---- JACKS: flat concentric rings — dark bore, light rim. State
+          colours (plugged / hover / reject / grab) come from the base
+          rules; the ripple (patchbay.css) is shared by both themes. ---- */
   & :is(.rw-pb-jack, .rw-rack-jack) {
-    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2a2a2c 3.5px 5px, #86868b 5px 6.5px, #161617 6.5px);
+    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2c2c2e 3.5px 5px, #8e8e93 5px 6.5px, #18181a 6.5px);
   }
   & .rw-rack-jack--pout {
-    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2a2a2c 3.5px 5px, #f5f5f7 5px 6.5px, #161617 6.5px);
+    background: radial-gradient(circle at 50% 50%, #000 0 3.5px, #2c2c2e 3.5px 5px, #f5f5f7 5px 6.5px, #18181a 6.5px);
   }
 
-  /* Patch Bay board: black with a faint dot grid that scrolls with content. */
+  /* ---- PATCH BAY ---- */
+  /* Board: the window colour with a faint dot grid that scrolls with it. */
   & .rw-patchbay {
-    background-color: #000;
-    background-image: var(--mx-haze), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
-    background-size: 100% 260px, 20px 20px;
-    background-repeat: no-repeat, repeat;
-    background-attachment: scroll, local;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.4px);
+    background-size: 20px 20px;
+    background-attachment: local;
   }
-  & .rw-pb-scrollbar { background: rgba(29, 29, 31, 0.7); }
+  /* Units: 12px padding; the header is a full-bleed bar (negative margin
+     cancels the padding) whose text and ⓘ sit on the same 12px inset as
+     the body, vertically centred in --head-h. Its hover wash rounds to
+     the card's inner radius. */
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus) { padding: 0 var(--sp-3) var(--sp-3); }
+  & :is(.rw-pb-module-head, .rw-pb-field > .rw-pb-field-title, .rw-pb-bus > .rw-pb-field-title) {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--head-h);
+    margin: 0 calc(-1 * var(--sp-3)) var(--sp-3);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    line-height: 1;
+    border-bottom: 1px solid var(--c-hair);
+    border-radius: calc(var(--r-m) - 1px) calc(var(--r-m) - 1px) 0 0;
+    transition: background-color var(--t-fast) linear;
+  }
+  /* The ⓘ / ✕ / LED cluster always hugs the right edge. */
+  & :is(.rw-pb-module-head, .rw-pb-field-title) > :is(.rw-info-btn, .rw-pb-graphnode-del):first-of-type { margin-left: auto; }
+  & .rw-pb-unit-handle:hover { background: var(--a-08); box-shadow: none; }
+  & .rw-pb-graphnode--inert .rw-pb-module-head { color: var(--t-dim); }
+  & .rw-pb-graph-empty { font-size: var(--fs-s); color: var(--t-dim); }
+  /* In-card buttons are the dense size. */
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus) :is(.rw-btn, .rw-pb-preview-toggle, .rw-pb-tidy) {
+    min-height: var(--ctl-s);
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.04em;
+  }
+  & .rw-pb-unit-selected { outline: none; }
+  & .rw-pb-unit-free { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+  & .rw-pb-unit-dragging { outline: none; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--a-55); }
+  & .rw-pb-scrollbar { background: rgba(28, 28, 30, 0.7); }
   & .rw-pb-scrollbar-thumb { background: rgba(245, 245, 247, 0.32); }
+  & :is(.rw-pb-cell-top span, .rw-pb-row > span, .rw-pb-jack-label) { color: var(--t-body); }
 
-  /* Timeline: rounded chips and keyframes; ruler is mono (see MONO). */
-  & .rw-tl-lane-chip { border-radius: var(--mx-pill); background: var(--mx-glass); border: 1px solid var(--mx-edge); }
-  & .rw-tl-kf { border-radius: 4px; box-shadow: none; }
-  & .rw-tl-kf:hover { box-shadow: 0 0 10px rgba(95, 255, 133, 0.6); }
-  & .rw-tl-ctx { border-radius: var(--mx-radius-m); background: var(--mx-glass); border: 1px solid var(--mx-edge); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6); }
-  & .rw-tl-kf-label { border-radius: var(--mx-radius-s); }
+  /* ---- GRAPH EDITOR ---- */
+  & .rw-graph-node { --fill: rgba(24, 24, 26, 0.96); }
 
-  /* Windows' title bar and misc terminal glows off */
-  & .rw-panel-title { background: transparent; border-bottom-color: var(--mx-edge); }
-  & .rw-pb-led-toggle, & .rw-status-dot { box-shadow: none; }
-  & .rw-help-md :is(h1, h2) { color: var(--mx-text-max); text-shadow: none; font-family: var(--mx-sans); }
-  & .rw-info-btn:hover { box-shadow: none; }
-}
-
-/* MOTION -- reduced motion: no lift, no glow transition, no press scale. */
-@media (prefers-reduced-motion: reduce) {
-  html body[data-theme="modern"][data-theme] {
-    /* !important: this must beat every component's own transition/animation
-       declaration, whatever its specificity. */
-    & * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-    /* Same :not() chain as the lift rule so specificity is not lower. */
-    & .rw-patchbay:not(.rw-pb-node-dragging):not(.rw-rack-dragging):not(.rw-pb-panning)
-      :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):not(.rw-pb-unit-dragging):not(.rw-pb-unit-lifting):hover {
-      transform: none;
-      box-shadow: none;
-    }
-    & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item):active:not(:disabled) { transform: none; }
+  /* ---- TIMELINE ---- */
+  & .rw-tl-header {
+    gap: var(--sp-2) var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: transparent;
+    border-bottom: 1px solid var(--c-hair);
   }
+  & .rw-tl-header label { gap: var(--sp-2); margin-left: var(--sp-2); }
+  & .rw-tl-header :is(.rw-btn, .rw-num, .rw-select, .rw-text) {
+    min-height: var(--ctl-m);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-xs);
+    padding: 0 var(--sp-2);
+  }
+  & .rw-tl-header .rw-btn { letter-spacing: 0.04em; padding: 0 10px; }
+  /* Button clusters are segmented controls: one tinted track, the
+     buttons inside it borderless segments, PLAY the lit (white) one. */
+  & .rw-tl-group {
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--pill);
+    background: var(--c-fill);
+  }
+  & .rw-tl-group .rw-btn {
+    min-height: calc(var(--ctl-m) - 4px);
+    padding: 0 10px;
+    background: transparent;
+  }
+  & .rw-tl-group .rw-btn:hover:not(:disabled) { background: var(--a-16); box-shadow: none; }
+  & .rw-tl-group .rw-btn.primary { background: var(--t-max); color: #0a0a0b; }
+  & .rw-tl-group .rw-btn.warn { background: transparent; color: var(--red); }
+  & .rw-tl-group .rw-btn.warn:hover { background: rgba(255, 92, 92, 0.16); }
+  & .rw-tl-header > .rw-select { flex: 0 1 220px; min-width: 140px; }
+  & .rw-tl-info { width: 22px; height: 22px; flex: 0 0 22px; font-size: 12px; }
+  & .rw-tl-dock-cluster .rw-btn, & .rw-tl-header label .rw-btn { min-width: var(--ctl-m); }
+  & .rw-tl-header .rw-num { font-family: var(--mx-code); font-size: var(--fs-s); width: 56px; }
+  & .rw-tl-header .rw-btn.primary { background: var(--t-max); color: #0a0a0b; }
+  & .rw-tl-header .rw-btn.warn { background: rgba(255, 92, 92, 0.12); color: var(--red); }
+  & .rw-tl-header .rw-readout { font-size: var(--fs-m); padding: 0 var(--sp-3); min-height: var(--ctl-m); display: inline-flex; align-items: center; }
+  & .rw-tl-lane-chip { border-radius: var(--pill); background: var(--c-glass); border: 1px solid var(--c-hair); }
+  & .rw-tl-kf { border-radius: 3px; box-shadow: none; }
+  & .rw-tl-kf:hover { box-shadow: 0 0 10px var(--a-55); }
+  & .rw-tl-kf-label { border-radius: var(--r-s); }
+
+  /* ---- ⓘ INFO MODAL: the title is a title (white sans), the section
+          heads are LABELs, the link is the one green. ---- */
+  & .rw-info-modal { font-family: var(--mx-sans); background: rgba(0, 0, 0, 0.55); }
+  & .rw-info-head { padding-bottom: var(--sp-3); border-bottom-color: var(--c-hair); }
+  & .rw-info-title { font-family: var(--mx-sans); font-size: 17px; font-weight: 600; letter-spacing: 0.02em; color: var(--t-max); text-shadow: none; }
+  & .rw-info-h { font-family: var(--mx-code); font-size: var(--fs-xs); letter-spacing: var(--track-label); color: var(--t-dim); }
+  & .rw-info-body { font-size: var(--fs-m); line-height: 1.55; }
+  & .rw-info-summary { font-size: var(--fs-l); color: var(--t-max); }
+  & .rw-info-close { width: 24px; height: 24px; padding: 0; border-radius: 50%; }
+
+  /* ---- misc terminal glows off ---- */
+  & :is(.rw-status-dot, .rw-tl-title) { box-shadow: none; text-shadow: none; }
 }
 
-/* BOOT -- the intro screen in the nothingbutdatacenters hero manner: a mono
-   tracked kicker, a big tight headline with a phosphor-green gradient fill,
-   a one-line lede, a light primary pill (PATTERN: works with no camera) and
-   outlined secondary pills. The extra spans are display:none in Phosphor. */
+/* ============================================================== 7 BOOT */
+
+/* The intro, in the NBDC hero manner but at instrument scale: one green
+   mark (the kicker), a calm white headline, a one-line lede, a light
+   primary pill and tinted secondaries, everything on one centre axis.
+   The headline/lede spans are display:none in Phosphor (panel.css). */
 html body[data-theme="modern"][data-theme] {
   & #overlay {
-    background: radial-gradient(60% 50% at 50% 38%, rgba(95, 255, 133, 0.10), transparent 70%), #000;
+    background:
+      radial-gradient(50% 42% at 50% 46%, rgba(var(--a-rgb), 0.07), transparent 72%),
+      var(--c-bar);
   }
-  & #boot-message { max-width: 640px; padding: 24px; letter-spacing: 0; }
+  & #boot-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: min(560px, 100% - 2 * var(--sp-5));
+    padding: var(--sp-5) 0;
+    letter-spacing: 0;
+    text-align: center;
+  }
   & .boot-line:not(.dim) {
     font-family: var(--mx-code);
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: var(--mx-track-caps);
-    color: var(--mx-label);
+    letter-spacing: 0.22em;
+    color: var(--t-dim);   /* the headline carries the green now */
     text-shadow: none;
-    margin-bottom: 14px;
+    margin: 0 0 var(--sp-3);
   }
-  & .boot-name, & .boot-line.dim { display: none; }
-  & .boot-line:not(.dim)::before { content: "1973 \00B7  Scan Processor \00B7  "; }
+  & .boot-line:not(.dim)::before { content: "Scan processor \00B7  1973 \00B7  "; }
+  & :is(.boot-name, .boot-line.dim) { display: none; }
   & .boot-headline {
     display: block;
     font-family: var(--mx-sans);
-    font-size: clamp(48px, 9vw, 92px);
+    font-size: clamp(36px, 5.2vw, 60px);
     font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.045em;
-    padding-bottom: 0.08em;
-    background: linear-gradient(90deg, #b9ffd0 0%, #5fff85 52%, #1fd1a0 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    color: var(--a);   /* the owner's call: the name is the one big green thing on the page */
   }
   & .boot-lede {
     display: block;
-    margin-top: 14px;
-    font-size: clamp(16px, 2vw, 21px);
-    font-weight: 600;
-    line-height: 1.32;
-    letter-spacing: -0.01em;
-    color: var(--mx-text-max);
+    margin-top: var(--sp-3);
+    max-width: 30em;
+    font-size: clamp(14px, 1.35vw, 17px);
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--t-dim);
   }
-  & #boot-sources { margin-top: 28px; gap: 10px; }
-  & .boot-src { padding: 0 22px; min-height: 42px; font-size: 15px; min-width: 0; }
-  & #boot-pattern { order: -1; background: var(--mx-btn-bg); color: var(--mx-btn-fg); border-color: transparent; font-weight: 600; }
-  & #boot-pattern:hover:not(:disabled) { background: var(--mx-btn-bg-hover); color: var(--mx-btn-fg); border-color: transparent; box-shadow: var(--mx-btn-glow); }
-  & #boot-stream-input { background: rgba(255, 255, 255, 0.05); color: var(--mx-text-max); border: 1px solid var(--mx-edge); border-radius: var(--mx-pill); padding: 8px 16px; font-family: var(--mx-sans); caret-color: var(--re-accent); }
-  & #boot-stream-input:focus { outline: none; border-color: rgba(95, 255, 133, 0.7); box-shadow: 0 0 0 3px rgba(95, 255, 133, 0.16); }
-  & #boot-stream-connect { padding: 0 18px; min-height: 36px; }
-  & #boot-skip { margin-top: 22px; font-family: var(--mx-sans); font-size: 14px; letter-spacing: 0; color: var(--re-text-dim); }
-  & #boot-skip:hover { color: var(--mx-text-max); }
+  & #boot-sources { margin-top: var(--sp-5); gap: var(--sp-2); justify-content: center; }
+  & .boot-src {
+    min-width: 0;
+    min-height: var(--ctl-l);
+    padding: 0 var(--sp-4);
+    border: none;
+    border-radius: var(--pill);
+    background: var(--c-fill);
+    color: var(--t-max);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-l);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    transition: background-color var(--t-fast) linear, box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+  }
+  & .boot-src:hover { background: var(--a-16); color: var(--a-text); box-shadow: inset 0 0 0 1px var(--a-30); }
+  & .boot-src:active { transform: scale(var(--press)); }
+  & .boot-src:focus-visible { outline: none; box-shadow: var(--focus); }
+  & #boot-pattern { order: -1; background: var(--t-max); color: #0a0a0b; font-weight: 600; }
+  & #boot-pattern:hover { background: #fff; box-shadow: 0 6px 22px rgba(var(--a-rgb), 0.30), 0 0 0 1px rgba(255, 255, 255, 0.6); }
+  & #boot-stream-row { margin-top: var(--sp-3); gap: var(--sp-2); }
+  & #boot-stream-input {
+    min-height: var(--ctl-l);
+    width: 300px;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--c-hair);
+    border-radius: var(--pill);
+    background: var(--c-well);
+    color: var(--t-max);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-m);
+    letter-spacing: 0;
+    caret-color: var(--a);
+  }
+  & #boot-stream-input:focus { outline: none; border-color: var(--a-55); box-shadow: var(--focus); }
+  & #boot-stream-connect {
+    min-height: var(--ctl-l);
+    padding: 0 var(--sp-4);
+    border: none;
+    border-radius: var(--pill);
+    background: var(--t-max);
+    color: #0a0a0b;
+    font-family: var(--mx-sans);
+    font-size: var(--fs-m);
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  & .boot-error { font-family: var(--mx-sans); font-size: var(--fs-m); letter-spacing: 0; }
+  & #boot-skip {
+    margin: var(--sp-4) auto 0;
+    padding: var(--sp-1) var(--sp-2);
+    font-family: var(--mx-sans);
+    font-size: var(--fs-m);
+    letter-spacing: 0;
+    color: var(--t-dim);
+    border-radius: var(--r-s);
+  }
+  & #boot-skip:hover { color: var(--t-max); }
+}
+
+/* ============================================================ 8 MOTION */
+
+@media (prefers-reduced-motion: reduce) {
+  html body[data-theme="modern"][data-theme] {
+    /* !important: must beat every component's own transition/animation,
+       whatever its specificity. */
+    & * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    /* Same :not() chain as the lift rule, so the specificity matches. */
+    & .rw-patchbay:not(.rw-pb-node-dragging):not(.rw-rack-dragging):not(.rw-pb-panning)
+      :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):not(.rw-pb-unit-dragging):not(.rw-pb-unit-lifting):hover {
+      transform: none;
+      box-shadow: var(--sh-card);
+    }
+    & :is(.rw-btn, .rw-tut-btn, .rw-pb-tidy, .rw-tab, .rw-wtab, .rw-menubar-item, .boot-src):active:not(:disabled) { transform: none; }
+  }
 }

@@ -15,6 +15,8 @@ import {
   lengthDisplayFromBars, lengthBarsFromDisplay,
 } from '../../sequencer/timecode';
 import { attachTooltip } from '../tooltip';
+import { infoButton } from '../help/infoModal';
+import { TIMELINE_INFO } from '../help/infoContent';
 import { attachNumberDragScrub } from '../widgets';
 
 export interface TransportEvents {
@@ -93,6 +95,12 @@ export class TimelineTransport {
   // -----------------------------------------------------------------
 
   private build(): void {
+    // ⓘ first, where a newcomer looks: how the timeline works, in order.
+    const info = infoButton(() => TIMELINE_INFO, 'How the timeline works');
+    info.classList.add('rw-tl-info');
+    attachTooltip(info, 'How the timeline works');
+    this.el.appendChild(info);
+
     // Timeline picker
     this.timelinePicker = document.createElement('select');
     this.timelinePicker.className = 'rw-select';
@@ -100,27 +108,31 @@ export class TimelineTransport {
     this.timelinePicker.addEventListener('change', () => this.onPickTimeline());
     this.el.appendChild(this.timelinePicker);
 
-    this.el.appendChild(this.btn('+ NEW', () => this.onNewTimeline()));
-    this.el.appendChild(this.btn('SAVE',  () => this.onSaveTimeline()));
-    this.el.appendChild(this.btn('REN',   () => this.onRenameTimeline(), 'Rename'));
-    this.el.appendChild(this.btn('DEL',   () => this.onDeleteTimeline(), 'Delete', 'warn'));
-    this.el.appendChild(this.btn('EXPORT', () => this.onExportTimeline(), 'Export JSON'));
-    this.el.appendChild(this.btn('IMPORT', () => this.onImportTimeline(), 'Import JSON'));
+    // Buttons come in clusters (file actions / transport) — each one
+    // `.rw-tl-group`, drawn as a single segmented control in the Modern
+    // theme and as plain spacing in Phosphor.
+    const cluster = (...els: HTMLElement[]): HTMLElement => {
+      const g = document.createElement('span');
+      g.className = 'rw-tl-group';
+      g.append(...els);
+      this.el.appendChild(g);
+      return g;
+    };
+    cluster(
+      this.btn('+ NEW', () => this.onNewTimeline()),
+      this.btn('SAVE',  () => this.onSaveTimeline()),
+      this.btn('REN',   () => this.onRenameTimeline(), 'Rename'),
+      this.btn('DEL',   () => this.onDeleteTimeline(), 'Delete', 'warn'),
+      this.btn('EXPORT', () => this.onExportTimeline(), 'Export JSON'),
+      this.btn('IMPORT', () => this.onImportTimeline(), 'Import JSON'),
+    );
 
     // Transport buttons
     this.playBtn = this.btn('PLAY', () => this.onPlayPause()) as HTMLButtonElement;
     this.playBtn.classList.add('primary');
     attachTooltip(this.playBtn, () => this.seq.isPlaying ? 'Pause (Space)' : 'Play (Space)');
-    this.el.appendChild(this.playBtn);
     this.stopBtn = this.btn('STOP', () => this.seq.stop()) as HTMLButtonElement;
     attachTooltip(this.stopBtn, 'Stop and return the playhead to bar 0');
-    this.el.appendChild(this.stopBtn);
-    // Keyframe navigation: jump to the previous / next scene or lane
-    // point (the selected lane's points when a lane point is selected).
-    this.el.appendChild(this.btn('|◀', () => this.events.onJumpKeyframe?.(-1),
-      'Jump to previous keyframe (,)'));
-    this.el.appendChild(this.btn('▶|', () => this.events.onJumpKeyframe?.(1),
-      'Jump to next keyframe (.)'));
     this.loopBtn = this.btn('LOOP', () => {
       const t = this.seq.timeline;
       if (!t) return;
@@ -130,7 +142,15 @@ export class TimelineTransport {
       this.seq.timeline?.loop
         ? 'Looping — the playhead wraps to bar 0 at the end. Click to play once and stop.'
         : 'Plays once and stops at the end. Click to loop back to bar 0.');
-    this.el.appendChild(this.loopBtn);
+    // Keyframe navigation: jump to the previous / next scene or lane
+    // point (the selected lane's points when a lane point is selected).
+    cluster(
+      this.playBtn,
+      this.stopBtn,
+      this.btn('|◀', () => this.events.onJumpKeyframe?.(-1), 'Jump to previous keyframe (,)'),
+      this.btn('▶|', () => this.events.onJumpKeyframe?.(1), 'Jump to next keyframe (.)'),
+      this.loopBtn,
+    );
 
     // BPM
     {
@@ -233,12 +253,13 @@ export class TimelineTransport {
     // Dock position toggle
     {
       const container = document.createElement('span');
+      container.className = 'rw-tl-dock-cluster';
       container.style.display = 'inline-flex';
       container.style.alignItems = 'center';
       container.style.gap = '4px';
-      const label = document.createElement('span');
+      // A <label> like BPM / BARS / ZOOM, so it takes the header's label style.
+      const label = document.createElement('label');
       label.textContent = 'DOCK';
-      label.style.marginRight = '4px';
       const top = this.btn('TOP',    () => this.settings.set('timelineDock', 'top'), 'Dock the timeline to the top of the window');
       const bot = this.btn('BOT',    () => this.settings.set('timelineDock', 'bottom'), 'Dock the timeline to the bottom of the window');
       const hide = this.btn('HIDE', () => this.settings.set('timelineDock', 'hidden'), 'Hide the timeline dock (its lanes and keyframes are unaffected)');

@@ -225,3 +225,23 @@ describe('migrateSettings v34 -> v35 (Source B device slot)', () => {
     expect(migrateSettings(once)._v).toBe(once._v);
   });
 });
+
+describe('migrateSettings v35 -> v36 (left/center windows collapse like the others)', () => {
+  it('backfills leftCollapsed and centerCollapsed to false', () => {
+    const out = migrateSettings({ _v: 35 });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(36);
+    expect(out.leftCollapsed).toBe(false);
+    expect(out.centerCollapsed).toBe(false);
+  });
+
+  it('preserves explicit values', () => {
+    const kept = migrateSettings({ _v: 35, leftCollapsed: true, centerCollapsed: true });
+    expect(kept.leftCollapsed).toBe(true);
+    expect(kept.centerCollapsed).toBe(true);
+  });
+
+  it('is idempotent', () => {
+    const once = migrateSettings({ _v: 35 });
+    expect(migrateSettings(once)._v).toBe(once._v);
+  });
+});

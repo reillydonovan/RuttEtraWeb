@@ -88,6 +88,11 @@
   white-space: nowrap;
 }
 .rw-tl-header .rw-tl-spacer { flex: 1; }
+/* Button clusters (file actions / transport): keep the header's spacing
+   in Phosphor; the Modern theme draws each as a segmented control. */
+.rw-tl-group { display: inline-flex; align-items: center; gap: 8px; }
+/* The ⓘ leads the toolbar (infoModal.css's margin-left:auto is for headers). */
+.rw-tl-header > .rw-tl-info { margin-left: 0; }
 
 /* DISPLAY format + rate picker + the readout itself, grouped as ONE
    unit so flex-wrap moves them together instead of stranding the rate

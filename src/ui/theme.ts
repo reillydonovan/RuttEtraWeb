@@ -1,6 +1,6 @@
 /**
  * UI theme preference — 'phosphor' (the original green-on-black CRT look,
- * the default) or 'modern' (neutral Apple-style greys, system sans,
+ * still one click away) or 'modern' (the default since 2026-10-15, owner's call; neutral Apple-style greys, system sans,
  * rounded glass surfaces and a pointer-following glow; see
  * theme-modern.css).
  *
@@ -33,9 +33,9 @@ const glowDetach = new Map<Document, () => void>();
 function readStored(): ThemeId {
   try {
     const v = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
-    return v && VALID.includes(v) ? v : 'phosphor';
+    return v && VALID.includes(v) ? v : 'modern';
   } catch {
-    return 'phosphor';
+    return 'modern';
   }
 }
 

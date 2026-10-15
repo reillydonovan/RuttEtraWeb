@@ -46,14 +46,26 @@ export function renderMarkdown(md: string, opts: { search?: string } = {}): HTML
     }
 
     // Blockquote.
+    // A bare `>` line is a paragraph break INSIDE the quote (standard
+    // Markdown); it used to end the quote and print a literal ">".
     if (line.startsWith('> ')) {
-      const buf: string[] = [];
-      while (i < lines.length && lines[i].startsWith('> ')) {
-        buf.push(lines[i].slice(2));
+      const paras: string[][] = [[]];
+      while (i < lines.length && (lines[i].startsWith('> ') || lines[i].trim() === '>')) {
+        if (lines[i].trim() === '>') paras.push([]);
+        else paras[paras.length - 1].push(lines[i].slice(2));
         i++;
       }
       const bq = document.createElement('blockquote');
-      bq.append(...renderInline(buf.join(' ')));
+      const nonEmpty = paras.filter((p) => p.length > 0);
+      if (nonEmpty.length === 1) {
+        bq.append(...renderInline(nonEmpty[0].join(' ')));
+      } else {
+        for (const p of nonEmpty) {
+          const el = document.createElement('p');
+          el.append(...renderInline(p.join(' ')));
+          bq.appendChild(el);
+        }
+      }
       root.appendChild(bq);
       continue;
     }

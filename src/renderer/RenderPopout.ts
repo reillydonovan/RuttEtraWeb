@@ -94,7 +94,7 @@ export function createRenderPopout(
     if (!w) return; // popup blocked — nothing to do, button stays inert
     popup = w;
     const doc = w.document;
-    doc.title = 'RUTT/ETRA — Output';
+    doc.title = 'RUTT/ETRA WEB — Output';
 
     const style = doc.createElement('style');
     style.textContent = `

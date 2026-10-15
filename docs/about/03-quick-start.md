@@ -29,12 +29,12 @@ Same parameters, same values in every skin — only the faces change, and every 
 
 ### Themes
 
-Independent of the skin, **View ▸ Theme** (or the **PHOS / MOD** picker in the panel title bar) chooses the overall look:
+Independent of the skin, **View ▸ Theme** (or the **MODERN / CLASSIC** picker in the panel title bar) chooses the overall look:
 
-- **Phosphor** — the original green-on-black terminal. The default.
-- **Modern** — neutral Apple-style greys with phosphor green kept for lit and active state: a system sans-serif for headings and buttons (numbers and small labels stay monospaced), rounded surfaces on every Patch Bay module, graph node and Controls section, a soft green glow that follows the pointer, a lift on Patch Bay modules when you hover them, light pill buttons, iOS-style switches and round-thumb sliders. Amber still means "the timeline owns this value" and red still means warning or a rejected cable. Cables, the Scope trace and timeline lanes keep their colours.
+- **Modern** — the default. Neutral Apple-style greys with phosphor green spent where it means something: lit, active, hovered and focused state, a faint green catch on card edges, and a soft green glow that follows the pointer. A system sans-serif for headings and buttons (numbers and small labels stay monospaced), rounded cards on every Patch Bay module, graph node and Controls section, a lift on Patch Bay modules when you hover them, pill buttons, iOS-style switches and round-thumb sliders. Amber still means "the timeline owns this value" and red still means warning or a rejected cable. Cables, the Scope trace and timeline lanes keep their colours.
+- **Classic** — the original green-on-black phosphor terminal, one click away.
 
-A theme works with every skin (RACK + Modern gives rounded modules with live cables and knobs), follows into pop-out windows, and respects your system's reduced-motion setting (no lift, glow or press animation). Like the skin it is remembered on this machine only — never in presets, projects or timelines.
+A theme works with every skin (RACK + Modern gives rounded modules with live cables and knobs), follows into pop-out windows and onto the About and Tutorials pages (add `?theme=phosphor` or `?theme=modern` to a page's address to flip it), and respects your system's reduced-motion setting (no lift, glow or press animation). Like the skin it is remembered on this machine only — never in presets, projects or timelines.
 
 ### Workspace windows & tabs
 
@@ -43,6 +43,7 @@ The interface is four windows (**left**, **center**, **right**, **bottom**), and
 - Click a tab to switch what the window shows (**RENDERER**, **CONTROLS**, **TIMELINE**, **PATCH BAY**).
 - **Drag a tab** onto another window's tab strip to move it there — a thin caret nudges between tabs to show exactly where it will land, the strip highlights, and while you drag, the *empty* window nearest your pointer reveals itself as a labeled drop strip (one at a time, proximity-based). Drag within a strip to **reorder**.
 - **✕ closes a tab** (any window's **[+]** reopens it). **[+] always just adds a tab** — every view is fully multi-instance (RENDERER, PATCH BAY, CONTROLS, and TIMELINE all get a fresh, independent instance per window; every instance drives the same underlying settings/sequencer, so they always agree). Two TIMELINE tabs in different windows both play; two CONTROLS panels both edit.
+- Every window has the same buttons: **⧉** pops it out, **⤢** maximizes it, **–** collapses it. A collapsed window shrinks to just its tab strip on its own edge (a vertical rail on the left and right, a bar at the bottom or top); click the strip, or **□**, to bring it back. The Renderer works the same way — collapsing it hides the output until you restore it.
 - Moving a view never disturbs another window, and a window with no tabs disappears until you give it one — while dragging, empty windows reveal themselves near your pointer on all four edges (top and bottom drops also pick the bottom window's dock edge) plus the center.
 - The renderer moves like any view — away from the center it becomes a live mirror while whatever you promoted takes the center stage.
 - Side and bottom windows also have **⤢ maximize** (double-click the bar works too) and **– collapse**. The **Renderer** window has ⤢ too: the raster fills everything under the menu bar and the other windows hide until you click ⤡ (or double-click its bar) again — pair it with View ▸ Fullscreen for a clean full-screen output.
