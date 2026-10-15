@@ -41,7 +41,7 @@ import { STARTER_PATCHES, StarterPatch } from './modulation/graph/library';
 import type { GraphPatch } from './modulation/graph/types';
 import { ControlPanel } from './ui/ControlPanel';
 import { createSourceSection, createSourceBSection } from './ui/sections/SourceSection';
-import { createDcuSection } from './ui/sections/DcuSection';
+import { createDcuSection, aspectForSource } from './ui/sections/DcuSection';
 import { createDualRasterSection } from './ui/sections/DualRasterSection';
 import { createModulationContainerSection } from './ui/sections/ModulationContainerSection';
 import { createCameraSection } from './ui/sections/CameraSection';
@@ -66,6 +66,7 @@ import { showStatusBadge } from './ui/statusBadge';
 import '@fontsource/vt323';
 import '@fontsource/share-tech-mono';
 import './ui/layout/layout.css';
+import './ui/layout/mobile-modern.css';
 import './ui/cursors.css';
 
 const UI_STATE_KEY_SET: ReadonlySet<string> = new Set(UI_STATE_KEYS);
@@ -640,6 +641,19 @@ async function bootSynth(): Promise<void> {
   }
   source.subscribe((st) => {
     if (st.kind !== 'none') dismissOverlay();
+  });
+  // Phone: the raster follows the picture's own shape (a portrait selfie fills
+  // the portrait screen instead of sitting in a 4:3 letterbox). Once per new
+  // source size, so the user's own Aspect edits afterwards stick; desktop keeps
+  // the hardware-authentic 4:3 until they press DCU ▸ Match source.
+  let lastAutoAspect = '';
+  source.subscribe((st) => {
+    if (layout.current() !== 'compact' || (st.kind !== 'webcam' && st.kind !== 'file')) return;
+    const a = aspectForSource(st.width, st.height);
+    const tag = `${st.kind}:${st.width}x${st.height}`;
+    if (a == null || tag === lastAutoAspect) return;
+    lastAutoAspect = tag;
+    settings.set('aspect', a);
   });
 
   // ---------------------- Video audio passthrough -----------------------
@@ -1369,7 +1383,65 @@ async function bootSynth(): Promise<void> {
         includeMic: settings.get('recordIncludeMic'),
       });
     },
+    // Phone capture dock: every capability is one that already exists
+    // (recorder, source manager, presets) — the dock is only a front end.
+    dock: {
+      applyLook: (id) => {
+        const p = PRESETS.find((x) => x.id === id);
+        if (!p) return;
+        // A look is colour/feel; on the phone it must not undo the picture-fit aspect.
+        const { aspect: _keep, ...patch } = presetPatch(p.values);
+        void _keep;
+        settings.patch(patch);
+        responsive.setPresetName(p.name);
+      },
+      takePhoto: () => new Promise<Blob>((resolve, reject) => {
+        // Composite inside a rAF so the GL frame is freshly drawn.
+        requestAnimationFrame(() => {
+          const c = document.createElement('canvas');
+          c.width = canvas.width; c.height = canvas.height;
+          const ctx = c.getContext('2d');
+          if (!ctx) { reject(new Error('2D canvas unavailable')); return; }
+          ctx.drawImage(canvas, 0, 0);
+          c.toBlob((b) => (b ? resolve(b) : reject(new Error('could not encode image'))), 'image/png');
+        });
+      }),
+      toggleRecord: async () => {
+        if (recorder.isRecording()) recorder.stop();
+        else await recorder.start({
+          fps: settings.get('recordFps'),
+          bitsPerSecond: settings.get('recordBitrateMbps') * 1_000_000,
+          includeMic: settings.get('recordIncludeMic'),
+          preferredFormat: settings.get('recordPreferredFormat'),
+        });
+      },
+      isRecording: () => recorder.isRecording(),
+      onRecordState: (fn) => recorder.subscribe(fn),
+      elapsedMs: () => recorder.elapsedMs(),
+      flipCamera: async () => {
+        if (source.getState().kind !== 'webcam') return null;
+        const next = settings.get('cameraFacing') === 'user' ? 'environment' : 'user';
+        await source.useWebcam({
+          width: settings.get('requestedWidth'),
+          height: settings.get('requestedHeight'),
+          fps: settings.get('requestedFps'),
+          facingMode: next,
+        });
+        settings.set('cameraFacing', next);
+        return next;
+      },
+      toast: (msg, action) => responsive.toast(msg, action, 5000),
+      haptic,
+      quickSource: {
+        webcam: (facing) => startWebcam(facing),
+        pattern: () => startWithPattern(),
+        library: () => { bootClearErr(); bootFileInput.click(); },
+        activeKind: () => source.getState().kind,
+        facing: () => settings.get('cameraFacing'),
+      },
+    },
   });
+  recorder.subscribeSaved((file) => responsive.offerShare(file));
 
   // Shared MCP remote instance (set once by the lazy I/O-sections block
   // below; extra CONTROLS panels reuse it so there's one WS connection).
@@ -1625,20 +1697,25 @@ async function bootSynth(): Promise<void> {
     }
   });
 
-  bootWebcam.addEventListener('click', async () => {
+  /** Start the webcam (boot overlay + the phone's Source sheet share this). */
+  async function startWebcam(facing?: 'user' | 'environment'): Promise<void> {
     bootClearErr();
+    const f = facing ?? (layout.hasTouch ? settings.get('cameraFacing') : undefined);
     try {
       await source.useWebcam({
         width:  settings.get('requestedWidth'),
         height: settings.get('requestedHeight'),
         fps:    settings.get('requestedFps'),
-        facingMode: layout.hasTouch ? settings.get('cameraFacing') : undefined,
+        facingMode: f,
       });
+      if (facing) settings.set('cameraFacing', facing);
       settings.set('sourceKind', 'webcam');
     } catch (err) {
       bootErr(`Webcam: ${(err as Error).message}`);
+      throw err;
     }
-  });
+  }
+  bootWebcam.addEventListener('click', () => { void startWebcam().catch(() => { /* shown on the boot screen */ }); });
 
   bootScreen.addEventListener('click', async () => {
     bootClearErr();

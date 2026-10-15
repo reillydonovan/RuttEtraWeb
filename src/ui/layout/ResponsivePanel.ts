@@ -17,6 +17,8 @@ import { LayoutManager, LayoutMode } from './LayoutManager';
 import { BottomSheet } from './BottomSheet';
 import { TabBar, TabBarTabId } from './TabBar';
 import { TopStrip } from './TopStrip';
+import { CaptureDock, CaptureDockDeps } from './CaptureDock';
+import { buildSourceQuick } from './SourceQuick';
 import { COMPACT_TABS, CompactTabSpec } from './LayoutGroups';
 
 export interface ResponsivePanelDeps {
@@ -24,6 +26,8 @@ export interface ResponsivePanelDeps {
   onToggleRecord:    () => void;
   /** Triggered by top strip "BC" button. */
   onToggleBroadcast: () => void;
+  /** Phone capture dock (looks + shutter). Omit and compact mode has no dock. */
+  dock?: CaptureDockDeps;
 }
 
 export class ResponsivePanel {
@@ -35,6 +39,8 @@ export class ResponsivePanel {
   // Compact-mode chrome (created lazily on first compact mount).
   private topStrip: TopStrip | null = null;
   private tabBar: TabBar | null = null;
+  private dock: CaptureDock | null = null;
+  private sheetDisposers: Array<() => void> = [];
   /** Sheet currently presenting compact tab content, if any. */
   private activeSheet: BottomSheet | null = null;
   /** Container the sheet's content panel re-parents to when dismissed. */
@@ -133,6 +139,10 @@ export class ResponsivePanel {
       document.body.insertBefore(this.topStrip.el, document.body.firstChild);
     }
 
+    // Capture dock (looks carousel + shutter), floating above the tab bar.
+    if (!this.dock && this.deps.dock) this.dock = new CaptureDock(this.deps.dock);
+    if (this.dock && !document.getElementById('capture-dock')) document.body.appendChild(this.dock.el);
+
     // Tab bar.
     if (!this.tabBar) {
       this.tabBar = new TabBar(COMPACT_TABS, (id) => this.openSheetForTab(id));
@@ -160,6 +170,7 @@ export class ResponsivePanel {
     // Remove compact chrome.
     document.getElementById('top-strip')?.remove();
     document.getElementById('tab-bar')?.remove();
+    document.getElementById('capture-dock')?.remove();
     if (this.tabBar) this.tabBar.setActive(null);
   }
 
@@ -242,12 +253,21 @@ export class ResponsivePanel {
   setRecordingIndicator(on: boolean): void { this.topStrip?.setRecording(on); }
   setBroadcastIndicator(on: boolean): void { this.topStrip?.setBroadcasting(on); }
   setPresetName(name: string): void { this.topStrip?.setPresetName(name); }
+  /** Highlight a look in the capture dock's carousel (null clears it). */
+  setActiveLook(id: string | null): void { this.dock?.setActiveLook(id); }
+  /** Offer the native share sheet for a just-saved recording. */
+  offerShare(file: File): void { this.dock?.offerShare(file); }
 
   // ---------------------------------------------------------- internals
 
   private collectSectionsForTab(tab: CompactTabSpec): HTMLElement {
     const container = document.createElement('div');
     container.className = 'rw-sheet-sections';
+    if (tab.id === 'source' && this.deps.dock?.quickSource) {
+      const q = buildSourceQuick(this.settings, this.deps.dock.quickSource, (m) => this.toast(m));
+      this.sheetDisposers.push(q.dispose);
+      container.appendChild(q.el);
+    }
     for (const title of tab.sections) {
       const wrap = this.panel.getSection(title);
       if (!wrap) continue;
@@ -261,6 +281,7 @@ export class ResponsivePanel {
 
   /** Move any sections currently inside the active sheet back to the panel. */
   private reparkActiveSheetSections(): void {
+    for (const d of this.sheetDisposers.splice(0)) d();
     for (const title of this.panel.sectionTitles()) {
       this.panel.reattachSection(title);
     }

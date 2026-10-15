@@ -113,6 +113,7 @@ export class CanvasRecorder {
   private micStream: MediaStream | null = null;
   private outStream: MediaStream | null = null;
   private listeners = new Set<(state: 'idle' | 'recording' | 'finalizing') => void>();
+  private savedListeners = new Set<(file: File) => void>();
   private startTime = 0;
   /** Stereo-mode state captured at `start()` so `finalize()` knows
    *  whether to call the injector and which source to `stop()`. Null
@@ -164,6 +165,13 @@ export class CanvasRecorder {
   /** Time elapsed (ms) since recording started; 0 when idle. */
   elapsedMs(): number {
     return this.isRecording() ? performance.now() - this.startTime : 0;
+  }
+
+  /** Fired after each recording is saved, with the file just downloaded —
+   *  lets a phone UI offer the native share sheet (needs a fresh tap). */
+  subscribeSaved(fn: (file: File) => void): () => void {
+    this.savedListeners.add(fn);
+    return () => this.savedListeners.delete(fn);
   }
 
   subscribe(fn: (state: 'idle' | 'recording' | 'finalizing') => void): () => void {
@@ -340,6 +348,10 @@ export class CanvasRecorder {
     a.href = url;
     a.download = `${hint}ruttetra-${ts}.${this.currentExt}`;
     a.click();
+    if (this.savedListeners.size) {
+      const file = new File([blob], a.download, { type: this.currentMime || blob.type });
+      for (const fn of this.savedListeners) fn(file);
+    }
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 
     for (const t of this.micStream?.getTracks() ?? []) t.stop();

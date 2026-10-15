@@ -1,0 +1,336 @@
+/* ============================================================
+   Rutt/Etra Web — the phone layout in the Modern design system.
+
+   Everything here is scoped to `body[data-layout="compact"]` + the Modern
+   theme; Classic's compact look (layout.css) is untouched. Tokens, radii,
+   type sizes and surface tiers all come from theme-modern.css — nothing is
+   restated. Specificity: `html body[data-theme="modern"][data-layout=
+   "compact"]` is (0,3,2), above layout.css (0,1,1+) and the skins' compact
+   guards, so no !important.
+
+   What the phone is for: a pocket instrument and a camera. The render is
+   full-bleed; the chrome floats over it in three layers —
+     top    a slim glass strip (wordmark · look name · help)
+     dock   looks carousel + shutter (CaptureDock.ts)
+     bottom the five-tab bar; a tab opens a bottom sheet of real controls
+   Boundaries (LayoutGroups.ts): Patch Bay, Timeline, MIDI/OSC/CV/MCP, XR,
+   Dual Raster, Video Source B and broadcasting stay desktop-only.
+   ============================================================ */
+
+html body[data-theme="modern"][data-layout="compact"] {
+  --rw-top-strip-h: calc(44px + env(safe-area-inset-top));
+  --rw-tab-bar-h:   calc(58px + env(safe-area-inset-bottom));
+  --rw-dock-h:      132px;
+  --glass: rgba(14, 14, 15, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.10);
+  --blur: saturate(1.6) blur(20px);
+}
+
+/* ------------------------------------------------------------ TOP STRIP */
+
+html body[data-theme="modern"][data-layout="compact"] #top-strip {
+  height: var(--rw-top-strip-h);
+  gap: var(--sp-2);
+  padding: env(safe-area-inset-top) max(var(--sp-3), env(safe-area-inset-right)) 0 max(var(--sp-3), env(safe-area-inset-left));
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
+  border-bottom: 0;
+  font-family: var(--mx-sans);
+  pointer-events: none;                 /* the picture beneath stays touchable */
+}
+html body[data-theme="modern"][data-layout="compact"] #top-strip > * { pointer-events: auto; }
+
+html body[data-theme="modern"][data-layout="compact"] .rw-top-preset {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--pill);
+  min-height: 34px;
+  padding: 0 var(--sp-4);
+  font-family: var(--mx-sans);
+  font-size: var(--fs-l);
+  flex: 0 1 auto; max-width: 70%;
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-top-icon {
+  color: var(--a); font-family: var(--mx-sans); font-weight: 600; letter-spacing: -0.01em; font-size: var(--fs-l);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-top-icon::after {
+  content: ""; display: inline-block; width: 1px; height: 12px; margin: 0 var(--sp-2) -1px; background: var(--glass-edge);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-top-preset-name { color: var(--t-dim); }
+html body[data-theme="modern"][data-layout="compact"] .rw-top-actions { margin-left: auto; }
+/* Record/broadcast live in the dock and the More tab now. */
+html body[data-theme="modern"][data-layout="compact"] .rw-top-rec,
+html body[data-theme="modern"][data-layout="compact"] .rw-top-btn:not(.rw-top-help) { display: none; }
+html body[data-theme="modern"][data-layout="compact"] .rw-top-help {
+  width: 34px; height: 34px; min-width: 34px; min-height: 34px; padding: 0;
+  border-radius: 50%;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  color: var(--t-body); font-family: var(--mx-sans); font-size: var(--fs-l); font-weight: 600;
+}
+
+/* ------------------------------------------------------------ TAB BAR */
+
+html body[data-theme="modern"][data-layout="compact"] #tab-bar {
+  height: var(--rw-tab-bar-h);
+  padding: var(--sp-1) var(--sp-2) env(safe-area-inset-bottom);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border-top: 1px solid var(--glass-edge);
+  font-family: var(--mx-sans);
+  gap: var(--sp-1);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-btn {
+  border: 0; border-radius: var(--r-m);
+  gap: 3px;
+  color: var(--t-dim);
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-btn:active { transform: scale(var(--press)); }
+html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-btn.active {
+  color: var(--a); background: var(--a-08); text-shadow: none;
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-ico { display: flex; font-size: 0; line-height: 0; }
+html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-lbl {
+  font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0.02em; text-transform: none;
+}
+
+/* ------------------------------------------------------------ CAPTURE DOCK */
+
+#capture-dock { display: none; }
+html body[data-theme="modern"][data-layout="compact"] #capture-dock {
+  position: fixed; left: 0; right: 0; z-index: 29;
+  bottom: var(--rw-tab-bar-h);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-6) 0 var(--sp-2);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  font-family: var(--mx-sans);
+  pointer-events: none;
+}
+html body[data-theme="modern"][data-layout="compact"] #capture-dock > * { pointer-events: auto; }
+
+/* looks carousel */
+.rw-looks {
+  display: flex; gap: var(--sp-2);
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+  padding: 0 var(--sp-4);
+  -webkit-overflow-scrolling: touch;
+}
+.rw-looks::-webkit-scrollbar { display: none; }
+.rw-look {
+  flex: 0 0 auto; scroll-snap-align: center;
+  min-height: 36px; padding: 0 var(--sp-4);
+  border-radius: var(--pill);
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  color: var(--t-body); font: 500 var(--fs-m) var(--mx-sans); white-space: nowrap;
+  cursor: var(--rw-cur-pointer); touch-action: manipulation;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.rw-look:active { transform: scale(var(--press)); }
+.rw-look.active { color: #04130a; background: var(--a-fill); border-color: transparent; }
+
+/* control row: flip · shutter · mode */
+.rw-capture-row {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 0 var(--sp-5);
+}
+.rw-cap-btn {
+  justify-self: start;
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  color: var(--t-max); cursor: var(--rw-cur-pointer); touch-action: manipulation;
+  transition: transform var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.rw-cap-btn:active { transform: scale(var(--press)); background: var(--c-fill-hi); }
+
+.rw-shutter-wrap { position: relative; display: grid; justify-items: center; }
+.rw-shutter {
+  position: relative; width: 72px; height: 72px; padding: 0; border-radius: 50%;
+  background: transparent; border: 3px solid var(--t-max);
+  display: grid; place-items: center;
+  cursor: var(--rw-cur-pointer); touch-action: manipulation;
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-base) var(--ease);
+}
+.rw-shutter-core {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--t-max);
+  transition: transform var(--t-base) var(--ease), border-radius var(--t-base) var(--ease), background var(--t-base) var(--ease);
+}
+.rw-shutter:active .rw-shutter-core { transform: scale(0.9); }
+.rw-shutter:disabled { opacity: 0.5; }
+/* VIDEO mode: the core turns red; while recording it becomes a stop square. */
+#capture-dock[data-mode="video"] .rw-shutter-core { background: var(--red); }
+.rw-shutter.recording { border-color: var(--red); }
+.rw-shutter.recording .rw-shutter-core { border-radius: var(--r-m); transform: scale(0.52); background: var(--red); }
+.rw-shutter.recording .rw-shutter-core:active { transform: scale(0.46); }
+
+.rw-cap-timer {
+  position: absolute; bottom: calc(100% + var(--sp-2));
+  padding: 2px var(--sp-3); border-radius: var(--pill);
+  background: var(--red); color: #fff;
+  font: 600 var(--fs-m) var(--mx-code); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+}
+.rw-cap-timer[hidden] { display: none; }
+.rw-cap-timer::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; animation: rw-rec-blink 1s steps(2, jump-none) infinite; }
+@keyframes rw-rec-blink { 50% { opacity: 0.25; } }
+
+/* PHOTO | VIDEO segmented control */
+.rw-cap-mode {
+  justify-self: end; display: inline-flex; padding: 3px; border-radius: var(--pill);
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+}
+.rw-cap-mode button {
+  min-height: 36px; padding: 0 var(--sp-3); border: 0; border-radius: var(--pill);
+  background: transparent; color: var(--t-dim); font: 500 var(--fs-s) var(--mx-sans);
+  cursor: var(--rw-cur-pointer); touch-action: manipulation;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.rw-cap-mode button.active { color: var(--t-max); background: var(--c-fill-hi); }
+#capture-dock.recording .rw-cap-mode, #capture-dock.recording .rw-cap-flip { opacity: 0.4; pointer-events: none; }
+/* Hidden, not removed: the shutter must not jump while the timer takes the carousel's place. */
+#capture-dock.recording .rw-looks { visibility: hidden; }
+
+/* photo flash */
+#capture-dock.flash::after { content: ""; position: fixed; inset: 0; background: #fff; opacity: 0.6; pointer-events: none; animation: rw-flash 160ms var(--ease) forwards; z-index: 1; }
+@keyframes rw-flash { to { opacity: 0; } }
+
+/* ------------------------------------------------------------ SHEETS */
+
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-backdrop { background: rgba(0, 0, 0, 0.35); }
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-body {
+  background: var(--c-window);
+  border-top: 1px solid var(--glass-edge);
+  border-radius: var(--r-l) var(--r-l) 0 0;
+  box-shadow: var(--sh-float);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-handle {
+  background: var(--c-window);
+  border-bottom: 1px solid var(--c-hair);
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-grip { top: 6px; width: 40px; height: 5px; background: var(--c-hair-hi); border-radius: 3px; }
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-title {
+  font: 600 var(--fs-l) var(--mx-sans); letter-spacing: -0.01em; text-transform: none; color: var(--t-max); text-shadow: none; margin-top: var(--sp-2);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-close {
+  width: 32px; height: 32px; border: 0; border-radius: 50%;
+  background: var(--c-fill); color: var(--t-body);
+  font: 400 20px/1 var(--mx-sans);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-body-content {
+  padding: var(--sp-3) var(--sp-3) calc(var(--sp-6) + env(safe-area-inset-bottom));
+  font-family: var(--mx-sans); color: var(--t-body);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-sheet-sections .rw-section { margin-bottom: var(--sp-3); }
+
+/* ------------------------------------------------------------ CONTROLS IN SHEETS */
+
+/* Rows: label on the left, big touch control beneath. */
+html body[data-theme="modern"][data-layout="compact"] .rw-row { grid-template-columns: 1fr; gap: var(--sp-1); padding: var(--sp-2) 0; align-items: stretch; }
+html body[data-theme="modern"][data-layout="compact"] .rw-row .rw-label { padding-top: 0; font-size: var(--fs-m); color: var(--t-body); letter-spacing: 0; }
+html body[data-theme="modern"][data-layout="compact"] .rw-hint { grid-column: 1; }
+
+/* Sliders: label · value on one line, a fat scrub bar below, no chips. */
+html body[data-theme="modern"][data-layout="compact"] .rw-row:has(> .rw-slider) {
+  grid-template-columns: 1fr auto; grid-template-areas: "label readout" "scrub scrub"; align-items: center; row-gap: var(--sp-2);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-row:has(> .rw-slider) > .rw-label { grid-area: label; }
+html body[data-theme="modern"][data-layout="compact"] .rw-row > .rw-slider { display: contents; }
+html body[data-theme="modern"][data-layout="compact"] .rw-slider-stops { display: none; }
+html body[data-theme="modern"][data-layout="compact"] .rw-slider-readout {
+  grid-area: readout; width: auto; min-width: 64px; min-height: 28px; padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-s); background: var(--c-well);
+  font: 500 var(--fs-m) var(--mx-code); font-variant-numeric: tabular-nums; color: var(--a-text); text-shadow: none; letter-spacing: 0;
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-slider-scrub {
+  grid-area: scrub; height: 44px; border: 0; border-radius: var(--r-m);
+  background: var(--c-well); overflow: hidden; cursor: var(--rw-cur-pointer);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-slider-scrub-fill { background: linear-gradient(to right, var(--a-08), var(--a-30)); }
+html body[data-theme="modern"][data-layout="compact"] .rw-slider-scrub-knob {
+  width: 6px; margin-left: -3px; top: 6px; bottom: 6px; border-radius: 3px; background: var(--t-max); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px var(--a-55);
+}
+/* Desktop-only affordances inside a slider row. */
+html body[data-theme="modern"][data-layout="compact"] .rw-row > .rw-slider > :is(.rw-mod-dot, .rw-knob, .rw-range-menu-btn, .rw-kf-nav, .rw-kf-diamond, .rw-live-badge) { display: none; }
+
+/* Selects, buttons, toggles: 44px+ targets. */
+html body[data-theme="modern"][data-layout="compact"] .rw-select { min-height: 44px; font-size: var(--fs-l); border-radius: var(--r-m); }
+html body[data-theme="modern"][data-layout="compact"] .rw-btn { min-height: 44px; padding: var(--sp-2) var(--sp-4); font-size: var(--fs-l); border-radius: var(--r-m); }
+html body[data-theme="modern"][data-layout="compact"] .rw-text,
+html body[data-theme="modern"][data-layout="compact"] .rw-num { min-height: 44px; font-size: 16px; border-radius: var(--r-m); }   /* 16px: iOS never zooms the page on focus */
+html body[data-theme="modern"][data-layout="compact"] .rw-section-head { min-height: 48px; padding: 0 var(--sp-4); font-size: var(--fs-l); }
+html body[data-theme="modern"][data-layout="compact"] .rw-preset-chip { min-height: 40px; display: inline-flex; align-items: center; padding: 0 var(--sp-4); }
+
+/* Hover-only help has no meaning without a hover. */
+html body[data-theme="modern"][data-layout="compact"] .rw-hover-tip { display: none; }
+
+/* The node-graph EDITOR needs a pointer and a big canvas; the Beginner
+   rows (the same patch, as a list) work on touch. */
+html body[data-theme="modern"][data-layout="compact"] .rw-graph-view-btn[data-view="advanced"] { display: none; }
+
+/* Toasts clear the dock. */
+html body[data-theme="modern"][data-layout="compact"] #rw-toast-host { bottom: calc(var(--rw-tab-bar-h) + var(--rw-dock-h) + var(--sp-2)); }
+html body[data-theme="modern"][data-layout="compact"] .rw-toast {
+  background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-l); font-family: var(--mx-sans); box-shadow: var(--sh-float); font-size: var(--fs-m);
+}
+html body[data-theme="modern"][data-layout="compact"] .rw-toast-btn { border-radius: var(--pill); background: var(--a-fill); border: 0; color: #04130a; font-weight: 600; text-transform: none; letter-spacing: 0; min-height: 32px; padding: 0 var(--sp-3); }
+
+/* Peek (long-press the picture) hides the dock too. */
+body.peeking #capture-dock { visibility: hidden; }
+
+/* ------------------------------------------------------------ LANDSCAPE */
+/* A phone on its side has no vertical room: the dock becomes a rail on the
+   right edge (shutter, flip, mode), the looks carousel folds away (Presets
+   are one tab away), and the tab bar slims to icons. */
+@media (orientation: landscape) and (max-height: 520px) {
+  html body[data-theme="modern"][data-layout="compact"] {
+    --rw-top-strip-h: calc(40px + env(safe-area-inset-top));
+    --rw-tab-bar-h: calc(44px + env(safe-area-inset-bottom));
+  }
+  html body[data-theme="modern"][data-layout="compact"] .rw-tabbar-lbl { display: none; }
+  html body[data-theme="modern"][data-layout="compact"] #capture-dock {
+    left: auto; right: max(var(--sp-3), env(safe-area-inset-right)); top: var(--rw-top-strip-h); bottom: var(--rw-tab-bar-h);
+    width: 96px; padding: 0; background: none; justify-content: center;
+  }
+  html body[data-theme="modern"][data-layout="compact"] .rw-looks { display: none; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-capture-row { grid-template-columns: 1fr; grid-template-rows: auto auto auto; justify-items: center; gap: var(--sp-3); padding: 0; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-cap-btn, html body[data-theme="modern"][data-layout="compact"] .rw-cap-mode { justify-self: center; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-cap-flip { order: 1; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-shutter-wrap { order: 2; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-cap-mode { order: 3; flex-direction: column; border-radius: var(--r-l); }
+  html body[data-theme="modern"][data-layout="compact"] .rw-cap-timer { bottom: auto; top: calc(100% + var(--sp-2)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-cap-timer::before, #capture-dock.flash::after { animation: none; }
+  .rw-shutter-core, .rw-look, .rw-tabbar-btn { transition: none; }
+}
+
+/* ------------------------------------------------------------ SOURCE QUICK PICK */
+
+.rw-quicksrc { margin-bottom: var(--sp-4); }
+.rw-quicksrc-title { font: 600 var(--fs-xs) var(--mx-code); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--t-dim); margin: 0 var(--sp-1) var(--sp-2); }
+.rw-quicksrc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.rw-quicksrc-tile {
+  display: grid; grid-template-rows: auto auto auto; justify-items: start; gap: 2px;
+  min-height: 92px; padding: var(--sp-3);
+  background: var(--c-card); border: 1px solid var(--c-hair); border-radius: var(--r-m);
+  color: var(--t-body); text-align: left; font-family: var(--mx-sans);
+  cursor: var(--rw-cur-pointer); touch-action: manipulation;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.rw-quicksrc-tile:active { transform: scale(var(--press)); }
+.rw-quicksrc-ico { color: var(--t-dim); margin-bottom: var(--sp-1); display: flex; }
+.rw-quicksrc-lbl { font-size: var(--fs-l); font-weight: 600; color: var(--t-max); }
+.rw-quicksrc-sub { font-size: var(--fs-s); color: var(--t-dim); }
+.rw-quicksrc-tile.active { background: var(--a-08); border-color: var(--a-55); }
+.rw-quicksrc-tile.active .rw-quicksrc-ico { color: var(--a); }
+
+/* The desktop FPS/source readout sits where the top strip is. */
+html body[data-theme="modern"][data-layout="compact"] #hud { display: none; }

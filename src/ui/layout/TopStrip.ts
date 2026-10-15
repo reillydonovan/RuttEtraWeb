@@ -29,7 +29,7 @@ export class TopStrip {
     presetIcon.textContent = 'RUTT/ETRA WEB';
     this.presetLabel = document.createElement('span');
     this.presetLabel.className = 'rw-top-preset-name';
-    this.presetLabel.textContent = '— pick a preset —';
+    this.presetLabel.textContent = 'Pick a look';
     presetBtn.append(presetIcon, this.presetLabel);
     presetBtn.addEventListener('click', () => actions.onOpenPresets());
 

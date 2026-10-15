@@ -39,6 +39,7 @@ export function createPatchSection(deps: PatchSectionDeps): HTMLElement {
   viewSwitch.className = 'rw-graph-view-switch';
   const beginnerBtn = mkBtn('Beginner');
   const advancedBtn = mkBtn('Advanced');
+  advancedBtn.dataset.view = 'advanced';
   viewSwitch.append(beginnerBtn, advancedBtn);
   toolbar.appendChild(viewSwitch);
 

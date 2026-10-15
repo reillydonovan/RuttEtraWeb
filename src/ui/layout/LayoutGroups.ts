@@ -12,16 +12,24 @@ export interface CompactTabSpec {
   id: 'source' | 'synth' | 'mod' | 'fx' | 'more';
   /** Short label for the bottom tab bar. */
   label: string;
-  /** Single character / glyph icon. Plain text — keeps the CRT look. */
+  /** Icon id (see TabBar's ICONS); unknown ids render as plain text. */
   icon: string;
   /** Section titles routed into this tab. */
   sections: string[];
 }
 
+/**
+ * The phone's section set. Boundaries vs desktop (owner: "boundaries between
+ * mobile and desktop capabilities"): the Patch Bay, Timeline, MIDI, OSC, CV,
+ * MCP, XR, Dual Raster, Video Source B and the broadcast tools are
+ * desktop-only — they need a mouse, a keyboard, hardware or a bridge. Their
+ * sections simply aren't routed into a tab here (they still exist, and come
+ * back the moment the layout is not compact).
+ */
 export const COMPACT_TABS: CompactTabSpec[] = [
-  { id: 'source', label: 'Source', icon: 'IN',  sections: ['Video Source A', 'Video Source B'] },
-  { id: 'synth',  label: 'Synth',  icon: 'DCU', sections: ['Display Control Unit'] },
-  { id: 'mod',    label: 'Mod',    icon: 'MOD', sections: ['Modulation', 'Audio', 'MIDI', 'OSC'] },
-  { id: 'fx',     label: 'FX',     icon: 'FX',  sections: ['Color / Post FX', 'Geometry'] },
-  { id: 'more',   label: 'More',   icon: '...', sections: ['Virtual Camera', 'Presets', 'Record', 'Share', 'Manual'] },
+  { id: 'source', label: 'Source', icon: 'source', sections: ['Video Source A'] },
+  { id: 'synth',  label: 'Shape',  icon: 'shape',  sections: ['Display Control Unit', 'Virtual Camera'] },
+  { id: 'mod',    label: 'Motion', icon: 'motion', sections: ['Modulation', 'Audio'] },
+  { id: 'fx',     label: 'Color',  icon: 'color',  sections: ['Color / Post FX', 'Geometry'] },
+  { id: 'more',   label: 'More',   icon: 'more',   sections: ['Presets', 'Record', 'Share', 'Manual'] },
 ];
