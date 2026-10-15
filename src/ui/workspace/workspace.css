@@ -422,3 +422,56 @@ body.rw-center-collapsed #timeline-dock:not([data-dock="hidden"]) {
    the workspace. Popouts and the compact layout have no window bar, so
    they keep it. */
 body:not([data-layout="compact"]) #panel-root:not(.rw-panel--popout) .rw-panel-actions > button:last-child { display: none; }
+
+/* ============================================================
+   RESIZE GRIPS — one design for every window edge you can drag (owner:
+   "the little dots… don't have the same kind of padding"). The Controls
+   edge (.rw-panel-resize), the left window's edge (.rw-left-resize) and
+   the timeline's top/bottom edge (.rw-tl-height-resize) share it:
+     - a 10px hit area CENTRED on the window edge (5px each side), so
+       every handle sits the same way on its border;
+     - a drawn pill grip, 3 x 28px, centred in it (no font glyph — "⋮"
+       and "⋯" sat at different baselines and paddings);
+     - hover / drag: the strip tints green and the grip lights.
+   `body`-prefixed to outrank the per-file rules in panel.css and the
+   lazily loaded timeline.css.
+   ============================================================ */
+body .rw-panel-resize,
+body .rw-left-resize,
+body .rw-tl-height-resize { background: transparent; }
+body .rw-panel-resize,
+body .rw-left-resize { width: 10px; }
+body #panel-root[data-dock="right"] .rw-panel-resize { left: -5px; right: auto; }
+body #panel-root[data-dock="left"]  .rw-panel-resize { right: -5px; left: auto; }
+body .rw-left-resize { right: -5px; }
+body .rw-tl-height-resize { height: 10px; }
+body #timeline-dock[data-dock="bottom"] .rw-tl-height-resize { top: -5px; }
+body #timeline-dock[data-dock="top"]    .rw-tl-height-resize { bottom: -5px; top: auto; }
+/* The old edge line + text glyphs are replaced by the drawn grip. */
+body .rw-panel-resize::before { display: none; }
+body .rw-panel-resize::after,
+body .rw-left-resize::after,
+body .rw-tl-height-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 3px; height: 28px;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+  background: var(--re-line-hi);
+  font-size: 0;
+  pointer-events: none;
+  transition: background-color 120ms linear, box-shadow 120ms linear;
+}
+body .rw-tl-height-resize::after { width: 28px; height: 3px; }
+body :is(.rw-panel-resize, .rw-left-resize, .rw-tl-height-resize):is(:hover, .active) {
+  background: rgba(95, 255, 133, 0.14);
+}
+body :is(.rw-panel-resize, .rw-left-resize, .rw-tl-height-resize):is(:hover, .active)::after {
+  background: var(--re-accent);
+  box-shadow: 0 0 8px rgba(95, 255, 133, 0.6);
+}
+/* Side grips start below the window's tab bar (a full-height handle sat
+   over the tabs); the grip is centred on what remains. */
+body .rw-panel-resize,
+body .rw-left-resize { top: var(--rw-strip, 22px); bottom: 0; }

@@ -9,8 +9,11 @@
 /* ---------- cable canvas (RackLayer) ---------- */
 
 .rw-rack-cables {
+  /* Inside the panel's scrolling body (RackLayer.ts cableHost), anchored
+     at the content's top-left and sized by fitCableCanvas — it scrolls
+     with the jacks and is clipped by the scroller. */
   position: absolute;
-  inset: 0;
+  left: 0; top: 0;
   z-index: 6;
   /* Draw-only surface: jacks (real DOM below) take the pointer. */
   pointer-events: none;

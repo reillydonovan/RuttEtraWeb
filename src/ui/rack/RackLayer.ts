@@ -392,10 +392,18 @@ export function createRackLayer(
   function beginGraphDrag(ev: PointerEvent, bindingId: string, grabbedJack: HTMLElement): void {
     const p: Pending = { kind: 'graph-to-param', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
+    // A parameter can't modulate itself: the param this cable reads is not
+    // a target, and releasing over it leaves the cable where it was.
+    const start = settings.get('modGraph');
+    const selfKey = paramOutKeyOf(start, start?.bindings.find((b) => b.id === bindingId)?.sourceNodeId ?? '');
+    const targets = new Map([...paramJacks].filter(([k]) => k !== selfKey));
+    let overSelf = false;
     runGesture(ev, grabbedJack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(jackCenters(paramJacks), pos, SNAP_PX);
+        const hit = nearestJack(jackCenters(targets), pos, SNAP_PX);
+        const selfJack = selfKey ? paramJacks.get(selfKey) : undefined;
+        overSelf = !hit && !!selfJack && !!nearestJack(jackCenters(new Map([[selfKey!, selfJack]])), pos, SNAP_PX);
         if ((hit?.id ?? null) !== p.hover) {
           if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
           p.hover = hit?.id ?? null;
@@ -405,6 +413,7 @@ export function createRackLayer(
       () => {
         if (p.hover) paramJacks.get(p.hover)?.classList.remove('rw-rack-jack--hover');
         pending = null;
+        if (overSelf) return;
         const patch = settings.get('modGraph');
         const binding = patch?.bindings.find((b) => b.id === bindingId);
         const next = p.hover ?? 'none';
@@ -462,23 +471,36 @@ export function createRackLayer(
     // into another window's document, and an adopted 2D canvas can lose
     // its context/buffer. Recreate it in the panel's CURRENT document
     // whenever they diverge (also covers pop-in back to the main window).
-    if (canvas.ownerDocument !== panelRoot.ownerDocument) {
+    const host = cableHost();
+    if (canvas.ownerDocument !== panelRoot.ownerDocument || canvas.parentElement !== host) {
       canvas.remove();
       canvas = panelRoot.ownerDocument.createElement('canvas');
       canvas.className = 'rw-rack-cables';
       ctx = canvas.getContext('2d');
-      panelRoot.appendChild(canvas);
+      host.appendChild(canvas);
       if (!ctx) return;
     }
 
-    const panelRect = panelRoot.getBoundingClientRect();
-    // Zoom-aware sizing (Global Text Size) — see fitCableCanvas's docs.
-    // Coverage is the panel's own box (its content scrolls inside a
-    // contained scroller, so nothing legitimately overflows it).
-    const { w, h } = fitCableCanvas(canvas, ctx, { width: panelRect.width, height: panelRect.height });
+    // Coverage = the host's width x the CONTENT's height, measured from the
+    // canvas's own top to the bottom of the deepest non-canvas child —
+    // never from the host's scrollHeight, which includes the canvas itself
+    // (fitCableCanvas's feedback-loop rule). The canvas's top-left is the
+    // drawing origin, and it moves with the scroll, so `local` is exact.
+    const origin = canvas.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    let bottom = origin.top;
+    for (const child of Array.from(host.children)) {
+      if (child === canvas || child.classList.contains('rw-pb-scrollbar')) continue;
+      const r = child.getBoundingClientRect();
+      if (r.height > 0) bottom = Math.max(bottom, r.bottom);
+    }
+    const { w, h } = fitCableCanvas(canvas, ctx, {
+      width: hostRect.width,
+      height: Math.max(hostRect.height, bottom - origin.top),
+    });
     ctx.clearRect(0, 0, w, h);
 
-    const local = (p: Pt): Pt => ({ x: p.x - panelRect.left, y: p.y - panelRect.top });
+    const local = (p: Pt): Pt => ({ x: p.x - origin.left, y: p.y - origin.top });
     const plugged = new Set<string>();
 
     // Classic cables (+ the one being dragged, which follows the pointer).
@@ -577,6 +599,15 @@ export function createRackLayer(
   // Activation
   // ------------------------------------------------------------------
 
+  /** The cable canvas lives INSIDE the panel's scrolling body, sized to
+   *  its content, so it scrolls with the jacks on the compositor (no
+   *  one-frame lag behind a scroll) and is clipped by the scroller (cables
+   *  never paint over the title, search or tabs) — owner report. Falls
+   *  back to the panel root if a body isn't there (e.g. compact layout). */
+  function cableHost(): HTMLElement {
+    return panelRoot.querySelector<HTMLElement>(':scope .rw-panel-body') ?? panelRoot;
+  }
+
   function activate(): void {
     if (active) return;
     active = true;
@@ -584,7 +615,7 @@ export function createRackLayer(
     canvas = doc.createElement('canvas');
     canvas.className = 'rw-rack-cables';
     ctx = canvas.getContext('2d');
-    panelRoot.appendChild(canvas);
+    cableHost().appendChild(canvas);
     injectJacks();
     // Sections can mount after boot (lazy panels); pick up their rows.
     observer = new MutationObserver(() => { needsInject = true; });

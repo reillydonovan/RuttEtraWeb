@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter,
-  graphBindingForParam, applyGraphBindingTarget,
+  graphBindingForParam, applyGraphBindingTarget, isSelfModulation,
   nodeWires, applyNodeInputRef, deleteGraphNode,
   ensureParamOutNode, bindParamOut, paramOutKeyOf, genGraphId,
 } from '../rackGeometry';
@@ -343,5 +343,26 @@ describe('param → param patching (shared by Patch Bay and the rack Controls pa
   it('paramOutKeyOf is null for other node types; ids never contain #', () => {
     expect(paramOutKeyOf({ nodes: [{ id: 'x', type: 'lfo', params: {}, inputs: {} }], bindings: [] }, 'x')).toBeNull();
     expect(genGraphId('n')).not.toContain('#');
+  });
+});
+
+describe('self-modulation guard (a parameter never modulates itself)', () => {
+  const patch = {
+    nodes: [{ id: 'po', type: 'param-out', params: { key: 'zPush' }, inputs: {} }],
+    bindings: [{ id: 'b1', paramKey: 'hSize', sourceNodeId: 'po', amount: 0.25, mode: 'additive' }],
+  } as unknown as GraphPatch;
+
+  it('isSelfModulation is true only for the param-out node of that same param', () => {
+    expect(isSelfModulation(patch, 'po', 'zPush')).toBe(true);
+    expect(isSelfModulation(patch, 'po', 'hSize')).toBe(false);
+    expect(isSelfModulation(patch, 'po', 'none')).toBe(false);
+    expect(isSelfModulation(patch, 'missing', 'zPush')).toBe(false);
+  });
+
+  it('applyGraphBindingTarget refuses to route a param-out cable back onto its own param', () => {
+    const same = applyGraphBindingTarget(patch, 'b1', 'zPush');
+    expect(same).toBe(patch);
+    expect(applyGraphBindingTarget(patch, 'b1', 'vSize').bindings[0].paramKey).toBe('vSize');
+    expect(applyGraphBindingTarget(patch, 'b1', 'none').bindings[0].paramKey).toBe('none');
   });
 });

@@ -98,6 +98,12 @@ export function graphBindingForParam(patch: GraphPatch | null | undefined, param
  * unplugs to 'none' without deleting the slot.
  */
 export function applyGraphBindingTarget(patch: GraphPatch, bindingId: string, paramKey: string): GraphPatch {
+  // A parameter may never modulate itself: re-routing a param-out cable
+  // back onto the parameter it reads is refused (owner report: unplug a
+  // param->param cable, drop it on the source param's own input -> a
+  // feedback loop). The patch comes back unchanged.
+  const b0 = patch.bindings.find((b) => b.id === bindingId);
+  if (b0 && isSelfModulation(patch, b0.sourceNodeId, paramKey)) return patch;
   return {
     ...patch,
     bindings: patch.bindings.map((b) => (b.id === bindingId ? { ...b, paramKey } : b)),
@@ -286,4 +292,13 @@ export function bindParamOut(
 export function paramOutKeyOf(patch: GraphPatch | null | undefined, nodeId: string): string | null {
   const n = patch?.nodes.find((x) => x.id === nodeId);
   return n && n.type === 'param-out' ? String(n.params.key) : null;
+}
+
+/** True when a binding sourced from `sourceNodeId` landing on `paramKey`
+ *  would make that parameter modulate itself — the source is the
+ *  parameter's own `param-out` node. Every binding write path checks it
+ *  (applyGraphBindingTarget, the Patch Bay's node-OUT binding, bindParamOut
+ *  via its fromKey === toKey guard). */
+export function isSelfModulation(patch: GraphPatch | null | undefined, sourceNodeId: string, paramKey: string): boolean {
+  return paramKey !== 'none' && paramOutKeyOf(patch, sourceNodeId) === paramKey;
 }

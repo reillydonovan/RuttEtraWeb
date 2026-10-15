@@ -72,7 +72,7 @@ import { createMiniKnob, type MiniKnob } from './miniKnob';
 import {
   classicCables, graphCables, applyCableTarget, applyCableSource,
   slotForParam, nearestJack, rectCenter, Pt,
-  graphBindingForParam, applyGraphBindingTarget,
+  graphBindingForParam, applyGraphBindingTarget, isSelfModulation, paramOutKeyOf,
   nodeWires, applyNodeInputRef, deleteGraphNode,
   genGraphId, ensureParamOutNode, bindParamOut,
 } from '../rack/rackGeometry';
@@ -665,15 +665,24 @@ export function createPatchBayView(
   function dragGraphParam(ev: PointerEvent, bindingId: string, jack: HTMLElement): void {
     const p: Pending = { kind: 'to-param-graph', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
     startDrag(p);
+    // The parameter this cable reads (a param -> param cable): never a
+    // snap target — a parameter can't modulate itself. Releasing over it
+    // leaves the cable where it was instead of unplugging.
+    const start = settings.get('modGraph');
+    const selfKey = paramOutKeyOf(start, start?.bindings.find((b) => b.id === bindingId)?.sourceNodeId ?? '');
+    const targets = new Map([...paramJacks].filter(([k]) => k !== selfKey));
+    let overSelf = false;
     runGesture(ev, jack,
       (pos) => {
         p.pos = pos;
-        const hit = nearestJack(centersOf(paramJacks), pos, SNAP_PX);
+        const hit = nearestJack(centersOf(targets), pos, SNAP_PX);
+        overSelf = !hit && !!selfKey && !!nearestJack(centersOf(new Map([[selfKey, paramJacks.get(selfKey)!]])), pos, SNAP_PX);
         if ((hit?.id ?? null) !== p.hover) { setHover(paramJacks, p.hover, hit?.id ?? null, GRAPH_COLOR, 'Drop to re-target this graph binding to this parameter.'); p.hover = hit?.id ?? null; }
       },
       () => {
         setHover(paramJacks, p.hover, null);
         endDrag();
+        if (overSelf) return;
         const patch = settings.get('modGraph');
         if (!patch) return;
         const binding = patch.bindings.find((b) => b.id === bindingId);
@@ -853,6 +862,7 @@ export function createPatchBayView(
   function bindNodeOutToParam(patch: GraphPatch | null | undefined, sourceKey: string, paramKey: string): GraphPatch {
     const base: GraphPatch = patch ?? { nodes: [], bindings: [] };
     const { nodeId: srcId, port: srcPort } = splitJackKey(sourceKey);
+    if (isSelfModulation(base, srcId, paramKey)) return base;   // a param never feeds itself
     const samePort = (b: { sourceNodeId: string; sourcePort?: string }): boolean => (
       b.sourceNodeId === srcId && (b.sourcePort || defaultOutputPort(srcId)) === srcPort);
     if (base.bindings.some((b) => samePort(b) && b.paramKey === paramKey)) return base;
