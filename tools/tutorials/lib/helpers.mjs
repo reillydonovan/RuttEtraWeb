@@ -64,6 +64,24 @@ export function helpers(page) {
       await page.waitForTimeout(300);
     },
 
+    /** A point on bare Patch Bay board (not over a module/jack/control) — the layout moves between themes. */
+    async emptyBaySpot() {
+      const pt = await page.evaluate(() => {
+        const bay = document.querySelector('.rw-patchbay');
+        if (!bay) return null;
+        const r = bay.getBoundingClientRect();
+        for (let y = r.bottom - 24; y > r.top + 120; y -= 18) {
+          for (let x = r.left + 260; x < r.right - 40; x += 24) {
+            const el = document.elementFromPoint(x, y);
+            if (el && el.closest('.rw-patchbay') && !el.closest('.rw-pb-module, .rw-pb-graphnode, .rw-pb-field, .rw-pb-scrollbar, button, input, select, [class*="rw-pb-unit"]')) return { x, y };
+          }
+        }
+        return null;
+      });
+      if (!pt) throw new Error('tour: no empty Patch Bay space');
+      return pt;
+    },
+
     async glide(pt, steps = 30) { await page.mouse.move(pt.x, pt.y, { steps }); },
 
     async click(sel, text, opts = {}) {
@@ -105,7 +123,16 @@ export function helpers(page) {
       await h.wait(250);
       to = await page.evaluate(findTarget, arg) ?? to;
       await page.mouse.move(to.x, to.y, { steps: 25 });
-      await h.wait(250);
+      // The board can still be gliding to a stop (edge auto-pan has momentum):
+      // keep re-aiming until the jack holds still under the cursor.
+      for (let i = 0; i < 12; i++) {
+        await h.wait(300);
+        const now = await page.evaluate(findTarget, arg);
+        if (!now) break;
+        if (Math.hypot(now.x - to.x, now.y - to.y) < 3) break;
+        to = now;
+        await page.mouse.move(to.x, to.y, { steps: 8 });
+      }
       await page.mouse.up();
     },
 
@@ -145,15 +172,22 @@ export function helpers(page) {
 
     /** Center of `inner` inside the visible panel row whose label is `label`. */
     async row(label, inner = '.rw-knob', scope = '#panel-root') {
-      const pt = await page.evaluate(([l, s, sc]) => {
+      const find = ([l, s, sc, scroll]) => {
         const rows = [...document.querySelectorAll(`${sc} .rw-row`)].filter((r) => r.querySelector('.rw-label')?.textContent.trim() === l);
+        let off = null;
         for (const r of rows) {
           const el = r.querySelector(s);
           const b = el?.getBoundingClientRect();
-          if (b && b.width > 0 && b.y >= 0 && b.bottom <= innerHeight) return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+          if (!b || b.width <= 0) continue;
+          if (b.y >= 0 && b.bottom <= innerHeight) return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+          off ??= el;
         }
+        // Present but below/above the fold (sections start collapsed and tall): bring it in.
+        if (scroll && off) { off.scrollIntoView({ behavior: 'smooth', block: 'center' }); return 'scrolled'; }
         return null;
-      }, [label, inner, scope]);
+      };
+      let pt = await page.evaluate(find, [label, inner, scope, true]);
+      if (pt === 'scrolled') { await h.settle(); pt = await page.evaluate(find, [label, inner, scope, false]); }
       if (!pt) throw new Error(`tour: no visible row "${label}" ${inner}`);
       return pt;
     },
@@ -254,10 +288,10 @@ export function helpers(page) {
     async card(kicker, title, ms = 2600) {
       await page.evaluate(([k, t, d]) => {
         const c = document.createElement('div');
-        c.innerHTML = `<div style="font:14px 'Share Tech Mono',monospace;letter-spacing:.3em;color:#6fdc8c;opacity:.85">${k}</div>
-          <div style="font:46px VT323,monospace;color:#b8ffc8;margin-top:6px;text-shadow:0 0 18px rgba(80,255,140,.45)">${t}</div>`;
+        c.innerHTML = `<div style="font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.24em;text-transform:uppercase;color:#98989d">${k}</div>
+          <div style="font:700 48px -apple-system,'SF Pro Display','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em;color:#fff;margin-top:10px">${t}</div>`;
         Object.assign(c.style, { position: 'fixed', inset: '0', display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', background: 'rgba(4,10,6,.92)', zIndex: '2147483600', pointerEvents: 'none',
+          justifyContent: 'center', background: 'rgba(0,0,0,.88)', zIndex: '2147483600', pointerEvents: 'none',
           transition: 'opacity .7s ease' });
         document.documentElement.appendChild(c);
         setTimeout(() => { c.style.opacity = '0'; }, d);

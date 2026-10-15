@@ -34,6 +34,7 @@ const S = '#panel-root [data-mod-slot="0"]';
 export async function run(page, seg, h) {
   await seg('intro', async () => {
     await h.wait(2700);
+    await h.section('Video Source A');
     await h.reveal('#panel-root .rw-toggle[data-param-key="patternEnabled"]', null, 'center');
     await h.click('#panel-root .rw-toggle[data-param-key="patternEnabled"]');
     await h.choose(await kindSelect(page), null, 'oscilloscope');

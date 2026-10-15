@@ -15,7 +15,7 @@ export const poster = 'play';
 export async function pre(page, h) {
   await bootPattern(page);
   await page.click('#panel-root .rw-tab[data-tab="synth"]');
-  await page.click('#timeline-dock .rw-tl-header button.rw-btn:text-is("+ NEW")');
+  await page.click('#timeline-dock [data-tl="new"]');
   await h.section('Presets');
 }
 
@@ -40,7 +40,7 @@ export async function run(page, seg, h) {
   await seg('change', async () => {
     await h.click('#panel-root .rw-preset-chip', 'Amber Terminal', { exact: true });
     await h.wait(900);
-    await h.section('Display Control Unit', { scrollOnly: true });
+    await h.section('Display Control Unit');
     await h.reveal('#panel-root [data-param-key="zPush"]', null, 'center');
     await h.knob(await h.at('#panel-root [data-param-key="zPush"] .rw-knob'), 60, 50);
   });
@@ -53,12 +53,12 @@ export async function run(page, seg, h) {
   });
 
   await seg('play', async () => {
-    await h.click('#timeline-dock .rw-tl-header button.rw-btn', 'STOP', { exact: true });
+    await h.click('#timeline-dock [data-tl="stop"]');
     await h.wait(300);
-    await h.click('#timeline-dock .rw-tl-header button.rw-btn', 'PLAY', { exact: true });
+    await h.click('#timeline-dock [data-tl="play"]');
     await h.glide({ x: 980, y: 420 }, 40);
     await h.wait(7000);
-    await h.click('#timeline-dock .rw-tl-header button.rw-btn', 'PAUSE', { exact: true });
+    await h.click('#timeline-dock [data-tl="play"]');
   });
 
   await seg('menu', async () => {

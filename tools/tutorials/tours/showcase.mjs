@@ -55,7 +55,7 @@ export async function run(page, seg, h) {
     await h.click(T('autoOrbit'));
     await h.check(() => !document.querySelector('#panel-root .rw-toggle[data-param-key="autoOrbit"] input')?.checked, 'auto-orbit off');
     await h.resetView();
-    await h.section('Color / Post FX', { scrollOnly: true });
+    await h.section('Color / Post FX');
     await h.click(T('feedbackEnabled'));
     await h.choose(await h.at('#panel-root select[data-param-key="colorMode"]'), null, 'phosphorGreen');
     await h.section('Dual Raster');

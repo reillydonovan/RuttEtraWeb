@@ -40,9 +40,11 @@ export async function run(page, seg, h) {
     }, P);
     if (v == null) throw new Error('saved preset not listed');
     await h.choose(sel, null, v);
+    await h.reveal(`${P} .rw-row .rw-label`, 'Saved', 'center');
     const btns = await page.evaluate((p) => {
       const sel = [...document.querySelectorAll(`${p} .rw-row`)].find((r) => r.querySelector('.rw-label')?.textContent.trim() === 'Saved');
-      const btn = [...sel.parentElement.querySelectorAll('.rw-btn')].find((b) => b.textContent.trim() === 'Load');
+      const btn = [...(sel.closest('.rw-group') ?? sel.parentElement).querySelectorAll('.rw-btn')].find((b) => b.textContent.trim() === 'Load');
+      btn.scrollIntoView({ block: 'center' });
       const r = btn.getBoundingClientRect();
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     }, P);

@@ -34,7 +34,7 @@ const isEmpty = ([x, y]) => {
 export async function run(page, seg, h) {
   await seg('intro', async () => {
     await h.wait(2700);
-    await h.click({ x: 640, y: 960 }, null, { button: 'right' });
+    await h.click(await h.emptyBaySpot(), null, { button: 'right' });
     await h.wait(700);
     await h.click('.rw-pb-addnode-menu .rw-graph-palette-item', 'LFO', { exact: true, steps: 25 });
     await h.wait(500);

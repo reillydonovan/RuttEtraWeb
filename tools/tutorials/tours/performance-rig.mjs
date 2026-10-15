@@ -68,7 +68,7 @@ export async function run(page, seg, h) {
   });
 
   await seg('timecode', async () => {
-    await h.click('#timeline-dock .rw-tl-header button.rw-btn', '+ NEW', { exact: true });
+    await h.click('#timeline-dock [data-tl="new"]');
     await h.wait(500);
     const sel = await page.evaluate(() => {
       const s = [...document.querySelectorAll('#timeline-dock select')].find((x) => [...x.options].some((o) => /timecode/i.test(o.textContent)));
@@ -76,7 +76,7 @@ export async function run(page, seg, h) {
       return { x: b.x + b.width / 2, y: b.y + b.height / 2, v: [...s.options].find((o) => /timecode/i.test(o.textContent)).value };
     });
     await h.choose(sel, null, sel.v);
-    await h.click('#timeline-dock .rw-tl-header button.rw-btn', 'PLAY', { exact: true });
+    await h.click('#timeline-dock [data-tl="play"]');
     await h.wait(2500);
   });
 

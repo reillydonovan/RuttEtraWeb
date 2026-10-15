@@ -16,7 +16,7 @@ export const poster = 'lum';
 export async function pre(page, h) {
   await bootPattern(page);
   await page.click('#panel-root .rw-tab[data-tab="synth"]');
-  await h.section('Display Control Unit', { scrollOnly: true });
+  await h.section('Display Control Unit');
 }
 
 const K = (key) => `#panel-root [data-param-key="${key}"] .rw-knob`;

@@ -47,7 +47,7 @@ export async function run(page, seg, h) {
   await seg('bay', async () => { await h.click('#rw-left-shell .rw-region-max-btn'); });
 
   await seg('addnode', async () => {
-    await h.click({ x: 640, y: 960 }, null, { button: 'right' });
+    await h.click(await h.emptyBaySpot(), null, { button: 'right' });
     await h.wait(700);
     await h.click('.rw-pb-addnode-menu .rw-graph-palette-item', 'LFO', { exact: true, steps: 25 });
   });

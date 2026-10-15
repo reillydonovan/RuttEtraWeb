@@ -2,7 +2,7 @@
 import { bootPattern } from '../lib/helpers.mjs';
 
 export const lines = [
-  { id: 'intro', text: 'Every picture starts with a source. You can pick one on the start screen, or any time in the Source section of the Controls.' },
+  { id: 'intro', text: 'Every picture starts with a source. You can pick one on the start screen, or any time in the Video Source A section of the Controls.' },
   { id: 'tab', text: 'Open the Synth tab. Source is near the top.' },
   { id: 'kind', text: 'The Pattern Generator makes pictures with no camera at all. Change its Kind to try another pattern. Lissajous.' },
   { id: 'kind2', text: 'Spiral. And Worley cells. Each kind brings its own controls, just below.' },
@@ -31,6 +31,7 @@ export async function run(page, seg, h) {
   await seg('tab', async () => {
     await h.click('#panel-root .rw-tab[data-tab="synth"]');
     await h.wait(500);
+    await h.section('Video Source A');
     await page.evaluate(() => {
       const g = [...document.querySelectorAll('#panel-root .rw-group-head')].find((e) => e.textContent.trim() === 'Pattern Generator');
       g?.scrollIntoView({ behavior: 'smooth', block: 'start' });

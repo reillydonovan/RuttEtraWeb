@@ -100,7 +100,11 @@ export function graphHelpers(page, h) {
 
     /** Add a target binding to the selected node and point it at `target` with `amount`. */
     async bind(target, amount) {
+      // The inspector scrolls inside its own column; the Bindings block can sit below its fold.
+      await h.reveal('#panel-root .rw-graph-add-binding', null, 'center');
+      const before = await page.evaluate(() => document.querySelectorAll('#panel-root .rw-graph-binding').length);
       await h.click('#panel-root .rw-graph-add-binding');
+      await h.check((n) => document.querySelectorAll('#panel-root .rw-graph-binding').length > n, 'binding row added', before);
       await h.wait(400);
       const tgt = await page.evaluate(() => {
         const rows = document.querySelectorAll('#panel-root .rw-graph-binding');

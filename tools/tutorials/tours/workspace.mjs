@@ -5,6 +5,7 @@ export const lines = [
   { id: 'intro', text: 'The screen is four windows: left, center, right, and bottom. Each one holds tabs, like a desktop editor.' },
   { id: 'tabs', text: 'The tab strip names what each window shows. Here: the Patch Bay, the Renderer, the Controls, and the Timeline.' },
   { id: 'max', text: "The arrow button in a window's corner maximizes it. Click it again to restore." },
+  { id: 'collapse', text: 'The minus button collapses a window down to just its tab strip. Click the strip, or the same button, to bring it back.' },
   { id: 'layout', text: 'The Window menu has layout presets. Tall stacks everything into one column.' },
   { id: 'default', text: 'Default brings back the four-window layout.' },
   { id: 'skin', text: 'Under View, pick a skin. CRT is flat and compact. Hardware turns sliders into knobs. Rack, the default, adds patch cables.' },
@@ -35,6 +36,15 @@ export async function run(page, seg, h) {
     await h.click('#rw-center-shell .rw-region-max-btn');
     await h.wait(1600);
     await h.click('#rw-center-shell .rw-region-max-btn');
+  });
+
+  await seg('collapse', async () => {
+    await h.click('#timeline-dock .rw-region-collapse-btn');
+    await h.check(() => document.querySelector('#timeline-dock')?.classList.contains('rw-window-collapsed'), 'timeline collapsed');
+    await h.wait(1800);
+    await h.click('#timeline-dock .rw-region-collapse-btn');
+    await h.check(() => !document.querySelector('#timeline-dock')?.classList.contains('rw-window-collapsed'), 'timeline restored');
+    await h.wait(600);
   });
 
   await seg('layout', async () => { await h.menu('WINDOW', 'Layout', 'Tall (everything in one column)'); });

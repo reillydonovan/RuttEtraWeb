@@ -32,7 +32,7 @@ export async function run(page, seg, h) {
     await h.wait(2600);
     await h.click('#panel-root .rw-region-max-btn');
     await h.wait(800);
-    await h.section('Modulation', { scrollOnly: true });
+    await h.section('Modulation');
     await h.glide(await h.at('#panel-root .rw-graph-palette-cat', 'Sources', { exact: true }), 30);
   });
 
