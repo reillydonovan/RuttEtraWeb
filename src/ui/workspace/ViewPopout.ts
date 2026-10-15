@@ -35,6 +35,7 @@
  */
 
 import { applySkinToDocument, releaseDocument } from '../skin';
+import { applyThemeToDocument, releaseThemeDocument } from '../theme';
 import { applyTextScaleToDocument } from '../textScale';
 import type { ViewId } from './workspaceModel';
 import { driveFromWindow } from '../../renderer/frameDriver';
@@ -84,6 +85,7 @@ export function popoutView(opts: {
   w.document.body.className = document.body.className;
   w.document.body.classList.add('rw-popout-body', 'rw-view-popout-body');
   applySkinToDocument(w.document);
+  applyThemeToDocument(w.document);
   const unsubTextScale = applyTextScaleToDocument(w.document);
 
   // ---- local tab bar ----
@@ -213,7 +215,7 @@ export function popoutView(opts: {
   renderStrip();
 
   const cleanup = (): void => {
-    try { releaseDocument(w.document); } catch { /* closed */ }
+    try { releaseDocument(w.document); releaseThemeDocument(w.document); } catch { /* closed */ }
     unsubTextScale();
     openPopups.delete(opts.view);
     if (!w.closed) w.close();

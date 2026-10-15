@@ -1009,6 +1009,11 @@ async function bootSynth(): Promise<void> {
     const { createMenuBar } = await import('./ui/menu/MenuBar');
     const { getTextScale } = await import('./ui/textScale');
     const { getSkin, setSkin } = await import('./ui/skin');
+    const { getTheme, setTheme } = await import('./ui/theme');
+    registerActions([
+      { id: 'view.theme.phosphor', label: 'Theme: Phosphor (original)', run: () => setTheme('phosphor'), checked: () => getTheme() === 'phosphor' },
+      { id: 'view.theme.modern', label: 'Theme: Modern', run: () => setTheme('modern'), checked: () => getTheme() === 'modern' },
+    ]);
     const { exportEverything, importEverything } = await import('./state/exportEverything');
     const download = (name: string, text: string): void => {
       const blob = new Blob([text], { type: 'application/json' });
@@ -1203,11 +1208,14 @@ async function bootSynth(): Promise<void> {
       },
       {
         label: 'VIEW',
-        hint: 'Skins, HUD, fullscreen, and panel/timeline docking.',
+        hint: 'Skins, themes, HUD, fullscreen, and panel/timeline docking.',
         items: () => [
           skinRadio('standard', 'Skin: CRT (flat)'),
           skinRadio('hardware', 'Skin: Hardware'),
           skinRadio('rack', 'Skin: Rack (patch cables)'),
+          { sep: true },
+          { actionId: 'view.theme.phosphor' },
+          { actionId: 'view.theme.modern' },
           { sep: true },
           { actionId: 'view.hud' },
           { actionId: 'view.fullscreen' },

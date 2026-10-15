@@ -1,0 +1,149 @@
+/* ============================================================
+   Modern theme — the nothingbutdatacenters.com design system in
+   RuttEtraWeb's colours. Layered OVER the phosphor stylesheets and
+   scoped to `body[data-theme="modern"]` (stamped by src/ui/theme.ts);
+   Phosphor, the default, removes the attribute and is byte-identical to
+   before. Delete this file and the app is the terminal again.
+
+   HOW THIS FILE IS BUILT (same rule as NBDC's apple.css): every value is
+   a token; every behaviour is declared ONCE over one selector list.
+   To round, label or light a new component, ADD ITS SELECTOR TO THE
+   BEHAVIOUR'S LIST — do not restate the behaviour on the component.
+
+     1 TOKENS      colour, type, radius, glow, motion, control sizes
+     2 BASE        page, type
+     3 BEHAVIOURS  LABEL / MONO / SURFACE / GLOW / CONTROLS
+     4 COMPONENTS  what is particular to one component
+     5 MOTION      reduced motion
+
+   Specificity: skin rules are `body:is([data-skin..]):not([data-layout])
+   .x` = (0,3,1). Prefix `html body[data-theme="modern"]` is (0,1,2) —
+   fine against plain rules; where a skin rule must be beaten the prefix
+   gains `[data-skin]` (0,2,2 + class) or a doubled attribute. No
+   !important unless commented.
+
+   Colour: neutral Apple greys; phosphor green (#5fff85) only for lit /
+   active state, the pointer glow and the lift shadow; amber still means
+   "the timeline owns this value"; red still means warn / reject.
+   ============================================================ */
+
+/* ============================================================ 1 TOKENS */
+
+@property --glow { syntax: "<number>"; inherits: false; initial-value: 0; }
+
+:root[data-theme="modern"],
+body[data-theme="modern"] {
+  /* The existing --re-* tokens, restated: ~600 var(--re-*) uses follow. */
+  --re-bg:        #000000;
+  --re-bg-2:      #0a0a0b;
+  --re-panel:     #161617;
+  --re-panel-hi:  #1d1d1f;
+  --re-line:      rgba(255, 255, 255, 0.08);
+  --re-line-hi:   #424245;
+  --re-text:      #d2d2d7;
+  --re-text-dim:  #86868b;
+  --re-accent:    #5fff85;
+  --re-accent-2:  #ffb347;
+  --re-warn:      #ff5c5c;
+  --re-glow:      0 8px 28px rgba(95, 255, 133, 0.18);
+  --re-mono:      var(--mx-sans);     /* body face is the sans; mono is opt-in (--mx-code) */
+  --re-phosphor:  #5fff85;
+  --re-amber:     #ffb347;
+  --re-bg-deep:   #000000;
+  --re-dim:       #86868b;
+  --re-red:       #ff5c5c;
+  --re-fg:        #f5f5f7;
+
+  /* type */
+  --mx-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue",
+             "Segoe UI", Helvetica, Arial, sans-serif;
+  --mx-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --mx-track-caps: 0.13em;
+  --mx-text-max: #f5f5f7;
+
+  /* shape (NBDC 28/18/12 scaled down for a dense instrument panel) */
+  --mx-radius-l: 18px;
+  --mx-radius-m: 12px;
+  --mx-radius-s: 8px;
+  --mx-pill: 980px;
+
+  /* surfaces */
+  --mx-edge: rgba(255, 255, 255, 0.08);
+  --mx-surface: #161617;
+  --mx-surface-hover: #1d1d1f;
+  --mx-glass: rgba(22, 22, 23, 0.80);
+  --mx-lift: -2px;
+  --mx-lift-shadow: 0 10px 30px rgba(95, 255, 133, 0.14);
+
+  /* the glow: one light, everywhere it appears (phosphor green) */
+  --mx-glow-size: 260px;
+  --mx-glow-core: 95, 255, 133;
+
+  /* motion: a long ease-out, nothing springy */
+  --mx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mx-fast: 120ms;
+  --mx-base: 240ms;
+  --mx-slow: 420ms;
+  --mx-press: 0.97;
+
+  /* controls */
+  --mx-btn-bg: #f5f5f7;
+  --mx-btn-fg: #0a0a0b;
+  --mx-btn-bg-hover: #ffffff;
+  --mx-btn-glow: 0 8px 26px rgba(95, 255, 133, 0.30), 0 0 0 1px rgba(255, 255, 255, 0.5);
+  --mx-btn2-edge: rgba(245, 245, 247, 0.30);
+  --mx-btn2-hover: rgba(245, 245, 247, 0.08);
+  --mx-icon-bg: rgba(51, 51, 54, 0.72);
+  --mx-icon-hover: rgba(80, 80, 84, 0.85);
+  --mx-focus: 0 0 0 2px #000, 0 0 0 4px rgba(95, 255, 133, 0.75);
+}
+
+/* ============================================================== 2 BASE */
+
+html body[data-theme="modern"],
+html body[data-theme="modern"] #app {
+  background: var(--re-bg);
+  color: var(--re-text);
+  font-family: var(--mx-sans);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-theme="modern"] { color-scheme: dark; background: var(--re-bg); }
+
+/* Popout windows have their own body background in panel.css. */
+html body[data-theme="modern"].rw-popout-body { background: var(--re-bg); }
+
+/* The panel title: sans, not the phosphor glow. */
+html body[data-theme="modern"] .rw-panel-title-text {
+  color: var(--mx-text-max);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-shadow: none;
+}
+
+/* ========================================================= 3 BEHAVIOURS */
+
+/* MONO -- numbers and values. Tabular so a changing readout never jitters. */
+html body[data-theme="modern"] :is(
+  .rw-num, .rw-slider-readout, .rw-readout, .rw-pb-cell-value, .rw-pb-cell-live,
+  .rw-pb-lcd, .rw-live-badge, .rw-tl-counter-cluster, .rw-tl-ruler, .rw-panel-build,
+  .rw-menu-shortcut, #hud, .rw-numeric-modal-range, .rw-cv-num, .rw-cv-live
+) {
+  font-family: var(--mx-code);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* LABEL -- the small, mono, uppercase, tracked label. */
+html body[data-theme="modern"] :is(
+  .rw-group-head, .rw-pb-field-title, .rw-pb-subhead, .rw-tl-track-label,
+  .rw-region-bar-label, .rw-info-kicker, .rw-tut-step-label, .rw-graph-palette-cat,
+  .rw-graph-inspector-subtitle, .rw-numeric-modal-subtitle, .rw-learn-head
+) {
+  font-family: var(--mx-code);
+  text-transform: uppercase;
+  letter-spacing: var(--mx-track-caps);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--re-text-dim);
+}

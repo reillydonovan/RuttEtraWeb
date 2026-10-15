@@ -19,6 +19,7 @@
  */
 
 import { applySkinToDocument, releaseDocument } from './skin';
+import { applyThemeToDocument, releaseThemeDocument } from './theme';
 import { applyTextScaleToDocument } from './textScale';
 
 export interface PanelPopoutController {
@@ -62,6 +63,7 @@ export function createPanelPopout(
     // `className` above doesn't carry data-* attributes; the skin module
     // stamps `body[data-skin]` and keeps it live until popIn releases it.
     applySkinToDocument(w.document);
+    applyThemeToDocument(w.document);
     unsubTextScale = applyTextScaleToDocument(w.document);
 
     // Adopt the live panel. The placeholder keeps our seat in the main DOM.
@@ -79,7 +81,7 @@ export function createPanelPopout(
     // Accessing .document on an already-closed window can throw in some
     // browsers; a stale entry is harmless (stamp() no-ops on a dead body)
     // but releasing keeps the registry from growing across many popouts.
-    try { if (popup) releaseDocument(popup.document); } catch { /* closed */ }
+    try { if (popup) { releaseDocument(popup.document); releaseThemeDocument(popup.document); } } catch { /* closed */ }
     unsubTextScale?.();
     unsubTextScale = null;
     if (popup && !popup.closed) popup.close();

@@ -18,6 +18,8 @@ import { infoButton } from './help/infoModal';
 import { sectionInfo } from './help/infoContent';
 import { flowStateOf, paramsFlow } from './help/signalFlow';
 import { SkinId, setSkin, subscribeSkin } from './skin';
+import { ThemeId, setTheme, subscribeTheme } from './theme';
+import { runAction } from './actions';
 
 export type TabId = 'synth' | 'io' | 'help';
 
@@ -118,6 +120,23 @@ export class ControlPanel {
     });
     attachTooltip(skinSel, 'Panel skin: flat CRT, hardware (knobs and switches), or full rack with patch cables. Remembered on this machine, not in your patches.');
 
+    // Theme picker — Phosphor (original) / Modern. Independent of the skin;
+    // also a local preference (theme.ts), not a Settings key.
+    const themeSel = document.createElement('select');
+    themeSel.className = 'rw-skin-select rw-theme-select';
+    for (const [value, label] of [['phosphor', 'PHOS'], ['modern', 'MOD']] as const) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      themeSel.appendChild(opt);
+    }
+    themeSel.addEventListener('change', () => { if (!runAction(`view.theme.${themeSel.value}`)) setTheme(themeSel.value as ThemeId); });
+    subscribeTheme((t) => {
+      themeSel.value = t;
+      themeSel.classList.toggle('active', t !== 'phosphor');
+    });
+    attachTooltip(themeSel, 'Visual theme: Phosphor (original green CRT) or Modern (neutral greys, rounded, soft glow). Works with any skin. Remembered on this machine, not in your patches.');
+
     // (The old ↔ dock-side toggle is gone: since the v31 tab model the
     // panel shell IS the right window — the left side belongs to the
     // left workspace window; drag tabs there instead.)
@@ -142,7 +161,7 @@ export class ControlPanel {
       this.publishInset();
     });
 
-    actions.append(skinSel, collapseBtn);
+    actions.append(skinSel, themeSel, collapseBtn);
     title.appendChild(actions);
     this.actionsBar = actions;
 

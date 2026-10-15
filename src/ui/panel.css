@@ -17,6 +17,14 @@
   --re-glow:      0 0 8px rgba(95, 255, 133, 0.55);
   --re-mono:      'VT323', 'Share Tech Mono', ui-monospace, Menlo, monospace;
   --rw-text-scale: 1;
+  /* Used across the stylesheets with inline fallbacks but never declared;
+     declared here (values = those fallbacks) so a theme can restate them. */
+  --re-phosphor:  #66ff66;
+  --re-amber:     #ffb86b;
+  --re-bg-deep:   #0a0a0a;
+  --re-dim:       rgba(95, 255, 133, 0.55);
+  --re-red:       #ff6a6a;
+  --re-fg:        #cfffe0;
 }
 
 /* Global legibility control (View -> Text Size): scales UI chrome
