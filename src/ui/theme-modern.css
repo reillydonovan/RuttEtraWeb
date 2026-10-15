@@ -147,3 +147,112 @@ html body[data-theme="modern"] :is(
   font-weight: 500;
   color: var(--re-text-dim);
 }
+
+/* SURFACE -- a rounded panel on a neutral grey with a hairline edge. The
+   radius is on the box only (no overflow:hidden), so rounding can never
+   clip a jack, tooltip or menu. Docked window shells (#panel-root etc.)
+   stay square — they meet the screen edge — but take the neutral surface.
+   `[data-theme]` doubled = (0,3,2) so these also beat the skins'
+   (0,3,1) module rules (rack.css sections, skin.css faces).
+
+   KEEP THE LIST BELOW IN STEP WITH GLOW'S (themeGlow.ts GLOW_SELECTOR). */
+html body[data-theme="modern"][data-theme] {
+  & :is(
+    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
+    .rw-graph-node, .rw-mod-slot, .rw-graph-palette, .rw-graph-library-card,
+    .rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card,
+    .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost
+  ) {
+    border-radius: var(--mx-radius-m);
+    background-color: var(--mx-surface);
+    border: 1px solid var(--mx-edge);
+  }
+  /* Menus / popovers / modals float: glass + a real shadow, edge not green. */
+  & :is(.rw-menu, .rw-hover-tip, .rw-info-card, .rw-numeric-modal-card,
+        .rw-about-dialog-card, .rw-tut-callout, .rw-pb-addnode-menu, .rw-drag-ghost) {
+    background-color: var(--mx-glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    color: var(--re-text);
+  }
+  & :is(.rw-hover-tip) { border-radius: var(--mx-radius-s); }
+  & :is(.rw-menu) { padding: 6px; border-radius: var(--mx-radius-m); }
+  /* Graph-editor nodes are drawn over a dark canvas. */
+  & .rw-graph-node { background-color: rgba(22, 22, 23, 0.94); }
+  & .rw-graph-node.selected { border-color: rgba(95, 255, 133, 0.7); box-shadow: 0 0 0 1px rgba(95, 255, 133, 0.25), var(--mx-lift-shadow); }
+  /* A Controls section as a card (the rack skin gives it chrome too). */
+  & .rw-section { margin: 8px 8px 0; }
+  & .rw-section-head { background: transparent; border-radius: var(--mx-radius-m); }
+  & .rw-section-body { background: transparent; }
+  & .rw-mod-slot.expanded { border-color: rgba(95, 255, 133, 0.45); box-shadow: none; }
+  /* Rack screws and dashed group frames are terminal marks: off. */
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode)::before,
+  & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode)::after,
+  &[data-skin="rack"] .rw-section-head::before,
+  &[data-skin="rack"] .rw-section-head::after { display: none; }
+  & .rw-group { border: 1px solid var(--mx-edge); border-radius: var(--mx-radius-s); }
+  /* Rack section header reserved room for the screws. */
+  &[data-skin="rack"] .rw-section-head { padding-left: 12px; padding-right: 12px; }
+
+  /* Docked window shells: neutral surface, hairline edge. */
+  & :is(#panel-root, #rw-left-shell, #rw-center-shell:not(.rw-center-passthrough), #timeline-dock) {
+    background: var(--mx-glass);
+    border-color: var(--mx-edge);
+    box-shadow: none;
+  }
+  & #rw-menubar {
+    background: rgba(22, 22, 23, 0.80);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--mx-edge);
+  }
+  & .rw-patchbay { background: #000; }
+}
+
+/* GLOW -- the pointer's light on a surface (phosphor green, low).
+   themeGlow.ts sets --mx/--my on the surface under the pointer; --glow
+   fades 0 -> 1 on :hover. The `:hover` copy of the selector is listed
+   too: a `background` shorthand on hover elsewhere would reset
+   background-image and the glow would vanish exactly when it matters. */
+html body[data-theme="modern"][data-theme] {
+  & :is(
+    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
+    .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
+    .rw-about-dialog-card, .rw-tut-callout
+  ),
+  & :is(
+    .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
+    .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
+    .rw-about-dialog-card, .rw-tut-callout
+  ):hover {
+    background-image: radial-gradient(var(--mx-glow-size) circle at var(--mx, 50%) var(--my, 50%),
+      rgba(var(--mx-glow-core), calc(var(--glow) * 0.12)),
+      rgba(var(--mx-glow-core), calc(var(--glow) * 0.04)) 40%,
+      transparent 70%);
+    transition: --glow var(--mx-slow) var(--mx-ease), transform var(--mx-base) var(--mx-ease),
+      box-shadow var(--mx-base) var(--mx-ease), background-color var(--mx-fast) linear,
+      border-color var(--mx-fast) linear;
+  }
+}
+@media (hover: hover) {
+  html body[data-theme="modern"][data-theme] {
+    & :is(
+      .rw-section, .rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus,
+      .rw-graph-node, .rw-mod-slot, .rw-menu, .rw-info-card, .rw-numeric-modal-card,
+      .rw-about-dialog-card, .rw-tut-callout
+    ):hover { --glow: 1; }
+    & :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode, .rw-pb-bus):hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background-color: var(--mx-surface-hover);
+    }
+    /* Lift only on Patch Bay units, and never while something is being
+       dragged (module drag, reorder lift, or a cable drag) — a moving
+       box under a moving cursor reads as jitter. */
+    & .rw-patchbay:not(.rw-pb-node-dragging):not(.rw-rack-dragging):not(.rw-pb-panning)
+      :is(.rw-pb-module, .rw-pb-field, .rw-pb-graphnode):not(.rw-pb-unit-dragging):not(.rw-pb-unit-lifting):hover {
+      transform: translateY(var(--mx-lift));
+      box-shadow: var(--mx-lift-shadow);
+    }
+  }
+}

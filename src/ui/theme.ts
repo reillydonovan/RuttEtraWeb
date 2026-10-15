@@ -15,6 +15,7 @@
  */
 
 import './theme-modern.css';
+import { attachGlow } from './themeGlow';
 
 export type ThemeId = 'phosphor' | 'modern';
 
@@ -26,6 +27,8 @@ const listeners = new Set<Listener>();
 
 /** Documents whose `<body data-theme>` we keep stamped (main + popouts). */
 const stampedDocs = new Set<Document>();
+/** Pointer-glow detach functions, present only while the theme is modern. */
+const glowDetach = new Map<Document, () => void>();
 
 function readStored(): ThemeId {
   try {
@@ -65,10 +68,15 @@ export function applyThemeToDocument(doc: Document): void {
 
 export function releaseThemeDocument(doc: Document): void {
   stampedDocs.delete(doc);
+  glowDetach.get(doc)?.();
+  glowDetach.delete(doc);
 }
 
 function stamp(doc: Document): void {
   if (!doc.body) return;
+  // The glow listener only exists while Modern is active.
+  if (current === 'modern' && !glowDetach.has(doc)) glowDetach.set(doc, attachGlow(doc));
+  else if (current !== 'modern') { glowDetach.get(doc)?.(); glowDetach.delete(doc); }
   // <html> is stamped too so the token block (`:root[data-theme]`) can
   // restate the --re-* colours for the root background as well.
   if (current === 'phosphor') {
