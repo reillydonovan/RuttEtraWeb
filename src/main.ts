@@ -1953,7 +1953,12 @@ async function bootSynth(): Promise<void> {
       if (composedVideo) {
         ruttEtra.setExternalVideoTexture(composedVideo.texture, composedVideo.width, composedVideo.height);
         videoCompositeBoundExternal = true;
-      } else if (videoCompositeBoundExternal || releasedOverlay) {
+      } else if ((videoCompositeBoundExternal || releasedOverlay) && settings.get('videoRendererIn') !== 'dualRaster') {
+        // Not while Dual Raster is the route: its block below binds both
+        // rasters itself and sets videoCompositeBoundExternal every frame,
+        // so restoring here re-created raster A's VideoTexture EVERY frame
+        // — a texture that never got a frame uploaded, so raster A went
+        // black. Leaving Dual Raster still restores the live video once.
         ruttEtra.attachVideo();
         videoCompositeBoundExternal = false;
       }

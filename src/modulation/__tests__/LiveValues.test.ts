@@ -56,6 +56,18 @@ describe('LiveValuesStore', () => {
     expect(last).toBe(0.9);
   });
 
+  it('a non-finite contribution (runaway feedback) holds the live value at base', () => {
+    let last = -1;
+    live.subscribe('zPush', (v) => { last = v; });
+    live.setContributions('graph', { zPush: Infinity });
+    expect(last).toBe(0.5);
+    expect(live.getLive('zPush')).toBe(0.5);
+    live.setContributions('graph', { zPush: NaN });
+    expect(live.getLive('zPush')).toBe(0.5);
+    live.setContributions('graph', { zPush: 0.25 });
+    expect(live.getLive('zPush')).toBeCloseTo(0.75);
+  });
+
   it('engine offset adds to live but leaves base alone', () => {
     let last = -1;
     live.subscribe('zPush', (v) => { last = v; });

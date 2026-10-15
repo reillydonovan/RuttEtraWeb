@@ -70,7 +70,6 @@ export class CameraRig {
 
   private mode: CameraMode = 'orbit';
   private keys = new Set<string>();
-  private autoOrbitAngle = 0;
   private rollVel = 0;
 
   private reusableQuat = new THREE.Quaternion();
@@ -232,7 +231,6 @@ export class CameraRig {
     if (this.flyControls.isLocked) this.flyControls.unlock();
 
     // Cancel transient camera motion.
-    this.autoOrbitAngle = 0;
     this.rollVel = 0;
     this.keys.clear();
 
@@ -270,15 +268,16 @@ export class CameraRig {
     if (this.mode === 'orbit') {
       if (this.settings.get('autoOrbit')) {
         const speed = this.live.getLive('autoOrbitSpeed');
-        this.autoOrbitAngle += speed * dtSec;
-        const radius = this.camera.position.distanceTo(this.trackball.target);
         const tgt = this.trackball.target;
-        const y = this.camera.position.y;
-        this.camera.position.set(
-          tgt.x + Math.cos(this.autoOrbitAngle) * radius,
-          y,
-          tgt.z + Math.sin(this.autoOrbitAngle) * radius,
-        );
+        const pos = this.camera.position;
+        // Orbit in the horizontal plane, starting from wherever the camera
+        // is now. (Using the full 3D distance as the horizontal radius while
+        // keeping the height grew the orbit every frame whenever the camera
+        // sat above or below the target, so it spiralled away; starting from
+        // a stored angle made the view jump when auto-orbit was enabled.)
+        const radius = Math.hypot(pos.x - tgt.x, pos.z - tgt.z);
+        const angle = Math.atan2(pos.z - tgt.z, pos.x - tgt.x) + speed * dtSec;
+        pos.set(tgt.x + Math.cos(angle) * radius, pos.y, tgt.z + Math.sin(angle) * radius);
         this.camera.lookAt(tgt);
       }
       this.trackball.update();

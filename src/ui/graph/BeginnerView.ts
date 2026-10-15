@@ -27,6 +27,7 @@ import { CLASSIC_SOURCE_NODE_TYPES } from '../../modulation/graph/convert';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { TARGETS, cvOutputTargets } from '../targets';
 import { PatchSectionDeps } from '../sections/PatchSection';
+import { clonePatch } from '../../modulation/graph/clonePatch';
 import {
   canPaste, createSlotRow, getSlotClipboard, setSlotClipboard,
   SlotRowAdapter, SourceKind,
@@ -124,18 +125,6 @@ function rowsFromPatch(patch: GraphPatch): { rows: Array<BeginnerRow & { tooComp
 
 function genId(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
-}
-
-function clonePatch(p: GraphPatch): GraphPatch {
-  return {
-    nodes: p.nodes.map((n) => ({
-      id: n.id, type: n.type,
-      params: { ...n.params },
-      inputs: { ...n.inputs },
-      position: n.position ? { ...n.position } : undefined,
-    })),
-    bindings: p.bindings.map((b) => ({ ...b })),
-  };
 }
 
 /**

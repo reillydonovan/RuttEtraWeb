@@ -159,10 +159,25 @@ export class LiveValuesStore {
     return f;
   }
 
-  /** Live value: `(base + sum(offsets)) * product(factors)`. */
+  /**
+   * Live value: `(base + sum(offsets)) * product(factors)`.
+   *
+   * A non-finite result (a graph feedback loop with gain > 1 grows to
+   * Infinity, then NaN) falls back to the base value instead of reaching
+   * the renderer — an Infinity/NaN uniform blanks the whole raster until
+   * reload. Warned once per key, not silent (principle 3); the patch keeps
+   * running and recovers from base on the next frame.
+   */
   getLive(key: string): number {
-    return (this.getBase(key) + this.getOffset(key)) * this.getFactor(key);
+    const v = (this.getBase(key) + this.getOffset(key)) * this.getFactor(key);
+    if (Number.isFinite(v)) return v;
+    if (!this.warnedNonFinite.has(key)) {
+      this.warnedNonFinite.add(key);
+      console.warn(`[mod] "${key}" modulated to a non-finite value (runaway feedback?) — holding it at base`);
+    }
+    return this.getBase(key);
   }
+  private readonly warnedNonFinite = new Set<string>();
 
   /** Modulation magnitude `live - base` (signed). */
   getMod(key: string): number {

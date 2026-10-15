@@ -18,6 +18,7 @@ import {
 } from '../../modulation/graph/userLibrary';
 import { GraphPatch } from '../../modulation/graph/types';
 import { PatchSectionDeps } from '../sections/PatchSection';
+import { clonePatch } from '../../modulation/graph/clonePatch';
 
 export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
   const root = document.createElement('div');
@@ -142,15 +143,3 @@ export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
   return root;
 }
 
-function clonePatch(p: GraphPatch): GraphPatch {
-  return {
-    nodes: p.nodes.map((n) => ({
-      id: n.id, type: n.type,
-      params: { ...n.params },
-      inputs: { ...n.inputs },
-      position: n.position ? { ...n.position } : undefined,
-      enabled: n.enabled,
-    })),
-    bindings: p.bindings.map((b) => ({ ...b })),
-  };
-}

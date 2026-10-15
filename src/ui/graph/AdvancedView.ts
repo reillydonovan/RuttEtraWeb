@@ -24,6 +24,7 @@
 
 import { GraphNode, GraphPatch, NodeType } from '../../modulation/graph/types';
 import { deleteGraphNode } from '../rack/rackGeometry';
+import { clonePatch } from '../../modulation/graph/clonePatch';
 import { getDef } from '../../modulation/graph/registry';
 import { createPalette } from './palette';
 import { createInspector } from './inspector';
@@ -56,7 +57,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   nodesLayer.className = 'rw-graph-nodes-layer';
   center.appendChild(nodesLayer);
   const inspector = createInspector({
-    getPatch: () => clone(currentPatch()),
+    getPatch: () => currentPatch(),
     setPatch: (p, setOpts) => writePatch(p, setOpts),
     onProbe: (id, port) => openProbe(id, port),
     isProbing: () => probing,
@@ -144,7 +145,11 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   let ignoreClicksUntil = 0;
 
   function currentPatch(): GraphPatch {
-    return deps.settings.get('modGraph') ?? { nodes: [], bindings: [] };
+    // A COPY: callers edit it and hand it to writePatch(); mutating the
+    // stored object instead made settings.set() a no-op (same object), so
+    // adding a second node or dragging one never re-rendered.
+    const p = deps.settings.get('modGraph');
+    return p ? clonePatch(p) : { nodes: [], bindings: [] };
   }
 
   /**
@@ -266,11 +271,15 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       // placement — re-rendering on mousedown (below) would tear it
       // down mid-click and lose the caret position.
       if ((e.target as HTMLElement).closest('.rw-graph-note-text')) return;
+      // Measure BEFORE render(): render() rebuilds every node element, so
+      // `el` is detached afterwards and its rect reads all zeros — the grab
+      // offset became the raw cursor position and nodes jumped toward the
+      // canvas's top-left on every drag.
+      const r = el.getBoundingClientRect();
       selectedId = node.id;
       render();
       // Header-only drag.
       if ((e.target as HTMLElement).closest('.rw-graph-node-head')) {
-        const r = el.getBoundingClientRect();
         dragging = {
           id: node.id,
           offsetX: e.clientX - r.left,
@@ -529,20 +538,5 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     document.removeEventListener('keydown', onKey);
     unsubscribe();
     root.remove();
-  };
-}
-
-function clone(p: GraphPatch): GraphPatch {
-  return {
-    nodes: p.nodes.map((n) => ({
-      id: n.id, type: n.type,
-      params: { ...n.params },
-      inputs: { ...n.inputs },
-      position: n.position ? { ...n.position } : undefined,
-      // v17 mute flag must survive the clone or inspector edits would
-      // silently strip it.
-      enabled: n.enabled,
-    })),
-    bindings: p.bindings.map((b) => ({ ...b })),
   };
 }
