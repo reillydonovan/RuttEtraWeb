@@ -72,6 +72,11 @@ body[data-theme="modern"] {
   /* -- radii -- */
   --r-s: 6px;  --r-m: 10px;  --r-l: 14px;  --r-tab: 8px;  --pill: 980px;
 
+  /* -- select chevron: inset from the right edge, its size, and the
+        text padding that keeps the label clear of it (every select) -- */
+  --sel-inset: 10px;  --sel-caret: 10px;
+  --sel-pad-r: calc(var(--sel-inset) * 2 + var(--sel-caret));
+
   /* -- the three surface tiers (darkest = furthest back) -- */
   --c-bar:     #000000;          /* menu bar + window tab bars */
   --c-window:  #0e0e0f;          /* window content */
@@ -309,6 +314,16 @@ html body[data-theme="modern"][data-theme] {
     font-family: var(--mx-sans);
   }
   & :is(.rw-menu, .rw-kf-menu, .rw-pb-addnode-menu) { padding: var(--sp-1); border-radius: var(--r-m); }
+  /* Menus host their submenus as children placed with FIXED screen
+     coordinates (MenuBar.ts). A backdrop-filter makes an element the
+     containing block for fixed descendants, which threw the Window ▸
+     Layout submenu into the middle of the screen. Menus are near-opaque
+     instead of blurred. */
+  & :is(.rw-menu, .rw-kf-menu) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(30, 30, 32, 0.98);
+  }
   & .rw-hover-tip { border-radius: var(--r-s); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-s); line-height: 1.4; }
 }
 
@@ -428,6 +443,23 @@ html body[data-theme="modern"][data-theme] {
     transition: border-color var(--t-fast) linear, box-shadow var(--t-base) var(--ease);
   }
   & :is(.rw-text, .rw-panel-search :where(input), .rw-help-search, .rw-pb-note-text, .rw-select, .rw-skin-select) { font-family: var(--mx-sans); }
+  /* SELECT: one chevron rule for every dropdown — inset --sel-inset from
+     the right edge, label kept --sel-pad-r clear of it. Longhands only
+     (the chevron itself is a background-image set in panel.css). */
+  & :is(.rw-select, .rw-skin-select, .rw-region-select) {
+    padding-right: var(--sel-pad-r);
+    background-position: right var(--sel-inset) center;
+    background-size: var(--sel-caret) auto;
+    background-repeat: no-repeat;
+  }
+  /* The title-bar pickers were native selects (the browser's own arrow,
+     flush to the edge): same drawn chevron as every other dropdown. */
+  & :is(.rw-skin-select, .rw-region-select) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1 L5 5 L9 1' fill='none' stroke='%23d1d1d6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
   & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select, .rw-pb-cell-value,
         .rw-pb-note-text, .rw-panel-search :where(input), .rw-numeric-modal :where(input)):hover { border-color: var(--a-30); }
   & :is(.rw-select, .rw-num, .rw-text, .rw-skin-select, .rw-region-select, .rw-pb-cell-value, .rw-pb-note-text,
@@ -618,7 +650,7 @@ html body[data-theme="modern"][data-theme] {
     min-width: 0;
     min-height: var(--ctl-s);
     height: var(--ctl-s);
-    padding: 0 20px 0 var(--sp-2);
+    padding: 0 var(--sel-pad-r) 0 var(--sp-2);
     border-radius: var(--r-s);
     background-color: var(--c-fill);
     border-color: transparent;
@@ -627,8 +659,8 @@ html body[data-theme="modern"][data-theme] {
     font-weight: 600;
     letter-spacing: 0;
     box-shadow: none;
-    background-position: right 5px center;
-    background-size: 9px;
+    background-position: right var(--sel-inset) center;
+    background-size: var(--sel-caret) auto;
   }
   & .rw-skin-select.active { color: var(--t-max); border-color: transparent; box-shadow: none; }
   & .rw-panel-search { padding: 0 var(--sp-3) var(--sp-2); }

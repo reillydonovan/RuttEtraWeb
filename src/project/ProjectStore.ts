@@ -134,6 +134,18 @@ export class ProjectStore {
     this.markClean();
   }
 
+  /**
+   * Rename the active project in place (the Project panel's name field).
+   * Blank → untitled. A real change marks the project dirty, since the
+   * name is part of what Save writes; the same name is a no-op.
+   */
+  rename(name: string): void {
+    const clean = name.trim() || null;
+    if (clean === this.state.name) return;
+    this.state = { ...this.state, name: clean, dirty: true };
+    this.emit();
+  }
+
   /** Build a SynthProject snapshot of the current session. Used by
    *  AutoSave + tests. */
   snapshot(name: string, description?: string): SynthProject {

@@ -104,6 +104,20 @@ describe('ProjectStore — dirty tracking', () => {
     expect(calls).toBe(2);
   });
 
+  it('rename() sets the name, marks dirty, emits once; blank means untitled; same name is a no-op', () => {
+    const { store } = setup();
+    let calls = 0;
+    store.subscribe(() => { calls++; });
+    store.rename('  My Set  ');
+    expect(store.getState().name).toBe('My Set');
+    expect(store.getState().dirty).toBe(true);
+    expect(calls).toBe(2);
+    store.rename('My Set');
+    expect(calls).toBe(2);
+    store.rename('   ');
+    expect(store.getState().name).toBeNull();
+  });
+
   it('newProject() clears dirty', () => {
     const { store, fireSettingsAll } = setup();
     fireSettingsAll();

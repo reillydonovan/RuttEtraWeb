@@ -25,6 +25,7 @@ import { ProjectStore, ProjectState, confirmDiscardIfDirty } from '../../project
 import { AutoSave } from '../../project/AutoSave';
 import { describeSummary, presetFromProject } from '../../project/Project';
 import { group, button, textInput, readout } from '../widgets';
+import { attachTooltip } from '../tooltip';
 
 export interface ProjectSectionDeps {
   projectStore: ProjectStore;
@@ -44,11 +45,36 @@ export function createProjectSection(deps: ProjectSectionDeps): HTMLElement {
   const status = group('Project');
   root.appendChild(status.root);
 
-  const statusLine = document.createElement('div');
-  statusLine.className = 'rw-readout';
-  statusLine.style.fontSize = '13px';
-  statusLine.style.padding = '4px 0 8px';
-  status.body.appendChild(statusLine);
+  // The project name is a real text field (owner: "I can select the
+  // project name but can't delete it and type my own"). Enter or blur
+  // commits via projectStore.rename(); Escape reverts. The dirty "*"
+  // sits beside it.
+  const nameRow = document.createElement('div');
+  nameRow.className = 'rw-project-name-row';
+  nameRow.style.display = 'flex';
+  nameRow.style.alignItems = 'center';
+  nameRow.style.gap = '8px';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'rw-text rw-project-name';
+  nameInput.placeholder = 'Untitled — type a name';
+  nameInput.setAttribute('aria-label', 'Project name');
+  nameInput.spellcheck = false;
+  nameInput.style.flex = '1 1 auto';
+  nameInput.style.minWidth = '0';
+  const dirtyMark = document.createElement('span');
+  dirtyMark.className = 'rw-project-dirty';
+  dirtyMark.style.color = 'var(--re-text-dim)';
+  attachTooltip(dirtyMark, 'Unsaved changes');
+  nameRow.append(nameInput, dirtyMark);
+  status.body.appendChild(nameRow);
+  const commitName = (): void => projectStore.rename(nameInput.value);
+  nameInput.addEventListener('change', commitName);
+  nameInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();   // typing a name must never fire app hotkeys
+    if (e.key === 'Enter') nameInput.blur();
+    if (e.key === 'Escape') { nameInput.value = projectStore.getState().name ?? ''; nameInput.blur(); }
+  });
 
   const blurb = document.createElement('div');
   blurb.className = 'rw-hint';
@@ -239,9 +265,8 @@ export function createProjectSection(deps: ProjectSectionDeps): HTMLElement {
   });
 
   function renderStatus(s: ProjectState): void {
-    const name = s.name ?? 'Untitled (unsaved)';
-    const dirty = s.dirty ? ' *' : '';
-    statusLine.innerHTML = `<b>${escapeHtml(name)}</b><span style="color:var(--re-text-dim,#888);">${dirty}</span>`;
+    if (nameInput.ownerDocument.activeElement !== nameInput) nameInput.value = s.name ?? '';
+    dirtyMark.textContent = s.dirty ? '*' : '';
   }
 
   function renderRecent(s: ProjectState): void {
