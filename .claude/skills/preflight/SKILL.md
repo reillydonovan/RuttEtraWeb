@@ -335,6 +335,28 @@ Run these in order; stop and report on the first failure:
   SwiftShader transitions stall and screenshots show half-transitioned
   states; headless also hides scrollbars (`--hide-scrollbars`).
 
+## Hierarchy, motion and Patch Bay invariants (v1.34)
+
+- **Disclosure is one control**: section and group carets sit LEFT of the
+  title, rotate via `--chev` / `--caret` (no `transform` transition), and
+  have rest / hover (green wash) / pressed / focus states. A new collapsible
+  thing uses `animateToggle()` (`src/ui/motion.ts`), never a CSS height
+  transition, and passes both `mutate` and `undo`.
+- **A section title is its head's first `<span>`**: don't insert another
+  `<span>` before it (the caret is an `<i>` for this reason).
+- **Collapsed groups hide controls**: code that points at a control
+  (search, tutorial, tours, info-media capture) must call
+  `expandGroupsAround(el)` first, or force groups open.
+- **Rebuilt rows need fresh jacks**: RackLayer keys jacks by param; check
+  `isConnected`, not just `has()`, before skipping one.
+- **Patch Bay free layout keeps pixel sizes**: never rescale node widths or
+  positions with the window. Drops resolve with `placeNearestFree`, then a
+  spring back; never "park below the lowest node".
+- **Collapsed Patch Bay nodes** draw sockets as proxies; anything that
+  measures a jack falls back to `proxyOf.get(jack)` when the jack's rect is
+  zero (cable anchors, snap search).
+
+
 ## Deploy warning
 
 Pushing to `main` triggers the production FTP deploy

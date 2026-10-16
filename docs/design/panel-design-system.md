@@ -255,6 +255,28 @@ Gotchas that have bitten (each is commented in the file):
 - *Jack ripple* (`rack/jackRipple.css`): idle hover, drop target in the
   cable's colour, one red pulse on reject.
 
+## Hierarchy and disclosure (v1.34)
+
+- **Sections and groups** both collapse. The caret is on the LEFT of the
+  title in both (same chevron, same states: rest grey, hover green wash,
+  pressed deeper wash + 0.88 scale, focus ring; points down when open,
+  right when closed). Groups start collapsed and remember their state per
+  title; a section with a single group never collapses it; phones show
+  groups open.
+- **Group cards**: the head is a full-bleed 36px bar (hover and press fill
+  the whole card); the ⓘ sits centred on it 12px from the right, mirroring
+  the caret 12px from the left. An open group shows a green rule on its
+  left edge; focus inside rings the group. Groups are spaced by their
+  container's gap (no margins); section bodies pad 12px on all sides.
+- **Motion**: every expand/collapse uses `animateToggle()`: second-order
+  springs (height ζ1, caret and fade ζ0.55). See `designsystem.html#motion`.
+- **Patch Bay nodes**: the same fold caret in every node header. Collapsed
+  = a 232px card with Blender-style rows (input socket on the left border,
+  name, output socket on the right border) and the summary under the title.
+- The public reference for all of this is `designsystem.html`
+  (`src/designsystem/`). Update it when a control or a state changes.
+
+
 ## Checklist for a new panel row
 
 1. Building a single control? Use `slider()`/`toggle()`/`dropdown()`/

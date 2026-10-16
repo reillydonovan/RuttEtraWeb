@@ -25,6 +25,16 @@ npm run build
 
 ---
 
+## Recent changes (v1.34, October 2026 — hierarchy, motion and the Patch Bay redesign)
+
+- **Collapsible hierarchy in Controls**, Unity-style: every sub-group (Capture Settings, Webcam, Pattern Generator, Dual Trace…) folds; groups start collapsed and remember what you opened; search and the tutorial open whatever they point at. Section and group carets are the same control, on the left.
+- **Spring motion**: everything that opens or closes moves with second-order (spring) motion. Height settles without overshoot, the caret swings and settles, and reversing mid-move keeps its momentum.
+- **Patch Bay redesign**: four labelled columns left to right (Generators · Display control · Raster & post · Video). Every node folds to a compact Blender-style card that still shows all of its sockets on its edges. Dropping a node on another lands it beside it, in view. Labels wrap instead of clipping.
+- **Advanced graph editor** gets the full cable language: port hover / target / refused states with reasons, cable hover, select and Delete, pick up a connected input to move or unplug it, tooltips and ⓘ on every node.
+- **Design system page** (`designsystem.html`, Help ▸ Design System): every token and every control in every state.
+- Fixes: Pattern Generator rows lost their patch jacks after a kind change; the "+" LFO patch button now shows and removes its LFO; minimum Controls width 320px; a node in free layout no longer gets squeezed when the window shrinks.
+
+
 ## Recent changes (v1.33, October 2026 — the Modern theme becomes the default)
 
 - **A new look, on by default.** The interface was redesigned in the manner of the owner's nothingbutdatacenters.com: neutral Apple-style greys, a system sans-serif with small mono labels, rounded cards with a faint phosphor edge, pill buttons, iOS-style switches, a soft green glow under the pointer, and green hover and active states throughout. Built on one token system (4px spacing grid, four type sizes, three control heights). The original green CRT look is one click away as **Classic** (View ▸ Theme, or the MODERN / CLASSIC picker), and both themes work with every skin (CRT / HW / RACK). The About and Tutorials pages follow the same choice.
