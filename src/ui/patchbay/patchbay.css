@@ -829,9 +829,26 @@
 /* Narrow rail nodes: the collapsed summary drops under the title instead of squeezing it. */
 .rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle { flex-wrap: wrap; row-gap: 2px; }
 .rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { order: 9; flex-basis: 100%; max-width: none; text-align: left; margin: 0 0 4px 24px; }
-/* Big groups (more than 6 sockets) collapse to a compact strip of dots: every input on the left,
-   every output on the right, patched ones lit. Hover a dot for its name. */
-.rw-pb-ports[data-many] .rw-pb-ports-col { flex-direction: row; flex-wrap: wrap; gap: 5px; max-width: 48%; }
-.rw-pb-ports[data-many] .rw-pb-ports-out { justify-content: flex-end; }
-.rw-pb-ports[data-many] .rw-pb-port-label { display: none; }
-.rw-pb-ports[data-many] .rw-pb-port { min-height: 0; }
+/* Collapsed node, Blender / TouchDesigner style: one row per parameter — its input socket on the
+   node's left border, its name, its output socket on the right border — so cables meet the card
+   side-on and every socket is visible whether patched or not. Big groups (more than 6 sockets) use
+   a tighter row. */
+.rw-pb-unit--collapsed > .rw-pb-ports {
+  --edge: calc(var(--sp-3, 8px) + 6px);   /* card padding + half a socket: the dot centre lands on the border */
+  display: flex !important; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 3px;
+  margin: 0 calc(-1 * var(--edge)); padding: 6px 0 4px;
+}
+.rw-pb-port { display: flex; align-items: center; gap: 6px; min-height: 16px; min-width: 0; }
+.rw-pb-port-slot { flex: none; width: 11px; display: inline-flex; justify-content: center; }
+.rw-pb-port-label {
+  flex: 1 1 auto; min-width: 0;
+  font: 10.5px/1.1 var(--mx-sans, var(--re-mono)); color: var(--t-dim, var(--re-text-dim));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: none;
+}
+.rw-pb-port-label--out { text-align: right; }
+.rw-pb-port:hover .rw-pb-port-label { color: var(--a, var(--re-accent)); }
+.rw-pb-proxy { width: 11px; height: 11px; background: #0b0b0c; flex: none; }
+.rw-pb-ports[data-many] { gap: 1px; }
+.rw-pb-ports[data-many] .rw-pb-port { min-height: 12px; }
+.rw-pb-ports[data-many] .rw-pb-proxy { width: 9px; height: 9px; border-width: 1.5px; }
+.rw-pb-ports[data-many] .rw-pb-port-label { font-size: 9.5px; line-height: 12px; }

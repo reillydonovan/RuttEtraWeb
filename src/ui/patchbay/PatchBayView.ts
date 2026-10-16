@@ -2589,10 +2589,6 @@ export function createPatchBayView(
     if (!jacks.length) return;
     const strip = document.createElement('div');
     strip.className = 'rw-pb-ports';
-    const inCol = document.createElement('div');
-    inCol.className = 'rw-pb-ports-col rw-pb-ports-in';
-    const outCol = document.createElement('div');
-    outCol.className = 'rw-pb-ports-col rw-pb-ports-out';
     const many = jacks.length > 6;
     if (many) strip.dataset.many = '1';
     // A socket's name: the faceplate cell's label, or the short text beside a module jack (IN, OUT, A, B…).
@@ -2602,17 +2598,9 @@ export function createPatchBayView(
       const txt = (jack.parentElement?.textContent ?? '').replace(/\s+/g, ' ').trim();
       return txt.length <= 16 ? txt : '';
     };
-    for (const jack of jacks) {
-      const row = document.createElement('div');
-      row.className = 'rw-pb-port';
-      row.dataset.many = many ? '1' : '';
+    const mkDot = (jack: HTMLElement): HTMLElement => {
       const dot = document.createElement('span');
       dot.className = 'rw-pb-proxy';
-      const name = nameOf(jack);
-      const lab = document.createElement('span');
-      lab.className = 'rw-pb-port-label';
-      lab.textContent = name;
-      attachTooltip(row, () => (name ? `${name} — expand the node to edit; drag from the socket to patch.` : 'Socket — drag to patch.'));
       dot.addEventListener('pointerdown', (ev) => {
         ev.stopPropagation();
         jack.dispatchEvent(new PointerEvent('pointerdown', {
@@ -2620,12 +2608,34 @@ export function createPatchBayView(
           pointerType: ev.pointerType, button: ev.button, buttons: ev.buttons, isPrimary: ev.isPrimary,
         }));
       });
-      const isOut = jack.classList.contains('rw-rack-jack--out');
-      if (isOut) row.append(lab, dot); else row.append(dot, lab);
       proxyOf.set(jack, dot);
-      (isOut ? outCol : inCol).appendChild(row);
+      return dot;
+    };
+    // One row per parameter (Blender-style): its input socket on the left edge, its name, its output
+    // socket on the right edge. A module's lone IN / OUT jacks get a row of their own.
+    const rows = new Map<Element, { name: string; inJ?: HTMLElement; outJ?: HTMLElement }>();
+    for (const jack of jacks) {
+      const key = jack.closest('.rw-pb-cell') ?? jack;
+      const r = rows.get(key) ?? { name: nameOf(jack) };
+      if (jack.classList.contains('rw-rack-jack--out')) r.outJ = jack; else r.inJ = jack;
+      rows.set(key, r);
     }
-    strip.append(inCol, outCol);
+    for (const r of rows.values()) {
+      const row = document.createElement('div');
+      row.className = 'rw-pb-port';
+      const inSlot = document.createElement('span');
+      inSlot.className = 'rw-pb-port-slot';
+      if (r.inJ) inSlot.appendChild(mkDot(r.inJ));
+      const lab = document.createElement('span');
+      lab.className = 'rw-pb-port-label' + (!r.inJ && r.outJ ? ' rw-pb-port-label--out' : '');
+      lab.textContent = r.name;
+      const outSlot = document.createElement('span');
+      outSlot.className = 'rw-pb-port-slot';
+      if (r.outJ) outSlot.appendChild(mkDot(r.outJ));
+      row.append(inSlot, lab, outSlot);
+      attachTooltip(row, () => (r.name ? `${r.name} — expand the node to edit; drag from a socket to patch.` : 'Socket — drag to patch.'));
+      strip.appendChild(row);
+    }
     unit.appendChild(strip);
     // Header summary (shown only while collapsed): what the node is set to, and how much is patched.
     const handle = unit.querySelector<HTMLElement>(':scope > .rw-pb-unit-handle');
@@ -2646,7 +2656,7 @@ export function createPatchBayView(
       const plugged = jack.classList.contains('rw-rack-jack--plugged');
       if (plugged) patched++;
       dot.classList.toggle('rw-pb-proxy--plugged', plugged);
-      const row = dot.parentElement as HTMLElement | null;
+      const row = dot.closest('.rw-pb-port') as HTMLElement | null;
       if (row) visible++;   // every socket stays visible; big groups draw them as a compact dot strip
     }
     const strip = unit.querySelector<HTMLElement>(':scope > .rw-pb-ports');
