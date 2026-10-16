@@ -388,6 +388,8 @@ html, body, #app {
   border-color: var(--re-accent);
 }
 .rw-skin-select.active { box-shadow: var(--re-glow); }
+/* Hover on an already-lit (non-default skin) select still shows a change. */
+.rw-skin-select:hover { background-color: rgba(124, 255, 160, 0.12); }
 .rw-skin-select option { background: var(--re-bg); color: var(--re-text); }
 /* Safety net: EVERY native dropdown's option list follows the theme. Without
    it the OS popup renders white (and the light text unreadable) wherever the
