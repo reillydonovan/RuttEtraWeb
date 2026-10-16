@@ -1,4 +1,4 @@
-// The promo film (≈2:40) — "a 1973 instrument, rebuilt for the browser, by an AI".
+// The promo film (≈2:30) — "a 1973 instrument, rebuilt for the browser, by an AI".
 //   node build.mjs --voice elevenlabs:<id> promo     → out/promo/promo.mp4 (+ promo-music.mp4)
 //
 // Not a lesson: build.mjs special-cases the id (no manifest, no About list).
@@ -19,6 +19,8 @@ export const fakeMedia = true;
 export const noCursor = true;        // a film, not a tutorial: no painted pointer
 export const noCard = true;
 export const music = true;           // also writes promo-music.mp4
+// Desktop Chrome would open the OS share dialog from the phone's shutter.
+export const initScripts = ['Object.defineProperty(Navigator.prototype, "canShare", { value: undefined, configurable: true });'];
 
 const FACE = process.env.PROMO_FACE
   ?? path.resolve('..', '..', '..', 'ruttetraweb-presentation', 'media', 'demo', 'face.mp4');
@@ -42,17 +44,14 @@ export const lines = [
   { id: 'patch', text: 'Drag a cable from an oscillator into depth, and the picture breathes.' },
   { id: 'inputs', text: 'Audio, MIDI, gamepads, control voltage. Anything that moves can move the picture.' },
   { id: 'push', text: 'And then you push it. Two oscillators on the linearity, and the amount turned up. The raster pinches, folds, and flips over itself.' },
-  { id: 'montage', text: 'A feedback tunnel. Two rasters woven line by line. Sound as terrain. Red and cyan in three dimensions.' },
+  { id: 'montage', text: 'A feedback tunnel. Two rasters woven line by line. Red and cyan, in three dimensions.' },
   { id: 'mcp', text: 'It can be played by an AI, too. These are commands arriving over M C P, and this is the instrument answering.' },
   { id: 'phone', text: 'And it fits in a pocket: a camera, a shutter, and a look for every mood.' },
   { id: 'close', text: 'A machine that survived as documentation, rebuilt from that documentation, for the next generation of media artists. Rutt Etra web dot com.' },
 ];
 export const poster = 'push';
 
-const T = (k) => `#panel-root .rw-toggle[data-param-key="${k}"]`;
-const K = (k) => `#panel-root [data-param-key="${k}"] .rw-knob`;
-
-// ---- little on-screen furniture (the film's only non-app pixels: text) ----------
+// ---- on-screen furniture: text only; everything else is the real app -------------
 async function caption(page, kicker, title, ms = 3000) {
   await page.evaluate(([k, t, d]) => {
     const c = document.createElement('div');
@@ -74,10 +73,10 @@ async function logLine(page, html) {
     if (!t) {
       t = document.createElement('div');
       t.id = 'promo-term';
-      Object.assign(t.style, { position: 'fixed', right: '48px', bottom: '48px', width: '620px', maxHeight: '420px', overflow: 'hidden',
+      Object.assign(t.style, { position: 'fixed', right: '48px', bottom: '48px', width: '820px', maxHeight: '560px', overflow: 'hidden',
         zIndex: '2147483000', padding: '16px 20px', borderRadius: '14px', background: 'rgba(8,10,9,.86)', backdropFilter: 'blur(14px)',
-        border: '1px solid rgba(95,255,133,.28)', font: '14px/1.55 ui-monospace,Menlo,Consolas,monospace', color: '#cfe', pointerEvents: 'none' });
-      t.innerHTML = '<div style="color:#5fff85;letter-spacing:.2em;font-size:11px;margin-bottom:8px">MCP · AI ⇄ RUTT/ETRA WEB</div>';
+        border: '1px solid rgba(95,255,133,.28)', font: '19px/1.6 ui-monospace,Menlo,Consolas,monospace', color: '#cfe', pointerEvents: 'none' });
+      t.innerHTML = '<div style="color:#5fff85;letter-spacing:.2em;font-size:13px;margin-bottom:10px">MCP · AI ⇄ RUTT/ETRA WEB</div>';
       document.documentElement.appendChild(t);
     }
     const d = document.createElement('div');
@@ -90,37 +89,69 @@ async function logLine(page, html) {
 async function mcpCall(page, h, cmd, args, note) {
   const argText = Object.entries(args).map(([k, v]) => `${k}: ${typeof v === 'object' ? '{…}' : JSON.stringify(v)}`).join(', ');
   await logLine(page, `<span style="color:#7dff9a">›</span> ${cmd}(${argText})${note ? ` <span style="color:#88a">— ${note}</span>` : ''}`);
-  await h.wait(450);
+  await h.wait(350);
   const r = await mcp.request(cmd, args);
   if (!r.ok) throw new Error(`MCP ${cmd}: ${r.error}`);
   await logLine(page, `<span style="color:#ffb347">‹</span> ok${typeof r.result === 'number' ? ` → ${r.result}` : ''}`);
   return r;
 }
 
+/** The picture full-bleed (every other window hidden) or the whole workspace. */
+async function maxCenter(page, h, on) {
+  const now = await page.evaluate(() => document.body.classList.contains('rw-center-max'));
+  if (now !== on) { await h.click('#rw-center-shell .rw-region-max-btn', null, { steps: 14, pause: 120 }); await h.wait(500); }
+  await h.check((o) => document.body.classList.contains('rw-center-max') === o, `center ${on ? 'maximized' : 'restored'}`, on);
+}
+
+// Quiet control: sets a Controls value without the panel on screen (the panel is hidden
+// while the picture is full-bleed). It raises the same events a click would.
+const quiet = {
+  select: (page, key, value) => page.evaluate(([k, v]) => {
+    const s = document.querySelector(`#panel-root select[data-param-key="${k}"]`);
+    if (!s) throw new Error(`no select ${k}`);
+    s.value = v; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true }));
+  }, [key, value]),
+  toggle: (page, key) => page.evaluate((k) => {
+    const i = document.querySelector(`#panel-root .rw-toggle[data-param-key="${k}"] input`);
+    if (!i) throw new Error(`no toggle ${k}`);
+    i.click();
+  }, key),
+  /** Glide a range from its current value to `to` over `ms` (it moves like a hand on a knob). */
+  async ramp(page, h, key, to, ms = 2200) {
+    const from = await page.evaluate((k) => +document.querySelector(`#panel-root [data-param-key="${k}"] input[type=range]`).value, key);
+    const n = Math.max(2, Math.round(ms / 70));
+    for (let i = 1; i <= n; i++) {
+      const v = from + (to - from) * (i / n);
+      await page.evaluate(([k, val]) => { const r = document.querySelector(`#panel-root [data-param-key="${k}"] input[type=range]`); r.value = String(val); r.dispatchEvent(new Event('input', { bubbles: true })); }, [key, v]);
+      await h.wait(70);
+    }
+  },
+  chip: (page, name) => page.evaluate((n) => [...document.querySelectorAll('#panel-root .rw-preset-chip')].find((c) => c.textContent.trim() === n)?.click(), name),
+};
+
 export async function pre(page, h) {
-  // MCP stand-in connects quietly while the title screen is still up.
-  await page.click('#rw-left-shell .rw-region-collapse-btn').catch(() => {});
+  // The MCP stand-in connects quietly while the title screen is still up.
   await page.click('#panel-root .rw-tab[data-tab="io"]').catch(() => {});
   await h.section('MCP');
   await page.click(`${await h.sec('MCP')} .rw-btn:text-is("Connect")`);
   for (let i = 0; i < 30 && !mcp.connected; i++) await h.wait(100);
   if (!mcp.connected) throw new Error('promo: the MCP stand-in never connected');
   await page.click('#panel-root .rw-tab[data-tab="synth"]');
-  await page.click('#rw-left-shell .rw-region-collapse-btn').catch(() => {});   // restore
+  await maxCenter(page, h, true);
 }
 
 export async function run(page, seg, h) {
-  // 1 — title screen, as it appears to a first-time visitor.
-  await seg('cold', async () => { await h.wait(2000); });
+  // 1 — the title screen, full-bleed, as a first-time visitor sees it.
+  await seg('cold', async () => { await h.wait(2200); });
 
-  // 2 — start; the raster appears.
+  // 2 — start; the raster appears and turns slowly.
   await seg('name', async () => {
     await caption(page, '1973', 'Rutt/Etra Scan Processor', 4200);
-    await h.click('#boot-pattern');
-    await h.drag({ x: 900, y: 500 }, { x: 1100, y: 430 }, 70);
+    await h.click('#boot-pattern', null, { steps: 14, pause: 200 });
+    await h.drag({ x: 900, y: 500 }, { x: 1100, y: 430 }, 90);
   });
 
-  // 3 — brightness becomes height, on a face if we have one.
+  // 3 — brightness becomes height (on a face, if one was supplied).
   await seg('height', async () => {
     if (HAS_FACE) {
       const chooser = page.waitForEvent('filechooser');
@@ -128,127 +159,125 @@ export async function run(page, seg, h) {
       await (await chooser).setFiles(FACE);
       await h.wait(1500);
     }
-    await h.section('Display Control Unit');
-    await h.reveal(K('zPush'), null, 'center');
-    await h.knob(await h.at(K('zPush')), 70, 90);
-    await h.drag({ x: 1000, y: 600 }, { x: 760, y: 480 }, 90);
+    await quiet.ramp(page, h, 'zPush', 2.2, 2600);
+    await h.drag({ x: 1000, y: 600 }, { x: 760, y: 480 }, 100);
   });
 
   await seg('few', async () => {
-    await h.section('Color / Post FX');
-    await h.choose(await h.at('#panel-root select[data-param-key="colorMode"]'), null, 'phosphorAmber');
-    await h.drag({ x: 760, y: 480 }, { x: 1000, y: 560 }, 110);
+    await quiet.select(page, 'colorMode', 'phosphorAmber');
     await caption(page, 'Rutt/Etra · built', 'about seventeen to twenty-one', 4200);
+    await h.drag({ x: 760, y: 480 }, { x: 1000, y: 560 }, 130);
   });
 
   await seg('rebuilt', async () => {
-    await h.choose(await h.at('#panel-root select[data-param-key="colorMode"]'), null, 'phosphorGreen');
-    await caption(page, 'rebuilt from its own documentation', 'brochure · manual · panel diagram → specification → instrument', 7000);
-    await h.drag({ x: 1000, y: 560 }, { x: 800, y: 470 }, 160);
+    await quiet.select(page, 'colorMode', 'phosphorGreen');
+    await caption(page, 'rebuilt from its own documentation', 'brochure · manual · panel diagram → specification → instrument', 7500);
+    await h.drag({ x: 1000, y: 560 }, { x: 800, y: 470 }, 200);
   });
 
   await seg('web', async () => {
     await caption(page, 'nothing to install', 'ruttetraweb.com', 4200);
-    await h.drag({ x: 800, y: 470 }, { x: 1000, y: 520 }, 100);
+    await h.drag({ x: 800, y: 470 }, { x: 1000, y: 520 }, 120);
   });
 
+  // 4 — the instrument as a faceplate: the real Patch Bay.
   await seg('bay', async () => {
-    await h.click('#rw-left-shell .rw-region-max-btn');
-    await h.wait(500);
+    await maxCenter(page, h, false);
+    await h.click('#rw-left-shell .rw-region-max-btn', null, { steps: 14, pause: 120 });
+    await h.wait(400);
     for (const b of ['SINE', 'SAW', 'AUDIO ENV', 'BEAT', 'MIDI CC']) {
       const j = await page.evaluate(findJack, { bus: b });
-      if (j) { await h.glide(j, 14); await h.wait(220); }
+      if (j) { await h.glide(j, 12); await h.wait(160); }
     }
   });
 
   await seg('patch', async () => {
-    await h.click(await h.emptyBaySpot(), null, { button: 'right' });
-    await h.wait(600);
-    await h.click('.rw-pb-addnode-menu .rw-graph-palette-item', 'LFO', { exact: true, steps: 25 });
+    await h.click(await h.emptyBaySpot(), null, { button: 'right', steps: 14, pause: 120 });
     await h.wait(500);
+    await h.click('.rw-pb-addnode-menu .rw-graph-palette-item', 'LFO', { exact: true, steps: 18 });
+    await h.wait(400);
     const out = await h.at('.rw-pb-graphnode .rw-rack-jack--out');
     await h.dragPan(out, { x: 700, y: 66 }, findJack, { param: 'Z Push', margin: 60 });
     await h.check(() => [...document.querySelectorAll('.rw-patchbay .rw-pb-cell-top')]
       .find((c) => c.textContent.trim().startsWith('Z Push') && !c.closest('.rw-pb-module'))
       ?.querySelector('.rw-rack-jack--in')?.classList.contains('rw-rack-jack--plugged'), 'Z Push is patched from the LFO');
-    await h.click('#rw-left-shell .rw-region-max-btn');
-    await h.wait(2800);
+    await h.click('#rw-left-shell .rw-region-max-btn', null, { steps: 14, pause: 120 });
+    await h.wait(1800);
   });
 
   await seg('inputs', async () => {
-    await h.click('#rw-left-shell .rw-region-max-btn');
-    await h.wait(500);
+    await h.click('#rw-left-shell .rw-region-max-btn', null, { steps: 14, pause: 120 });
+    await h.wait(400);
     for (const b of ['AUDIO BAND', 'JOY X', 'CV IN', 'OSC']) {
       const j = await page.evaluate(findJack, { bus: b, margin: 0 });
-      if (j) { await h.glide(j, 14); await h.wait(300); }
+      if (j) { await h.glide(j, 12); await h.wait(220); }
     }
-    await h.click('#rw-left-shell .rw-region-max-btn');
+    await h.click('#rw-left-shell .rw-region-max-btn', null, { steps: 14, pause: 120 });
   });
 
+  // 5 — push it: two LFOs on the linearity, the amount turned up. Real knobs, real panel.
   await seg('push', async () => {
     await h.section('Modulation');
-    await h.click('#panel-root .rw-mod-mode-switch button[data-mode="graph"]');
-    await h.wait(900);
+    await h.click('#panel-root .rw-mod-mode-switch button[data-mode="graph"]', null, { steps: 12, pause: 80 });
+    await h.wait(500);
     const last = '#panel-root .rw-beginner-view .rw-mod-slot:last-of-type';
-    // The LFO from the Patch Bay is already row one; add two more for linearity.
     for (const target of ['hLinearity', 'vLinearity']) {
-      await h.click('#panel-root .rw-beginner-view .rw-btn', 'Add patch');
-      await h.wait(500);
+      await h.click('#panel-root .rw-beginner-view .rw-btn', 'Add patch', { steps: 12, pause: 80 });
+      await h.wait(350);
       await h.choose(await h.at(`${last} select.rw-mod-slot-tgt`), null, target);
       await h.check((t) => document.querySelector('#panel-root .rw-beginner-view .rw-mod-slot:last-of-type select.rw-mod-slot-tgt')?.value === t, `target ${target}`, target);
     }
     const rows = await page.evaluate(() => document.querySelectorAll('#panel-root .rw-beginner-view .rw-mod-slot').length);
     const amt = (i) => `#panel-root .rw-beginner-view .rw-mod-slot:nth-of-type(${i}) .rw-mod-slot-amount .rw-knob`;
-    for (let i = 0; i < 4; i++) {
-      await h.knob(await h.at(amt(rows - 1)), 22, 40);
-      await h.knob(await h.at(amt(rows)), 22, 40);
-      await h.wait(1300);
+    for (let i = 0; i < 3; i++) {
+      await h.knob(await h.at(amt(rows - 1)), 24, 30);
+      await h.knob(await h.at(amt(rows)), 24, 30);
+      await h.wait(900);
     }
-    await h.drag({ x: 900, y: 520 }, { x: 1080, y: 430 }, 120);
-    await h.wait(1200);
+    await maxCenter(page, h, true);
+    await h.drag({ x: 900, y: 520 }, { x: 1080, y: 430 }, 130);
+    await h.wait(1500);
   });
 
+  // 6 — a few strange looks, full-bleed.
   await seg('montage', async () => {
-    // Clear the linearity patch so each look is itself.
     await mcp.request('set_graph_patch', { patch: null });
     await h.resetView();
-    await h.section('Color / Post FX');
-    await h.choose(await h.at('#panel-root select[data-param-key="colorMode"]'), null, 'phosphorAmber');
-    await h.click(T('feedbackEnabled'));
-    await h.choose(await h.at('#panel-root select[data-param-key="feedbackShape"]'), null, 'circle');
-    await h.wait(2500);
-    await h.click(T('feedbackEnabled'));
-    await h.choose(await h.at('#panel-root select[data-param-key="colorMode"]'), null, 'phosphorGreen');
-    await h.section('Dual Raster');
-    await h.click(T('dualRasterEnabled'));
-    await h.choose(await h.at('#panel-root select[data-param-key="dualMode"]'), null, 'alternate');
-    await h.knob(await h.at(K('bZPush')), -50, 30);
-    await h.drag({ x: 860, y: 450 }, { x: 1080, y: 380 }, 70);
-    await h.click(T('dualRasterEnabled'));
-    await h.section('Presets');
-    await h.click('#panel-root .rw-preset-chip', 'Lissajous Scope', { exact: true });
-    await h.section('Virtual Camera');
-    await h.click(T('anaglyphEnabled'));
-    await h.wait(2000);
+    await quiet.select(page, 'colorMode', 'phosphorAmber');
+    await quiet.toggle(page, 'feedbackEnabled');
+    await quiet.select(page, 'feedbackShape', 'circle');
+    await h.drag({ x: 880, y: 500 }, { x: 1040, y: 440 }, 110);
+    await quiet.toggle(page, 'feedbackEnabled');
+    await quiet.select(page, 'colorMode', 'phosphorGreen');
+    await quiet.toggle(page, 'dualRasterEnabled');
+    await quiet.select(page, 'dualMode', 'alternate');
+    await quiet.ramp(page, h, 'bZPush', -0.8, 900);
+    await h.drag({ x: 860, y: 450 }, { x: 1080, y: 380 }, 110);
+    await quiet.toggle(page, 'dualRasterEnabled');
+    await quiet.toggle(page, 'anaglyphEnabled');
+    await h.drag({ x: 900, y: 470 }, { x: 1060, y: 420 }, 110);
+    await h.wait(900);
   });
 
+  // 7 — an AI at the controls, over MCP (a real connection; the log is its real traffic).
   await seg('mcp', async () => {
-    await h.click(T('anaglyphEnabled'));
-    await h.click('#panel-root .rw-preset-chip', 'Classic 1974', { exact: true });
-    await h.wait(600);
+    await quiet.toggle(page, 'anaglyphEnabled');
+    await quiet.chip(page, 'Phosphor Green');
+    await mcp.request('set_param', { key: 'bloomIntensity', value: 0.35 });
+    await mcp.request('set_param', { key: 'zPush', value: 1.2 });
+    await h.wait(500);
     await mcpCall(page, h, 'describe', {}, 'what can I drive?');
-    await mcpCall(page, h, 'set_param', { key: 'zPush', value: 2.2 }, 'depth');
+    await mcpCall(page, h, 'set_param', { key: 'zPush', value: 1.8 }, 'depth');
     await mcpCall(page, h, 'set_param', { key: 'rotation', value: 0.35 }, 'rotate the raster');
-    await mcpCall(page, h, 'set_param', { key: 'bloomIntensity', value: 0.9 }, 'glow');
     await mcpCall(page, h, 'set_graph_patch', { patch: {
       nodes: [{ id: 'l1', type: 'lfo', params: { rate: 0.4 }, inputs: {} }],
       bindings: [{ id: 'b1', paramKey: 'hLinearity', sourceNodeId: 'l1', amount: 0.9, mode: 'additive', enabled: true }],
     } }, 'patch an LFO into H Linearity');
-    await h.wait(1800);
+    await h.wait(1500);
     await page.evaluate(() => document.getElementById('promo-term')?.remove());
   });
 
-  // The phone: a SECOND, real instance of the app in compact (phone) layout.
+  // 8 — the phone: a SECOND, real instance of the app in its phone layout.
   await seg('phone', async () => {
     await mcp.request('set_graph_patch', { patch: null });
     await page.evaluate(() => {
@@ -266,24 +295,35 @@ export async function run(page, seg, h) {
     let frame = null;
     for (let i = 0; i < 100 && !frame; i++) { frame = page.frames().find((f) => f.url().includes('layout=compact')) ?? null; if (!frame) await h.wait(100); }
     if (!frame) throw new Error('promo: the phone frame never loaded');
-    await frame.waitForSelector('#boot-webcam', { timeout: 20000 });
-    await h.wait(900);
-    await frame.evaluate(() => document.getElementById('boot-webcam').click());
+    await frame.waitForSelector('#boot-pattern', { timeout: 20000 });
+    await h.wait(600);
+    await frame.evaluate(() => document.getElementById('boot-pattern').click());
     await frame.waitForSelector('.rw-looks', { timeout: 20000 });
-    await h.wait(1200);
+    await h.wait(900);
     for (const name of ['Amber Terminal', 'Wireframe', 'Burn-In']) {
       await frame.evaluate((n) => [...document.querySelectorAll('.rw-look')].find((b) => b.textContent === n)?.click(), name);
-      await h.wait(1500);
+      await frame.waitForFunction((n) => document.querySelector('.rw-look.active')?.textContent === n, name, { timeout: 5000 });
+      await h.wait(1300);
     }
     await frame.evaluate(() => document.querySelector('.rw-shutter')?.click());
-    await h.wait(900);
+    await frame.waitForFunction(() => /Photo saved/.test(document.querySelector('#rw-toast-host')?.textContent ?? ''), null, { timeout: 8000 });
+    await h.wait(600);
   });
 
   await seg('close', async () => {
     await page.evaluate(() => document.getElementById('promo-phone')?.remove());
     await h.resetView();
-    await caption(page, 'rutt/etra web', 'ruttetraweb.com', 9000);
-    await h.drag({ x: 880, y: 450 }, { x: 1080, y: 400 }, 200);
-    await h.wait(2500);
+    // Leave the camera moving in the wildest state the instrument has: two oscillators on the
+    // linearity (the same patch the 'push' beat built by hand, here set over MCP).
+    await mcp.request('set_graph_patch', { patch: {
+      nodes: [{ id: 'a', type: 'lfo', params: { rate: 0.31 }, inputs: {} }, { id: 'b', type: 'lfo', params: { rate: 0.23 }, inputs: {} }],
+      bindings: [
+        { id: 'b1', paramKey: 'hLinearity', sourceNodeId: 'a', amount: 0.85, mode: 'additive', enabled: true },
+        { id: 'b2', paramKey: 'vLinearity', sourceNodeId: 'b', amount: 0.85, mode: 'additive', enabled: true },
+      ],
+    } });
+    await caption(page, 'rutt/etra web', 'ruttetraweb.com', 7000);
+    await h.drag({ x: 880, y: 450 }, { x: 1080, y: 400 }, 160);
+    await h.wait(1200);
   });
 }

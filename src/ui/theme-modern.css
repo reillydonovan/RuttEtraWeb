@@ -1006,7 +1006,16 @@ html body[data-theme="modern"][data-theme] {
   /* Slot card: tighter, three clear lines (SlotRow.ts / panel.css). */
   & .rw-mod-slot-row { gap: var(--sp-2); padding: var(--sp-3); }
   & .rw-mod-slot-amount-cap { font: 600 var(--fs-xs) var(--mx-code); letter-spacing: var(--track-label); color: var(--t-dim); }
-  & .rw-mod-slot-amount-field .rw-num { height: var(--ctl-m); text-align: center; }
+  & .rw-mod-slot-amount-field {
+    height: var(--ctl-l);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    border: none;
+    border-radius: var(--r-s);
+    background: var(--c-well);
+  }
+  & .rw-mod-slot-amount-field:focus-within { box-shadow: var(--focus); }
+  & .rw-mod-slot-amount-field .rw-num { background: transparent; box-shadow: none; border: none; font: 500 var(--fs-m) var(--mx-code); color: var(--a-text); }
+  & .rw-mod-slot-line--amt .rw-select { height: var(--ctl-l); }
   & .rw-mod-slot-tools { border-top-color: var(--c-hair); padding-top: var(--sp-2); }
   & .rw-mod-slot-tools .rw-btn { min-height: var(--ctl-s); height: var(--ctl-s); padding: 0 var(--sp-3); font: 500 var(--fs-xs) var(--mx-sans); border-radius: var(--pill); }
   & .rw-mod-slot-tools .rw-mod-slot-del { width: var(--ctl-s); padding: 0; }

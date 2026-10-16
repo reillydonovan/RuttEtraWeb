@@ -806,7 +806,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   // Expand toggle
   const expandBtn = el('button', 'rw-btn rw-mod-slot-expand') as HTMLButtonElement;
   expandBtn.type = 'button';
-  expandBtn.textContent = '▾';   // a chevron, not ▶ (which reads as "play"); rotated by CSS when collapsed
+  expandBtn.textContent = '';    // a thin CSS chevron (panel.css) — a ▶ glyph reads as "play"
   expandBtn.title = 'Show / hide source-specific controls';
   expandBtn.setAttribute('aria-label', 'Show or hide the slot controls');
   expandBtn.setAttribute('aria-expanded', 'false');

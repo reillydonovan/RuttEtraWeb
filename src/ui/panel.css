@@ -1608,7 +1608,27 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
 .rw-slider--num .rw-num { width: 72px; flex: 0 0 auto; }
 .rw-slider.rw-mod-slot-amount { width: auto; }   /* .rw-slider is width:100% — the target dropdown shares this line */
 .rw-mod-slot-amount input[type="range"] { flex: 1 1 auto; min-width: 60px; }
-.rw-mod-slot-amount-field { display: flex; flex-direction: column; gap: 2px; }
+.rw-mod-slot-amount-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--re-line);
+  border-radius: 3px;
+  background: rgba(0,0,0,0.25);
+}
+/* One compact field: the AMT caption sits INSIDE it, left of the number, so the
+   field and the target dropdown beside it share one height and one centerline. */
+.rw-mod-slot-amount-field .rw-num {
+  width: 56px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: right;
+}
+.rw-mod-slot-line--amt .rw-mod-slot-tgt { height: 30px; }
 .rw-mod-slot-amount-cap {
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -1648,8 +1668,19 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
   font-size: 13px;
   line-height: 1;
 }
-.rw-mod-slot-expand { transition: transform 120ms; }
-.rw-mod-slot-expand[aria-expanded="false"] { transform: rotate(-90deg); }
+.rw-mod-slot-expand { display: inline-flex; align-items: center; justify-content: center; }
+/* A thin chevron (SVG mask, so it takes the button's colour): points down
+   (open me) when collapsed, up (close me) when expanded. Never a solid
+   triangle — that reads as "play". */
+.rw-mod-slot-expand::before {
+  content: '';
+  flex: none; width: 12px; height: 12px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 140ms;
+}
+.rw-mod-slot-expand[aria-expanded="true"]::before { transform: rotate(180deg); }
 
 .rw-mod-noclock-badge {
   display: none;
