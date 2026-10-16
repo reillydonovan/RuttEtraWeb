@@ -2647,6 +2647,15 @@ export function createPatchBayView(
       // cursor.
       let sl0 = 0, st0 = 0;
       let lastX = startX, lastY = startY;
+      // Dropped on top of another node by accident: take the nearest free spot beside it that is
+      // in view; if there is none, spring back to where the drag began. (It used to be parked below
+      // the lowest node on the board, i.e. off the bottom of the screen.)
+      const settleDrop = (): void => {
+        if (placeNearestFree(unit)) return;
+        unit.style.left = `${baseL}px`;
+        unit.style.top = `${baseT}px`;
+        resolveOverlap(unit);
+      };
       const beginFree = (e: PointerEvent): void => {
         freeze();
         baseL = parseFloat(unit.style.left) || 0;
@@ -2757,11 +2766,11 @@ export function createPatchBayView(
             const bRect = board.getBoundingClientRect();
             unit.style.left = `${Math.max(0, (e.clientX - bRect.left) / zoom - unit.offsetWidth / 2)}px`;
             unit.style.top = `${Math.max(0, (e.clientY - bRect.top) / zoom - 10)}px`;
-            resolveOverlap(unit);
+            settleDrop();
           }
         } else {
           // Free-mode drag released: settle into a non-overlapping spot.
-          resolveOverlap(unit);
+          settleDrop();
         }
       };
       doc.addEventListener('pointermove', onMove, { passive: false });
