@@ -38,6 +38,7 @@ import type { PatternParamKey } from '../../renderer/patterns/PatternRegistry';
 
 const WEBCAM_RESOLUTIONS = [
   { label: 'Auto (native)',   w: 0,    h: 0    },
+  { label: 'VGA (640×480)',   w: 640,  h: 480  },   // the default
   { label: 'SD  (480p)',      w: 854,  h: 480  },
   { label: 'HD  (720p)',      w: 1280, h: 720  },
   { label: 'Full HD (1080p)', w: 1920, h: 1080 },
@@ -64,7 +65,13 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
     const w = settings.get('requestedWidth');
     const h = settings.get('requestedHeight');
     const match = WEBCAM_RESOLUTIONS.find((r) => r.w === w && r.h === h);
-    resSel.value = match ? `${match.w}x${match.h}` : `${w}x${h}`;
+    if (!match && ![...resSel.options].some((o) => o.value === `${w}x${h}`)) {
+      // A saved size that isn't one of the presets still shows (never a blank dropdown).
+      const o = document.createElement('option');
+      o.value = `${w}x${h}`; o.textContent = `${w}×${h} (custom)`;
+      resSel.appendChild(o);
+    }
+    resSel.value = `${w}x${h}`;
   }
   syncResDropdown();
   resSel.addEventListener('change', () => {

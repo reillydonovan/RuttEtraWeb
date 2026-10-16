@@ -1,61 +1,61 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:02.989
+00:00:00.700 --> 00:00:02.619
 The picture can drive the synth, too.
 
 2
-00:00:02.989 --> 00:00:07.569
+00:00:02.619 --> 00:00:06.458
 Video nodes measure brightness, motion, color and edges in the live image.
 
 3
-00:00:08.019 --> 00:00:08.937
+00:00:06.921 --> 00:00:07.842
 Add Video Luma.
 
 4
-00:00:08.937 --> 00:00:11.816
+00:00:07.842 --> 00:00:10.729
 It reports how bright a region of the frame is.
 
 5
-00:00:12.276 --> 00:00:15.640
+00:00:11.189 --> 00:00:14.320
 Drag on the thumbnail in the inspector to choose the region.
 
 6
-00:00:15.640 --> 00:00:17.716
+00:00:14.320 --> 00:00:16.250
 Here, the moving shape in the middle.
 
 7
-00:00:18.175 --> 00:00:19.250
+00:00:16.703 --> 00:00:17.693
 Bind it to Z Push.
 
 8
-00:00:19.250 --> 00:00:22.057
+00:00:17.693 --> 00:00:20.278
 Now the depth follows that part of the picture.
 
 9
-00:00:22.515 --> 00:00:25.743
+00:00:20.738 --> 00:00:23.732
 Video Motion measures how much the image is changing.
 
 10
-00:00:25.743 --> 00:00:28.424
+00:00:23.732 --> 00:00:26.217
 Smooth it with a Slew, and send it to Bloom.
 
 11
-00:00:34.809 --> 00:00:39.737
+00:00:34.927 --> 00:00:40.221
 The Library has more: Motion-Triggered Glitch tears the raster whenever something moves.
 
 12
-00:00:40.199 --> 00:00:41.230
+00:00:40.682 --> 00:00:41.692
 Restore the window.
 
 13
-00:00:41.230 --> 00:00:43.185
+00:00:41.692 --> 00:00:43.607
 The camera is now playing the synth.
 
 14
-00:00:44.604 --> 00:00:48.541
+00:00:45.309 --> 00:00:49.875
 Point a webcam at a dancer, a lava lamp, or your own hands.
 
 15
-00:00:48.541 --> 00:00:49.809
+00:00:49.875 --> 00:00:51.346
 Next: MIDI and OSC.

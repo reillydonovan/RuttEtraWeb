@@ -298,7 +298,7 @@ interface NumFieldUi {
  * Classic and Graph.
  */
 export function buildNumField(label: string, a: NumAdapter): NumFieldUi {
-  const wrap = el('div', 'rw-slider');
+  const wrap = el('div', 'rw-slider rw-slider--num');   // knob + a visible numeric field
   const range = el('input') as HTMLInputElement;
   range.type = 'range';
   range.min = String(a.min); range.max = String(a.max); range.step = String(a.step);
@@ -747,6 +747,12 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // -------------------- collapsed header --------------------
   const header = el('div', 'rw-mod-slot-row');
+  // Line 1: [enable] source ............ [expand]
+  // Line 2: [AMT knob + value] target ..............
+  // (then the Copy/Paste · Reset/Remove footer, then the NO CLOCK badge)
+  const line1 = el('div', 'rw-mod-slot-line rw-mod-slot-line--src');
+  const line2 = el('div', 'rw-mod-slot-line rw-mod-slot-line--amt');
+  header.append(line1, line2);
 
   // Enable toggle (Classic only)
   let enInput: HTMLInputElement | null = null;
@@ -758,7 +764,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     enInput.addEventListener('change', () => adapter.enabled!.set(enInput!.checked));
     const sw = el('span', 'rw-toggle-sw');
     enLabel.append(enInput, sw);
-    header.appendChild(enLabel);
+    line1.appendChild(enLabel);
   }
 
   // Source dropdown — supports optional `group` per option to render
@@ -795,15 +801,17 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     }
   }
   srcSel.addEventListener('change', () => adapter.source.set(srcSel.value));
-  header.appendChild(srcSel);
+  line1.appendChild(srcSel);
 
   // Expand toggle
   const expandBtn = el('button', 'rw-btn rw-mod-slot-expand') as HTMLButtonElement;
   expandBtn.type = 'button';
-  expandBtn.textContent = '▶';
+  expandBtn.textContent = '▾';   // a chevron, not ▶ (which reads as "play"); rotated by CSS when collapsed
   expandBtn.title = 'Show / hide source-specific controls';
+  expandBtn.setAttribute('aria-label', 'Show or hide the slot controls');
+  expandBtn.setAttribute('aria-expanded', 'false');
   expandBtn.addEventListener('click', () => adapter.expanded.set(!adapter.expanded.get()));
-  header.appendChild(expandBtn);
+  line1.appendChild(expandBtn);
 
   // Amount slider
   const amtWrap = el('div', 'rw-slider rw-mod-slot-amount');
@@ -817,7 +825,11 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   amtNum.min = String(adapter.amount.min);
   amtNum.max = String(adapter.amount.max);
   amtNum.step = String(adapter.amount.step);
-  amtWrap.append(amtRange, amtNum);
+  const amtLabel = el('label', 'rw-mod-slot-amount-cap', 'AMT');
+  amtLabel.title = 'Amount — how strongly this source moves the target';
+  const amtField = el('div', 'rw-mod-slot-amount-field');
+  amtField.append(amtLabel, amtNum);
+  amtWrap.append(amtRange, amtField);
   amtRange.addEventListener('input', () => {
     const v = +amtRange.value;
     adapter.amount.set(v);
@@ -842,7 +854,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     ariaLabel: 'Amount',
   });
   amtWrap.appendChild(amtKnob.el);
-  header.appendChild(amtWrap);
+  line2.appendChild(amtWrap);
 
   // Target dropdown
   const tgtSel = el('select', 'rw-select rw-mod-slot-tgt') as HTMLSelectElement;
@@ -865,23 +877,28 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   }
   rebuildTargetOptions();
   tgtSel.addEventListener('change', () => adapter.target.set(tgtSel.value));
-  header.appendChild(tgtSel);
+  line2.appendChild(tgtSel);
 
-  // Copy / paste / reset (per-patch ↻) / delete (X)
+  // Footer tools: Copy / Paste on the left (clipboard actions), Reset and
+  // Remove on the right (they change the slot) — grouped by meaning, so a
+  // destructive button is never next to a harmless one.
+  const tools = el('div', 'rw-mod-slot-tools');
+  const toolsL = el('div', 'rw-mod-slot-tools-group');
+  const toolsR = el('div', 'rw-mod-slot-tools-group rw-mod-slot-tools-group--end');
   let copyBtn: HTMLButtonElement | null = null;
   let pasteBtn: HTMLButtonElement | null = null;
   if (adapter.caps.showCopyPaste) {
-    copyBtn = buildIconBtn('Copy patch', 'C', () => adapter.copy());
-    pasteBtn = buildIconBtn('Paste patch', 'V', () => adapter.paste());
-    header.append(copyBtn, pasteBtn);
+    copyBtn = buildIconBtn('Copy this patch (source, amount and target)', 'Copy', () => adapter.copy());
+    pasteBtn = buildIconBtn('Paste a copied patch here', 'Paste', () => adapter.paste());
+    toolsL.append(copyBtn, pasteBtn);
   }
-  // Soft reset (↻). Shift+click promotes to hard reset which also wipes
+  // Soft reset. Shift+click promotes to hard reset which also wipes
   // source + target. The button doesn't delete the row — that's the
-  // job of the X button below. Keyboard: R / Shift+R when the row is
+  // job of the ✕ button below. Keyboard: R / Shift+R when the row is
   // focused dispatch the same actions.
   const softResetBtn = buildIconBtn(
-    'Reset patch params (Shift: full reset including source/target)',
-    '↻',
+    'Reset the patch settings (Shift-click: full reset including source and target)',
+    'Reset',
     () => adapter.softReset(),
   );
   softResetBtn.addEventListener('click', (ev) => {
@@ -889,10 +906,12 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     // hardReset(). Use stopImmediatePropagation to swallow the default.
     if (ev.shiftKey) { ev.stopImmediatePropagation(); ev.preventDefault(); adapter.hardReset(); }
   }, true);
-  header.appendChild(softResetBtn);
-
-  const delBtn = buildIconBtn(adapter.caps.resetLabel, 'X', () => adapter.reset());
-  header.appendChild(delBtn);
+  const delBtn = buildIconBtn(adapter.caps.resetLabel, '✕', () => adapter.reset());
+  delBtn.classList.add('rw-mod-slot-del');
+  delBtn.setAttribute('aria-label', adapter.caps.resetLabel);
+  toolsR.append(softResetBtn, delBtn);
+  tools.append(toolsL, toolsR);
+  header.appendChild(tools);
 
   // Make the row focusable so R / Shift+R can trigger reset without a
   // mouse click, per the spec. Tab order matches column order.
@@ -997,7 +1016,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     // Sync expand state.
     const open = adapter.expanded.get();
     body.style.display = open ? '' : 'none';
-    expandBtn.textContent = open ? '▼' : '▶';
+    expandBtn.setAttribute('aria-expanded', String(open));
     card.classList.toggle('expanded', open);
 
     // Source-kind change forces a body rebuild.

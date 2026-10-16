@@ -36,7 +36,13 @@ const APP_URL = process.env.APP_URL ?? 'http://localhost:5190/';
 const DEST_ARG = (() => { const i = process.argv.indexOf('--dest'); return i >= 0 ? path.resolve(process.argv[i + 1]) : null; })();
 // --dest <dir>: write the videos somewhere else (e.g. to audition a voice) and
 // leave public/tutorials, the manifest and the About list untouched.
-const DEST = DEST_ARG ?? path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
+// `node build.mjs promo` builds tours/promo.mjs — the 2–3 minute showpiece film. It is
+// NOT part of the course: it never touches the manifest or the About list and lands in
+// out/promo/ (copy it where it is needed).
+const PROMO_ONLY = process.argv.includes('promo');
+const NO_INDEX = DEST_ARG != null || PROMO_ONLY;
+const PROMO_LESSON = { id: 'promo', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo' };
+const DEST = DEST_ARG ?? (PROMO_ONLY ? path.join(HERE, 'out', 'promo') : path.join(REPO, 'public', 'tutorials'));   // served at /tutorials/ (MP4s are gitignored; upload them separately)
 const W = 1920, H = 1080;
 const PAD_MS = 450;          // breath after each line
 const LEAD_MS = 700;         // picture before the first word
@@ -62,7 +68,7 @@ const indexOnly = args.includes('--index');
 const DRY = args.includes('--dry');   // validate a tour fast: no TTS, recording or encoding
 const ids = args.filter((a) => !a.startsWith('--'));
 const todo = indexOnly ? [] : ids.length ? ids.map((id) => {
-  const l = LESSONS.find((x) => x.id === id);
+  const l = id === 'promo' ? PROMO_LESSON : LESSONS.find((x) => x.id === id);
   if (!l) throw new Error(`unknown lesson ${id}`);
   return l;
 }) : LESSONS;
@@ -225,7 +231,7 @@ async function record(lesson) {
     deviceScaleFactor: 1,
     ...(DRY ? {} : { recordVideo: { dir: work, size: { width: vp.width, height: vp.height } } }),
   });
-  await ctx.addInitScript(tour.touch ? TOUCH_SCRIPT : CURSOR_SCRIPT);
+  if (!tour.noCursor) await ctx.addInitScript(tour.touch ? TOUCH_SCRIPT : CURSOR_SCRIPT);
   // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
   // helper servers (e.g. a WebSocket standing in for the OSC/MCP bridge).
   for (const script of tour.initScripts ?? []) await ctx.addInitScript(script);
@@ -262,7 +268,7 @@ async function record(lesson) {
       if (!line) throw new Error(`segment ${id} has no narration line`);
       const start = Date.now() - t0;
       stamps.push({ id, start });
-      if (stamps.length === 1) await h.card(`LESSON ${lesson.number} · ${lesson.level.toUpperCase()} · ${lesson.track.toUpperCase()}`, lesson.title, Math.min(2600, line.ms - 300));
+      if (stamps.length === 1 && !tour.noCard) await h.card(`LESSON ${lesson.number} · ${lesson.level.toUpperCase()} · ${lesson.track.toUpperCase()}`, lesson.title, Math.min(2600, line.ms - 300));
       await fn();
       const left = start + line.ms + PAD_MS - (Date.now() - t0);
       if (left > 0) await page.waitForTimeout(left);
@@ -310,6 +316,22 @@ async function record(lesson) {
     '-movflags', '+faststart',
     mp4,
   ]);
+  if (tour.music) {
+    // A quiet synthesized bed (slow-swelling A-minor add9 drone) under the narration:
+    // written next to the plain cut as <id>-music.mp4 so either can be used.
+    const dur = Number(durS);
+    const tone = (f) => `sine=f=${f}:d=${dur}:r=48000`;
+    const out = path.join(DEST, `${lesson.id}-music.mp4`);
+    execFileSync(ffmpeg, [
+      '-y', '-hide_banner', '-loglevel', 'error',
+      '-i', mp4,
+      '-f', 'lavfi', '-i', tone(110), '-f', 'lavfi', '-i', tone(164.81), '-f', 'lavfi', '-i', tone(220), '-f', 'lavfi', '-i', tone(246.94), '-f', 'lavfi', '-i', tone(329.63),
+      '-filter_complex',
+      `[1][2][3][4][5]amix=inputs=5:normalize=0,lowpass=f=900,tremolo=f=0.11:d=0.55,aecho=0.8:0.7:900|1700:0.35|0.2,volume=0.09,afade=t=in:d=3,afade=t=out:st=${Math.max(0, dur - 5)}:d=5[bed];` +
+      `[0:a][bed]amix=inputs=2:normalize=0:duration=first[a]`,
+      '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out,
+    ]);
+  }
   const posterId = tour.poster ?? stamps[Math.floor(stamps.length / 2)].id;
   const ps = stamps.find((s) => s.id === posterId) ?? stamps[0];
   execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-ss', ((ps.start - trimMs + 2500) / 1000).toFixed(2),
@@ -436,5 +458,5 @@ const failed = [];
 for (const l of todo) {
   try { await (VTT_ONLY ? rewriteVtt(l) : record(l)); } catch (e) { failed.push(l.id); console.error(`[${l.id}] FAILED: ${e.message}`); }
 }
-if (!DRY && !DEST_ARG) { await writeManifest(); writeIndex(); }
+if (!DRY && !NO_INDEX) { await writeManifest(); writeIndex(); }
 if (failed.length) { console.error(`failed: ${failed.join(', ')}`); process.exitCode = 1; }

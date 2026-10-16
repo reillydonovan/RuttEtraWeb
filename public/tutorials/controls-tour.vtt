@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:04.151
+00:00:00.700 --> 00:00:04.135
 The Controls panel holds every parameter, in three tabs.
 
 2
-00:00:04.151 --> 00:00:05.692
+00:00:04.135 --> 00:00:05.669
 Synth shapes the picture.
 
 3
-00:00:06.150 --> 00:00:09.614
+00:00:06.125 --> 00:00:09.555
 I O connects MIDI, audio, OSC, and control voltage.
 
 4
-00:00:09.614 --> 00:00:11.108
+00:00:09.555 --> 00:00:11.034
 Help holds the manual.
 
 5
-00:00:11.108 --> 00:00:12.059
+00:00:11.034 --> 00:00:11.976
 Back to Synth.
 
 6
-00:00:12.511 --> 00:00:14.456
+00:00:12.427 --> 00:00:14.191
 Each tab is a stack of sections.
 
 7
-00:00:14.456 --> 00:00:17.375
+00:00:14.191 --> 00:00:16.838
 Click a header to fold a section open or closed.
 
 8
-00:00:17.836 --> 00:00:22.139
+00:00:17.290 --> 00:00:22.080
 To find anything fast, press slash, or click the search box, and type.
 
 9
-00:00:22.139 --> 00:00:22.507
+00:00:22.080 --> 00:00:22.491
 Bloom.
 
 10
-00:00:22.959 --> 00:00:25.237
+00:00:22.954 --> 00:00:25.114
 Drag a knob up or down to change it.
 
 11
-00:00:25.237 --> 00:00:27.008
+00:00:25.114 --> 00:00:26.794
 Hold Shift for fine control.
 
 12
-00:00:27.008 --> 00:00:28.591
+00:00:26.794 --> 00:00:28.294
 Double-click to reset it.
 
 13
-00:00:29.055 --> 00:00:35.647
+00:00:28.756 --> 00:00:35.025
 The small arrow by a knob opens its menu: type an exact value, widen the knob's range, or reset.
 
 14
-00:00:36.098 --> 00:00:41.068
+00:00:35.490 --> 00:00:40.551
 The i button on a section header explains it, and draws what is patched into it right now.
 
 15
-00:00:41.522 --> 00:00:46.300
+00:00:41.008 --> 00:00:45.373
 Press Escape in the search box to clear it, and everything folds back the way it was.
 
 16
-00:00:46.756 --> 00:00:50.148
+00:00:45.826 --> 00:00:49.216
 Next, we will use these controls to shape the raster itself.

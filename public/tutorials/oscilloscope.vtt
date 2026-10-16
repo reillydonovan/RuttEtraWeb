@@ -1,53 +1,53 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:06.081
+00:00:00.700 --> 00:00:05.861
 The Pattern Generator has an Oscilloscope kind: it draws a signal as a glowing trace.
 
 2
-00:00:06.081 --> 00:00:10.577
+00:00:05.861 --> 00:00:10.173
 Turn it on over the camera, set Kind to Oscilloscope, and Blend to Add.
 
 3
-00:00:11.029 --> 00:00:14.429
+00:00:10.633 --> 00:00:14.099
 A thin trace barely lifts the raster, so make it thick.
 
 4
-00:00:14.429 --> 00:00:17.087
+00:00:14.099 --> 00:00:16.809
 Now it rides across the picture as a ridge.
 
 5
-00:00:18.164 --> 00:00:23.326
+00:00:17.260 --> 00:00:22.693
 Set the scope's source to Classic Slot, and its reference to one: modulation slot one.
 
 6
-00:00:23.782 --> 00:00:25.041
+00:00:23.152 --> 00:00:24.334
 Switch slot one on.
 
 7
-00:00:25.041 --> 00:00:26.896
+00:00:24.334 --> 00:00:26.077
 Its sine wave is drawn live.
 
 8
-00:00:28.710 --> 00:00:32.912
+00:00:28.026 --> 00:00:32.112
 Change the waveform to a square wave, and the trace snaps between two levels.
 
 9
-00:00:33.370 --> 00:00:36.283
+00:00:32.568 --> 00:00:35.384
 Sweep sets how fast the trace crosses the screen.
 
 10
-00:00:36.283 --> 00:00:38.127
+00:00:35.384 --> 00:00:37.165
 Persist sets how long it glows.
 
 11
-00:00:45.554 --> 00:00:50.247
+00:00:45.621 --> 00:00:50.497
 The scope can also draw audio, a graph node, any parameter, or the beat pulse.
 
 12
-00:00:50.702 --> 00:00:55.336
+00:00:50.951 --> 00:00:55.976
 A scope as a video source: any signal in the synth can become the picture.
 
 13
-00:00:55.336 --> 00:00:56.526
+00:00:55.976 --> 00:00:57.266
 Next: deeper looks.

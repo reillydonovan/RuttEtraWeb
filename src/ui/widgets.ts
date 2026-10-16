@@ -18,6 +18,8 @@ import { activeTargetsBus, TargetActivity } from '../modulation/ActiveTargetsBus
 import { registerDesignedRange } from './paramRangeRegistry';
 import { attachKeyframeDiamond, setKeyedValueAtPlayhead } from './keyframeAffordance';
 import { whenLiveValues } from './liveValueBus';
+import { infoButton } from './help/infoModal';
+import { groupInfo } from './help/infoContent';
 import { attachTooltip } from './tooltip';
 import { PARAM_DOCS } from './help/paramDocs';
 
@@ -91,7 +93,16 @@ export function group(title: string): { root: HTMLElement; body: HTMLElement } {
   head.textContent = title;
   const body = document.createElement('div');
   body.className = 'rw-group-body';
-  root.append(head, body);
+  // ⓘ — what this group is for, plus a reference row for every parameter inside
+  // it (read when pressed, so controls added later are included). It sits
+  // BESIDE the head, not in it, so the head's text stays exactly the title.
+  const info = infoButton(() => {
+    const section = root.closest('.rw-section')?.querySelector('.rw-section-head > span')?.textContent?.trim() ?? null;
+    const keys = Array.from(root.querySelectorAll<HTMLElement>('[data-param-key]'), (n) => n.dataset.paramKey!);
+    return groupInfo(title, section, keys);
+  }, `About ${title}`);
+  info.classList.add('rw-group-info');
+  root.append(head, info, body);
   return { root, body };
 }
 

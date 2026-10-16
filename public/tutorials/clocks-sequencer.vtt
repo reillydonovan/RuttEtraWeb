@@ -1,73 +1,73 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:02.505
+00:00:00.700 --> 00:00:02.390
 Clocks turn time into events.
 
 2
-00:00:02.505 --> 00:00:03.252
+00:00:02.390 --> 00:00:03.089
 Add a Clock.
 
 3
-00:00:03.252 --> 00:00:06.801
+00:00:03.089 --> 00:00:06.412
 It ticks in step with the tempo, which the Timeline sets.
 
 4
-00:00:07.252 --> 00:00:11.401
+00:00:06.871 --> 00:00:11.291
 Add a Sequencer, and patch the Clock's pulse into its clock input.
 
 5
-00:00:11.401 --> 00:00:13.225
+00:00:11.291 --> 00:00:13.233
 Every tick advances one step.
 
 6
-00:00:13.676 --> 00:00:15.230
+00:00:13.686 --> 00:00:15.243
 Each step holds a value.
 
 7
-00:00:15.230 --> 00:00:19.052
+00:00:15.243 --> 00:00:19.073
 Shape the pattern: a spike on step two, a dip on step four.
 
 8
-00:00:19.517 --> 00:00:22.802
+00:00:19.534 --> 00:00:23.109
 Bind the sequencer to Z Push, and the depth steps in rhythm.
 
 9
-00:00:23.254 --> 00:00:25.632
+00:00:23.562 --> 00:00:25.784
 Clock divide by N slows a clock down.
 
 10
-00:00:25.632 --> 00:00:28.075
+00:00:25.784 --> 00:00:28.066
 Here it passes only every fourth tick.
 
 11
-00:00:29.521 --> 00:00:32.528
+00:00:29.834 --> 00:00:32.846
 Trigger to Gate stretches each tick into a gate.
 
 12
-00:00:32.528 --> 00:00:36.475
+00:00:32.846 --> 00:00:36.800
 The ADSR envelope turns that gate into a swell and a slow fade.
 
 13
-00:00:41.612 --> 00:00:45.537
+00:00:41.940 --> 00:00:45.655
 Send the envelope to Bloom Intensity: the glow swells once a bar.
 
 14
-00:00:45.994 --> 00:00:50.431
+00:00:46.107 --> 00:00:51.029
 Probe the envelope to see its shape: attack, decay, sustain, release.
 
 15
-00:00:50.890 --> 00:00:51.974
+00:00:51.482 --> 00:00:52.629
 Restore the window.
 
 16
-00:00:51.974 --> 00:00:55.455
+00:00:52.629 --> 00:00:56.311
 Stepped depth, and a breathing glow, both locked to the beat.
 
 17
-00:00:55.910 --> 00:00:58.684
+00:00:56.766 --> 00:00:59.640
 Change the tempo, and the whole patch follows.
 
 18
-00:00:58.684 --> 00:01:00.795
+00:00:59.640 --> 00:01:01.827
 Next: feedback, and a little chaos.

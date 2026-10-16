@@ -24,8 +24,12 @@ body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"])
   align-items: center;
   gap: 10px;
 }
-body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider input[type="range"],
-body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider .rw-num {
+/* Hide the native range/number ONLY where a knob stands in for them. A
+   hand-built `.rw-slider` with no knob (the BPM field, CV trim, Sonification
+   volume) would otherwise render as an empty row; and the modulation slot's
+   AMT keeps its numeric field beside its knob. */
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider:has(> .rw-knob) input[type="range"],
+body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider:has(> .rw-knob):not(.rw-mod-slot-amount):not(.rw-slider--num) .rw-num {
   display: none;
 }
 

@@ -1,57 +1,57 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:04.251
+00:00:00.700 --> 00:00:03.976
 On stage you want the picture big and the controls close.
 
 2
-00:00:04.251 --> 00:00:06.993
+00:00:03.976 --> 00:00:06.505
 The Performance layout maximizes the output.
 
 3
-00:00:07.995 --> 00:00:11.768
+00:00:07.970 --> 00:00:11.331
 Press H for the HUD: frame rate, source and render size.
 
 4
-00:00:11.768 --> 00:00:13.520
+00:00:11.331 --> 00:00:12.892
 Press it again to hide it.
 
 5
-00:00:13.972 --> 00:00:15.644
+00:00:13.352 --> 00:00:14.800
 Back to the default layout.
 
 6
-00:00:15.644 --> 00:00:20.350
+00:00:14.800 --> 00:00:18.878
 Bracket keys flip between the panel tabs, and slash jumps to the search box.
 
 7
-00:00:21.521 --> 00:00:24.643
+00:00:20.904 --> 00:00:23.604
 The Performance section trades quality for speed.
 
 8
-00:00:24.643 --> 00:00:28.211
+00:00:23.604 --> 00:00:26.690
 Battery caps the frame rate and drops the heavy effects.
 
 9
-00:00:28.211 --> 00:00:31.078
+00:00:26.690 --> 00:00:29.170
 Render Scale changes the internal resolution.
 
 10
-00:00:31.529 --> 00:00:37.843
+00:00:29.629 --> 00:00:35.619
 Virtual Camera sets a fixed output resolution, like full HD for a projector, letterboxed to fit.
 
 11
-00:00:38.307 --> 00:00:45.176
+00:00:36.081 --> 00:00:43.186
 Fly mode turns the camera into a free-flying ship: W A S D to move, the mouse to steer, Shift to boost.
 
 12
-00:00:45.634 --> 00:00:51.586
+00:00:43.646 --> 00:00:49.358
 For syncing with video, the Timeline can count in timecode, frames, or samples instead of bars.
 
 13
-00:00:52.036 --> 00:01:01.486
+00:00:49.820 --> 00:00:58.968
 And for two screens, Window, Pop Out Output sends the picture to its own window, ready to go fullscreen on a projector, while the controls stay on your laptop.
 
 14
-00:01:01.940 --> 00:01:04.222
+00:00:59.432 --> 00:01:01.754
 Last lesson: putting it all together.

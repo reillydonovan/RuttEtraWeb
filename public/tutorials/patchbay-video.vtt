@@ -1,45 +1,45 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.621
+00:00:00.700 --> 00:00:03.327
 The Patch Bay also routes the picture itself.
 
 2
-00:00:03.621 --> 00:00:05.244
+00:00:03.327 --> 00:00:04.786
 Video cables are magenta.
 
 3
-00:00:05.697 --> 00:00:08.982
+00:00:05.241 --> 00:00:08.677
 Load a video into Video Source A, with its File button.
 
 4
-00:00:09.446 --> 00:00:11.686
+00:00:09.129 --> 00:00:11.543
 Open its preview to check that it is playing.
 
 5
-00:00:12.145 --> 00:00:16.454
+00:00:12.007 --> 00:00:16.325
 Now patch the Pattern Generator's video output into Composite's B input.
 
 6
-00:00:17.134 --> 00:00:20.334
+00:00:17.443 --> 00:00:20.786
 Set the Composite blend to Screen, so both pictures show.
 
 7
-00:00:20.796 --> 00:00:24.294
+00:00:21.239 --> 00:00:24.675
 Finally, patch Composite's output into the Renderer's input.
 
 8
-00:00:24.749 --> 00:00:25.870
+00:00:25.129 --> 00:00:26.190
 Restore the window.
 
 9
-00:00:25.870 --> 00:00:28.525
+00:00:26.190 --> 00:00:28.704
 The raster now carries both pictures at once.
 
 10
-00:00:29.778 --> 00:00:33.049
+00:00:29.964 --> 00:00:32.956
 Video Source B and Dual Raster patch the same way.
 
 11
-00:00:33.049 --> 00:00:35.666
+00:00:32.956 --> 00:00:35.351
 From here, everything is one cable away.

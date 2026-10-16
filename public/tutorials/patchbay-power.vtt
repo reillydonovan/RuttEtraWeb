@@ -1,69 +1,69 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.716
+00:00:00.700 --> 00:00:03.929
 A few moves turn the Patch Bay into an instrument.
 
 2
-00:00:03.716 --> 00:00:05.948
+00:00:03.929 --> 00:00:06.319
 First: one parameter driving another.
 
 3
-00:00:06.399 --> 00:00:09.966
+00:00:06.775 --> 00:00:10.327
 Every parameter has an output jack as well as an input.
 
 4
-00:00:09.966 --> 00:00:13.274
+00:00:10.327 --> 00:00:13.621
 Drag the output of Z Push onto the input of H Size.
 
 5
-00:00:13.274 --> 00:00:19.177
+00:00:13.621 --> 00:00:19.499
 Now the width follows the depth, and a Param Out node carries the signal behind the scenes.
 
 6
-00:00:19.630 --> 00:00:21.942
+00:00:19.965 --> 00:00:22.205
 Right-click empty space, and add a Note.
 
 7
-00:00:21.942 --> 00:00:22.578
+00:00:22.205 --> 00:00:22.821
 Type on it.
 
 8
-00:00:22.578 --> 00:00:27.203
+00:00:22.821 --> 00:00:27.302
 Notes are labels that live in the patch, so you can explain what a patch is for.
 
 9
-00:00:27.653 --> 00:00:31.580
+00:00:27.759 --> 00:00:31.144
 Restore the window, and open Modulation in the Controls panel.
 
 10
-00:00:31.580 --> 00:00:34.051
+00:00:31.144 --> 00:00:33.273
 The cable you just made is a row there.
 
 11
-00:00:34.051 --> 00:00:38.106
+00:00:33.273 --> 00:00:36.768
 The Patch Bay and the Controls panel are two views of one patch.
 
 12
-00:00:38.557 --> 00:00:43.909
+00:00:37.223 --> 00:00:42.314
 For two displays, the pop-out button on a window sends it to a browser window of its own.
 
 13
-00:00:43.909 --> 00:00:46.855
+00:00:42.314 --> 00:00:45.117
 It stays live, and the main window keeps working.
 
 14
-00:00:47.311 --> 00:00:51.524
+00:00:45.574 --> 00:00:49.551
 Save a preset or a project, and every cable and note goes with it.
 
 15
-00:00:51.524 --> 00:00:55.673
+00:00:49.551 --> 00:00:53.468
 Open it later, here or on another machine, and it all comes back.
 
 16
-00:00:56.123 --> 00:00:57.413
+00:00:53.927 --> 00:00:55.187
 That is the Patch Bay.
 
 17
-00:00:57.413 --> 00:00:59.643
+00:00:55.187 --> 00:00:57.363
 The next level up is the Graph engine.

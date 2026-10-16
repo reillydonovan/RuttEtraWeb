@@ -1574,76 +1574,82 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
 }
 
 /*
- * Collapsed header row layout. Two rows by default so the target dropdown
- * and amount slider don't get crushed at typical panel widths:
+ * Collapsed header — three lines that read top to bottom as
+ * "what drives it → how much, and into what → housekeeping":
  *
- *   row 1: [en?] [source ???] [???] [C] [V] [X] [no-clock-badge]
- *   row 2: [Amount slider .................] [Target ??? ........]
+ *   [on] [ source ............................ ] [▾]
+ *   [knob] AMT [value]  [ target ................... ]
+ *   [Copy] [Paste]                       [Reset] [✕]
  *
- * The two-row stack scales gracefully from ~280px to full width without
- * cutting off content. Wider panels still see compact information density
- * because each row is only one CSS line tall.
+ * The footer groups by meaning: clipboard actions left, the two that
+ * CHANGE the slot (reset, remove) right, remove last and tinted.
  */
 .rw-mod-slot-row {
-  display: grid;
-  grid-template-columns:
-    auto      /* enable (32px when present) */
-    minmax(0, 1fr)  /* source */
-    32px      /* expand */
-    32px 32px 32px; /* C / V / X */
-  align-items: center;
-  gap: 6px 6px;
-  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
 }
-.rw-mod-slot-row .rw-mod-slot-en { justify-self: center; margin: 0; width: 32px; }
+.rw-mod-slot-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rw-mod-slot-line--src .rw-mod-slot-src { flex: 1 1 auto; width: auto; min-width: 0; }
+.rw-mod-slot-line--amt .rw-mod-slot-tgt { flex: 1 1 auto; width: auto; min-width: 0; }
+.rw-mod-slot-row .rw-mod-slot-en { margin: 0; flex: 0 0 auto; }
 .rw-mod-slot-row .rw-select { font-size: 13px; min-width: 0; }
-.rw-mod-slot-row .rw-mod-slot-src { width: 100%; }
-.rw-mod-slot-row .rw-mod-slot-tgt { width: 100%; }
 
-/* Row 2: amount + target stacked below the header line. */
+/* Amount: the knob and an always-visible numeric field with its caption. */
 .rw-mod-slot-amount {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  flex: 0 0 auto;
   min-width: 0;
 }
-.rw-mod-slot-amount::before {
-  content: 'AMT';
+.rw-slider--num { display: flex; align-items: center; gap: 10px; }
+.rw-slider--num .rw-num { width: 72px; flex: 0 0 auto; }
+.rw-slider.rw-mod-slot-amount { width: auto; }   /* .rw-slider is width:100% — the target dropdown shares this line */
+.rw-mod-slot-amount input[type="range"] { flex: 1 1 auto; min-width: 60px; }
+.rw-mod-slot-amount-field { display: flex; flex-direction: column; gap: 2px; }
+.rw-mod-slot-amount-cap {
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: var(--re-dim, rgba(95,255,133,0.55));
-  width: 32px;
-  text-align: center;
-  flex: 0 0 32px;
+  color: var(--re-text-dim, rgba(95,255,133,0.55));
+  line-height: 1;
 }
-.rw-mod-slot-amount input[type="range"] { flex: 1 1 auto; min-width: 60px; }
-.rw-mod-slot-amount input[type="number"] { width: 56px; }
-
-.rw-mod-slot-row .rw-mod-slot-tgt {
-  grid-column: 1 / -1;
-}
+.rw-mod-slot-amount input[type="number"] { width: 64px; }
 
 /* Hide the AMT label DOM if anything still emits it (legacy). */
-.rw-mod-slot-amount-label {
-  display: none;
-}
+.rw-mod-slot-amount-label { display: none; }
 
+.rw-mod-slot-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--re-line);
+}
+.rw-mod-slot-tools-group { display: flex; align-items: center; gap: 6px; }
 .rw-mod-slot-iconbtn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  font-size: 12px;
-  letter-spacing: 0;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
   text-align: center;
 }
+.rw-mod-slot-iconbtn.rw-mod-slot-del { padding: 0; width: 28px; }
+.rw-mod-slot-iconbtn.rw-mod-slot-del:hover { color: var(--re-warn, #ff5c5c); border-color: var(--re-warn, #ff5c5c); }
 
 .rw-mod-slot-expand {
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
   padding: 0;
   font-size: 13px;
+  line-height: 1;
 }
+.rw-mod-slot-expand { transition: transform 120ms; }
+.rw-mod-slot-expand[aria-expanded="false"] { transform: rotate(-90deg); }
 
 .rw-mod-noclock-badge {
   display: none;
@@ -1678,10 +1684,9 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
 
 /* Compact-mode bumps icon buttons up to 36px for tap-target ergonomics. */
 
-body[data-layout="compact"] .rw-mod-slot-iconbtn {
-  width: 36px;
-  height: 36px;
-}
+body[data-layout="compact"] .rw-mod-slot-iconbtn { min-width: 40px; height: 40px; }
+body[data-layout="compact"] .rw-mod-slot-iconbtn.rw-mod-slot-del { width: 40px; }
+body[data-layout="compact"] .rw-mod-slot-expand { width: 40px; height: 40px; }
 
 
 

@@ -1,69 +1,69 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.778
+00:00:00.700 --> 00:00:03.504
 Control voltage connects modular synthesizers.
 
 2
-00:00:03.778 --> 00:00:09.468
+00:00:03.504 --> 00:00:08.687
 Through a DC-coupled audio interface, each input channel becomes a modulation source.
 
 3
-00:00:09.922 --> 00:00:14.314
+00:00:09.147 --> 00:00:13.020
 Pick the interface, choose how many channels, and start the CV reader.
 
 4
-00:00:14.314 --> 00:00:17.452
+00:00:13.020 --> 00:00:15.787
 A test signal stands in for a real interface here.
 
 5
-00:00:17.906 --> 00:00:20.285
+00:00:16.239 --> 00:00:18.507
 Each channel shows its live voltage.
 
 6
-00:00:20.285 --> 00:00:27.356
+00:00:18.507 --> 00:00:25.248
 Set its range, plus or minus five volts for Eurorack, its polarity and smoothing, and Calibrate to zero it.
 
 7
-00:00:27.820 --> 00:00:28.825
+00:00:25.698 --> 00:00:26.630
 No interface?
 
 8
-00:00:28.825 --> 00:00:34.857
+00:00:26.630 --> 00:00:32.223
 A Raspberry Pi with an analog to digital converter can send CV as OSC instead.
 
 9
-00:00:34.857 --> 00:00:38.337
+00:00:32.223 --> 00:00:35.450
 Add an OSC CV channel and give it an address.
 
 10
-00:00:38.788 --> 00:00:41.812
+00:00:35.907 --> 00:00:38.696
 Gamepads and HID controllers appear here, too.
 
 11
-00:00:41.812 --> 00:00:44.377
+00:00:38.696 --> 00:00:41.061
 Every axis and button becomes a source.
 
 12
-00:00:44.840 --> 00:00:50.890
+00:00:41.516 --> 00:00:47.349
 MCP lets an AI assistant, like Claude, drive the synth through the bridge in the tools folder.
 
 13
-00:00:50.890 --> 00:00:52.306
+00:00:47.349 --> 00:00:48.714
 Connect to the bridge.
 
 14
-00:00:52.759 --> 00:00:54.823
+00:00:49.179 --> 00:00:50.952
 Now the assistant is in control.
 
 15
-00:00:54.823 --> 00:01:00.759
+00:00:50.952 --> 00:00:56.052
 It deepens the raster, widens it, turns it, and then builds a modulation patch from scratch.
 
 16
-00:01:01.210 --> 00:01:07.233
+00:00:56.504 --> 00:01:03.001
 Anything an assistant can set, it can also read back: parameters, patches, even a screenshot.
 
 17
-00:01:07.233 --> 00:01:08.399
+00:01:03.001 --> 00:01:04.259
 Next: the outputs.

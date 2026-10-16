@@ -163,7 +163,7 @@ export function createRackLayer(
       jack.dataset.rackJackOut = String(index);
       attachTooltip(jack, 'Slot output — drag a cable to any param’s input jack; drop in space to unplug.');
       jack.addEventListener('pointerdown', (ev) => beginDrag(ev, index, jack));
-      (card.querySelector('.rw-mod-slot-row') ?? card).appendChild(jack);
+      (card.querySelector('.rw-mod-slot-tools-group--end') ?? card.querySelector('.rw-mod-slot-row') ?? card).appendChild(jack);
       slotJacks.set(index, jack);
     }
   }

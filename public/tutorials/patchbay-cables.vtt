@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:04.625
+00:00:00.700 --> 00:00:04.516
 The Patch Bay is the whole instrument as one hardware faceplate.
 
 2
-00:00:04.625 --> 00:00:06.097
+00:00:04.516 --> 00:00:05.947
 Maximize it to see more.
 
 3
-00:00:06.549 --> 00:00:12.378
+00:00:06.406 --> 00:00:12.968
 Along the top, the Sources bus offers signals: waveforms, audio, beats, MIDI, and more.
 
 4
-00:00:12.378 --> 00:00:16.533
+00:00:12.968 --> 00:00:17.644
 Every parameter has an input jack, a knob, and an output jack.
 
 5
-00:00:16.994 --> 00:00:19.379
+00:00:18.107 --> 00:00:20.294
 Cables run from an output to an input.
 
 6
-00:00:19.379 --> 00:00:24.276
+00:00:20.294 --> 00:00:24.784
 Drag the triangle wave toward the bottom edge, and the board scrolls with you.
 
 7
-00:00:24.276 --> 00:00:29.047
+00:00:24.784 --> 00:00:29.159
 Drop it on Function Generator one, the same slot as in the Modulation panel.
 
 8
-00:00:29.507 --> 00:00:30.497
+00:00:29.612 --> 00:00:30.518
 Now its output.
 
 9
-00:00:30.497 --> 00:00:33.667
+00:00:30.518 --> 00:00:33.420
 Grab the output jack, and carry it up to H Size.
 
 10
-00:00:34.123 --> 00:00:35.224
+00:00:33.873 --> 00:00:34.925
 Restore the window.
 
 11
-00:00:35.224 --> 00:00:38.645
+00:00:34.925 --> 00:00:38.191
 The raster now stretches in and out with the triangle wave.
 
 12
-00:00:39.102 --> 00:00:42.748
+00:00:38.795 --> 00:00:42.339
 Back in the bay, grab a cable by its input end to move it.
 
 13
-00:00:42.748 --> 00:00:43.880
+00:00:42.339 --> 00:00:43.439
 Drop it on V Size.
 
 14
-00:00:44.334 --> 00:00:46.702
+00:00:43.898 --> 00:00:46.359
 Drop a cable in empty space to unplug it.
 
 15
-00:00:47.159 --> 00:00:51.130
+00:00:46.813 --> 00:00:51.250
 Cables and the Modulation panel are two views of one patch.
 
 16
-00:00:51.130 --> 00:00:51.937
+00:00:51.250 --> 00:00:52.153
 Next: nodes.

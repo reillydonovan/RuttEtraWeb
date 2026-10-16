@@ -939,6 +939,82 @@ html body[data-theme="modern"][data-theme] {
   & :is(.rw-status-dot, .rw-tl-title) { box-shadow: none; text-shadow: none; }
 }
 
+/* ---- Modulation: one segmented-control language, one slot-card rhythm ----
+   (owner: "balance these layouts like a pro"). The mode switch
+   (Classic | Graph | Both) and the view switch (Beginner | Advanced) are the
+   SAME control — a well with a sliding lit segment — and Library / Reset Mod
+   are plain secondary buttons set apart from them. */
+html body[data-theme="modern"][data-theme] {
+  & :is(.rw-mod-mode-switch, .rw-graph-view-switch) {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0;
+    padding: 2px;
+    border: none;
+    border-radius: var(--pill);
+    background: var(--c-well);
+  }
+  & .rw-mod-mode-switch { display: flex; }
+  & :is(.rw-mod-mode-switch button, .rw-graph-view-btn:not(.rw-graph-library-btn)) {
+    flex: 1 1 auto;
+    min-height: var(--ctl-m);
+    padding: 0 var(--sp-3);
+    border: none;
+    border-radius: var(--pill);
+    background: transparent;
+    color: var(--t-dim);
+    font: 500 var(--fs-s) var(--mx-sans);
+    letter-spacing: 0;
+    text-transform: none;
+    text-shadow: none;
+  }
+  & :is(.rw-mod-mode-switch button, .rw-graph-view-btn:not(.rw-graph-library-btn)):hover { color: var(--a-text); background: var(--a-08); }
+  & :is(.rw-mod-mode-switch button, .rw-graph-view-btn:not(.rw-graph-library-btn)).active {
+    color: var(--t-max);
+    background: var(--c-fill-hi);
+    box-shadow: inset 0 0 0 1px var(--a-30);
+    text-shadow: none;
+  }
+  & .rw-mod-header-row { align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-2); }
+  & .rw-mod-reset-mod {
+    align-self: auto;
+    min-height: var(--ctl-m);
+    padding: 0 var(--sp-3);
+    border: none;
+    border-radius: var(--pill);
+    background: var(--c-fill);
+    color: var(--t-body);
+    font: 500 var(--fs-s) var(--mx-sans);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  & .rw-mod-reset-mod:hover { background: var(--c-fill-hi); color: var(--t-max); }
+  & .rw-graph-toolbar { justify-content: space-between; padding: var(--sp-1) 0 var(--sp-2); border-bottom: 1px solid var(--c-hair); margin-bottom: var(--sp-2); }
+  & .rw-graph-library-btn {
+    min-height: var(--ctl-m);
+    padding: 0 var(--sp-3);
+    border: none;
+    border-radius: var(--pill);
+    background: var(--c-fill);
+    color: var(--t-body);
+    font: 500 var(--fs-s) var(--mx-sans);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  & .rw-graph-library-btn:hover, & .rw-graph-library-btn.active { background: var(--c-fill-hi); color: var(--t-max); }
+
+  /* Slot card: tighter, three clear lines (SlotRow.ts / panel.css). */
+  & .rw-mod-slot-row { gap: var(--sp-2); padding: var(--sp-3); }
+  & .rw-mod-slot-amount-cap { font: 600 var(--fs-xs) var(--mx-code); letter-spacing: var(--track-label); color: var(--t-dim); }
+  & .rw-mod-slot-amount-field .rw-num { height: var(--ctl-m); text-align: center; }
+  & .rw-mod-slot-tools { border-top-color: var(--c-hair); padding-top: var(--sp-2); }
+  & .rw-mod-slot-tools .rw-btn { min-height: var(--ctl-s); height: var(--ctl-s); padding: 0 var(--sp-3); font: 500 var(--fs-xs) var(--mx-sans); border-radius: var(--pill); }
+  & .rw-mod-slot-tools .rw-mod-slot-del { width: var(--ctl-s); padding: 0; }
+  & .rw-mod-slot-tools .rw-mod-slot-del:hover { color: var(--red); box-shadow: inset 0 0 0 1px var(--red); background: rgba(255, 92, 92, 0.1); }
+  & .rw-mod-slot-expand { width: var(--ctl-m); height: var(--ctl-m); border-radius: 50%; }
+  & .rw-mod-slot-tools .rw-btn:disabled { opacity: 0.4; }
+}
+
 /* ============================================================== 7 BOOT */
 
 /* The intro, in the NBDC hero manner but at instrument scale: one green

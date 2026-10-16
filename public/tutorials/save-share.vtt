@@ -1,53 +1,53 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:06.950
+00:00:00.700 --> 00:00:07.294
 Three ways to keep your work: presets save a look, projects save everything, and recordings save the picture.
 
 2
-00:00:07.407 --> 00:00:10.882
+00:00:07.747 --> 00:00:11.018
 In Presets, name the current look and click Save Current.
 
 3
-00:00:10.882 --> 00:00:13.871
+00:00:11.018 --> 00:00:13.830
 It joins your saved presets, ready to load later.
 
 4
-00:00:14.322 --> 00:00:17.692
+00:00:14.285 --> 00:00:17.628
 Try another look, then load yours back from the saved list.
 
 5
-00:00:19.476 --> 00:00:26.274
+00:00:19.279 --> 00:00:26.375
 Project, at the top of the Synth tab, saves the whole workspace: settings, presets, timelines and patches.
 
 6
-00:00:26.274 --> 00:00:29.353
+00:00:26.375 --> 00:00:29.588
 Save As asks for a name, and the file downloads.
 
 7
-00:00:29.813 --> 00:00:32.608
+00:00:30.041 --> 00:00:32.719
 Record captures the output as a video file.
 
 8
-00:00:32.608 --> 00:00:35.338
+00:00:32.719 --> 00:00:35.335
 Start, let it run, then Stop and Download.
 
 9
-00:00:37.588 --> 00:00:39.677
+00:00:37.826 --> 00:00:39.808
 Share broadcasts the output live.
 
 10
-00:00:39.677 --> 00:00:45.566
+00:00:39.808 --> 00:00:45.395
 Start Broadcast gives you a link and a QR code; anyone who opens it watches in their browser.
 
 11
-00:00:46.019 --> 00:00:52.120
+00:00:45.852 --> 00:00:51.006
 WHIP output streams to OBS, MediaMTX or Cloudflare instead, for bigger audiences.
 
 12
-00:00:52.579 --> 00:00:54.602
+00:00:51.456 --> 00:00:53.454
 That covers the intermediate course.
 
 13
-00:00:54.602 --> 00:00:57.187
+00:00:53.454 --> 00:00:56.007
 The advanced lessons start with deep patching.

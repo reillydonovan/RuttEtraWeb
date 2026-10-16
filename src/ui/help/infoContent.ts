@@ -14,6 +14,7 @@
 
 import { PARAM_DOCS } from './paramDocs';
 import { SECTION_HINTS } from './sectionHints';
+import { groupHint } from './groupHints';
 import { TARGETS } from '../targets';
 import type { NodeDef } from '../../modulation/graph/types';
 import type { FlowModel } from './signalFlow';
@@ -157,6 +158,20 @@ export function moduleInfo(title: string, keys: readonly string[]): InfoContent 
     sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
     tips,
     aboutHash: rows.length ? 'param-reference' : 'the-patch-bay',
+  };
+}
+
+/** Info for a sub-group inside a Controls section (a headed block of controls). */
+export function groupInfo(title: string, section: string | null, keys: readonly string[]): InfoContent {
+  const rows = paramRows(keys);
+  const summary = groupHint(section, title);
+  return {
+    title,
+    kicker: section ? `${section} · group` : 'Controls group',
+    summary: summary || (rows.length ? 'The controls in this group are listed below.' : 'No description yet.'),
+    sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
+    tips: rows.length ? ['Hover any control for a short description. The ▾ next to a slider sets a custom range or an exact value.'] : [],
+    aboutHash: rows.length ? 'param-reference' : undefined,
   };
 }
 

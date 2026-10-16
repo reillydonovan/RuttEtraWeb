@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.229
+00:00:00.700 --> 00:00:03.078
 Classic mode gives you four fixed slots.
 
 2
-00:00:03.229 --> 00:00:07.023
+00:00:03.078 --> 00:00:06.646
 Graph mode is a node engine with more than fifty node types.
 
 3
-00:00:07.023 --> 00:00:09.489
+00:00:06.646 --> 00:00:08.966
 Switch the Modulation section to Graph.
 
 4
-00:00:09.944 --> 00:00:15.602
+00:00:09.418 --> 00:00:15.067
 Beginner view looks like the Classic slots, but each row is a real node with a binding.
 
 5
-00:00:15.602 --> 00:00:17.944
+00:00:15.067 --> 00:00:17.405
 Click Add patch: an LFO into Z Push.
 
 6
-00:00:18.403 --> 00:00:20.019
+00:00:17.866 --> 00:00:19.450
 Change its source to Noise.
 
 7
-00:00:20.019 --> 00:00:22.712
+00:00:19.450 --> 00:00:22.092
 White noise jitters the depth on every frame.
 
 8
-00:00:23.163 --> 00:00:26.334
+00:00:22.547 --> 00:00:25.518
 Point it at Rotation instead, and turn the amount up.
 
 9
-00:00:26.334 --> 00:00:28.069
+00:00:25.518 --> 00:00:27.144
 Now the whole raster shivers.
 
 10
-00:00:28.527 --> 00:00:29.657
+00:00:27.606 --> 00:00:28.686
 Add a second row.
 
 11
-00:00:29.657 --> 00:00:33.583
+00:00:28.686 --> 00:00:32.435
 A Ramp, sweeping H Size from narrow to wide, over and over.
 
 12
-00:00:34.037 --> 00:00:36.302
+00:00:32.886 --> 00:00:34.970
 The Library holds ready-made patches.
 
 13
-00:00:36.302 --> 00:00:40.650
+00:00:34.970 --> 00:00:38.969
 Load Getting Started, a slow breathing depth with a note explaining it.
 
 14
-00:00:41.108 --> 00:00:46.356
+00:00:39.425 --> 00:00:44.347
 Both mode runs Classic slots and the graph together, so switching never throws your slots away.
 
 15
-00:00:46.816 --> 00:00:49.647
+00:00:44.808 --> 00:00:47.611
 Beginner view covers simple one-to-one patches.
 
 16
-00:00:49.647 --> 00:00:52.960
+00:00:47.611 --> 00:00:50.891
 Next, the Advanced canvas, where nodes feed each other.

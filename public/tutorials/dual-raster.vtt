@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:08.664
+00:00:00.700 --> 00:00:07.838
 Dual Raster draws a second, independent raster alongside the first, like the two-channel scan processors of the seventies.
 
 2
-00:00:08.664 --> 00:00:10.492
+00:00:07.838 --> 00:00:09.477
 Here the source is a camera.
 
 3
-00:00:10.951 --> 00:00:14.108
+00:00:09.928 --> 00:00:13.225
 Open the Dual Raster section and switch on raster B.
 
 4
-00:00:14.570 --> 00:00:16.882
+00:00:13.687 --> 00:00:16.003
 Trace splits the frame between the two.
 
 5
-00:00:16.882 --> 00:00:19.668
+00:00:16.003 --> 00:00:18.795
 Sweep it across: A on one side, B on the other.
 
 6
-00:00:24.218 --> 00:00:26.066
+00:00:23.822 --> 00:00:25.737
 Raster B has its own geometry.
 
 7
-00:00:26.066 --> 00:00:28.655
+00:00:25.737 --> 00:00:28.419
 Push its depth the other way, and turn it.
 
 8
-00:00:32.145 --> 00:00:34.815
+00:00:32.525 --> 00:00:34.804
 Alternate lines interleaves them instead.
 
 9
-00:00:34.815 --> 00:00:37.094
+00:00:34.804 --> 00:00:36.751
 Every other scan line belongs to B.
 
 10
-00:00:37.544 --> 00:00:39.099
+00:00:37.211 --> 00:00:38.761
 B still shows the camera.
 
 11
-00:00:39.099 --> 00:00:45.693
+00:00:38.761 --> 00:00:45.338
 In the Patch Bay, give it a picture of its own: the Pattern Generator's output into Dual Raster's B input.
 
 12
-00:00:46.153 --> 00:00:48.798
+00:00:46.026 --> 00:00:48.673
 Then the Dual Raster's output into the Renderer.
 
 13
-00:00:51.673 --> 00:00:52.833
+00:00:51.842 --> 00:00:52.996
 Restore the window.
 
 14
-00:00:52.833 --> 00:00:56.622
+00:00:52.996 --> 00:00:56.764
 The camera and the pattern now share one raster, line by line.
 
 15
-00:00:57.081 --> 00:01:02.515
+00:00:57.229 --> 00:01:03.832
 Each raster can take a camera, a file, a stream, a pattern, or a composite of two.
 
 16
-00:01:02.515 --> 00:01:03.310
+00:01:03.832 --> 00:01:04.798
 Next, sound.

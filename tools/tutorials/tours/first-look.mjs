@@ -1,4 +1,5 @@
 // Lesson 1 — First look: PATTERN source, orbit, Z Push, a first Patch Bay patch.
+import { findJack } from '../lib/bay.mjs';
 
 export const lines = [
   { id: 'intro', text: 'This is Rutt Etra Web, a browser recreation of the 1973 Rutt Etra scan processor, an analog video synthesizer.' },
@@ -53,18 +54,16 @@ export async function run(page, seg, h) {
   });
 
   await seg('wire', async () => {
-    // Spawning switches the board to free layout (adds pan headroom), so the
-    // new module lands low. Glide the board until it and Z Push both show.
-    await page.evaluate(() => {
-      const bay = document.querySelector('.rw-patchbay');
-      const mod = [...document.querySelectorAll('.rw-pb-graphnode')].pop();
-      const dy = mod.getBoundingClientRect().bottom - (innerHeight - 30);
-      if (dy > 0) bay.scrollBy({ top: dy, behavior: 'smooth' });
-    });
-    await h.wait(900);
+    // Spawning switches the board to free layout, so the new LFO sits low in
+    // the left rail while Z Push is up in the top-left stack: carry the cable
+    // to the top edge and the board scrolls with it (edge auto-pan).
+    await h.wait(700);
     const out = await h.at('.rw-pb-graphnode .rw-rack-jack--out');
-    const zIn = await zPushIn(page);
-    await h.drag(out, zIn, 80);
+    await h.dragPan(out, { x: 700, y: 66 }, findJack, { param: 'Z Push', margin: 60 });
+    // The lesson says "the cable is the patch": it must really be one.
+    await h.check(() => [...document.querySelectorAll('.rw-patchbay .rw-pb-cell-top')]
+      .find((c) => c.textContent.trim().startsWith('Z Push') && !c.closest('.rw-pb-module'))
+      ?.querySelector('.rw-rack-jack--in')?.classList.contains('rw-rack-jack--plugged'), 'Z Push is patched from the LFO');
   });
 
   await seg('result', async () => {

@@ -10,13 +10,14 @@ export async function setup({ ctx }) {
 }
 
 export const lines = [
-  { id: 'intro', text: "To finish, five setups built from everything in this course. None of them took more than a minute. Let's get weird." },
+  { id: 'intro', text: "To finish, six setups built from everything in this course. None of them took more than a minute. Let's get weird." },
   { id: 'tunnel', text: 'One. A feedback tunnel. The camera, amber phosphor, circular burn-in with a long decay, and the camera slowly orbiting.' },
   { id: 'tunnel2', text: 'Every frame smears into the next, so the picture leaves a trail of itself.' },
   { id: 'worlds', text: 'Two. Interleaved worlds. Dual Raster, alternate lines, with raster B pushed the opposite way and turned. Two copies of the same camera, woven together. One pushes toward you, the other falls away, and every other scan line flips between them, so the picture seems to argue with itself. Orbit around it, and the two layers slide apart.' },
   { id: 'chaos', text: 'Three. Resonant chaos, loaded from a saved patch: filtered noise wobbling the rotation, and a feedback loop chasing the depth. Wireframe mode makes it a sculpture.' },
   { id: 'sound', text: 'Four. Sound terrain. The microphone drives spectrum displacement, so every frequency band lifts its own scan lines. Magenta, with heavy bloom.' },
-  { id: 'scope', text: 'Five. A Lissajous figure, in red and cyan anaglyph, drifting in 3D. Put on the glasses.' },
+  { id: 'linearity', text: 'Five. The raster, turned inside out. One low frequency oscillator on horizontal linearity, another on vertical, and then we turn the amount up. The lines pinch, fold, and flip over themselves, and all of it is the same camera.' },
+  { id: 'scope', text: 'Six. A Lissajous figure, in red and cyan anaglyph, drifting in 3D. Put on the glasses.' },
   { id: 'outro', text: "That's the instrument. Now go make something nobody has seen before." },
 ];
 export const poster = 'worlds';
@@ -115,7 +116,32 @@ export async function run(page, seg, h) {
     await h.glide({ x: 980, y: 450 }, 40);
   });
 
+  await seg('linearity', async () => {
+    await h.resetView();
+    await h.section('Modulation');
+    await h.click('#panel-root .rw-mod-mode-switch button[data-mode="graph"]');
+    await h.wait(900);
+    const last = '#panel-root .rw-beginner-view .rw-mod-slot:last-of-type';
+    for (const target of ['hLinearity', 'vLinearity']) {
+      await h.click('#panel-root .rw-beginner-view .rw-btn', 'Add patch');
+      await h.wait(500);
+      await h.choose(await h.at(`${last} select.rw-mod-slot-tgt`), null, target);
+      await h.check((t) => document.querySelector('#panel-root .rw-beginner-view .rw-mod-slot:last-of-type select.rw-mod-slot-tgt')?.value === t, `target ${target}`, target);
+    }
+    // Ramp the amount of both, a notch at a time: the knobs really turn, and
+    // the check in h.knob fails the take if either one doesn't move.
+    const amt = (i) => `#panel-root .rw-beginner-view .rw-mod-slot:nth-of-type(${i}) .rw-mod-slot-amount .rw-knob`;
+    for (let i = 0; i < 4; i++) {
+      await h.knob(await h.at(amt(1)), 22, 40);
+      await h.knob(await h.at(amt(2)), 22, 40);
+      await h.wait(1400);
+    }
+    await h.glide({ x: 980, y: 450 }, 40);
+    await h.wait(1800);
+  });
+
   await seg('scope', async () => {
+    await mcp.request('set_graph_patch', { patch: null });
     await h.resetView();
     await h.section('Presets');
     await h.click('#panel-root .rw-preset-chip', 'Lissajous Scope', { exact: true });

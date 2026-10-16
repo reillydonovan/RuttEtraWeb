@@ -44,7 +44,6 @@ export async function run(page, seg, h) {
   await seg('thick', async () => {
     await h.reveal('#panel-root [data-param-key="patternScopeThickness"]', null, 'center');
     await h.knob(await h.at('#panel-root [data-param-key="patternScopeThickness"] .rw-knob'), 120, 50);
-    await h.knob(await h.at('#panel-root [data-param-key="patternBrightness"] .rw-knob').catch(() => h.at('#panel-root [data-param-key="patternScopeThickness"] .rw-knob')), 20, 30);
     await h.glide({ x: 980, y: 450 }, 40);
   });
 

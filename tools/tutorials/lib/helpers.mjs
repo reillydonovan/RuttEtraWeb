@@ -92,13 +92,35 @@ export function helpers(page) {
       return pt;
     },
 
+    /**
+     * Press at `from`, drag to `to`, release. When the release lands ON a
+     * jack the cable must actually connect (that jack lights up as plugged):
+     * a lesson must never narrate a connection the app didn't make, so a
+     * silent miss throws here instead of being recorded.
+     */
     async drag(from, to, steps = 45) {
       await h.glide(from);
       await page.mouse.down();
       await h.wait(160);
       await page.mouse.move(to.x, to.y, { steps });
       await h.wait(220);
-      await page.mouse.up();
+      await h.verifyDrop(to, () => page.mouse.up());
+    },
+
+    /** Release via `release()`, then confirm a jack under (x, y) is plugged. */
+    async verifyDrop(at, release) {
+      const jack = await page.evaluateHandle(([x, y]) => document.elementFromPoint(x, y)?.closest('.rw-rack-jack') ?? null, [at.x, at.y]);
+      const wasPlugged = await jack.evaluate((el) => !!el?.classList.contains('rw-rack-jack--plugged')).catch(() => false);
+      // SRC IN and waveform-shape jacks hold a waveform rather than a cable, so
+      // they never light up as "plugged": those drops are checked by the tour.
+      const onJack = await jack.evaluate((el) => !!el && !el.matches('.rw-rack-jack--srcin, .rw-pb-jack--shape, [class*="srcin"]')).catch(() => false);
+      await release();
+      if (!onJack) return;
+      for (let i = 0; i < 12; i++) {
+        await page.waitForTimeout(120);
+        if (await jack.evaluate((el) => !!el?.classList.contains('rw-rack-jack--plugged')).catch(() => false)) return;
+      }
+      throw new Error(`tour check failed: the cable dropped on a jack (${Math.round(at.x)}, ${Math.round(at.y)}) did not connect${wasPlugged ? ' (it was already plugged)' : ''}`);
     },
 
     /**
@@ -113,7 +135,7 @@ export function helpers(page) {
       await h.wait(160);
       await page.mouse.move(edgePt.x, edgePt.y, { steps: 35 });
       let to = null;
-      for (let i = 0; i < 120 && !to; i++) {
+      for (let i = 0; i < 400 && !to; i++) {   // edge auto-pan runs on the page's frame rate: allow a slow (recording) machine up to ~25 s
         to = await page.evaluate(findTarget, arg);
         if (!to) await h.wait(60);
       }
@@ -133,12 +155,24 @@ export function helpers(page) {
         to = now;
         await page.mouse.move(to.x, to.y, { steps: 8 });
       }
-      await page.mouse.up();
+      await h.verifyDrop(to, () => page.mouse.up());
     },
 
     /** Vertical knob turn: positive dy = turn up. */
     async knob(pt, dy, steps = 50) {
-      await h.drag(pt, { x: pt.x, y: pt.y - dy }, steps);
+      const read = () => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role="slider"]')?.getAttribute('aria-valuenow') ?? null, [pt.x, pt.y]);
+      const before = await read();
+      await h.glide(pt);
+      await page.mouse.down();
+      await h.wait(160);
+      await page.mouse.move(pt.x, pt.y - dy, { steps });
+      await h.wait(220);
+      await page.mouse.up();
+      if (before !== null && dy !== 0) {
+        await h.wait(150);
+        const after = await read();
+        if (after === before) throw new Error(`tour check failed: turning the knob at (${Math.round(pt.x)}, ${Math.round(pt.y)}) did not change its value (${before})`);
+      }
     },
 
     /** Scroll an element so `sel` is in view (smooth, recorded). */

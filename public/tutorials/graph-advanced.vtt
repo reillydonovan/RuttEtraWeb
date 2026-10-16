@@ -1,85 +1,85 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.167
+00:00:00.700 --> 00:00:02.853
 Advanced view is the full node canvas.
 
 2
-00:00:03.167 --> 00:00:06.090
+00:00:02.853 --> 00:00:05.404
 Maximize the Controls window to give it room.
 
 3
-00:00:06.090 --> 00:00:09.532
+00:00:05.404 --> 00:00:08.409
 The palette on the left lists every node by category.
 
 4
-00:00:09.986 --> 00:00:12.381
+00:00:08.865 --> 00:00:11.257
 Click a palette item to add a node.
 
 5
-00:00:12.381 --> 00:00:12.860
+00:00:11.257 --> 00:00:11.736
 An LFO.
 
 6
-00:00:12.860 --> 00:00:13.408
+00:00:11.736 --> 00:00:12.283
 A Clock.
 
 7
-00:00:13.408 --> 00:00:14.913
+00:00:12.283 --> 00:00:13.787
 And a Sample and Hold.
 
 8
-00:00:17.129 --> 00:00:20.563
+00:00:16.069 --> 00:00:19.737
 Drag nodes by their headers to lay the patch out, left to right.
 
 9
-00:00:21.015 --> 00:00:23.575
+00:00:20.190 --> 00:00:22.576
 Drag from an output dot to an input dot.
 
 10
-00:00:23.575 --> 00:00:26.199
+00:00:22.576 --> 00:00:25.021
 The LFO into the Sample and Hold's input.
 
 11
-00:00:26.199 --> 00:00:28.439
+00:00:25.021 --> 00:00:27.109
 The Clock's pulse into its trigger.
 
 12
-00:00:28.900 --> 00:00:31.496
+00:00:27.574 --> 00:00:29.959
 Click a node to edit it in the inspector.
 
 13
-00:00:31.496 --> 00:00:34.916
+00:00:29.959 --> 00:00:33.100
 Speed the LFO up, so every sample lands somewhere new.
 
 14
-00:00:35.378 --> 00:00:37.597
+00:00:33.553 --> 00:00:35.398
 Bindings send a node to the synth.
 
 15
-00:00:37.597 --> 00:00:40.796
+00:00:35.398 --> 00:00:38.057
 Add a binding from the Sample and Hold to Z Push.
 
 16
-00:00:41.251 --> 00:00:43.764
+00:00:38.509 --> 00:00:41.001
 Probe draws a live trace of any output.
 
 17
-00:00:43.764 --> 00:00:47.245
+00:00:41.001 --> 00:00:44.453
 Stepped values: the classic sample and hold staircase.
 
 18
-00:00:47.702 --> 00:00:48.885
+00:00:44.905 --> 00:00:46.081
 Restore the window.
 
 19
-00:00:48.885 --> 00:00:52.374
+00:00:46.081 --> 00:00:49.549
 The depth now jumps to a new random level on every beat.
 
 20
-00:00:52.832 --> 00:00:57.430
+00:00:50.007 --> 00:00:54.095
 Every node works this way: outputs to inputs, bindings to the synth.
 
 21
-00:00:57.430 --> 00:01:00.405
+00:00:54.095 --> 00:00:56.740
 Next, two pictures at once with Dual Raster.

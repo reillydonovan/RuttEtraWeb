@@ -1,53 +1,53 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:05.644
+00:00:00.700 --> 00:00:05.381
 Modulation moves parameters for you, so the picture keeps changing on its own.
 
 2
-00:00:05.644 --> 00:00:07.419
+00:00:05.381 --> 00:00:07.062
 Open the Modulation section.
 
 3
-00:00:07.870 --> 00:00:09.662
+00:00:07.523 --> 00:00:09.473
 Classic mode has four slots.
 
 4
-00:00:09.662 --> 00:00:13.758
+00:00:09.473 --> 00:00:13.931
 Each is a function generator: a source, a target, and an amount.
 
 5
-00:00:14.215 --> 00:00:16.746
+00:00:14.388 --> 00:00:17.070
 Slot one's source is already a sine wave.
 
 6
-00:00:16.746 --> 00:00:18.289
+00:00:17.070 --> 00:00:18.706
 Set its target to Z Push.
 
 7
-00:00:18.740 --> 00:00:19.913
+00:00:19.160 --> 00:00:20.506
 Switch the slot on.
 
 8
-00:00:20.377 --> 00:00:21.972
+00:00:20.962 --> 00:00:22.529
 Amount is how far it swings.
 
 9
-00:00:21.972 --> 00:00:24.537
+00:00:22.529 --> 00:00:25.048
 Turn it up, and the raster starts to breathe.
 
 10
-00:00:24.991 --> 00:00:26.621
+00:00:25.499 --> 00:00:27.273
 Expand the slot for more.
 
 11
-00:00:26.621 --> 00:00:29.556
+00:00:27.273 --> 00:00:30.468
 Rate sets how fast the wave cycles, in hertz.
 
 12
-00:00:30.283 --> 00:00:34.573
+00:00:31.072 --> 00:00:35.507
 This slot also appears in the Patch Bay as Function Generator one.
 
 13
-00:00:34.573 --> 00:00:35.808
+00:00:35.507 --> 00:00:36.784
 Next: the Timeline.

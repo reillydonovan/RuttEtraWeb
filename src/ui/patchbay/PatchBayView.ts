@@ -317,6 +317,11 @@ export function createPatchBayView(
 
   /** Start a new drag gesture — clears any click-selection so it doesn't
    *  visually compete with the active drag. */
+  /** The rubber-band as last drawn (canvas-local), kept so releasing it over
+   *  empty space can leave an unplug ghost. */
+  let lastRubber: { a: Pt; b: Pt; color: string } | null = null;
+  const unplugGhosts: Array<{ a: Pt; b: Pt; color: string; t0: number }> = [];
+  const UNPLUG_MS = 520;
   function startDrag(p: Pending): void {
     pending = p;
     selectedCableId = null;
@@ -324,6 +329,13 @@ export function createPatchBayView(
   /** End the current drag gesture and cancel any drag-time tooltip that
    *  might still be scheduled/shown for it. */
   function endDrag(): void {
+    // Letting go of an EXISTING cable's grabbed end over nothing = unplug:
+    // leave a ghost of the cable at the release point (drawn in frame()).
+    if (pending && pending.hover == null && lastRubber
+        && (pending.kind === 'to-param' || pending.kind === 'to-param-graph' || pending.kind === 'to-graphin')) {
+      unplugGhosts.push({ ...lastRubber, t0: performance.now() });
+    }
+    lastRubber = null;
     pending = null;
     setRejectJack(null, '');
     cancelTooltip(root.ownerDocument);
@@ -3587,10 +3599,17 @@ export function createPatchBayView(
         const bindingId = pending.bindingId;
         const patch = settings.get('modGraph');
         const b = patch?.bindings.find((x) => x.id === bindingId);
-        fixed = b ? graphNodeJacks.get(`${b.sourceNodeId}#${b.sourcePort || defaultOutputPort(b.sourceNodeId)}`) : undefined;
+        // The SAME anchor the resting cable used (a param-out node's cable
+        // runs from that parameter's own faceplate OUT jack) — otherwise the
+        // fixed end jumps to the Param Out module when you grab the cable.
+        fixed = b ? graphOutAnchor(b.sourceNodeId, b.sourcePort) : undefined;
         color = GRAPH_COLOR;
       } else if (pending.kind === 'to-graphin') {
-        fixed = graphInputJacks.get(`${pending.nodeId}#${pending.port}`);
+        // Grabbing a wired IN jack: the OTHER end stays put on the cable's
+        // source; only an empty IN (nothing to stay attached to) anchors here.
+        const inKey = `${pending.nodeId}#${pending.port}`;
+        const wire = nodeWires(graphPatchForWires).find((w) => `${w.targetNodeId}#${w.targetPort}` === inKey);
+        fixed = (wire ? graphOutAnchor(wire.sourceNodeId, wire.sourcePort) : undefined) ?? graphInputJacks.get(inKey);
         color = NODE_WIRE_COLOR;
       } else if (pending.kind === 'to-paramout') {
         fixed = paramOutJacks.get(pending.paramKey);
@@ -3628,9 +3647,37 @@ export function createPatchBayView(
           style: 'sag', highlight: true, dashed: !reduceMotion, dashOffset,
           gradientEnd: accepting ? CABLE_ACCEPT_COLOR : CABLE_REJECT_COLOR,
         });
+        lastRubber = { a: local(a), b: local(pending.pos), color };
       }
     } else {
       root.classList.remove('rw-pb-cursor-accept', 'rw-pb-cursor-reject');
+    }
+
+    // Unplug ghosts: a cable you just dropped into empty space doesn't
+    // vanish — it stays attached to its source, the loose end falls and
+    // fades, and a ring marks where it let go (owner: the disconnection
+    // should be visually clear, from the out to the released point).
+    if (unplugGhosts.length) {
+      const now = performance.now();
+      for (let i = unplugGhosts.length - 1; i >= 0; i--) {
+        const g = unplugGhosts[i];
+        const age = now - g.t0;
+        if (age >= UNPLUG_MS) { unplugGhosts.splice(i, 1); continue; }
+        const k = age / UNPLUG_MS;
+        const fall = reduceMotion ? 0 : 38 * k * k;
+        ctx.save();
+        ctx.globalAlpha = 1 - k;
+        drawPatchCable(ctx, g.a, { x: g.b.x, y: g.b.y + fall }, g.color, { style: 'sag', dashed: false });
+        if (!reduceMotion) {
+          ctx.globalAlpha = (1 - k) * 0.8;
+          ctx.strokeStyle = g.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(g.b.x, g.b.y, 6 + 22 * k, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
 
     for (const [key, el] of paramJacks) {

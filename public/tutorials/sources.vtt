@@ -1,73 +1,73 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:02.712
+00:00:00.700 --> 00:00:02.623
 Every picture starts with a source.
 
 2
-00:00:02.712 --> 00:00:08.230
+00:00:02.623 --> 00:00:07.898
 You can pick one on the start screen, or any time in the Video Source A section of the Controls.
 
 3
-00:00:08.687 --> 00:00:09.883
+00:00:08.364 --> 00:00:09.582
 Open the Synth tab.
 
 4
-00:00:09.883 --> 00:00:11.332
+00:00:09.582 --> 00:00:11.057
 Source is near the top.
 
 5
-00:00:12.125 --> 00:00:15.737
+00:00:11.806 --> 00:00:15.586
 The Pattern Generator makes pictures with no camera at all.
 
 6
-00:00:15.737 --> 00:00:18.125
+00:00:15.586 --> 00:00:18.084
 Change its Kind to try another pattern.
 
 7
-00:00:18.125 --> 00:00:18.738
+00:00:18.084 --> 00:00:18.725
 Lissajous.
 
 8
-00:00:19.197 --> 00:00:19.640
+00:00:19.176 --> 00:00:19.645
 Spiral.
 
 9
-00:00:19.640 --> 00:00:20.718
+00:00:19.645 --> 00:00:20.784
 And Worley cells.
 
 10
-00:00:20.718 --> 00:00:23.634
+00:00:20.784 --> 00:00:23.866
 Each kind brings its own controls, just below.
 
 11
-00:00:24.093 --> 00:00:27.038
+00:00:24.323 --> 00:00:27.082
 To use your own footage, choose a video file.
 
 12
-00:00:27.038 --> 00:00:30.834
+00:00:27.082 --> 00:00:30.638
 Webcam, screen capture, and stream URLs work the same way.
 
 13
-00:00:31.289 --> 00:00:35.854
+00:00:31.096 --> 00:00:35.904
 The pattern was covering the whole picture, so loading a video switched it off.
 
 14
-00:00:35.854 --> 00:00:37.241
+00:00:35.904 --> 00:00:37.365
 This is the video alone.
 
 15
-00:00:37.700 --> 00:00:40.588
+00:00:37.818 --> 00:00:41.010
 Turn the pattern back on, and set Blend to Screen.
 
 16
-00:00:40.588 --> 00:00:41.860
+00:00:41.010 --> 00:00:42.415
 Now both show through.
 
 17
-00:00:42.324 --> 00:00:44.142
+00:00:42.868 --> 00:00:44.513
 Any source can feed the raster.
 
 18
-00:00:44.142 --> 00:00:47.252
+00:00:44.513 --> 00:00:47.326
 Next, we will find our way around the Controls panel.
