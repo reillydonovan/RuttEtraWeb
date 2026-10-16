@@ -1284,6 +1284,7 @@ async function bootSynth(): Promise<void> {
           { actionId: 'help.startPatchTutorial' },
           { actionId: 'help.manual' },
           { actionId: 'help.videoTutorials' },
+          { actionId: 'help.designSystem' },
           { actionId: 'help.about' },
         ],
       },

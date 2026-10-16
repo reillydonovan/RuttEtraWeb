@@ -28,5 +28,7 @@ export const SECTION_HINTS: Record<string, string> = {
   OSC: 'Open Sound Control over WebSocket — send and receive parameter values from TouchOSC, Max, SuperCollider, etc.',
   CV: 'Control-voltage INPUT from a DC-coupled audio interface — drive any parameter with real analog voltage.',
   'CV Out': 'Control-voltage OUTPUT — send synth parameters, modulation, or graph signals to real analog hardware.',
-  Sonification: "Turn the rendered mesh itself into an audio signal — a synth voice driven by what's on screen.",
+  MCP: 'Let an AI assistant drive the synth through a local MCP bridge: read and set parameters, run actions, edit the patch, take screenshots.',
+  Manual: 'The built-in manual: quick start, every control, shortcuts and how-tos, readable without leaving the app.',
+  Sonification:"Turn the rendered mesh itself into an audio signal — a synth voice driven by what's on screen.",
 };

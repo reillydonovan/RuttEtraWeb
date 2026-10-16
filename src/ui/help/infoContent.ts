@@ -193,16 +193,87 @@ export function groupInfo(title: string, section: string | null, keys: readonly 
   };
 }
 
+/** Hand-written guides for Controls sections with few or no parameters
+ *  (buttons, files, connections): what each part does, in the order you use it. */
+const SECTION_GUIDES: Record<string, { sections: InfoSection[]; tips: string[]; aboutHash: string }> = {
+  Manual: {
+    sections: [{ heading: 'Pages', rows: [
+      { name: 'What is this?', text: 'What the 1973 Rutt/Etra Scan Processor was and what this recreation does.' },
+      { name: 'Quick start', text: 'The menu bar, windows and tabs, skins, the Patch Bay and the first things to try.' },
+      { name: 'Controls', text: 'Every panel section and parameter, with ranges.' },
+      { name: 'Shortcuts', text: 'Keyboard shortcuts, globally and while the timeline is hovered.' },
+      { name: 'Modulation · Timeline · Project', text: 'The Classic and Graph engines, keyframing and scenes, saving your work.' },
+      { name: 'WebXR · Anaglyph 3D · 3D Recording', text: 'Headset, red/cyan and stereo output.' },
+      { name: 'Video Audio · Streaming', text: 'Sound from video files; WebRTC and WHIP broadcast.' },
+      { name: 'Tips & gotchas · About', text: 'Known quirks and the version you are running.' },
+    ] }],
+    tips: [
+      'The full illustrated manual, with the Param Reference and Node Catalog, is Help ▸ Open Manual.',
+      'Help ▸ Video Tutorials has the narrated course; Help ▸ Start Tutorial walks you through the panel in place.',
+      'Every section and module has its own ⓘ like this one.',
+    ],
+    aboutHash: 'quick-start',
+  },
+  Presets: {
+    sections: [{ heading: 'How it works', rows: [
+      { name: 'Built-in looks', text: 'Click a chip to apply it. Only the look changes; MIDI/OSC mappings, the patch and the layout stay.' },
+      { name: 'User Presets', text: 'Save Current stores the current state as your own preset in this browser; Load and Delete manage them.' },
+      { name: 'Import / Export', text: 'Export JSON writes a preset file to share; Import reads one. Export Everything backs up all saved settings.' },
+      { name: 'Danger Zone', text: 'Clear Saved and Hard Reset GUI wipe stored settings. Use them only to start over.' },
+    ] }],
+    tips: ['A preset is one look. A project is the whole workspace; a timeline is a score of looks over time.'],
+    aboutHash: 'presets',
+  },
+  Project: {
+    sections: [{ heading: 'How it works', rows: [
+      { name: 'New / Open… / Save / Save As…', text: 'A project (.synth.json) holds every setting, your presets and your timelines. Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S.' },
+      { name: 'Name', text: 'Click the name to rename the project.' },
+      { name: 'Auto-save', text: 'Writes a recovery copy every 60 s. Unsaved work is also kept when you reload, and you are asked to restore or clear it.' },
+      { name: 'Recent Projects', text: 'Reopen a project you saved before; Clear recent empties the list.' },
+    ] }],
+    tips: ['Output safety still applies on open: sound and CV output always load switched off.'],
+    aboutHash: 'project-save-load-walkthrough',
+  },
+  Record: {
+    sections: [{ heading: 'How it works', rows: [
+      { name: 'Start Recording', text: 'Captures the render output to a video file in the browser and downloads it when you stop.' },
+      { name: 'Record Timeline', text: 'Plays the loaded timeline from the start and records exactly its length.' },
+      { name: 'Format · FPS · Bitrate', text: 'MP4 / H.264 or WebM; fixed when recording starts.' },
+      { name: 'Include Mic · Include Video Audio', text: 'Adds sound to the recording.' },
+      { name: 'Stereoscopic 3D', text: 'Records a side-by-side 3D video; IPD sets the eye spacing.' },
+    ] }],
+    tips: ['For a clean frame, hide the HUD with H before you record.'],
+    aboutHash: 'recording',
+  },
+  Share: {
+    sections: [{ heading: 'How it works', rows: [
+      { name: 'Start Broadcast', text: 'Peer-to-peer: Copy URL gives a viewer link; anyone who opens it sees your output live, with no UI.' },
+      { name: 'WHIP Output', text: 'Publishes to OBS, MediaMTX, Cloudflare or another WHIP server. Paste its Endpoint and Token, then Start WHIP.' },
+    ] }],
+    tips: ['Tokens are never saved into exported files.'],
+    aboutHash: 'live-output-streaming-and-broadcast',
+  },
+  MCP: {
+    sections: [{ heading: 'How it works', rows: [
+      { name: 'MCP Bridge', text: 'Run tools/mcp-server on this computer, enter its URL, then Connect. An AI assistant can then read and set parameters, run menu actions, edit the graph patch and take screenshots.' },
+      { name: 'Auto-connect on startup', text: 'Connects again whenever the app loads.' },
+    ] }],
+    tips: ['The bridge only listens on this computer (127.0.0.1). Opening someone else’s project never connects it.'],
+    aboutHash: 'mcp-remote-control',
+  },
+};
+
 /** Info for a Controls panel section. */
 export function sectionInfo(title: string, keys: readonly string[]): InfoContent {
   const rows = paramRows(keys);
+  const guide = SECTION_GUIDES[title];
   return {
     title,
     kicker: 'Controls section',
     summary: SECTION_HINTS[title] ?? MODULE_INFO[moduleKey(title)]?.summary ?? '',
-    sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
-    tips: rows.length ? ['Hover any control for a short description. The ▾ next to a slider sets a custom range or an exact value.'] : [],
-    aboutHash: rows.length ? 'param-reference' : undefined,
+    sections: [...(guide?.sections ?? []), ...(rows.length ? [{ heading: 'Parameters', rows }] : [])],
+    tips: [...(guide?.tips ?? []), ...(rows.length ? ['Hover any control for a short description. The ▾ next to a slider sets a custom range or an exact value.'] : [])],
+    aboutHash: guide?.aboutHash ?? (rows.length ? 'param-reference' : undefined),
     mediaKey: mediaKeys.section(title),
   };
 }

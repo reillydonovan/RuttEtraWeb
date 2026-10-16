@@ -935,6 +935,16 @@ html body[data-theme="modern"][data-theme] {
   /* The time is the transport's headline: big, mono, green, recessed. */
   & .rw-tl-header .rw-tl-time { font-size: var(--fs-l); min-height: var(--ctl-m); padding: 0 var(--sp-3); }
   & .rw-tl-icon { font-family: var(--mx-sans); }
+  /* New / More: round icon buttons (equal width and height), glyph centred
+     by flex, not by text baseline. */
+  & .rw-tl-header .rw-btn:is([data-tl="new"], [data-tl="more"]) {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: var(--ctl-m); min-width: var(--ctl-m); height: var(--ctl-m); flex: 0 0 var(--ctl-m);
+    padding: 0;
+    border-radius: 50%;
+    line-height: 1;
+    font-size: 15px;
+  }
   & .rw-tl-group .rw-btn.warn:hover { background: rgba(255, 92, 92, 0.16); }
   & .rw-tl-zone--score > .rw-select { min-height: var(--ctl-m); }
   & .rw-tl-info { width: 22px; height: 22px; flex: 0 0 22px; font-size: 12px; }
