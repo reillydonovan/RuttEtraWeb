@@ -17,6 +17,8 @@
 import './theme-modern.css';
 import { attachGlow } from './themeGlow';
 
+import { installSelectMenus } from './dropdown';
+
 export type ThemeId = 'phosphor' | 'modern';
 
 const STORAGE_KEY = 'rw-ui-theme';
@@ -64,6 +66,7 @@ export function subscribeTheme(fn: Listener): () => void {
 export function applyThemeToDocument(doc: Document): void {
   stampedDocs.add(doc);
   stamp(doc);
+  installSelectMenus(doc);   // themed dropdown panels in this window (main or a popout)
 }
 
 export function releaseThemeDocument(doc: Document): void {

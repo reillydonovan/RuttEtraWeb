@@ -1,0 +1,69 @@
+/* The themed dropdown menu (dropdown.ts) — replaces the OS-drawn <select> list.
+   Built from the design system's own floating-surface tokens (the same ones as
+   the menu bar, the ⓘ modal and the Add Node menu); the Classic phosphor theme
+   falls back to its --re-* palette. */
+
+.rw-dd-menu {
+  position: fixed;
+  z-index: 2147482000;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-1, 4px);
+  border: 1px solid var(--c-hair-hi, var(--re-line-hi, rgba(95, 255, 133, 0.35)));
+  border-radius: var(--r-m, 3px);
+  background: var(--c-glass, var(--re-panel, #0b130d));
+  -webkit-backdrop-filter: saturate(1.4) blur(18px);
+          backdrop-filter: saturate(1.4) blur(18px);
+  box-shadow: var(--sh-float, 0 12px 32px rgba(0, 0, 0, 0.6));
+  color: var(--t-body, var(--re-text, #cfe8d4));
+  font: 500 var(--fs-m, 13px) var(--mx-sans, var(--re-mono, monospace));
+  scrollbar-width: thin;
+  animation: rw-dd-in var(--t-fast, 120ms) var(--ease, ease-out);
+}
+.rw-dd-menu.above { transform-origin: bottom; }
+@keyframes rw-dd-in { from { opacity: 0; transform: translateY(-3px) scale(0.985); } to { opacity: 1; transform: none; } }
+
+.rw-dd-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  min-height: var(--ctl-l, 28px);
+  padding: 0 var(--sp-3, 10px);
+  border-radius: var(--r-s, 2px);
+  cursor: var(--rw-cur-pointer, pointer);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rw-dd-opt.nested { padding-left: calc(var(--sp-3, 10px) + var(--sp-3, 10px)); }
+.rw-dd-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+
+/* Hover / keyboard-active: the same green tint every other hover in the app uses. */
+.rw-dd-opt.active:not(.disabled) {
+  background: var(--a-16, rgba(95, 255, 133, 0.16));
+  color: var(--a-text, var(--re-accent, #c4ffd2));
+}
+/* The current value: a green check on the right and a lit label. */
+.rw-dd-opt.selected { color: var(--t-max, var(--re-accent, #fff)); }
+.rw-dd-opt.selected::after {
+  content: '';
+  flex: none;
+  width: 12px; height: 12px;
+  background: var(--a, var(--re-accent, #5fff85));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.4 L5 8.9 L9.6 3.4' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.4 L5 8.9 L9.6 3.4' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.rw-dd-opt.disabled { opacity: 0.4; cursor: default; }
+
+/* <optgroup> headings: small caps-ish labels, like a section's group heads. */
+.rw-dd-group {
+  padding: var(--sp-2, 8px) var(--sp-3, 10px) var(--sp-1, 4px);
+  color: var(--t-dim, var(--re-text-dim, #8aa));
+  font: 600 var(--fs-xs, 10.5px) var(--mx-code, var(--re-mono, monospace));
+  letter-spacing: var(--track-label, 0.12em);
+  text-transform: uppercase;
+}
+.rw-dd-group:not(:first-child) { margin-top: var(--sp-1, 4px); border-top: 1px solid var(--c-hair, var(--re-line, rgba(255, 255, 255, 0.08))); }
+
+@media (prefers-reduced-motion: reduce) { .rw-dd-menu { animation: none; } }
