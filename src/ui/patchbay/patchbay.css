@@ -769,3 +769,63 @@
 /* Readout lines and module rows never push past their module. */
 .rw-pb-module, .rw-pb-field { min-width: 0; }
 .rw-pb-module :is(select, input[type="text"]) { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+
+/* ======================================================================
+   DESIGN PASS — columns, widths, collapsed and expanded nodes
+   Left to right: GENERATORS (rail) · DISPLAY CONTROL · RASTER & POST · VIDEO.
+   Each column has a fixed floor so a node never gets narrower than its
+   own controls, and grows with the window above it.
+   ====================================================================== */
+.rw-pb-deck { gap: 16px; }
+.rw-pb-rail { flex: 0 0 232px; gap: 12px; }
+.rw-pb-col { gap: 12px; }
+.rw-pb-col--dcu    { flex: 1 1 300px; min-width: 288px; }
+.rw-pb-col--raster { flex: 1.15 1 360px; min-width: 330px; }
+.rw-pb-col--video  { flex: 1 1 320px; min-width: 300px; }
+
+/* Column headings: a quiet caption over each column. */
+.rw-pb-colhead {
+  font: 600 10px/1 var(--mx-sans, var(--re-mono));
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--t-dim, var(--re-text-dim));
+  padding: 0 2px 6px; margin-bottom: 2px;
+  border-bottom: 1px solid var(--c-hair, var(--re-line));
+}
+
+/* Header: caret · LED · title (grows, wraps) · summary (collapsed only) · ⓘ ✕ */
+.rw-pb-unit-handle > .rw-pb-summary {
+  display: none; margin-left: auto; min-width: 0;
+  font: 10.5px/1.2 var(--mx-code, var(--re-mono)); letter-spacing: 0.02em;
+  color: var(--t-dim, var(--re-text-dim)); text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
+}
+.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { display: block; }
+.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary + .rw-info-btn { margin-left: 6px; }
+.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary ~ .rw-info-btn { margin-left: 6px; }
+
+/* Collapsed node: a compact card — header only, no divider line, sockets as labelled rows. */
+.rw-pb-unit--collapsed > .rw-pb-unit-handle { border-bottom-color: transparent; margin-bottom: 0; padding-bottom: 0; }
+.rw-pb-unit--collapsed > .rw-pb-ports { padding: 4px 4px 2px; }
+.rw-pb-ports-col { gap: 3px; min-width: 0; }
+.rw-pb-ports-in  { align-items: flex-start; }
+.rw-pb-port { display: flex; align-items: center; gap: 6px; min-height: 16px; min-width: 0; }
+.rw-pb-port[hidden] { display: none; }
+.rw-pb-ports-out .rw-pb-port { justify-content: flex-end; }
+.rw-pb-port-label {
+  font: 10.5px/1.1 var(--mx-sans, var(--re-mono)); color: var(--t-dim, var(--re-text-dim));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;
+}
+.rw-pb-port:hover .rw-pb-port-label { color: var(--a, var(--re-accent)); }
+.rw-pb-proxy { flex: none; }
+.rw-pb-ports { gap: 12px; }
+.rw-pb-ports-col:empty { display: none; }
+
+/* Expanded node: consistent internal rhythm. */
+.rw-pb-module > :not(.rw-pb-unit-handle), .rw-pb-field > :not(.rw-pb-unit-handle) { min-width: 0; }
+.rw-pb-unit-handle { transition: background-color 0.12s linear; }
+.rw-pb-module { display: flex; flex-direction: column; gap: 6px; }
+.rw-pb-module > .rw-pb-row { margin: 0; }
+.rw-pb-ports[hidden] { display: none !important; }
+/* Narrow rail nodes: the collapsed summary drops under the title instead of squeezing it. */
+.rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle { flex-wrap: wrap; row-gap: 2px; }
+.rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { order: 9; flex-basis: 100%; max-width: none; text-align: left; margin: 0 0 4px 24px; }

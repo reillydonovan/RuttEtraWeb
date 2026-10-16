@@ -1874,6 +1874,11 @@ export function createPatchBayView(
   col1.className = 'rw-pb-col';
   const col2 = document.createElement('div');
   col2.className = 'rw-pb-col';
+  const col3 = document.createElement('div');
+  col3.className = 'rw-pb-col';
+  col1.classList.add('rw-pb-col--dcu');
+  col2.classList.add('rw-pb-col--raster');
+  col3.classList.add('rw-pb-col--video');
   // DUAL RASTER lands here, first — the far-right stack, above COLORIZER
   // / POST-FX (the `buildFaceplate()` loop below appends that and the
   // rest of col2's fields AFTER this, so it stays at the top). See the
@@ -1884,10 +1889,10 @@ export function createPatchBayView(
     Array.from(rail.children).find((c) => (c.querySelector('.rw-pb-module-head')?.textContent ?? '').trim().toUpperCase().startsWith(title)) as HTMLElement | undefined;
   for (const title of ['VIDEO SOURCE A', 'VIDEO SOURCE B', 'PATTERN GENERATOR', 'COMPOSITE']) {
     const u = railUnit(title);
-    if (u) col2.appendChild(u);
+    if (u) col3.appendChild(u);
   }
   if (dualRasterMod) col2.appendChild(dualRasterMod);
-  { const u = railUnit('RENDERER'); if (u) col2.appendChild(u); }
+  { const u = railUnit('RENDERER'); if (u) col3.appendChild(u); }
 
   /** Best-effort DESIGNED (stock) numeric range for a modulatable
    *  Settings key, sourced from `PARAM_DOCS`'s human-readable `range`
@@ -2151,7 +2156,19 @@ export function createPatchBayView(
 
   const deck = document.createElement('div');
   deck.className = 'rw-pb-deck';
-  deck.append(rail, col1, col2);
+  // Column labels guide the eye left to right (non-draggable; hidden in free layout).
+  const colLabel = (text: string): HTMLElement => {
+    const l = document.createElement('div');
+    l.className = 'rw-pb-colhead';
+    l.textContent = text;
+    l.dataset.pbStatic = 'true';
+    return l;
+  };
+  rail.prepend(colLabel('Generators'));
+  col1.prepend(colLabel('Display control'));
+  col2.prepend(colLabel('Raster & post'));
+  col3.prepend(colLabel('Video'));
+  deck.append(rail, col1, col2, col3);
 
   // The BOARD is the zoomable layer (CSS transform scale) - the cable
   // canvas stays UNscaled in screen space and measures live jack rects,
@@ -2526,7 +2543,7 @@ export function createPatchBayView(
   // drag-and-drop node ORDER inside the default vertical stacks, with
   // an insertion line; dragging away from every stack breaks the board
   // into free layout instead).
-  const stacks = (): HTMLElement[] => [rail, col1, col2];
+  const stacks = (): HTMLElement[] => [rail, col1, col2, col3];
   const insertLine = document.createElement('div');
   insertLine.className = 'rw-pb-insertline';
 
@@ -2577,34 +2594,68 @@ export function createPatchBayView(
     const outCol = document.createElement('div');
     outCol.className = 'rw-pb-ports-col rw-pb-ports-out';
     const many = jacks.length > 6;
+    // A socket's name: the faceplate cell's label, or the short text beside a module jack (IN, OUT, A, B…).
+    const nameOf = (jack: HTMLElement): string => {
+      const cell = jack.closest('.rw-pb-cell');
+      if (cell) return (cell.querySelector('.rw-pb-cell-top span:not(.rw-rack-jack)')?.textContent ?? '').trim();
+      const txt = (jack.parentElement?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      return txt.length <= 16 ? txt : '';
+    };
     for (const jack of jacks) {
-      const p = document.createElement('span');
-      p.className = 'rw-pb-proxy';
-      p.dataset.many = many ? '1' : '';
-      const label = (jack.closest('.rw-pb-cell, .rw-pb-row, .rw-pb-io, div')?.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 28);
-      attachTooltip(p, () => label ? `${label} — expand the node to edit; drag from here to patch.` : 'Socket');
-      p.addEventListener('pointerdown', (ev) => {
+      const row = document.createElement('div');
+      row.className = 'rw-pb-port';
+      row.dataset.many = many ? '1' : '';
+      const dot = document.createElement('span');
+      dot.className = 'rw-pb-proxy';
+      const name = nameOf(jack);
+      const lab = document.createElement('span');
+      lab.className = 'rw-pb-port-label';
+      lab.textContent = name;
+      attachTooltip(row, () => (name ? `${name} — expand the node to edit; drag from the socket to patch.` : 'Socket — drag to patch.'));
+      dot.addEventListener('pointerdown', (ev) => {
         ev.stopPropagation();
         jack.dispatchEvent(new PointerEvent('pointerdown', {
           bubbles: true, cancelable: true, clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId,
           pointerType: ev.pointerType, button: ev.button, buttons: ev.buttons, isPrimary: ev.isPrimary,
         }));
       });
-      proxyOf.set(jack, p);
-      (jack.classList.contains('rw-rack-jack--out') ? outCol : inCol).appendChild(p);
+      const isOut = jack.classList.contains('rw-rack-jack--out');
+      if (isOut) row.append(lab, dot); else row.append(dot, lab);
+      proxyOf.set(jack, dot);
+      (isOut ? outCol : inCol).appendChild(row);
     }
     strip.append(inCol, outCol);
     unit.appendChild(strip);
+    // Header summary (shown only while collapsed): what the node is set to, and how much is patched.
+    const handle = unit.querySelector<HTMLElement>(':scope > .rw-pb-unit-handle');
+    if (handle && !handle.querySelector('.rw-pb-summary')) {
+      const sum = document.createElement('span');
+      sum.className = 'rw-pb-summary';
+      const info = handle.querySelector(':scope > .rw-info-btn');
+      handle.insertBefore(sum, info ?? null);
+    }
     syncPorts(unit);
   }
   function syncPorts(unit: HTMLElement): void {
-    const jacks = unit.querySelectorAll<HTMLElement>('.rw-rack-jack');
-    for (const jack of Array.from(jacks)) {
-      const p = proxyOf.get(jack);
-      if (!p) continue;
+    let patched = 0, total = 0, visible = 0;
+    for (const jack of Array.from(unit.querySelectorAll<HTMLElement>('.rw-rack-jack'))) {
+      const dot = proxyOf.get(jack);
+      if (!dot) continue;
+      total++;
       const plugged = jack.classList.contains('rw-rack-jack--plugged');
-      p.classList.toggle('rw-pb-proxy--plugged', plugged);
-      p.hidden = p.dataset.many === '1' && !plugged;
+      if (plugged) patched++;
+      dot.classList.toggle('rw-pb-proxy--plugged', plugged);
+      const row = dot.parentElement as HTMLElement | null;
+      if (row) { row.hidden = row.dataset.many === '1' && !plugged; if (!row.hidden) visible++; }
+    }
+    const strip = unit.querySelector<HTMLElement>(':scope > .rw-pb-ports');
+    if (strip && strip.hidden !== (visible === 0)) strip.hidden = visible === 0;
+    const sum = unit.querySelector<HTMLElement>(':scope > .rw-pb-unit-handle > .rw-pb-summary');
+    if (sum) {
+      const lcd = unit.querySelector<HTMLElement>('.rw-pb-lcd')?.textContent?.trim();
+      const base = lcd ? lcd.slice(0, 22) : `${total} socket${total === 1 ? '' : 's'}`;
+      const text = patched ? `${base} · ${patched} patched` : base;
+      if (sum.textContent !== text) sum.textContent = text;
     }
   }
 
@@ -3423,13 +3474,14 @@ export function createPatchBayView(
       if (freeMode) {
         if (freeRefWidth == null) freeRefWidth = w;
         else if (w > 0 && Math.abs(w - freeRefWidth) > 0.5) {
-          const ratio = w / freeRefWidth;
+          // Free units keep their pixel size and position: scaling them with the window made a
+          // shrink squeeze every node (titles stacked letter by letter) and overlap its neighbours,
+          // because narrower nodes grow taller but their tops did not move. The board is at least
+          // BOARD_MIN wide and grows to hold the rightmost node, so nothing is lost by not scaling.
           for (const unit of allUnits()) {
             if (!unit.classList.contains('rw-pb-unit-free')) continue;
-            const l = parseFloat(unit.style.left) || 0;
-            const uw = parseFloat(unit.style.width) || unit.offsetWidth;
-            unit.style.left = `${l * ratio}px`;
-            unit.style.width = `${uw * ratio}px`;
+            const uw = parseFloat(unit.style.width);
+            if (Number.isFinite(uw) && uw < 190) unit.style.width = '';   // heal a node squeezed by an earlier build
           }
           freeRefWidth = w;
         }
