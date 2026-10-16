@@ -39,6 +39,16 @@ const PAD_MS = 450;          // breath after each line
 const LEAD_MS = 700;         // picture before the first word
 const TAIL_MS = 2200;        // picture after the last word
 
+// Secrets live in tools/tutorials/.env (gitignored; see .env.example), never in
+// the repo or the command line. A tiny KEY=VALUE reader — no dependency — that
+// never overrides a variable already set in the environment.
+try {
+  for (const line of fs.readFileSync(path.join(HERE, '.env'), 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && m[2] && !m[1].startsWith('#') && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch { /* no .env: fine */ }
+
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : dflt; };
 const VOICE = opt('--voice', 'kokoro:af_heart');
