@@ -101,6 +101,7 @@ export function createPatchSection(deps: PatchSectionDeps): HTMLElement {
     void (async () => {
       try {
         const mod = await import('../graph/AdvancedView');
+        placeholder.remove();   // the editor is here: the loading note must not linger above it
         const cleanup = mod.renderAdvancedView(body, deps);
         cleanupActive = cleanup;
       } catch (err) {

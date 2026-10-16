@@ -9,37 +9,37 @@ The raster is a real 3D object, so it can be shown in real 3D.
 Three ways: anaglyph, side-by-side stereo, and WebXR headsets.
 
 3
-00:00:09.987 --> 00:00:12.240
+00:00:09.977 --> 00:00:12.230
 Anaglyph is in the Virtual Camera section.
 
 4
-00:00:12.240 --> 00:00:14.816
+00:00:12.230 --> 00:00:14.806
 Switch it on and grab some red and cyan glasses.
 
 5
-00:00:15.270 --> 00:00:17.946
+00:00:15.259 --> 00:00:17.935
 Eye Sep sets how far apart the two eyes are.
 
 6
-00:00:17.946 --> 00:00:19.650
+00:00:17.935 --> 00:00:19.639
 More separation, more depth.
 
 7
-00:00:19.650 --> 00:00:21.353
+00:00:19.639 --> 00:00:21.342
 Orbit the camera to feel it.
 
 8
-00:00:21.818 --> 00:00:28.830
+00:00:21.800 --> 00:00:28.812
 For VR players and YouTube, the Record section can capture side-by-side stereo, with an optional 3D metadata tag.
 
 9
-00:00:29.281 --> 00:00:33.925
+00:00:29.268 --> 00:00:33.912
 Preview stereo shows both eyes for three seconds, before you commit to a recording.
 
 10
-00:00:34.379 --> 00:00:42.134
+00:00:34.371 --> 00:00:42.126
 With a WebXR headset connected, the XR section puts you inside the raster, at tabletop, room or architectural scale.
 
 11
-00:00:42.584 --> 00:00:44.813
+00:00:42.579 --> 00:00:44.808
 Next: building a performance rig.

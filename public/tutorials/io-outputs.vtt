@@ -9,49 +9,49 @@ The synth can send signals out, too.
 Every output starts switched off and quiet, with a soft start and a limiter, so nothing surprises your speakers or your modular.
 
 3
-00:00:10.168 --> 00:00:12.975
+00:00:10.159 --> 00:00:12.966
 Sonification turns the picture into sound.
 
 4
-00:00:12.975 --> 00:00:18.991
+00:00:12.966 --> 00:00:18.982
 A voice reads the raster: its brightness, motion and shape set pitch, loudness and filter.
 
 5
-00:00:19.442 --> 00:00:21.963
+00:00:19.439 --> 00:00:21.960
 Each voice parameter has a source and a curve.
 
 6
-00:00:21.963 --> 00:00:26.129
+00:00:21.960 --> 00:00:26.126
 Pick Graph Node, and a Sonify node in the graph can play the voice directly.
 
 7
-00:00:26.594 --> 00:00:29.332
+00:00:26.583 --> 00:00:29.321
 Master volume starts at minus eighteen decibels.
 
 8
-00:00:29.332 --> 00:00:35.835
+00:00:29.321 --> 00:00:35.824
 Test Tone checks your levels, and Sonification mutes itself whenever a microphone is listening, to avoid feedback.
 
 9
-00:00:36.294 --> 00:00:41.203
+00:00:36.278 --> 00:00:41.187
 CV Out sends control voltage to a modular through a DC-coupled interface.
 
 10
-00:00:41.203 --> 00:00:47.996
+00:00:41.187 --> 00:00:47.980
 Add an output and choose its type: continuous CV, gate, trigger, clock, or one volt per octave pitch.
 
 11
-00:00:48.450 --> 00:00:55.926
+00:00:48.434 --> 00:00:55.910
 Its source can be a modulation slot, a graph node, any parameter, the Pattern Generator, MIDI notes, or the tempo clock.
 
 12
-00:00:56.382 --> 00:01:01.072
+00:00:56.371 --> 00:01:01.061
 And MIDI Clock Out, in the MIDI section, sends the tempo to drum machines and DAWs.
 
 13
-00:01:01.530 --> 00:01:06.268
+00:01:01.511 --> 00:01:06.249
 Inputs and outputs together make the synth one module in a bigger system.
 
 14
-00:01:06.268 --> 00:01:07.567
+00:01:06.249 --> 00:01:07.548
 Next: stereo and 3D.

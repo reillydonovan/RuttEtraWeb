@@ -13,53 +13,53 @@ Here the source is a camera.
 Open the Dual Raster section and switch on raster B.
 
 4
-00:00:13.687 --> 00:00:16.003
+00:00:13.678 --> 00:00:15.994
 Trace splits the frame between the two.
 
 5
-00:00:16.003 --> 00:00:18.795
+00:00:15.994 --> 00:00:18.786
 Sweep it across: A on one side, B on the other.
 
 6
-00:00:23.822 --> 00:00:25.737
+00:00:22.936 --> 00:00:24.851
 Raster B has its own geometry.
 
 7
-00:00:25.737 --> 00:00:28.419
+00:00:24.851 --> 00:00:27.533
 Push its depth the other way, and turn it.
 
 8
-00:00:32.525 --> 00:00:34.804
+00:00:31.711 --> 00:00:33.990
 Alternate lines interleaves them instead.
 
 9
-00:00:34.804 --> 00:00:36.751
+00:00:33.990 --> 00:00:35.937
 Every other scan line belongs to B.
 
 10
-00:00:37.211 --> 00:00:38.761
+00:00:36.390 --> 00:00:37.940
 B still shows the camera.
 
 11
-00:00:38.761 --> 00:00:45.338
+00:00:37.940 --> 00:00:44.517
 In the Patch Bay, give it a picture of its own: the Pattern Generator's output into Dual Raster's B input.
 
 12
-00:00:46.026 --> 00:00:48.673
+00:00:45.262 --> 00:00:47.909
 Then the Dual Raster's output into the Renderer.
 
 13
-00:00:51.842 --> 00:00:52.996
+00:00:51.379 --> 00:00:52.533
 Restore the window.
 
 14
-00:00:52.996 --> 00:00:56.764
+00:00:52.533 --> 00:00:56.301
 The camera and the pattern now share one raster, line by line.
 
 15
-00:00:57.229 --> 00:01:03.832
+00:00:56.760 --> 00:01:03.363
 Each raster can take a camera, a file, a stream, a pattern, or a composite of two.
 
 16
-00:01:03.832 --> 00:01:04.798
+00:01:03.363 --> 00:01:04.329
 Next, sound.

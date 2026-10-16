@@ -9,65 +9,65 @@ The Patch Bay is the whole instrument, drawn as a hardware faceplate.
 Maximize it, and everything is in front of you at once.
 
 3
-00:00:08.823 --> 00:00:13.366
+00:00:08.818 --> 00:00:13.361
 Along the top is the Sources bus: every signal you can patch from.
 
 4
-00:00:13.366 --> 00:00:16.671
+00:00:13.361 --> 00:00:16.666
 Waveforms, audio, beats, MIDI, and the joystick.
 
 5
-00:00:17.123 --> 00:00:18.755
+00:00:17.121 --> 00:00:18.753
 Every parameter gets a cell.
 
 6
-00:00:18.755 --> 00:00:23.595
+00:00:18.753 --> 00:00:23.593
 An input jack on the left, a knob with its number, and an output jack on the right.
 
 7
-00:00:23.595 --> 00:00:27.618
+00:00:23.593 --> 00:00:27.616
 Turn a knob here, and the same parameter moves in the Controls panel.
 
 8
-00:00:28.075 --> 00:00:30.038
+00:00:28.066 --> 00:00:30.029
 Each module has a small i button.
 
 9
-00:00:30.038 --> 00:00:35.274
+00:00:30.029 --> 00:00:35.265
 It opens an info panel, with a diagram of everything patched into that module right now.
 
 10
-00:00:35.274 --> 00:00:37.595
+00:00:35.265 --> 00:00:37.586
 As you add cables, the diagram follows.
 
 11
-00:00:38.049 --> 00:00:42.592
+00:00:38.040 --> 00:00:42.583
 Scroll to zoom the board toward your cursor, and drag empty background to pan.
 
 12
-00:00:42.592 --> 00:00:44.922
+00:00:42.583 --> 00:00:44.913
 The hundred percent button puts it back.
 
 13
-00:00:46.454 --> 00:00:50.494
+00:00:46.392 --> 00:00:50.432
 Free breaks every module out, so you can arrange the board like a canvas.
 
 14
-00:00:50.494 --> 00:00:52.321
+00:00:50.432 --> 00:00:52.259
 Tidy snaps them back into stacks.
 
 15
-00:00:52.321 --> 00:00:55.974
+00:00:52.259 --> 00:00:55.912
 Dragging any module by its header does the same for just that one.
 
 16
-00:00:56.436 --> 00:00:58.803
+00:00:56.376 --> 00:00:58.743
 Cables run from an output into an input.
 
 17
-00:00:58.803 --> 00:01:03.123
+00:00:58.743 --> 00:01:03.063
 Try something that cannot work, and the jack glows red and tells you why.
 
 18
-00:01:03.576 --> 00:01:05.294
+00:01:03.528 --> 00:01:05.246
 Next, the cables themselves.

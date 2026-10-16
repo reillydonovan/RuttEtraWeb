@@ -9,53 +9,53 @@ The picture can drive the synth, too.
 Video nodes measure brightness, motion, color and edges in the live image.
 
 3
-00:00:06.921 --> 00:00:07.842
+00:00:06.917 --> 00:00:07.838
 Add Video Luma.
 
 4
-00:00:07.842 --> 00:00:10.729
+00:00:07.838 --> 00:00:10.725
 It reports how bright a region of the frame is.
 
 5
-00:00:11.189 --> 00:00:14.320
+00:00:11.181 --> 00:00:14.312
 Drag on the thumbnail in the inspector to choose the region.
 
 6
-00:00:14.320 --> 00:00:16.250
+00:00:14.312 --> 00:00:16.242
 Here, the moving shape in the middle.
 
 7
-00:00:16.703 --> 00:00:17.693
+00:00:16.701 --> 00:00:17.691
 Bind it to Z Push.
 
 8
-00:00:17.693 --> 00:00:20.278
+00:00:17.691 --> 00:00:20.276
 Now the depth follows that part of the picture.
 
 9
-00:00:20.738 --> 00:00:23.732
+00:00:20.736 --> 00:00:23.730
 Video Motion measures how much the image is changing.
 
 10
-00:00:23.732 --> 00:00:26.217
+00:00:23.730 --> 00:00:26.215
 Smooth it with a Slew, and send it to Bloom.
 
 11
-00:00:34.927 --> 00:00:40.221
+00:00:34.370 --> 00:00:39.664
 The Library has more: Motion-Triggered Glitch tears the raster whenever something moves.
 
 12
-00:00:40.682 --> 00:00:41.692
+00:00:40.122 --> 00:00:41.132
 Restore the window.
 
 13
-00:00:41.692 --> 00:00:43.607
+00:00:41.132 --> 00:00:43.047
 The camera is now playing the synth.
 
 14
-00:00:45.309 --> 00:00:49.875
+00:00:44.739 --> 00:00:49.305
 Point a webcam at a dancer, a lava lamp, or your own hands.
 
 15
-00:00:49.875 --> 00:00:51.346
+00:00:49.305 --> 00:00:50.776
 Next: MIDI and OSC.

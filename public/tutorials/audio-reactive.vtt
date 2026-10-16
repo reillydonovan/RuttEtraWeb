@@ -21,41 +21,41 @@ A test tone stands in for a real mic here.
 Linear spacing spreads the bands evenly, and the spectrum shows each beep arrive.
 
 6
-00:00:18.698 --> 00:00:20.210
+00:00:18.703 --> 00:00:20.215
 Turn on the beat detector.
 
 7
-00:00:20.210 --> 00:00:24.224
+00:00:20.215 --> 00:00:24.229
 Its light flashes on every hit, and Beat becomes a modulation source.
 
 8
-00:00:24.675 --> 00:00:29.220
+00:00:24.685 --> 00:00:29.230
 Spectrum to Z displacement lifts each scan line by its own frequency band.
 
 9
-00:00:29.220 --> 00:00:30.387
+00:00:29.230 --> 00:00:30.397
 Turn up the amount.
 
 10
-00:00:30.839 --> 00:00:32.368
+00:00:30.847 --> 00:00:32.376
 Or patch sound anywhere.
 
 11
-00:00:32.368 --> 00:00:36.255
+00:00:32.376 --> 00:00:36.263
 In Graph mode, the Library has an audio-reactive bloom patch.
 
 12
-00:00:36.255 --> 00:00:39.058
+00:00:36.263 --> 00:00:39.066
 Load it, and the glow pumps with every beep.
 
 13
-00:00:39.521 --> 00:00:44.211
+00:00:39.516 --> 00:00:44.206
 Classic slots can use Audio, a single band, or Beat as their source, too.
 
 14
-00:00:44.665 --> 00:00:49.534
+00:00:44.659 --> 00:00:49.528
 Plug in a real mic, or load a song file, and the whole picture plays along.
 
 15
-00:00:49.534 --> 00:00:51.027
+00:00:49.528 --> 00:00:51.021
 Next: the oscilloscope.

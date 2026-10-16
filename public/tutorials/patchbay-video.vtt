@@ -9,37 +9,37 @@ The Patch Bay also routes the picture itself.
 Video cables are magenta.
 
 3
-00:00:05.241 --> 00:00:08.677
+00:00:06.264 --> 00:00:09.700
 Load a video into Video Source A, with its File button.
 
 4
-00:00:09.129 --> 00:00:11.543
+00:00:10.155 --> 00:00:12.569
 Open its preview to check that it is playing.
 
 5
-00:00:12.007 --> 00:00:16.325
+00:00:13.020 --> 00:00:17.338
 Now patch the Pattern Generator's video output into Composite's B input.
 
 6
-00:00:17.443 --> 00:00:20.786
+00:00:17.853 --> 00:00:21.196
 Set the Composite blend to Screen, so both pictures show.
 
 7
-00:00:21.239 --> 00:00:24.675
+00:00:21.646 --> 00:00:25.082
 Finally, patch Composite's output into the Renderer's input.
 
 8
-00:00:25.129 --> 00:00:26.190
+00:00:25.542 --> 00:00:26.603
 Restore the window.
 
 9
-00:00:26.190 --> 00:00:28.704
+00:00:26.603 --> 00:00:29.117
 The raster now carries both pictures at once.
 
 10
-00:00:29.964 --> 00:00:32.956
+00:00:30.004 --> 00:00:32.996
 Video Source B and Dual Raster patch the same way.
 
 11
-00:00:32.956 --> 00:00:35.351
+00:00:32.996 --> 00:00:35.391
 From here, everything is one cable away.
