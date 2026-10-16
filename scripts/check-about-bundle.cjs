@@ -8,7 +8,7 @@ const path = require('path');
 const DIST = path.resolve(__dirname, '..', 'dist', 'assets');
 // The static pages: the About manual and the Video Tutorials page. Neither
 // may pull in synth runtime.
-const PAGES = ['about', 'tutorials'];
+const PAGES = ['about', 'tutorials', 'designsystem'];
 
 // Each entry is [label, regex]. The regex is matched against the
 // minified bundle source. We're looking for runtime-only patterns

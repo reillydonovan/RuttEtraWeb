@@ -10,6 +10,7 @@
  * persisted to `settings.panelTab`.
  */
 
+import { animateToggle } from './motion';
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
 import { attachTooltip } from './tooltip';
@@ -346,7 +347,13 @@ export class ControlPanel {
     body.className = 'rw-section-body';
     body.appendChild(section.body);
 
-    head.addEventListener('click', () => wrap.classList.toggle('collapsed'));
+    head.addEventListener('click', () => {
+      const closing = !wrap.classList.contains('collapsed');
+      animateToggle(wrap,
+        () => wrap.classList.toggle('collapsed', closing),
+        () => wrap.classList.toggle('collapsed', !closing),
+        { caret: '--chev', fromDeg: closing ? 0 : -90, toDeg: closing ? -90 : 0 });
+    });
 
     wrap.append(head, body);
     if (section.pinTop) wrap.dataset.pinTop = 'true';

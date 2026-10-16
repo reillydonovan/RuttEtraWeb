@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-theme="modern">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <title>Rutt/Etra Web — Design System</title>
+    <meta name="description" content="The Rutt/Etra Web design system: tokens, type, spacing, and every control with its hover, pressed, focus and disabled states." />
+    <meta property="og:title" content="Rutt/Etra Web — Design System" />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <header id="ds-header">
+      <a class="ds-home" href="./index.html">← Rutt/Etra Web</a>
+      <span class="ds-title">Design System</span>
+      <nav class="ds-links"><a href="./about.html">Manual</a><a href="./tutorials.html">Tutorials</a></nav>
+    </header>
+    <div id="ds-shell">
+      <aside id="ds-toc" aria-label="Sections"></aside>
+      <main id="ds-main">
+
+        <section id="intro">
+          <p class="ds-kicker">Modern · the default theme</p>
+          <h1>One instrument, one language.</h1>
+          <p class="ds-lede">Rutt/Etra Web is a video synthesizer you play with a mouse, a MIDI controller and patch cables. Its interface follows a small set of rules, applied everywhere: three surface tiers, four type sizes, one spacing grid, and a single accent colour that only ever means <em>state</em>. This page is the reference: every token and every control, with its states.</p>
+          <div class="ds-principles">
+            <div class="ds-card"><h3>Green is state, not decoration</h3><p>Hover, selected, plugged, live: green. Everything else is neutral grey, so the one lit thing on screen is the thing you are touching.</p></div>
+            <div class="ds-card"><h3>One source for each concept</h3><p>The Controls panel, the Patch Bay and the node editor read the same tokens. A new component is added to a shared selector list, never restyled on its own.</p></div>
+            <div class="ds-card"><h3>Every control has four states</h3><p>Rest, hover, pressed and keyboard focus. If you can click it, it answers the pointer; if you can tab to it, it shows a ring.</p></div>
+            <div class="ds-card"><h3>Nothing native shows through</h3><p>Dropdowns, scrollbars, spin buttons, cursors: anything the browser would draw in its own style is replaced.</p></div>
+          </div>
+        </section>
+
+        <section id="color">
+          <h2>Colour</h2>
+          <p>Three surface tiers stack from the darkest bar to the lightest card. Click a swatch to copy its value.</p>
+          <h3>Surfaces</h3>
+          <div class="ds-swatches">
+            <button class="ds-sw" data-v="#000000" style="--c:#000"><b>Bar</b><i>#000000</i><span>Menu bar, every tab bar</span></button>
+            <button class="ds-sw" data-v="#0e0e0f" style="--c:#0e0e0f"><b>Window</b><i>#0e0e0f</i><span>Window content</span></button>
+            <button class="ds-sw" data-v="#18181a" style="--c:#18181a"><b>Card</b><i>#18181a</i><span>Sections, modules, nodes</span></button>
+            <button class="ds-sw" data-v="#1e1e20" style="--c:#1e1e20"><b>Card · hover</b><i>#1e1e20</i><span>A card under the pointer</span></button>
+            <button class="ds-sw" data-v="rgba(255,255,255,0.045)" style="--c:rgba(255,255,255,0.045)"><b>Well</b><i>white 4.5%</i><span>Inputs, recessed groups</span></button>
+            <button class="ds-sw" data-v="rgba(28,28,30,0.82)" style="--c:rgba(28,28,30,0.82)"><b>Glass</b><i>#1c1c1e 82%</i><span>Menus, popovers, modals</span></button>
+          </div>
+          <h3>Text</h3>
+          <div class="ds-swatches">
+            <button class="ds-sw dk" data-v="#f5f5f7" style="--c:#f5f5f7"><b>Max</b><i>#f5f5f7</i><span>Titles</span></button>
+            <button class="ds-sw dk" data-v="#d1d1d6" style="--c:#d1d1d6"><b>Body</b><i>#d1d1d6</i><span>Reading text</span></button>
+            <button class="ds-sw dk" data-v="#8e8e93" style="--c:#8e8e93"><b>Dim</b><i>#8e8e93</i><span>Labels, hints</span></button>
+            <button class="ds-sw" data-v="#5c5c61" style="--c:#5c5c61"><b>Faint</b><i>#5c5c61</i><span>Disabled</span></button>
+          </div>
+          <h3>Accent and signal</h3>
+          <div class="ds-swatches">
+            <button class="ds-sw dk" data-v="#5fff85" style="--c:#5fff85"><b>Accent</b><i>#5fff85</i><span>Hover, selected, lit, plugged</span></button>
+            <button class="ds-sw dk" data-v="#2fd462" style="--c:#2fd462"><b>Accent fill</b><i>#2fd462</i><span>Large fills, like a switch</span></button>
+            <button class="ds-sw dk" data-v="#ffb347" style="--c:#ffb347"><b>Amber</b><i>#ffb347</i><span>The timeline owns this value</span></button>
+            <button class="ds-sw dk" data-v="#ff5c5c" style="--c:#ff5c5c"><b>Red</b><i>#ff5c5c</i><span>Warning, a cable that won't connect</span></button>
+          </div>
+          <h3>Cable colours</h3>
+          <p>A cable's colour says what kind of signal it carries, wherever it is drawn.</p>
+          <div class="ds-swatches">
+            <button class="ds-sw dk" data-v="#5fff85" style="--c:#5fff85"><b>Function generator</b><i>green</i><span>Classic slot to parameter</span></button>
+            <button class="ds-sw dk" data-v="#5fd7ff" style="--c:#5fd7ff"><b>Graph binding</b><i>cyan</i><span>Node to parameter</span></button>
+            <button class="ds-sw dk" data-v="#ffb347" style="--c:#ffb347"><b>Node wire</b><i>amber</i><span>Node to node</span></button>
+            <button class="ds-sw dk" data-v="#c85fff" style="--c:#c85fff"><b>Video</b><i>magenta</i><span>Picture signal</span></button>
+          </div>
+        </section>
+
+        <section id="type">
+          <h2>Type</h2>
+          <p>System sans for chrome, tabular monospace for numbers and tracked caps labels. Four sizes, no others.</p>
+          <div class="ds-card ds-type">
+            <div><code>--fs-l · 13.5px</code><span style="font-size:13.5px;color:#f5f5f7;font-weight:600">Section title — Display Control Unit</span></div>
+            <div><code>--fs-m · 12.5px</code><span style="font-size:12.5px">Body and control text — Z Push modulates the scan depth</span></div>
+            <div><code>--fs-s · 11.5px</code><span style="font-size:11.5px">Secondary text — hints and descriptions under a control</span></div>
+            <div><code>--fs-xs · 10.5px</code><span class="lbl">Label — Position &amp; size</span></div>
+            <div><code>numbers</code><span class="num">0.900 &nbsp; 1.3333 &nbsp; −2.50</span></div>
+          </div>
+        </section>
+
+        <section id="space">
+          <h2>Spacing, size and shape</h2>
+          <h3>Spacing — a 4px grid</h3>
+          <div class="ds-card ds-space">
+            <div><i style="width:4px"></i><code>--sp-1 · 4</code></div>
+            <div><i style="width:8px"></i><code>--sp-2 · 8</code></div>
+            <div><i style="width:12px"></i><code>--sp-3 · 12</code></div>
+            <div><i style="width:16px"></i><code>--sp-4 · 16</code></div>
+            <div><i style="width:24px"></i><code>--sp-5 · 24</code></div>
+            <div><i style="width:32px"></i><code>--sp-6 · 32</code></div>
+          </div>
+          <h3>Control heights</h3>
+          <div class="ds-row">
+            <div class="ds-demo"><span class="ds-btn" style="height:22px">Small · 22</span></div>
+            <div class="ds-demo"><span class="ds-btn" style="height:26px">Medium · 26</span></div>
+            <div class="ds-demo"><span class="ds-btn" style="height:32px">Large · 32</span></div>
+          </div>
+          <h3>Radii</h3>
+          <div class="ds-row">
+            <div class="ds-demo"><span class="ds-r" style="border-radius:6px">6 · controls</span></div>
+            <div class="ds-demo"><span class="ds-r" style="border-radius:10px">10 · cards</span></div>
+            <div class="ds-demo"><span class="ds-r" style="border-radius:14px">14 · modals</span></div>
+            <div class="ds-demo"><span class="ds-r" style="border-radius:980px">pill · buttons</span></div>
+          </div>
+        </section>
+
+        <section id="controls">
+          <h2>Controls and their states</h2>
+          <p>Hover the live ones. The states below use the same rules as the app.</p>
+
+          <h3 id="disclosure">Disclosure caret</h3>
+          <p>Collapses and expands a group in Controls and a node in the Patch Bay. Rest is a dim grey chevron; hover washes the square green and lights the chevron; pressed deepens the wash and shrinks it slightly; keyboard focus draws the ring. It points down when open and right when closed.</p>
+          <div class="ds-states">
+            <figure><button class="ds-caret" tabindex="-1"></button><figcaption>Rest</figcaption></figure>
+            <figure><button class="ds-caret is-hover" tabindex="-1"></button><figcaption>Hover</figcaption></figure>
+            <figure><button class="ds-caret is-press" tabindex="-1"></button><figcaption>Pressed</figcaption></figure>
+            <figure><button class="ds-caret is-focus" tabindex="-1"></button><figcaption>Focus</figcaption></figure>
+            <figure><button class="ds-caret is-closed" tabindex="-1"></button><figcaption>Closed</figcaption></figure>
+            <figure><button class="ds-caret" data-toggle aria-expanded="true"></button><figcaption>Try it</figcaption></figure>
+          </div>
+
+          <h3 id="groups">Child groups</h3>
+          <p>A group inside a Controls section is a recessed well. Hovering it lifts the well and lights its title; an open group carries a green rule on its left edge; pressing the title deepens the wash; focus anywhere inside rings the group. Groups start collapsed and remember what you opened.</p>
+          <div class="ds-states ds-groups">
+            <figure><div class="ds-group"><div class="gh"><button class="ds-caret" tabindex="-1"></button>B · POSITION &amp; SIZE</div></div><figcaption>Collapsed</figcaption></figure>
+            <figure><div class="ds-group is-hover"><div class="gh"><button class="ds-caret is-closed" tabindex="-1"></button>B · POSITION &amp; SIZE</div></div><figcaption>Hover</figcaption></figure>
+            <figure><div class="ds-group open"><div class="gh"><button class="ds-caret" tabindex="-1"></button>B · POSITION &amp; SIZE</div><div class="gb"><span>H Position</span><span class="ds-field">0.000</span></div></div><figcaption>Open — selected</figcaption></figure>
+            <figure><div class="ds-group open is-focus"><div class="gh"><button class="ds-caret" tabindex="-1"></button>B · POSITION &amp; SIZE</div><div class="gb"><span>H Position</span><span class="ds-field">0.000</span></div></div><figcaption>Focus inside</figcaption></figure>
+          </div>
+
+          <h3>Buttons</h3>
+          <div class="ds-states">
+            <figure><span class="ds-btn">Button</span><figcaption>Rest</figcaption></figure>
+            <figure><span class="ds-btn is-hover">Button</span><figcaption>Hover</figcaption></figure>
+            <figure><span class="ds-btn is-press">Button</span><figcaption>Pressed</figcaption></figure>
+            <figure><span class="ds-btn is-focus">Button</span><figcaption>Focus</figcaption></figure>
+            <figure><span class="ds-btn is-on">Active</span><figcaption>Selected</figcaption></figure>
+            <figure><span class="ds-btn is-off">Button</span><figcaption>Disabled</figcaption></figure>
+          </div>
+
+          <h3>Switch, segmented control and tabs</h3>
+          <div class="ds-row">
+            <div class="ds-demo"><span class="ds-sw2"></span><small>Off</small></div>
+            <div class="ds-demo"><span class="ds-sw2 on"></span><small>On</small></div>
+            <div class="ds-demo"><span class="ds-seg"><b>Classic</b><b class="on">Graph</b><b>Both</b></span></div>
+            <div class="ds-demo"><span class="ds-tabs"><b class="on">CONTROLS</b><b>TIMELINE</b><b>PATCH BAY</b></span></div>
+          </div>
+
+          <h3>Sliders, knobs and number fields</h3>
+          <div class="ds-row">
+            <div class="ds-demo ds-col"><span class="ds-slider"><i style="width:62%"></i></span><small>Slider — drag; Shift = fine; double-click resets</small></div>
+            <div class="ds-demo ds-col"><span class="ds-knob"></span><small>Knob — vertical drag</small></div>
+            <div class="ds-demo ds-col"><span class="ds-field">0.900</span><small>Number — click to type; ▾ sets the range</small></div>
+          </div>
+
+          <h3>Dropdown</h3>
+          <div class="ds-row">
+            <div class="ds-demo ds-col"><span class="ds-select">Perlin Noise</span><small>Closed</small></div>
+            <div class="ds-demo ds-col">
+              <div class="ds-menu"><span>Solid</span><span>Gradient</span><span class="act">Perlin Noise</span><span class="sel">Lissajous</span></div>
+              <small>Open — green tint under pointer or arrow keys; a check marks the current value</small>
+            </div>
+          </div>
+
+          <h3 id="jacks">Jacks</h3>
+          <p>The sockets cables plug into. Outputs sit on the right of a node, inputs on the left. A cable always goes from an output into an input.</p>
+          <div class="ds-states">
+            <figure><span class="ds-jack"></span><figcaption>Rest</figcaption></figure>
+            <figure><span class="ds-jack is-hover"></span><figcaption>Hover</figcaption></figure>
+            <figure><span class="ds-jack is-plugged"></span><figcaption>Plugged</figcaption></figure>
+            <figure><span class="ds-jack is-target"></span><figcaption>Drop target</figcaption></figure>
+            <figure><span class="ds-jack is-reject"></span><figcaption>Refused</figcaption></figure>
+          </div>
+
+          <h3 id="cables">Cables</h3>
+          <div class="ds-cables">
+            <figure><svg viewBox="0 0 160 50"><path d="M10 25 C60 25 100 25 150 25" class="c"/></svg><figcaption>Resting</figcaption></figure>
+            <figure><svg viewBox="0 0 160 50"><path d="M10 25 C60 25 100 25 150 25" class="c hov"/></svg><figcaption>Hover — brighter, wider glow</figcaption></figure>
+            <figure><svg viewBox="0 0 160 50"><path d="M10 25 C60 25 100 25 150 25" class="c sel"/></svg><figcaption>Selected — white outline; Delete unplugs</figcaption></figure>
+            <figure><svg viewBox="0 0 160 50"><defs><linearGradient id="gA"><stop offset="0" stop-color="#5fff85"/><stop offset="1" stop-color="#ffffff"/></linearGradient></defs><path d="M10 25 C60 5 100 45 150 25" class="c" stroke="url(#gA)"/></svg><figcaption>Dragging over a jack that accepts</figcaption></figure>
+            <figure><svg viewBox="0 0 160 50"><defs><linearGradient id="gR"><stop offset="0" stop-color="#5fff85"/><stop offset="1" stop-color="#ff5566"/></linearGradient></defs><path d="M10 25 C60 5 100 45 150 25" class="c" stroke="url(#gR)"/></svg><figcaption>Over empty space or a refusal</figcaption></figure>
+            <figure><svg viewBox="0 0 160 50"><path d="M10 25 C50 25 90 28 120 40" class="c fade"/></svg><figcaption>Unplugged — falls and fades</figcaption></figure>
+          </div>
+
+          <h3>Cursors</h3>
+          <p>One green cursor set everywhere: a pointer, an open hand over the Patch Bay board (a fist while panning), a four-way move on node headers, a ring over jacks, a tick over a jack that accepts a cable and a slashed circle over one that does not.</p>
+          <div class="ds-row">
+            <div class="ds-demo ds-cur" style="cursor:pointer"><small>pointer</small></div>
+            <div class="ds-demo ds-cur" style="cursor:grab"><small>hand</small></div>
+            <div class="ds-demo ds-cur" style="cursor:move"><small>move</small></div>
+            <div class="ds-demo ds-cur" style="cursor:crosshair"><small>connect</small></div>
+            <div class="ds-demo ds-cur" style="cursor:not-allowed"><small>refused</small></div>
+          </div>
+
+          <h3>Tooltips and the info panel</h3>
+          <p>Hover anything for about half a second for a one-line tooltip. The ⓘ button on a section, module or node opens a panel with a plain-language summary, a live signal-flow diagram of how that unit is patched right now, and a reference row for every parameter. It closes with Esc, ✕ or a click outside.</p>
+          <div class="ds-row"><div class="ds-demo"><span class="ds-tip">Z Push — how far brightness lifts each scan line</span></div></div>
+        </section>
+
+        <section id="motion">
+          <h2>Motion</h2>
+          <p>Everything that opens or closes (a section, a child group, a Patch Bay node) moves with <b>second-order motion</b>: a spring, not a fixed curve. A spring has position and velocity, so a thing accelerates out of rest, arrives with the speed it built up and carries that speed over if you reverse it mid-flight. Two springs run together:</p>
+          <div class="ds-states">
+            <figure><div class="ds-spring"><i data-z="1" data-w="26"></i></div><figcaption>Height — critically damped (ζ 1): quick, never overshoots</figcaption></figure>
+            <figure><div class="ds-spring"><i data-z="0.55" data-w="22"></i></div><figcaption>Caret and content fade — under-damped (ζ 0.55): swings through, settles</figcaption></figure>
+          </div>
+          <p><span class="ds-btn" id="ds-spring-play" role="button" tabindex="0">▶ Play the springs</span></p>
+          <ul class="ds-list">
+            <li><b>Fast · 120ms</b> — hover colour and background changes (not springs).</li>
+            <li><b>Springs</b> — expand and collapse: ω 26 rad/s for height, ω 22 with ζ 0.55 for the caret and fade. The container clips while it moves; its content fades in a beat after the box opens.</li>
+            <li><b>Press</b> shrinks a control to 97%; <b>lift</b> raises a hovered card 2px (never during a drag).</li>
+            <li><b>Reduced motion</b> turns off lift, glow, ripple and springs; state is still shown with static colour.</li>
+          </ul>
+        </section>
+
+        <section id="layout">
+          <h2>Layout</h2>
+          <p>The workspace is four windows: <b>Controls</b> on the left, the <b>Renderer</b> in the centre, the <b>Patch Bay</b> on the right and the <b>Timeline</b> along the bottom. Each window has a tab bar; any view can be added to any window, dragged between them, popped out to its own OS window, collapsed to its tab strip, or maximised. Moving a view never moves a different one.</p>
+          <ul class="ds-list">
+            <li>Section and node headers are the disclosure points; a child group inside a section starts collapsed and remembers its state.</li>
+            <li>A collapsed Patch Bay node shows only its header and its sockets, like a node in Blender or TouchDesigner.</li>
+            <li>On a phone the interface becomes a camera: full-bleed picture, a capture dock and five sheets.</li>
+          </ul>
+        </section>
+
+      </main>
+    </div>
+    <script type="module" src="/src/designsystem/main.ts"></script>
+  </body>
+</html>

@@ -10,6 +10,7 @@
  *     resets to default)
  */
 
+import { animateToggle } from './motion';
 import { Settings, SettingsStore, DEFAULTS } from '../state/Settings';
 import { clampRangeOverride, isDefaultRange } from '../state/paramRanges';
 import { layoutManager } from './layout/LayoutManager';
@@ -115,8 +116,11 @@ export function group(title: string): { root: HTMLElement; body: HTMLElement } {
   root.classList.toggle('rw-group--collapsed', readOpenGroups()[idOf()] !== true);
   const toggle = (): void => {
     const nowCollapsed = !root.classList.contains('rw-group--collapsed');
-    root.classList.toggle('rw-group--collapsed', nowCollapsed);
     writeOpenGroup(idOf(), !nowCollapsed);
+    animateToggle(root,
+      () => root.classList.toggle('rw-group--collapsed', nowCollapsed),
+      () => root.classList.toggle('rw-group--collapsed', !nowCollapsed),
+      { caret: '--caret', fromDeg: nowCollapsed ? 0 : -90, toDeg: nowCollapsed ? -90 : 0 });
   };
   head.addEventListener('click', toggle);
   head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });

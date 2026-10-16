@@ -691,7 +691,7 @@ html body[data-theme="modern"][data-theme] {
     border-radius: calc(var(--r-m) - 1px) calc(var(--r-m) - 1px) 0 0;
   }
   &[data-skin="rack"] .rw-section-head { padding-left: var(--sp-3); padding-right: var(--sp-2); }
-  & .rw-section-head .rw-chev { color: var(--t-dim); font-size: 10px; transition: transform var(--t-base) var(--ease), color var(--t-fast) linear; }
+  & .rw-section-head .rw-chev { color: var(--t-dim); font-size: 10px; transition: color var(--t-fast) linear; }
   & .rw-section-head:hover .rw-chev { color: var(--a); }
   & .rw-section-body { padding: var(--sp-2) var(--sp-3) var(--sp-3); background: transparent; }
   & .rw-group {
@@ -710,6 +710,21 @@ html body[data-theme="modern"][data-theme] {
   /* A toggle row is a flex line, not a block of text: keep it to its content width. */
   & .rw-group-body > .rw-toggle { align-self: flex-start; }
   & .rw-section-body > .rw-group { margin: 0; }
+  /* Child groups answer the pointer like every other card: hover lifts the well and lights the
+     title, an OPEN group carries a green rule on its left edge (the selected/expanded state),
+     pressing the head deepens it, and keyboard focus anywhere inside rings the group. */
+  & .rw-group {
+    position: relative;
+    transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+    &:hover { background: rgba(255, 255, 255, 0.05); }
+    &:hover > .rw-group-head { color: var(--t-body); }
+    &:not(.rw-group--collapsed) { box-shadow: inset 2px 0 0 var(--a-55); }
+    &:not(.rw-group--collapsed):hover { box-shadow: inset 2px 0 0 var(--a); }
+    &:focus-within { box-shadow: inset 2px 0 0 var(--a), 0 0 0 1px var(--a-30); }
+    & > .rw-group-head { border-radius: var(--r-s); transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+    & > .rw-group-head:hover { color: var(--a); background: var(--a-08); }
+    & > .rw-group-head:active { background: var(--a-16); }
+  }
   /* The flex display above must never un-hide anything: honour [hidden]. */
   & :is(.rw-group, .rw-group-body)[hidden] { display: none; }
   & .rw-group-head { margin-bottom: 0; }

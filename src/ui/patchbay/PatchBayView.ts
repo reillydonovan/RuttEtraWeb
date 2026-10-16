@@ -38,6 +38,7 @@
  * static and every anchor is a live rect of a known element.
  */
 
+import { animateToggle } from '../motion';
 import './patchbay.css';
 import '../rack/jackRipple.css';
 import '../graph/graph.css';
@@ -2617,9 +2618,13 @@ export function createPatchBayView(
     fold.setAttribute('aria-expanded', 'true');
     fold.addEventListener('click', (e) => {
       e.stopPropagation();
-      const c = unit.classList.toggle('rw-pb-unit--collapsed');
-      fold.setAttribute('aria-expanded', String(!c));
-      if (c) buildPorts(unit);
+      const closing = !unit.classList.contains('rw-pb-unit--collapsed');
+      fold.setAttribute('aria-expanded', String(!closing));
+      if (closing) buildPorts(unit);
+      animateToggle(unit,
+        () => unit.classList.toggle('rw-pb-unit--collapsed', closing),
+        () => unit.classList.toggle('rw-pb-unit--collapsed', !closing),
+        { caret: '--caret', fromDeg: closing ? 0 : -90, toDeg: closing ? -90 : 0 });
     });
     fold.addEventListener('dblclick', (e) => e.stopPropagation());
     attachTooltip(fold, () => (unit.classList.contains('rw-pb-unit--collapsed') ? 'Expand this node' : 'Collapse this node to its header'));

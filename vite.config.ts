@@ -114,6 +114,7 @@ export default defineConfig({
         main:  resolve(__dirname, 'index.html'),
         about: resolve(__dirname, 'about.html'),
         tutorials: resolve(__dirname, 'tutorials.html'),
+        designsystem: resolve(__dirname, 'designsystem.html'),
       },
       output: {
         manualChunks: (id) => {
