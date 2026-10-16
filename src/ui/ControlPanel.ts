@@ -10,6 +10,7 @@
  * persisted to `settings.panelTab`.
  */
 
+import { subscribeTextScale } from './textScale';
 import { animateToggle } from './motion';
 import './panel.css';
 import { SettingsStore } from '../state/Settings';
@@ -225,17 +226,25 @@ export class ControlPanel {
     this.root.appendChild(this.buildWidthResizeHandle());
     // Fires immediately with the persisted value, then on every change.
     settings.subscribe('panelWidth', (w) => this.applyPanelWidth(w));
+    // The width floor follows the text size (minWidth()): re-apply when it changes.
+    subscribeTextScale(() => this.applyPanelWidth(this.settings.get('panelWidth')));
   }
 
   // -----------------------------------------------------------------
   // Panel width resize (clamped 280–600, persisted as Settings.panelWidth)
   // -----------------------------------------------------------------
 
-  private static readonly WIDTH_MIN = 320;
+  private static readonly WIDTH_MIN = 340;
+  /** The floor scales with View ▸ Text Size: the panel's content is zoomed, so at 110% a 320px
+   *  panel holds only ~290px of controls and the rack jacks would run off the card edge. */
+  private static minWidth(): number {
+    const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rw-text-scale')) || 1;
+    return Math.round(ControlPanel.WIDTH_MIN * Math.max(1, k));
+  }
   private static readonly WIDTH_MAX = 1400;
 
   private applyPanelWidth(w: number): void {
-    const clamped = Math.max(ControlPanel.WIDTH_MIN, Math.min(ControlPanel.WIDTH_MAX, w));
+    const clamped = Math.max(ControlPanel.minWidth(), Math.min(ControlPanel.WIDTH_MAX, w));
     this.root.style.setProperty('--panel-w', `${clamped}px`);
     this.publishInset(clamped);
   }
@@ -258,7 +267,7 @@ export class ControlPanel {
     const stripW = parseFloat(getComputedStyle(this.root.ownerDocument.body).getPropertyValue('--rw-strip')) || 40;
     const w = this.collapsed
       ? stripW
-      : Math.max(ControlPanel.WIDTH_MIN, Math.min(
+      : Math.max(ControlPanel.minWidth(), Math.min(
           ControlPanel.WIDTH_MAX, width ?? this.settings.get('panelWidth')));
     // Since the v31 tab model the panel shell is one of two side windows;
     // `panelDock` says which edge it sits on, and the other window mirrors
@@ -297,7 +306,7 @@ export class ControlPanel {
       handle.setPointerCapture?.(ev.pointerId);
       handle.classList.add('active');
       const startX = ev.clientX;
-      const startW = Math.max(ControlPanel.WIDTH_MIN, Math.min(
+      const startW = Math.max(ControlPanel.minWidth(), Math.min(
         ControlPanel.WIDTH_MAX, this.settings.get('panelWidth')));
       // Docked right: dragging LEFT widens. Docked left: dragging right.
       const sign = this.settings.get('panelDock') === 'left' ? 1 : -1;
@@ -307,7 +316,7 @@ export class ControlPanel {
       const doc = handle.ownerDocument;
       const win = doc.defaultView ?? window;
       const onMove = (mv: PointerEvent): void => {
-        lastW = Math.max(ControlPanel.WIDTH_MIN, Math.min(
+        lastW = Math.max(ControlPanel.minWidth(), Math.min(
           ControlPanel.WIDTH_MAX, startW + sign * (mv.clientX - startX)));
         this.applyPanelWidth(lastW);
       };

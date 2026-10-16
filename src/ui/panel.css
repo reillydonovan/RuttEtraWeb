@@ -447,7 +447,7 @@ select option, select optgroup { background-color: var(--re-bg, #0e0e0f); color:
 /* Form rows */
 .rw-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 110px minmax(0, 1fr);   /* minmax(0,…): a wide control may never push the row past its card */
   align-items: center;
   gap: 8px;
   padding: 4px 0;

@@ -22,7 +22,7 @@
 body:is([data-skin="hardware"], [data-skin="rack"]):not([data-layout="compact"]) .rw-slider {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 /* Hide the native range/number ONLY where a knob stands in for them. A
    hand-built `.rw-slider` with no knob (the BPM field, CV trim, Sonification

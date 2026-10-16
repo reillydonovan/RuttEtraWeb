@@ -772,14 +772,12 @@ async function bootSynth(): Promise<void> {
   // Deferred until after the panel is built so the toast can land.
   const pendingRecovery = AutoSave.loadPending();
 
-  // beforeunload — flush an autosave snapshot if dirty so a crash
-  // or accidental close still leaves a recoverable trail. Synchronous
-  // only; we can't await async writes here. Only when Auto-save is ON:
-  // flushing for everyone meant any visitor who touched a single control
-  // got a native "Recover unsaved changes?" dialog on their next visit —
-  // including a presenter reloading mid-demo.
+  // beforeunload — flush a recovery snapshot whenever there are unsaved changes, so a refresh,
+  // crash or accidental close always offers Restore / Clear on the next load (owner: losing a
+  // Patch Bay session on refresh is worse than the prompt). Synchronous only. The Auto-save
+  // toggle adds periodic snapshots on top; this one is unconditional.
   window.addEventListener('beforeunload', () => {
-    if (autoSave.isEnabled() && projectStore.getState().dirty) autoSave.tick();
+    if (projectStore.getState().dirty) autoSave.tick();
   });
 
   // Project file actions — ONE implementation each, registered in the
@@ -1334,8 +1332,8 @@ async function bootSynth(): Promise<void> {
     setTimeout(() => {
       const age = AutoSave.formatAge(pendingRecovery.writtenAt);
       const ok = confirm(
-        `Recover unsaved changes from "${pendingRecovery.projectName}" (${age})?\n\n` +
-        'Click OK to restore. Cancel discards the snapshot.',
+        `Restore your previous session "${pendingRecovery.projectName}" (${age})?\n\n` +
+        'OK restores it. Cancel clears it and starts fresh.',
       );
       if (ok) {
         projectStore.openFromText(pendingRecovery.json, pendingRecovery.projectName)

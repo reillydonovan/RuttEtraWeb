@@ -54,6 +54,9 @@ export function scrollToModule(title) {
   const bay = document.querySelector('.rw-patchbay');
   const mod = [...bay.querySelectorAll('.rw-pb-module, .rw-pb-graphnode')]
     .find((e) => (e.querySelector('.rw-pb-module-head')?.textContent ?? '').trim().startsWith(title));
-  const dy = mod.getBoundingClientRect().top - bay.getBoundingClientRect().top - 120;
-  bay.scrollBy({ top: dy, behavior: 'smooth' });
+  const mb = mod.getBoundingClientRect(), bb = bay.getBoundingClientRect();
+  const dy = mb.top - bb.top - 120;
+  // Columns sit left to right on a board wider than the window: bring the module's column into view too.
+  const dx = mb.left < bb.left + 8 || mb.right > bb.right - 8 ? mb.left - bb.left - 16 : 0;
+  bay.scrollBy({ top: dy, left: dx, behavior: 'smooth' });
 }

@@ -235,12 +235,8 @@ async function record(lesson) {
     deviceScaleFactor: 1,
     ...(DRY || HQ ? {} : { recordVideo: { dir: work, size: { width: vp.width, height: vp.height } } }),
   });
-  // Tours were written when child groups were always expanded; keep them that way on screen.
-  await ctx.addInitScript(() => {
-    const css = '.rw-group--collapsed > .rw-group-body{display:block!important}';
-    const add = () => { const st = document.createElement('style'); st.textContent = css; document.documentElement.appendChild(st); };
-    if (document.documentElement) add(); else document.addEventListener('DOMContentLoaded', add);
-  });
+  // Tours were written when child groups were always expanded: start them open (widgets.ts group()).
+  await ctx.addInitScript(() => { try { localStorage.setItem('rw-groups-default', 'open'); } catch {} });
   if (!tour.noCursor) await ctx.addInitScript(tour.touch ? TOUCH_SCRIPT : CURSOR_SCRIPT);
   // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
   // helper servers (e.g. a WebSocket standing in for the OSC/MCP bridge).

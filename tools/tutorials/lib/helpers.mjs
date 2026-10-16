@@ -119,6 +119,8 @@ export function helpers(page) {
       for (let i = 0; i < 12; i++) {
         await page.waitForTimeout(120);
         if (await jack.evaluate((el) => !!el?.classList.contains('rw-rack-jack--plugged')).catch(() => false)) return;
+        // Views that re-render on connect (the graph editor) replace the jack element: look again.
+        if (await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.rw-rack-jack')?.classList.contains('rw-rack-jack--plugged'), [at.x, at.y]).catch(() => false)) return;
       }
       throw new Error(`tour check failed: the cable dropped on a jack (${Math.round(at.x)}, ${Math.round(at.y)}) did not connect${wasPlugged ? ' (it was already plugged)' : ''}`);
     },

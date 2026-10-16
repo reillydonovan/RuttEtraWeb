@@ -113,7 +113,11 @@ export function group(title: string): { root: HTMLElement; body: HTMLElement } {
   // Collapsed by default (a section with many groups is a wall otherwise); the choice is
   // remembered per group title. A group that is the only one in its section never collapses (CSS).
   const idOf = (): string => title;
-  root.classList.toggle('rw-group--collapsed', readOpenGroups()[idOf()] !== true);
+  // `rw-groups-default = open` (set by the video-course recorder) starts every group open.
+  let defaultOpen = false;
+  try { defaultOpen = localStorage.getItem('rw-groups-default') === 'open'; } catch { /* no storage */ }
+  const saved = readOpenGroups()[idOf()];
+  root.classList.toggle('rw-group--collapsed', saved === undefined ? !defaultOpen : !saved);
   const toggle = (): void => {
     const nowCollapsed = !root.classList.contains('rw-group--collapsed');
     writeOpenGroup(idOf(), !nowCollapsed);
