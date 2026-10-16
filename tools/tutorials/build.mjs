@@ -33,7 +33,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 const PY = path.join(HERE, '.venv', 'Scripts', 'python.exe');
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5190/';
-const DEST = path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
+const DEST_ARG = (() => { const i = process.argv.indexOf('--dest'); return i >= 0 ? path.resolve(process.argv[i + 1]) : null; })();
+// --dest <dir>: write the videos somewhere else (e.g. to audition a voice) and
+// leave public/tutorials, the manifest and the About list untouched.
+const DEST = DEST_ARG ?? path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
 const W = 1920, H = 1080;
 const PAD_MS = 450;          // breath after each line
 const LEAD_MS = 700;         // picture before the first word
@@ -52,6 +55,7 @@ try {
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : dflt; };
 const VOICE = opt('--voice', 'kokoro:af_heart');
+opt('--dest', null);   // consumed above (DEST_ARG); keep it out of the lesson-id list
 const SPEED = Number(opt('--speed', '1.0'));
 const VTT_ONLY = args.includes('--vtt');   // rewrite captions from saved timings
 const indexOnly = args.includes('--index');
@@ -95,7 +99,7 @@ function wavDurationMs(file) {
 }
 
 /** Synthesize every uncached line in one go; returns [{wav, ms}] in order. */
-function speakAll(texts) {
+async function speakAll(texts) {
   const [engine, voice] = VOICE.split(':');
   const jobs = texts.map((text) => {
     const key = crypto.createHash('sha1').update(`${VOICE}|${SPEED}|${text}`).digest('hex').slice(0, 16);
@@ -111,8 +115,45 @@ function speakAll(texts) {
       execFileSync(PY, ['-m', 'piper', '-m', path.join(HERE, 'voices', `${voice ?? 'en_US-lessac-medium'}.onnx`), '-f', j.out,
         '--length-scale', String(1 / SPEED), '--sentence-silence', '0.15'], { input: j.text });
     }
+  } else if (todo.length && engine === 'elevenlabs') {
+    for (const j of todo) await elevenLabsSpeak(voice, j.text, j.out);
   } else if (todo.length) throw new Error(`unknown voice engine ${engine}`);
   return jobs.map((j) => ({ wav: j.out, ms: wavDurationMs(j.out) }));
+}
+
+/**
+ * ElevenLabs text-to-speech: `--voice elevenlabs:<voiceId>`. The key comes
+ * from ELEVENLABS_API_KEY (tools/tutorials/.env) and is only ever sent as the
+ * `xi-api-key` header — never logged. The MP3 it returns is converted to the
+ * 48 kHz mono WAV the rest of the pipeline expects. Every line is cached by
+ * voice+speed+text (speakAll), so a re-run only pays for lines that changed.
+ */
+async function elevenLabsSpeak(voiceId, text, outWav) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) throw new Error('ELEVENLABS_API_KEY is not set — put it in tools/tutorials/.env');
+  if (!voiceId) throw new Error('give a voice id: --voice elevenlabs:<voiceId>');
+  const model = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+      method: 'POST',
+      headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        text, model_id: model,
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0, use_speaker_boost: true, speed: Math.max(0.7, Math.min(1.2, SPEED)) },
+      }),
+    });
+    if (res.ok) {
+      const mp3 = outWav.replace(/\.wav$/, '.mp3');
+      fs.writeFileSync(mp3, Buffer.from(await res.arrayBuffer()));
+      execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-i', mp3, '-ar', '48000', '-ac', '1', outWav]);
+      fs.rmSync(mp3, { force: true });
+      return;
+    }
+    const body = (await res.text()).slice(0, 300);
+    // 429 = too many concurrent/rapid requests: back off and retry.
+    if ((res.status === 429 || res.status >= 500) && attempt < 5) { await new Promise((r) => setTimeout(r, 1500 * attempt)); continue; }
+    throw new Error(`ElevenLabs ${res.status}: ${body}`);
+  }
 }
 
 // ---- recording ----------------------------------------------------------------
@@ -161,7 +202,7 @@ async function record(lesson) {
   fs.rmSync(work, { recursive: true, force: true });
   fs.mkdirSync(work, { recursive: true });
 
-  const spoken = DRY ? null : speakAll(tour.lines.map((l) => l.text));
+  const spoken = DRY ? null : await speakAll(tour.lines.map((l) => l.text));
   const lines = tour.lines.map((l, i) => ({ ...l, ...(DRY ? { ms: 400 } : spoken[i]) }));
   const byId = new Map(lines.map((l) => [l.id, l]));
   console.log(`[${lesson.id}] tts: ${lines.length} lines, ${(lines.reduce((s, l) => s + l.ms, 0) / 1000).toFixed(1)}s`);
@@ -312,7 +353,7 @@ function writeVtt(id, stamps, byId, trimMs) {
 async function rewriteVtt(lesson) {
   const t = JSON.parse(fs.readFileSync(path.join(HERE, 'out', lesson.id, 'timings.json'), 'utf8'));
   const tour = await import(`./tours/${lesson.id}.mjs`);
-  const spoken = speakAll(tour.lines.map((l) => l.text));
+  const spoken = await speakAll(tour.lines.map((l) => l.text));
   const byId = new Map(tour.lines.map((l, i) => [l.id, { ...l, ...spoken[i] }]));
   writeVtt(lesson.id, t.stamps, byId, t.trimMs);
   console.log(`[${lesson.id}] captions rewritten`);
@@ -395,5 +436,5 @@ const failed = [];
 for (const l of todo) {
   try { await (VTT_ONLY ? rewriteVtt(l) : record(l)); } catch (e) { failed.push(l.id); console.error(`[${l.id}] FAILED: ${e.message}`); }
 }
-if (!DRY) { await writeManifest(); writeIndex(); }
+if (!DRY && !DEST_ARG) { await writeManifest(); writeIndex(); }
 if (failed.length) { console.error(`failed: ${failed.join(', ')}`); process.exitCode = 1; }
