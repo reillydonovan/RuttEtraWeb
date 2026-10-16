@@ -253,14 +253,19 @@ export class ControlPanel {
       ? 40
       : Math.max(ControlPanel.WIDTH_MIN, Math.min(
           ControlPanel.WIDTH_MAX, width ?? this.settings.get('panelWidth')));
-    // Since the v31 tab model the panel shell is the RIGHT window
-    // (panelDock is forced 'right'); the LEFT inset var belongs to the
-    // left workspace window and must not be stomped from here. A hidden
+    // Since the v31 tab model the panel shell is one of two side windows;
+    // `panelDock` says which edge it sits on, and the other window mirrors
+    // to the opposite edge (Workspace.ts). A hidden
     // (zero-tab) window publishes 0 — otherwise a preset that writes
     // panelWidth AFTER emptying the window re-truncates the bottom
     // strip at a stale inset (the owner's Wide-layout bug).
     const hidden = this.root.classList.contains('rw-window-empty');
-    style.setProperty('--rw-panel-inset-right', hidden ? '0px' : `${w}px`);
+    // The panel shell owns the inset on ITS side (panelDock); the other
+    // workspace window (the left shell, mirrored to the opposite edge)
+    // owns the opposite var. Each side overwrites the other's stale value
+    // when the dock flips, so neither needs to zero the other.
+    style.setProperty(this.settings.get('panelDock') === 'left' ? '--rw-panel-inset-left' : '--rw-panel-inset-right',
+      hidden ? '0px' : `${w}px`);
     // Let the render canvas track the panel's footprint live, mid-drag
     // — not just once the width commits to Settings on release. Bare
     // `window` (not `this.root.ownerDocument.defaultView`): this

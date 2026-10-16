@@ -900,8 +900,8 @@ async function bootSynth(): Promise<void> {
       // footprint — let the timeline dock reclaim the full width. On
       // pop-in the panel recomputes its insets.
       if (open) {
-        // Right var only — the LEFT inset belongs to the left window.
-        document.documentElement.style.setProperty('--rw-panel-inset-right', '0px');
+        // The panel's own side only — the other inset belongs to the other window.
+        document.documentElement.style.setProperty(settings.get('panelDock') === 'left' ? '--rw-panel-inset-left' : '--rw-panel-inset-right', '0px');
       } else {
         panel.refreshInset();
       }
@@ -1258,7 +1258,7 @@ async function bootSynth(): Promise<void> {
             {
               label: 'Layout',
               submenu: () => [
-                { label: 'Default (4-up: bay left, output center)', run: () => workspace.applyPreset('default') },
+                { label: 'Default (4-up: controls left, output center)', run: () => workspace.applyPreset('default') },
                 { label: 'Classic (no left window)', run: () => workspace.applyPreset('classic') },
                 { label: 'Tall (everything in one column)', run: () => workspace.applyPreset('tall') },
                 { label: 'Wide (tall bottom strip)', run: () => workspace.applyPreset('wide') },
@@ -1828,7 +1828,9 @@ async function bootSynth(): Promise<void> {
     // The LEFT workspace window (empty/hidden = zero-width rect).
     const leftEl = document.getElementById('rw-left-shell');
     if (leftEl && !leftEl.hasAttribute('data-region-max')) {
-      left += leftEl.getBoundingClientRect().width;
+      // Mirrored to the opposite edge from the Controls shell.
+      if (settings.get('panelDock') === 'left') right += leftEl.getBoundingClientRect().width;
+      else left += leftEl.getBoundingClientRect().width;
     }
     const dockEl = document.getElementById('timeline-dock');
     if (dockEl && !dockEl.hasAttribute('data-region-max')) {

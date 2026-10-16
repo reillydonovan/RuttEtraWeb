@@ -129,6 +129,22 @@ addEventListener('DOMContentLoaded', () => {
   }, true);
 });`;
 
+// Phone lessons paint a fingertip instead of an arrow: a soft disc that
+// presses (shrinks) while a button is down, with the same click ring.
+const TOUCH_SCRIPT = `
+addEventListener('DOMContentLoaded', () => {
+  const c = document.createElement('div');
+  Object.assign(c.style, { position: 'fixed', left: '0', top: '0', width: '34px', height: '34px', marginLeft: '-17px', marginTop: '-17px',
+    borderRadius: '50%', background: 'rgba(255,255,255,.28)', border: '2px solid rgba(255,255,255,.75)', zIndex: '2147483647',
+    pointerEvents: 'none', transform: 'translate(-100px,-100px)', transition: 'width .12s, height .12s, margin .12s, background .12s' });
+  document.documentElement.appendChild(c);
+  const move = (e) => { c.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)'; };
+  const size = (px, bg) => { c.style.width = c.style.height = px + 'px'; c.style.marginLeft = c.style.marginTop = (-px / 2) + 'px'; c.style.background = bg; };
+  addEventListener('pointermove', move, true);
+  addEventListener('pointerdown', (e) => { move(e); size(26, 'rgba(95,255,133,.55)'); }, true);
+  addEventListener('pointerup', () => size(34, 'rgba(255,255,255,.28)'), true);
+});`;
+
 async function record(lesson) {
   const tour = await import(`./tours/${lesson.id}.mjs?t=${Date.now()}`);
   const work = path.join(HERE, 'out', lesson.id);
@@ -140,10 +156,13 @@ async function record(lesson) {
   const byId = new Map(lines.map((l) => [l.id, l]));
   console.log(`[${lesson.id}] tts: ${lines.length} lines, ${(lines.reduce((s, l) => s + l.ms, 0) / 1000).toFixed(1)}s`);
 
+  // A lesson may record at its own size (the phone lesson is portrait) and
+  // against its own URL query (e.g. ?layout=compact).
+  const vp = tour.viewport ?? { width: W, height: H };
   const browser = await chromium.launch({
     channel: 'chrome',
     headless: false,
-    args: [`--window-size=${W + 20},${H + 140}`, '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required',
+    args: [`--window-size=${vp.width + 20},${vp.height + 140}`, '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required',
       // Keep rendering at full rate even if another window covers this one.
       '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
       // Lessons that need a camera or mic get Chrome's fake devices (a test
@@ -151,11 +170,11 @@ async function record(lesson) {
       ...(tour.fakeMedia ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] : [])],
   });
   const ctx = await browser.newContext({
-    viewport: { width: W, height: H },
+    viewport: { width: vp.width, height: vp.height },
     deviceScaleFactor: 1,
-    ...(DRY ? {} : { recordVideo: { dir: work, size: { width: W, height: H } } }),
+    ...(DRY ? {} : { recordVideo: { dir: work, size: { width: vp.width, height: vp.height } } }),
   });
-  await ctx.addInitScript(CURSOR_SCRIPT);
+  await ctx.addInitScript(tour.touch ? TOUCH_SCRIPT : CURSOR_SCRIPT);
   // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
   // helper servers (e.g. a WebSocket standing in for the OSC/MCP bridge).
   for (const script of tour.initScripts ?? []) await ctx.addInitScript(script);
@@ -172,17 +191,19 @@ async function record(lesson) {
   const stamps = [];
   let failure = null;
   try {
-    await page.goto(APP_URL);
+    await page.goto(APP_URL + (tour.appQuery ?? ''));
     await page.waitForSelector('#rw-splash', { state: 'detached', timeout: 60000 });
     await page.waitForTimeout(600);
     // The panel auto-opens its Help tab once that lazy section mounts; every
     // lesson starts on Synth instead (switching away also marks Help seen,
     // so it doesn't come back). Lessons that need I/O or Help click there.
-    await page.waitForFunction(() => [...document.querySelectorAll('#panel-root .rw-section-head span')]
-      .some((e) => e.textContent.trim() === 'Manual'), null, { timeout: 15000 }).catch(() => {});
-    await page.click('#panel-root .rw-tab[data-tab="synth"]').catch(() => {});
+    if (!tour.viewport) {   // the side panel exists only in the desktop layout
+      await page.waitForFunction(() => [...document.querySelectorAll('#panel-root .rw-section-head span')]
+        .some((e) => e.textContent.trim() === 'Manual'), null, { timeout: 15000 }).catch(() => {});
+      await page.click('#panel-root .rw-tab[data-tab="synth"]').catch(() => {});
+    }
     if (tour.pre) await tour.pre(page, h);
-    await page.mouse.move(W / 2, H / 2);
+    await page.mouse.move(vp.width / 2, vp.height / 2);
     await page.waitForTimeout(400);
 
     const seg = async (id, fn) => {
@@ -310,6 +331,13 @@ async function writeManifest() {
       if (m) built.set(l.id, m);
     }
   }
+  // A lesson that records at its own size (the phone lesson) tells the page
+  // its shape, so the player can frame it before the video loads.
+  const aspects = new Map();
+  for (const l of LESSONS) {
+    const t = await import(`./tours/${l.id}.mjs`);
+    if (t.viewport) aspects.set(l.id, `${t.viewport.width} / ${t.viewport.height}`);
+  }
   const file = path.join(DEST, 'manifest.json');
   let prev = {};
   try { prev = Object.fromEntries(JSON.parse(fs.readFileSync(file, 'utf8')).tracks.flatMap((t) => t.lessons).map((l) => [l.id, l])); } catch { /* first run */ }
@@ -322,7 +350,7 @@ async function writeManifest() {
       lessons: t.lessons.map((l) => {
         const L = LESSONS.find((x) => x.id === l.id);
         const meta = built.get(l.id) ?? (prev[l.id] ? { duration: prev[l.id].duration, chapters: prev[l.id].chapters } : null);
-        return { id: l.id, number: L.number, title: l.title, blurb: l.blurb, ...(meta ?? { duration: null, chapters: [] }) };
+        return { id: l.id, number: L.number, title: l.title, blurb: l.blurb, ...(aspects.get(l.id) ? { aspect: aspects.get(l.id) } : {}), ...(meta ?? { duration: null, chapters: [] }) };
       }),
     })),
   };

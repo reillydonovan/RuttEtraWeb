@@ -54,6 +54,8 @@ a { color: var(--re-accent); }
   border: 1px solid var(--re-line);
   box-shadow: 0 0 24px rgba(95, 255, 133, 0.08);
 }
+/* A portrait lesson (the phone one) is framed at its own shape, centred. */
+#tut-stage[data-aspect] { aspect-ratio: var(--tut-aspect); height: min(78vh, 900px); width: auto; max-width: 100%; margin: 0 auto; }
 #tut-video { width: 100%; height: 100%; display: block; background: #000; }
 #tut-missing {
   position: absolute; inset: 0;

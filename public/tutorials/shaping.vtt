@@ -9,45 +9,45 @@ The Display Control Unit is the scan processor itself.
 It decides where every line is drawn.
 
 3
-00:00:07.050 --> 00:00:09.607
+00:00:07.039 --> 00:00:09.596
 H Size and V Size stretch the raster.
 
 4
-00:00:09.607 --> 00:00:12.511
+00:00:09.596 --> 00:00:12.500
 H Position and V Position slide it around.
 
 5
-00:00:15.355 --> 00:00:18.869
+00:00:15.359 --> 00:00:18.873
 Z Push is depth: how far bright areas lift toward you.
 
 6
-00:00:18.869 --> 00:00:21.797
+00:00:18.873 --> 00:00:21.801
 Z Bias moves the whole sheet forward or back.
 
 7
-00:00:22.261 --> 00:00:24.885
+00:00:22.267 --> 00:00:24.891
 Rotation turns the raster in its own plane.
 
 8
-00:00:26.388 --> 00:00:28.969
+00:00:26.451 --> 00:00:29.032
 V Spin turns it around its vertical axis.
 
 9
-00:00:30.419 --> 00:00:35.240
+00:00:30.621 --> 00:00:35.442
 Threshold hides the darkest parts of the picture, so only the brighter areas draw.
 
 10
-00:00:35.691 --> 00:00:38.315
+00:00:35.899 --> 00:00:38.523
 Intensity sets the brightness of the beam.
 
 11
-00:00:38.315 --> 00:00:40.128
+00:00:38.523 --> 00:00:40.336
 Focus softens or sharpens it.
 
 12
-00:00:43.472 --> 00:00:45.898
+00:00:43.790 --> 00:00:46.216
 Double-click any knob to put it back.
 
 13
-00:00:45.898 --> 00:00:47.930
+00:00:46.216 --> 00:00:48.248
 Next: color, glow, and presets.

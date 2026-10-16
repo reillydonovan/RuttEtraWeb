@@ -9,57 +9,57 @@ The Patch Bay is the whole instrument as one hardware faceplate.
 Maximize it to see more.
 
 3
-00:00:06.554 --> 00:00:12.383
+00:00:06.549 --> 00:00:12.378
 Along the top, the Sources bus offers signals: waveforms, audio, beats, MIDI, and more.
 
 4
-00:00:12.383 --> 00:00:16.538
+00:00:12.378 --> 00:00:16.533
 Every parameter has an input jack, a knob, and an output jack.
 
 5
-00:00:17.000 --> 00:00:19.385
+00:00:16.994 --> 00:00:19.379
 Cables run from an output to an input.
 
 6
-00:00:19.385 --> 00:00:24.282
+00:00:19.379 --> 00:00:24.276
 Drag the triangle wave toward the bottom edge, and the board scrolls with you.
 
 7
-00:00:24.282 --> 00:00:29.053
+00:00:24.276 --> 00:00:29.047
 Drop it on Function Generator one, the same slot as in the Modulation panel.
 
 8
-00:00:29.508 --> 00:00:30.498
+00:00:29.507 --> 00:00:30.497
 Now its output.
 
 9
-00:00:30.498 --> 00:00:33.668
+00:00:30.497 --> 00:00:33.667
 Grab the output jack, and carry it up to H Size.
 
 10
-00:00:34.125 --> 00:00:35.226
+00:00:34.123 --> 00:00:35.224
 Restore the window.
 
 11
-00:00:35.226 --> 00:00:38.647
+00:00:35.224 --> 00:00:38.645
 The raster now stretches in and out with the triangle wave.
 
 12
-00:00:39.112 --> 00:00:42.758
+00:00:39.102 --> 00:00:42.748
 Back in the bay, grab a cable by its input end to move it.
 
 13
-00:00:42.758 --> 00:00:43.890
+00:00:42.748 --> 00:00:43.880
 Drop it on V Size.
 
 14
-00:00:44.346 --> 00:00:46.714
+00:00:44.334 --> 00:00:46.702
 Drop a cable in empty space to unplug it.
 
 15
-00:00:47.176 --> 00:00:51.147
+00:00:47.159 --> 00:00:51.130
 Cables and the Modulation panel are two views of one patch.
 
 16
-00:00:51.147 --> 00:00:51.954
+00:00:51.130 --> 00:00:51.937
 Next: nodes.

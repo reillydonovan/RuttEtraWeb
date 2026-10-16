@@ -38,7 +38,7 @@ export async function run(page, seg, h) {
     const G = await h.grp('Beat detector');
     await h.click(await h.row('Enable', '.rw-toggle', G));
     await h.wait(400);
-    await h.glide(await h.at(`${G} .rw-status-dot, ${G} [class*="pulse"]`).catch(() => ({ x: 1740, y: 600 })), 25);
+    await h.glide(await h.at(`${G} .rw-status-dot, ${G} [class*="pulse"]`).catch(() => ({ x: 180, y: 600 })), 25);
   });
 
   await seg('spectrum', async () => {

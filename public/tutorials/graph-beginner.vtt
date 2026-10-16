@@ -13,53 +13,53 @@ Graph mode is a node engine with more than fifty node types.
 Switch the Modulation section to Graph.
 
 4
-00:00:09.940 --> 00:00:15.598
+00:00:09.944 --> 00:00:15.602
 Beginner view looks like the Classic slots, but each row is a real node with a binding.
 
 5
-00:00:15.598 --> 00:00:17.940
+00:00:15.602 --> 00:00:17.944
 Click Add patch: an LFO into Z Push.
 
 6
-00:00:18.400 --> 00:00:20.016
+00:00:18.403 --> 00:00:20.019
 Change its source to Noise.
 
 7
-00:00:20.016 --> 00:00:22.709
+00:00:20.019 --> 00:00:22.712
 White noise jitters the depth on every frame.
 
 8
-00:00:23.172 --> 00:00:26.343
+00:00:23.163 --> 00:00:26.334
 Point it at Rotation instead, and turn the amount up.
 
 9
-00:00:26.343 --> 00:00:28.078
+00:00:26.334 --> 00:00:28.069
 Now the whole raster shivers.
 
 10
-00:00:28.538 --> 00:00:29.668
+00:00:28.527 --> 00:00:29.657
 Add a second row.
 
 11
-00:00:29.668 --> 00:00:33.594
+00:00:29.657 --> 00:00:33.583
 A Ramp, sweeping H Size from narrow to wide, over and over.
 
 12
-00:00:34.050 --> 00:00:36.315
+00:00:34.037 --> 00:00:36.302
 The Library holds ready-made patches.
 
 13
-00:00:36.315 --> 00:00:40.663
+00:00:36.302 --> 00:00:40.650
 Load Getting Started, a slow breathing depth with a note explaining it.
 
 14
-00:00:41.120 --> 00:00:46.368
+00:00:41.108 --> 00:00:46.356
 Both mode runs Classic slots and the graph together, so switching never throws your slots away.
 
 15
-00:00:46.820 --> 00:00:49.651
+00:00:46.816 --> 00:00:49.647
 Beginner view covers simple one-to-one patches.
 
 16
-00:00:49.651 --> 00:00:52.964
+00:00:49.647 --> 00:00:52.960
 Next, the Advanced canvas, where nodes feed each other.

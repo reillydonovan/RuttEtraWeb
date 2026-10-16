@@ -18,6 +18,7 @@ import {
   SettingsStore, PatternKind, PatternBlendMode, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
+import { layoutManager } from '../layout/LayoutManager';
 import { row, group, toggle, button, readout, slider, dropdown, markParamKey } from '../widgets';
 
 /**
@@ -70,6 +71,7 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
     const [w, h] = resSel.value.split('x').map(Number);
     settings.set('requestedWidth',  w);
     settings.set('requestedHeight', h);
+    void applyToLiveCamera();
   });
 
   const fpsInp = document.createElement('input');
@@ -81,11 +83,41 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
     const v = Math.max(1, Math.min(120, Math.round(+fpsInp.value) || 30));
     fpsInp.value = String(v);
     settings.set('requestedFps', v);
+    void applyToLiveCamera();
   });
 
   const capNote = readout();
   capNote.style.color = 'var(--re-text-dim)';
-  capNote.textContent = '"Auto" lets the browser pick the camera\'s native resolution. Changes apply on next "Use Webcam".';
+  const IDLE_NOTE = '"Auto" lets the browser pick the camera\'s native resolution. With a camera running, a change restarts it right away; otherwise it applies on the next "Use Webcam".';
+  capNote.textContent = IDLE_NOTE;
+
+  /** A running webcam keeps the resolution it was opened with, so a changed
+   *  Resolution/FPS restarts it (same device) and says what it got — never
+   *  a silent no-op (principle 3). A camera may offer less than asked (4K
+   *  on a 1080p webcam): the readout then shows the actual size. */
+  let applySeq = 0;
+  async function applyToLiveCamera(): Promise<void> {
+    if (source.getState().kind !== 'webcam') { capNote.textContent = IDLE_NOTE; return; }
+    const seq = ++applySeq;
+    const w = settings.get('requestedWidth'), h = settings.get('requestedHeight');
+    capNote.textContent = w > 0 ? `Restarting the camera at ${w}×${h}…` : 'Restarting the camera at its native size…';
+    try {
+      const deviceId = settings.get('deviceId');
+      await source.useWebcam({
+        deviceId: deviceId || undefined,
+        width: w || undefined, height: h || undefined,
+        fps: settings.get('requestedFps'),
+        facingMode: !deviceId && layoutManager().hasTouch ? settings.get('cameraFacing') : undefined,
+      });
+      if (seq !== applySeq) return;   // a newer change superseded this one
+      const st = source.getState();
+      capNote.textContent = w > 0 && (st.width !== w || st.height !== h)
+        ? `Camera is now ${st.width}×${st.height} — it can't do ${w}×${h}, so the browser picked the closest size it offers.`
+        : `Camera is now ${st.width}×${st.height}.`;
+    } catch (err) {
+      if (seq === applySeq) capNote.textContent = `Couldn't apply that: ${(err as Error).message}. The camera is stopped — press Use Webcam to start it again.`;
+    }
+  }
 
   capGrp.body.append(
     row('Resolution', resSel),

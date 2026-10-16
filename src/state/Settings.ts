@@ -1435,7 +1435,7 @@ export const DEFAULTS: Settings = {
   modMode: 'classic',
   modGraph: null,
 
-  panelDock: 'right',
+  panelDock: 'left',   // Controls on the left, the Patch Bay mirrored to the right (see workspaceModel DEFAULT_TABS)
   panelCollapsed: false,
   leftCollapsed: false,
   centerCollapsed: false,

@@ -21,6 +21,8 @@ interface Chapter { t: number; text: string }
 interface Lesson {
   id: string; number: number; title: string; blurb: string;
   duration: number | null; chapters: Chapter[];
+  /** 'w / h' for a lesson recorded at its own shape (the portrait phone lesson). */
+  aspect?: string;
 }
 interface Track { level?: string; title: string; lessons: Lesson[] }
 interface Manifest { tracks: Track[] }
@@ -111,6 +113,9 @@ async function boot(): Promise<void> {
     prevBtn.disabled = current === 0;
     nextBtn.disabled = current === lessons.length - 1;
 
+    const stage = $('tut-stage');
+    if (l.aspect) { stage.dataset.aspect = '1'; stage.style.setProperty('--tut-aspect', l.aspect); }
+    else { delete stage.dataset.aspect; stage.style.removeProperty('--tut-aspect'); }
     missing.hidden = true;
     video.hidden = false;
     video.innerHTML = '';

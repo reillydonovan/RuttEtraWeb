@@ -32,7 +32,7 @@ export async function run(page, seg, h) {
   });
 
   await seg('back', async () => {
-    await h.menu('WINDOW', 'Layout', 'Default (4-up: bay left, output center)');
+    await h.menu('WINDOW', 'Layout', 'Default (4-up: controls left, output center)');
     await h.wait(500);
     await h.glide({ x: 980, y: 500 }, 20);
     await page.keyboard.press(']');

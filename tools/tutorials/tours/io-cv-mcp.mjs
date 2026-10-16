@@ -54,7 +54,7 @@ export async function run(page, seg, h) {
   await seg('channel', async () => {
     const S = await h.sec('CV');
     for (const l of ['Range', 'Polarity', 'Smooth (ms)']) {
-      await h.glide(await h.row(l, 'select, input', S).catch(() => ({ x: 1740, y: 500 })), 18);
+      await h.glide(await h.row(l, 'select, input', S).catch(() => ({ x: 180, y: 500 })), 18);
       await h.wait(450);
     }
     await h.glide(await h.at(`${S} .rw-btn`, 'Calibrate'), 18);

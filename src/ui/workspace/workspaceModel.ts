@@ -41,8 +41,10 @@ export interface TabsState {
   active: Record<WindowId, ViewId | null>;
 }
 
-/** The owner's 4-up default: bay left, renderer center, controls right,
- *  timeline bottom. */
+/** The owner's 4-up default. Model ids: 'left' = the Patch Bay window,
+ *  'right' = the Controls window — but the default `panelDock: 'left'`
+ *  MIRRORS them on screen, so you see controls left, renderer center, bay
+ *  right, timeline bottom (2026-10-15: the controls read first). */
 export const DEFAULT_TABS: TabsState = {
   tabs: {
     center: ['renderer'],
@@ -198,6 +200,8 @@ export interface LayoutPreset {
   id: string;
   label: string;
   state: TabsState;
+  /** Which edge the Controls shell docks to; the other side window mirrors to the opposite edge. */
+  panelDock: 'left' | 'right';
   panelCollapsed: boolean;
   panelWidth: number;
   leftPanelWidth: number;
@@ -211,36 +215,42 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   {
     id: 'default', label: 'Default (4-up)',
     state: T({ center: ['renderer'], left: ['patchbay'], right: ['panel'], bottom: ['timeline'] }),
+    panelDock: 'left',
     panelCollapsed: false, panelWidth: 360, leftPanelWidth: 400,
     timelineDock: 'bottom', timelineHeight: 220,
   },
   {
     id: 'classic', label: 'Classic (no left window)',
     state: T({ center: ['renderer'], left: [], right: ['panel', 'patchbay'], bottom: ['timeline'] }),
+    panelDock: 'right',
     panelCollapsed: false, panelWidth: 360, leftPanelWidth: 400,
     timelineDock: 'bottom', timelineHeight: 220,
   },
   {
     id: 'tall', label: 'Tall (everything in one column)',
     state: T({ center: ['renderer'], left: [], right: ['panel', 'timeline', 'patchbay'], bottom: [] }),
+    panelDock: 'right',
     panelCollapsed: false, panelWidth: 480, leftPanelWidth: 400,
     timelineDock: 'hidden', timelineHeight: 220,
   },
   {
     id: 'wide', label: 'Wide (tall bottom strip)',
     state: T({ center: ['renderer'], left: [], right: [], bottom: ['timeline', 'panel', 'patchbay'] }),
+    panelDock: 'right',
     panelCollapsed: false, panelWidth: 360, leftPanelWidth: 400,
     timelineDock: 'bottom', timelineHeight: 380,
   },
   {
     id: 'performance', label: 'Performance (output maximized)',
     state: T({ center: ['renderer'], left: [], right: ['panel', 'patchbay'], bottom: ['timeline'] }),
+    panelDock: 'right',
     panelCollapsed: true, panelWidth: 360, leftPanelWidth: 400,
     timelineDock: 'hidden', timelineHeight: 220,
   },
   {
     id: 'patchbay', label: 'Patch Bay (bay center, output docked)',
     state: T({ center: ['patchbay', 'renderer'], left: [], right: ['panel'], bottom: ['timeline'] }),
+    panelDock: 'right',
     panelCollapsed: false, panelWidth: 360, leftPanelWidth: 400,
     timelineDock: 'bottom', timelineHeight: 260,
   },

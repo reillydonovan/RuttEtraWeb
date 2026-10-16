@@ -312,7 +312,8 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       const startW = Math.max(220, Math.min(1400, settings.get('leftPanelWidth')));
       let lastW = startW;
       const onMove = (e: PointerEvent): void => {
-        lastW = Math.max(220, Math.min(1400, startW + (e.clientX - startX)));
+        // Mirrored to the right edge: dragging LEFT widens.
+        lastW = Math.max(220, Math.min(1400, startW + (mirrored() ? -1 : 1) * (e.clientX - startX)));
         shell.style.width = `${lastW}px`;
         publishLeftInset();
         window.dispatchEvent(new Event('rw:layout-resize'));
@@ -328,17 +329,28 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     shell.appendChild(handle);
   }
 
+  /** The Controls shell docks on `panelDock`; the left workspace window
+   *  mirrors to the OPPOSITE edge. Stamped on <body> for the CSS. */
+  const mirrored = (): boolean => settings.get('panelDock') === 'left';
+  const stampDock = (): void => { document.body.dataset.panelDock = settings.get('panelDock'); };
+  stampDock();
+
   function publishLeftInset(): void {
     const w = deps.leftShell.classList.contains('rw-window-empty')
       ? 0
       : deps.leftShell.getBoundingClientRect().width;
-    document.documentElement.style.setProperty('--rw-panel-inset-left', `${w}px`);
+    document.documentElement.style.setProperty(mirrored() ? '--rw-panel-inset-right' : '--rw-panel-inset-left', `${w}px`);
   }
 
   buildWindow('center', deps.centerShell);
   buildWindow('left', deps.leftShell);
   buildWindow('right', deps.panelShell);
   buildLeftHandle(deps.leftShell);
+  settings.subscribe('panelDock', () => {
+    stampDock();
+    publishLeftInset();
+    window.dispatchEvent(new Event('rw:layout-resize'));
+  });
   settings.subscribe('leftPanelWidth', (w) => {
     deps.leftShell.style.width = `${Math.max(220, Math.min(1400, w as number))}px`;
     publishLeftInset();
@@ -481,7 +493,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     // owning live width changes while the window is visible.
     const rightEmpty = deps.panelShell.classList.contains('rw-window-empty');
     document.documentElement.style.setProperty(
-      '--rw-panel-inset-right',
+      mirrored() ? '--rw-panel-inset-left' : '--rw-panel-inset-right',
       rightEmpty ? '0px' : `${deps.panelShell.getBoundingClientRect().width}px`,
     );
   }
@@ -726,6 +738,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       const p = getPreset(id);
       if (!p) return;
       writeState(p.state);
+      settings.set('panelDock', p.panelDock);
       settings.set('panelCollapsed', p.panelCollapsed);
       settings.set('leftCollapsed', false);
       settings.set('centerCollapsed', false);

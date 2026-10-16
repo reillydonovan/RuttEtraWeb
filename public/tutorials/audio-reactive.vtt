@@ -9,53 +9,53 @@ Everything here can react to sound.
 On the I O tab, the Audio section listens to a microphone, an audio file, or another tab.
 
 3
-00:00:09.458 --> 00:00:10.618
+00:00:09.449 --> 00:00:10.609
 Choose Microphone.
 
 4
-00:00:10.618 --> 00:00:13.325
+00:00:10.609 --> 00:00:13.316
 A test tone stands in for a real mic here.
 
 5
-00:00:13.325 --> 00:00:18.546
+00:00:13.316 --> 00:00:18.537
 Linear spacing spreads the bands evenly, and the spectrum shows each beep arrive.
 
 6
-00:00:19.007 --> 00:00:20.653
+00:00:18.989 --> 00:00:20.635
 Turn on the beat detector.
 
 7
-00:00:20.653 --> 00:00:25.023
+00:00:20.635 --> 00:00:25.005
 Its light flashes on every hit, and Beat becomes a modulation source.
 
 8
-00:00:25.481 --> 00:00:30.250
+00:00:25.463 --> 00:00:30.232
 Spectrum to Z displacement lifts each scan line by its own frequency band.
 
 9
-00:00:30.250 --> 00:00:31.475
+00:00:30.232 --> 00:00:31.457
 Turn up the amount.
 
 10
-00:00:31.926 --> 00:00:33.454
+00:00:31.924 --> 00:00:33.452
 Or patch sound anywhere.
 
 11
-00:00:33.454 --> 00:00:37.337
+00:00:33.452 --> 00:00:37.335
 In Graph mode, the Library has an audio-reactive bloom patch.
 
 12
-00:00:37.337 --> 00:00:40.139
+00:00:37.335 --> 00:00:40.137
 Load it, and the glow pumps with every beep.
 
 13
-00:00:40.593 --> 00:00:45.286
+00:00:40.587 --> 00:00:45.280
 Classic slots can use Audio, a single band, or Beat as their source, too.
 
 14
-00:00:45.740 --> 00:00:50.442
+00:00:45.735 --> 00:00:50.437
 Plug in a real mic, or load a song file, and the whole picture plays along.
 
 15
-00:00:50.442 --> 00:00:51.884
+00:00:50.437 --> 00:00:51.879
 Next: the oscilloscope.

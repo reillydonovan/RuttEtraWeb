@@ -444,6 +444,11 @@ body .rw-left-resize { width: 10px; }
 body #panel-root[data-dock="right"] .rw-panel-resize { left: -5px; right: auto; }
 body #panel-root[data-dock="left"]  .rw-panel-resize { right: -5px; left: auto; }
 body .rw-left-resize { right: -5px; }
+/* panelDock:'left' puts the Controls shell on the left edge and MIRRORS
+   the other side window to the right edge (Workspace.ts stamps the dock on
+   <body>): its border, shadow and resize grip flip sides with it. */
+body[data-panel-dock="left"] #rw-left-shell { left: auto; right: 0; border-right: none; border-left: 1px solid var(--re-line); }
+body[data-panel-dock="left"] .rw-left-resize { right: auto; left: -5px; }
 body .rw-tl-height-resize { height: 10px; }
 body #timeline-dock[data-dock="bottom"] .rw-tl-height-resize { top: -5px; }
 body #timeline-dock[data-dock="top"]    .rw-tl-height-resize { bottom: -5px; top: auto; }

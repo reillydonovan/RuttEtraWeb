@@ -12,6 +12,7 @@ export const TRACKS = [
       { id: 'first-look', title: 'First look', blurb: 'Pick a source, orbit the camera, turn up Z Push, and make your first patch.' },
       { id: 'workspace', title: 'Windows, tabs and layouts', blurb: 'Switch tabs, maximize a window, try layout presets, and change the panel skin.' },
       { id: 'sources', title: 'Sources', blurb: 'Pattern Generator kinds, and loading a video file as the picture.' },
+      { id: 'phone', title: 'On your phone', blurb: 'The camera-style layout: pick a camera, swipe a look, take a photo, record a clip, and open the controls.' },
     ],
   },
   {
@@ -36,9 +37,11 @@ export const TRACKS = [
     level: 'Beginner',
     title: 'The Patch Bay',
     lessons: [
+      { id: 'patchbay-tour', title: 'Reading the Patch Bay', blurb: 'The faceplate: sources, parameter cells, the ⓘ diagrams, zoom and pan, free layout, and why a cable will not connect.' },
       { id: 'patchbay-cables', title: 'Cables', blurb: 'Waveforms into a function generator, its output into a parameter; move and unplug.' },
       { id: 'patchbay-nodes', title: 'Nodes and the Scope', blurb: 'Add nodes with a right-click, watch signals on a Scope, delete what you do not need.' },
       { id: 'patchbay-video', title: 'Video routing', blurb: 'Composite a video file with the Pattern Generator and feed the renderer.' },
+      { id: 'patchbay-power', title: 'Patch Bay power moves', blurb: 'One parameter driving another, Note nodes, the same patch in the Controls panel, and a window of its own.' },
     ],
   },
   {

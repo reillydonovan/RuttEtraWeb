@@ -138,6 +138,17 @@ function waveShapeMatches(options: readonly string[]): number {
  *  for resolving an unset `sourcePort` before building/looking up one).
  *  Node ids never contain '#' (see genId() below), so splitting on the
  *  first occurrence is safe. */
+/** True while the user is typing INTO this control. Value refreshes skip
+ *  only text-entry controls: a <select> or checkbox keeps focus after you
+ *  use it (a jack drag's pointerdown doesn't blur it), and skipping those
+ *  left a dropdown stale after a cable changed its value (TRI dropped on an
+ *  LFO's shape jack still read "sine"). */
+function isTyping(el: Element | null): boolean {
+  if (!el || el.ownerDocument.activeElement !== el) return false;
+  return el instanceof HTMLTextAreaElement
+    || (el instanceof HTMLInputElement && el.type !== 'checkbox' && el.type !== 'radio' && el.type !== 'range');
+}
+
 function splitJackKey(key: string): { nodeId: string; port: string } {
   const i = key.indexOf('#');
   return i < 0 ? { nodeId: key, port: '' } : { nodeId: key.slice(0, i), port: key.slice(i + 1) };
@@ -1237,7 +1248,7 @@ export function createPatchBayView(
     attachTooltip(modeSel, 'How A and B combine — the same 8 modes the Pattern Generator uses, applied to two video signals.');
     modeRow.append(modeLabel, modeSel);
     mod.appendChild(modeRow);
-    settings.subscribe('videoCompositeBlendMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+    settings.subscribe('videoCompositeBlendMode', (v) => { if (!isTyping(modeSel)) modeSel.value = v; });
 
     const mixRow = document.createElement('div');
     mixRow.className = 'rw-pb-row';
@@ -1254,7 +1265,7 @@ export function createPatchBayView(
     attachTooltip(mixInput, 'Wet/dry: 0 = A alone, 1 = the full blend. Also on the general faceplate (Pattern Generator group) with a live-value knob.');
     mixRow.append(mixLabel, mixInput);
     mod.appendChild(mixRow);
-    settings.subscribe('videoCompositeMix', (v) => { if (document.activeElement !== mixInput) mixInput.value = String(v); });
+    settings.subscribe('videoCompositeMix', (v) => { if (!isTyping(mixInput)) mixInput.value = String(v); });
 
     const outRow = document.createElement('div');
     outRow.className = 'rw-pb-row rw-pb-row--out';
@@ -1361,7 +1372,7 @@ export function createPatchBayView(
     attachTooltip(modeSel, 'Wipe: the trace slider splits the frame, B on top. Alternate: rasters interleave row-by-row at half vertical resolution each (the trace slider does not apply).');
     modeRow.append(modeLabel, modeSel);
     mod.appendChild(modeRow);
-    settings.subscribe('dualMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+    settings.subscribe('dualMode', (v) => { if (!isTyping(modeSel)) modeSel.value = v; });
 
     // Raster B's own shaping params (owner: "shouldn't the dual raster
     // node have all of its controls in it complete with inputs and
@@ -1589,7 +1600,7 @@ export function createPatchBayView(
     attachTooltip(kindSel, 'Which pattern generator to render — calibration, waveform, noise, or oscilloscope.');
     kindRow.append(kindLabel, kindSel);
     mod.appendChild(kindRow);
-    settings.subscribe('patternKind', (v) => { if (document.activeElement !== kindSel) kindSel.value = v; });
+    settings.subscribe('patternKind', (v) => { if (!isTyping(kindSel)) kindSel.value = v; });
 
     const modeRow = document.createElement('div');
     modeRow.className = 'rw-pb-row';
@@ -1611,7 +1622,7 @@ export function createPatchBayView(
     attachTooltip(modeSel, 'How the pattern composites with the video source: Replace (pattern only), Add, Subtract, Multiply, Screen, Difference, Mask, Crossfade.');
     modeRow.append(modeLabel, modeSel);
     mod.appendChild(modeRow);
-    settings.subscribe('patternBlendMode', (v) => { if (document.activeElement !== modeSel) modeSel.value = v; });
+    settings.subscribe('patternBlendMode', (v) => { if (!isTyping(modeSel)) modeSel.value = v; });
 
     const mixRow = document.createElement('div');
     mixRow.className = 'rw-pb-row';
@@ -1628,7 +1639,7 @@ export function createPatchBayView(
     attachTooltip(mixInput, 'Wet/dry between the unmodified video and the blended result.');
     mixRow.append(mixLabel, mixInput);
     mod.appendChild(mixRow);
-    settings.subscribe('patternMix', (v) => { if (document.activeElement !== mixInput) mixInput.value = String(v); });
+    settings.subscribe('patternMix', (v) => { if (!isTyping(mixInput)) mixInput.value = String(v); });
 
     // Dynamic per-kind supporting properties — rebuilt whenever
     // patternKind changes, same trigger Controls' own rebuildParams uses.
@@ -1691,7 +1702,7 @@ export function createPatchBayView(
             inp.placeholder = 'e.g. 1, lfo-1:out, zPush';
             inp.value = settings.get('patternScopeSourceRef');
             inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
-            settings.subscribe('patternScopeSourceRef', (v) => { if (document.activeElement !== inp) inp.value = v; });
+            settings.subscribe('patternScopeSourceRef', (v) => { if (!isTyping(inp)) inp.value = v; });
             ctl = inp;
           }
           attachTooltip(row, `${label.textContent} (${key})`);
@@ -1716,7 +1727,7 @@ export function createPatchBayView(
       }
       sel.value = get();
       sel.addEventListener('change', () => set(sel.value as T));
-      settings.subscribe(key as keyof Settings, () => { if (document.activeElement !== sel) sel.value = get(); });
+      settings.subscribe(key as keyof Settings, () => { if (!isTyping(sel)) sel.value = get(); });
       return sel;
     }
 
@@ -3122,14 +3133,14 @@ export function createPatchBayView(
     for (const [nodeId, mod] of graphModuleEls) {
       const node = patch?.nodes.find((n) => n.id === nodeId);
       const en = mod.querySelector<HTMLInputElement>('.rw-pb-led-toggle');
-      if (en && document.activeElement !== en) en.checked = node?.enabled !== false;
+      if (en && !isTyping(en)) en.checked = node?.enabled !== false;
     }
     for (const [key, entry] of graphParamInputs) {
       const { nodeId, port: paramName } = splitJackKey(key);
       const node = patch?.nodes.find((n) => n.id === nodeId);
       const def = node ? getDef(node.type) : null;
       const spec = def?.params[paramName];
-      if (!spec || document.activeElement === entry.el) continue;
+      if (!spec || isTyping(entry.el)) continue;
       const val = node?.params[paramName] ?? spec.default;
       if (entry.kind === 'boolean') (entry.el as HTMLInputElement).checked = !!val;
       else entry.el.value = String(val);

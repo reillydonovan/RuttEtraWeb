@@ -48,7 +48,7 @@ The interface is four windows (**left**, **center**, **right**, **bottom**), and
 - The renderer moves like any view — away from the center it becomes a live mirror while whatever you promoted takes the center stage.
 - Side and bottom windows also have **⤢ maximize** (double-click the bar works too) and **– collapse**. The **Renderer** window has ⤢ too: the raster fills everything under the menu bar and the other windows hide until you click ⤡ (or double-click its bar) again — pair it with View ▸ Fullscreen for a clean full-screen output.
 - **File ▸ New Project** starts from nothing: it releases both video inputs and brings back the *select a source* screen.
-- **Window ▸ Layout** has the preset family — `Default (4-up)` (Patch Bay left, Renderer center, Controls right, Timeline bottom), `Classic`, `Tall`, `Wide`, `Performance`, `Patch Bay` — plus **Reset Layout**, the escape hatch back to Default from any arrangement you regret.
+- **Window ▸ Layout** has the preset family — `Default (4-up)` (Controls left, Renderer center, Patch Bay right, Timeline bottom), `Classic`, `Tall`, `Wide`, `Performance`, `Patch Bay` — plus **Reset Layout**, the escape hatch back to Default from any arrangement you regret.
 
 Window arrangements save with your project; phones/tablets keep the standard mobile layout regardless.
 

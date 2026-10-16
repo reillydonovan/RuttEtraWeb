@@ -26,7 +26,7 @@ async function kindSelect(page) {
 }
 
 export async function run(page, seg, h) {
-  await seg('intro', async () => { await h.wait(2700); await h.glide({ x: 1740, y: 300 }, 40); });
+  await seg('intro', async () => { await h.wait(2700); await h.glide({ x: 180, y: 300 }, 40); });
 
   await seg('tab', async () => {
     await h.click('#panel-root .rw-tab[data-tab="synth"]');
