@@ -11,6 +11,7 @@ import './infoModal.css';
 import './flow.css';
 import type { InfoContent } from './infoContent';
 import { flowSvg } from './flowSvg';
+import { infoMedia } from './infoMedia';
 
 let openClose: (() => void) | null = null;
 
@@ -45,6 +46,10 @@ export function openInfoModal(doc: Document, info: InfoContent): HTMLElement {
   const body = el('div', 'rw-info-body');
   card.appendChild(body);
   if (info.summary) body.appendChild(el('p', 'rw-info-summary', info.summary));
+
+  // The picture / clip that SHOWS this unit (owner: "GUI support for a GUI" — text is the
+  // supporting act). Looked up in public/info/manifest.json by key; absent = no figure.
+  if (info.mediaKey) void attachMedia(doc, body, card, info.mediaKey);
 
   // Live signal flow: what's plugged in (left) and where it goes (right).
   const svg = info.flow ? flowSvg(info.flow) : '';
@@ -120,4 +125,37 @@ export function infoButton(getInfo: () => InfoContent, label = 'About this modul
     openInfoModal(b.ownerDocument, getInfo());
   });
   return b;
+}
+
+
+/** Insert the unit's figure (looping clip and/or a screenshot of the controls) right under the summary. */
+async function attachMedia(doc: Document, body: HTMLElement, card: HTMLElement, key: string): Promise<void> {
+  const m = await infoMedia(key);
+  if (!m || (!m.clip && !m.shot)) return;
+  const fig = doc.createElement('figure');
+  fig.className = 'rw-info-media' + (m.clip && m.shot ? ' two' : '');
+  const add = (node: HTMLElement, caption: string | undefined): void => {
+    const cell = doc.createElement('div');
+    cell.className = 'rw-info-media-cell';
+    cell.appendChild(node);
+    if (caption) { const c = doc.createElement('figcaption'); c.textContent = caption; cell.appendChild(c); }
+    fig.appendChild(cell);
+  };
+  if (m.clip) {
+    const v = doc.createElement('video');
+    v.src = m.clip; v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.controls = false;
+    v.setAttribute('aria-label', m.caption ?? 'Demonstration');
+    v.addEventListener('error', () => v.closest('.rw-info-media-cell')?.remove());
+    void v.play().catch(() => { /* autoplay blocked: the first frame still shows */ });
+    add(v, m.caption);
+  }
+  if (m.shot) {
+    const i = doc.createElement('img');
+    i.src = m.shot; i.alt = m.shotCaption ?? 'The controls'; i.decoding = 'async';
+    i.addEventListener('error', () => i.closest('.rw-info-media-cell')?.remove());
+    add(i, m.shotCaption);
+  }
+  card.classList.add('has-media');
+  const first = body.querySelector('.rw-info-summary');
+  if (first?.nextSibling) body.insertBefore(fig, first.nextSibling); else body.prepend(fig);
 }

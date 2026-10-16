@@ -49,7 +49,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  min-width: 900px;
+  min-width: 1500px;   /* = BOARD_MIN in PatchBayView.ts: the board keeps its left-to-right shape in a side window */
   /* Fill the surface so the flow (TIDY) layout's columns reflow
      continuously as the window shrinks toward the 900px floor instead
      of holding their max-content size and just clipping/scrolling
@@ -562,13 +562,6 @@
   height: 13px;
 }
 
-/* ---------- narrow mode (bay hosted in a side window) ---------- */
-
-.rw-pb--narrow .rw-pb-board { min-width: 0; width: auto; }
-.rw-pb--narrow .rw-pb-deck { flex-direction: column; }
-.rw-pb--narrow .rw-pb-rail { flex: 0 0 auto; width: 100%; }
-.rw-pb--narrow .rw-pb-col { width: 100%; }
-
 /* ---------- Max/MSP free layout ---------- */
 
 /* Pan headroom (owner request): click-drag-to-pan a free-form layout
@@ -580,7 +573,7 @@
    region beyond the viewport, so it stays off in the default flow
    layout (which fills the viewport exactly and would otherwise open
    with dead space scrolled into view). */
-.rw-pb-freemode:not(.rw-pb--narrow) .rw-pb-surface { padding: 150px; }
+.rw-pb-freemode .rw-pb-surface { padding: 150px; }
 .rw-pb-unit-handle {
   cursor: var(--rw-cur-grab);
 }
@@ -700,3 +693,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- navigation dock (jump along the board) ---------- */
+/* A zero-height strip pinned to the bottom of the bay's visible area; the pill floats in it. */
+.rw-pb-navdock { position: absolute; left: 0; top: 0; height: 0; z-index: 25; pointer-events: none; }   /* pinned by PatchBayView.pinNav */
+.rw-pb-nav {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; gap: 2px; padding: 3px;
+  max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none;
+  border: 1px solid var(--c-hair-hi, var(--re-line-hi));
+  border-radius: 999px;
+  background: var(--c-glass, rgba(8, 14, 10, 0.86));
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+          backdrop-filter: saturate(1.4) blur(14px);
+  box-shadow: var(--sh-float, 0 8px 24px rgba(0, 0, 0, 0.6));
+  pointer-events: auto;
+}
+.rw-pb-nav::-webkit-scrollbar { display: none; }
+.rw-pb-navchip {
+  flex: none; height: 24px; padding: 0 11px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--t-dim, var(--re-text-dim));
+  font: 500 var(--fs-s, 11.5px) var(--mx-sans, var(--re-mono)); letter-spacing: 0;
+  cursor: var(--rw-cur-pointer, pointer);
+  transition: color 120ms, background 120ms;
+}
+.rw-pb-navchip:hover, .rw-pb-navchip:focus-visible { color: var(--a-text, var(--re-accent)); background: var(--a-16, rgba(95, 255, 133, 0.16)); outline: none; }

@@ -119,7 +119,7 @@
 
 /* v17: muted node — retained but silent */
 .rw-graph-node--muted { opacity: 0.38; }
-.rw-graph-node--muted .rw-graph-node-head::after {
+.rw-graph-node--muted .rw-graph-node-title::after {
   content: ' ·muted';
   color: var(--re-text-dim);
   font-size: 10px;
@@ -407,6 +407,23 @@
   display: inline-block;
 }
 .rw-graph-port-dot:hover { box-shadow: 0 0 6px var(--re-accent); }
+.rw-graph-port-dot.rw-rack-jack--hover {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.35), 0 0 10px var(--rw-hover-color, var(--re-accent));
+  background: var(--re-accent);
+  transform: scale(1.25);
+}
+.rw-graph-port-dot.rw-rack-jack--reject {
+  border-color: #ff5566;
+  box-shadow: 0 0 0 2px rgba(255,85,102,0.35), 0 0 10px rgba(255,85,102,0.7);
+  transform: scale(1.15);
+}
+.rw-graph-port-dot.rw-rack-jack--plugged { background: var(--re-accent); box-shadow: 0 0 5px var(--re-accent); }
+.rw-graph-canvas.rw-gr-accept { cursor: var(--rw-cur-accept); }
+.rw-graph-canvas.rw-gr-reject { cursor: var(--rw-cur-not-allowed); }
+.rw-graph-canvas.rw-gr-overcable { cursor: var(--rw-cur-pointer); }
+.rw-graph-node-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.rw-graph-node-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rw-graph-node-head .rw-info-btn { flex: none; }
 .rw-graph-port-dot--audio   { border-color: #ffb347; }
 .rw-graph-port-dot--video   { border-color: #5fffd0; }
 .rw-graph-port-dot--gate,

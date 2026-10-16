@@ -37,7 +37,23 @@ export interface InfoContent {
   aboutHash?: string;
   /** Live signal-flow diagram (what's patched in / out right now). */
   flow?: FlowModel;
+  /** Key into public/info/manifest.json: the picture / clip that SHOWS this unit
+   *  (tools/tutorials/info-media.mjs generates them). Text is the supporting act. */
+  mediaKey?: string;
 }
+
+/** Stable slug for a media key part ("Position & Size" → "position-size"). */
+export function slug(s: string): string {
+  return s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+/** The manifest key for a unit: section.<s> · group.<s>.<g> · module.<m> · node.<type> · timeline.<part>. */
+export const mediaKeys = {
+  section: (title: string): string => `section.${slug(title)}`,
+  group: (section: string | null, title: string): string => `group.${slug(section ?? 'panel')}.${slug(title)}`,
+  module: (title: string): string => `module.${slug(title)}`,
+  node: (type: string): string => `node.${slug(type)}`,
+  timeline: (part: string): string => `timeline.${slug(part)}`,
+};
 
 const LABELS = new Map<string, string>(TARGETS.map((t) => [String(t.v), t.l]));
 
@@ -158,6 +174,7 @@ export function moduleInfo(title: string, keys: readonly string[]): InfoContent 
     sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
     tips,
     aboutHash: rows.length ? 'param-reference' : 'the-patch-bay',
+    mediaKey: mediaKeys.module(title),
   };
 }
 
@@ -172,6 +189,7 @@ export function groupInfo(title: string, section: string | null, keys: readonly 
     sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
     tips: rows.length ? ['Hover any control for a short description. The ▾ next to a slider sets a custom range or an exact value.'] : [],
     aboutHash: rows.length ? 'param-reference' : undefined,
+    mediaKey: mediaKeys.group(section, title),
   };
 }
 
@@ -185,6 +203,7 @@ export function sectionInfo(title: string, keys: readonly string[]): InfoContent
     sections: rows.length ? [{ heading: 'Parameters', rows }] : [],
     tips: rows.length ? ['Hover any control for a short description. The ▾ next to a slider sets a custom range or an exact value.'] : [],
     aboutHash: rows.length ? 'param-reference' : undefined,
+    mediaKey: mediaKeys.section(title),
   };
 }
 
@@ -221,6 +240,7 @@ export function nodeInfo(def: Pick<NodeDef, 'type' | 'label' | 'category' | 'des
     sections,
     tips,
     aboutHash: `node-${def.type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
+    mediaKey: mediaKeys.node(def.type),
   };
 }
 
@@ -234,6 +254,7 @@ export function nodeInfo(def: Pick<NodeDef, 'type' | 'label' | 'category' | 'des
 export const TIMELINE_INFO: InfoContent = {
   kicker: 'Workspace window',
   title: 'Timeline',
+  mediaKey: mediaKeys.timeline('overview'),
   summary:
     'A score for the synth, laid out in bars at the shared BPM. Keyframe one knob (a lane) or the whole look (a scene), press Play, and the timeline animates them for you.',
   tips: [

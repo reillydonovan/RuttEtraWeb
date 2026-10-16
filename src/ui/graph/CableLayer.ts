@@ -16,7 +16,7 @@
 
 import { GraphPatch, splitInputRef } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
-import { drawPatchCable, fitCableCanvas } from '../cableDraw';
+import { drawPatchCable, fitCableCanvas, distanceToCable } from '../cableDraw';
 
 export interface CableAnchorResolver {
   /** Returns canvas-relative {x,y} for a node's input port, or null if unknown. */
@@ -38,7 +38,17 @@ export interface CableLayer {
    * the source port anchor; `to` follows the cursor (both canvas-relative).
    * Pass null to clear.
    */
-  setPending(p: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string } | null): void;
+  setPending(p: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string; accept?: boolean | null } | null): void;
+  /** Id (`<toNodeId>#<toPort>`) of the cable under (x, y) (canvas-relative), or null. */
+  hitTest(p: { x: number; y: number }, tolerance?: number): string | null;
+  /** The cable's last-drawn endpoints and colour, for unplug ghosts. */
+  edge(id: string): { a: { x: number; y: number }; b: { x: number; y: number }; color: string } | null;
+  setSelected(id: string | null): void;
+  setHovered(id: string | null): void;
+  /** Hide one cable while its input end is being re-grabbed (the rubber-band replaces it). */
+  setHidden(id: string | null): void;
+  /** Leave a fading, falling cable where one was just unplugged. */
+  addGhost(g: { a: { x: number; y: number }; b: { x: number; y: number }; color: string }): void;
 }
 
 const PORT_COLORS: Record<string, string> = {
@@ -63,7 +73,13 @@ export function createCableLayer(): CableLayer {
   let dashOffset = 0;
   let lastTime = 0;
   let running = false;
-  let pending: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string } | null = null;
+  let pending: { from: { x: number; y: number }; to: { x: number; y: number }; color?: string; accept?: boolean | null } | null = null;
+  let selectedEdge: string | null = null;
+  let hoveredEdge: string | null = null;
+  let hiddenEdge: string | null = null;
+  let edges: Array<{ id: string; a: { x: number; y: number }; b: { x: number; y: number }; color: string }> = [];
+  const ghosts: Array<{ a: { x: number; y: number }; b: { x: number; y: number }; color: string; t0: number }> = [];
+  const GHOST_MS = 520;
 
   const reduceMotion = typeof matchMedia === 'function'
     ? matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -86,6 +102,7 @@ export function createCableLayer(): CableLayer {
     ctx.clearRect(0, 0, widthCss, heightCss);
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
+    edges = [];
 
     for (const node of patch.nodes) {
       const def = getDef(node.type);
@@ -110,21 +127,55 @@ export function createCableLayer(): CableLayer {
         const isHi = highlight
           && highlight.from === fromId && highlight.fromPort === fromPort
           && highlight.to === node.id && highlight.toPort === toPort;
-        drawCable(a, b, color, !!isHi);
+        const id = `${node.id}#${toPort}`;
+        if (id === hiddenEdge) continue;     // being re-grabbed: the rubber-band stands in for it
+        edges.push({ id, a, b, color });
+        drawCable(a, b, color, !!isHi, id === selectedEdge, id === hoveredEdge);
       }
     }
 
     // v25: rubber-band cable for the in-progress connection.
     if (pending) {
-      drawCable(pending.from, pending.to, pending.color ?? PORT_COLORS.control, true);
+      // The end fades toward white while it is over something that will take the cable, red while
+      // it is over empty space or a jack that won't (the Patch Bay's accept/reject language).
+      drawPatchCable(ctx, pending.from, pending.to, pending.color ?? PORT_COLORS.control, {
+        style: 'flow', highlight: true, dashed: !reduceMotion, dashOffset,
+        ...(pending.accept === undefined ? {} : { gradientEnd: pending.accept ? '#ffffff' : '#ff5566' }),
+      });
+    }
+
+    // Unplug ghosts: a cable you just let go of stays attached to its source, falls and fades.
+    if (ghosts.length) {
+      const now = performance.now();
+      for (let i = ghosts.length - 1; i >= 0; i--) {
+        const g = ghosts[i];
+        const age = now - g.t0;
+        if (age >= GHOST_MS) { ghosts.splice(i, 1); continue; }
+        const k = age / GHOST_MS;
+        const fall = reduceMotion ? 0 : 38 * k * k;
+        ctx.save();
+        ctx.globalAlpha = 1 - k;
+        drawPatchCable(ctx, g.a, { x: g.b.x, y: g.b.y + fall }, g.color, { style: 'flow', dashed: false });
+        if (!reduceMotion) {
+          ctx.globalAlpha = (1 - k) * 0.8;
+          ctx.strokeStyle = g.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(g.b.x, g.b.y, 6 + 22 * k, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
   }
 
-  function drawCable(a: {x:number;y:number}, b: {x:number;y:number}, color: string, highlight: boolean): void {
+  function drawCable(a: {x:number;y:number}, b: {x:number;y:number}, color: string, highlight: boolean, selected = false, hovered = false): void {
     // Shared recipe with the rack skin's cable layer (ui/cableDraw.ts).
     drawPatchCable(ctx, a, b, color, {
       style: 'flow',
       highlight,
+      selected,
+      hovered,
       dashed: !reduceMotion,
       dashOffset,
     });
@@ -138,10 +189,8 @@ export function createCableLayer(): CableLayer {
       if (!running) return;
       const dt = (t - lastTime) / 1000;
       lastTime = t;
-      if (!reduceMotion) {
-        dashOffset += dt * 24;
-        if (lastPatch && lastResolver) draw(lastPatch, lastResolver);
-      }
+      if (!reduceMotion) dashOffset += dt * 24;
+      if ((!reduceMotion || ghosts.length) && lastPatch && lastResolver) draw(lastPatch, lastResolver);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -166,5 +215,25 @@ export function createCableLayer(): CableLayer {
     if (lastPatch && lastResolver) draw(lastPatch, lastResolver);
   }
 
-  return { el, resize, draw, start, stop, requestRedraw, setPending };
+  function redraw(): void { if (lastPatch && lastResolver) draw(lastPatch, lastResolver); }
+  function hitTest(p: { x: number; y: number }, tolerance = 9): string | null {
+    let best: string | null = null;
+    let bestD = tolerance;
+    for (const e of edges) {
+      const d = distanceToCable(p, e.a, e.b, 'flow');
+      if (d < bestD) { bestD = d; best = e.id; }
+    }
+    return best;
+  }
+  function edge(id: string): { a: { x: number; y: number }; b: { x: number; y: number }; color: string } | null {
+    const e = edges.find((x) => x.id === id);
+    return e ? { a: e.a, b: e.b, color: e.color } : null;
+  }
+  return {
+    el, resize, draw, start, stop, requestRedraw, setPending, hitTest, edge,
+    setSelected(id) { if (id !== selectedEdge) { selectedEdge = id; redraw(); } },
+    setHovered(id) { if (id !== hoveredEdge) { hoveredEdge = id; redraw(); } },
+    setHidden(id) { if (id !== hiddenEdge) { hiddenEdge = id; redraw(); } },
+    addGhost(g) { ghosts.push({ ...g, t0: performance.now() }); redraw(); },
+  };
 }

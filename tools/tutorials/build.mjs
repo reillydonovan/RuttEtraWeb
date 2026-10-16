@@ -28,6 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LESSONS, TRACKS } from './curriculum.mjs';
 import { helpers } from './lib/helpers.mjs';
+import { startScreencast } from './lib/capture.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -65,7 +66,10 @@ opt('--dest', null);   // consumed above (DEST_ARG); keep it out of the lesson-i
 const SPEED = Number(opt('--speed', '1.0'));
 const VTT_ONLY = args.includes('--vtt');   // rewrite captions from saved timings
 const indexOnly = args.includes('--index');
-const DRY = args.includes('--dry');   // validate a tour fast: no TTS, recording or encoding
+const DRY = args.includes('--dry');
+// Capture: Chrome's own screencast as full-quality JPEG frames -> one H.264 encode (sharp scan
+// lines, no VP8 noise). `--playwright-video` falls back to Playwright's built-in recorder.
+const HQ = !args.includes('--playwright-video');   // validate a tour fast: no TTS, recording or encoding
 const ids = args.filter((a) => !a.startsWith('--'));
 const todo = indexOnly ? [] : ids.length ? ids.map((id) => {
   const l = id === 'promo' ? PROMO_LESSON : LESSONS.find((x) => x.id === id);
@@ -229,7 +233,7 @@ async function record(lesson) {
   const ctx = await browser.newContext({
     viewport: { width: vp.width, height: vp.height },
     deviceScaleFactor: 1,
-    ...(DRY ? {} : { recordVideo: { dir: work, size: { width: vp.width, height: vp.height } } }),
+    ...(DRY || HQ ? {} : { recordVideo: { dir: work, size: { width: vp.width, height: vp.height } } }),
   });
   if (!tour.noCursor) await ctx.addInitScript(tour.touch ? TOUCH_SCRIPT : CURSOR_SCRIPT);
   // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
@@ -237,6 +241,7 @@ async function record(lesson) {
   for (const script of tour.initScripts ?? []) await ctx.addInitScript(script);
   const teardown = tour.setup ? await tour.setup({ ctx }) : null;
   const page = await ctx.newPage();
+  const cap = !DRY && HQ ? await startScreencast(ctx, page, work, vp) : null;
   const t0 = Date.now();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -282,13 +287,14 @@ async function record(lesson) {
   }
   const tEnd = Date.now() - t0;
   await teardown?.();
-  const video = page.video();
+  const video = HQ ? null : page.video();
+  const capList = cap ? await cap.finish(t0, t0 + tEnd) : null;
   await ctx.close();
   await browser.close();
   if (errors.length) console.warn(`[${lesson.id}] page errors:\n  ${errors.slice(0, 8).join('\n  ')}`);
   if (failure) throw failure;
   if (DRY) { console.log(`[${lesson.id}] dry run ok (${stamps.length} segments)`); return; }
-  const rawVideo = await video.path();
+  const rawVideo = capList ?? await video.path();
 
   // ---- captions
   const trimMs = Math.max(0, stamps[0].start - LEAD_MS);
@@ -296,8 +302,10 @@ async function record(lesson) {
 
   // ---- mux
   const durS = ((tEnd - trimMs) / 1000).toFixed(3);
-  const inputs = ['-ss', (trimMs / 1000).toFixed(3), '-i', rawVideo];
+  const inputs = ['-ss', (trimMs / 1000).toFixed(3), ...(capList ? ['-f', 'concat', '-safe', '0'] : []), '-i', rawVideo];
   const filters = [];
+  // JPEG frames are full-range BT.601; deliver standard limited-range BT.709 (correct colours in every player).
+  if (capList) filters.push('[0:v]fps=30,scale=in_range=pc:in_color_matrix=bt601:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd,format=yuv420p[vout]');
   stamps.forEach((s, i) => {
     inputs.push('-i', byId.get(s.id).wav);
     const d = Math.round(s.start - trimMs);
@@ -309,8 +317,11 @@ async function record(lesson) {
     '-y', '-hide_banner', '-loglevel', 'error',
     ...inputs,
     '-filter_complex', filters.join(';'),
-    '-map', '0:v', '-map', '[aout]', '-t', durS,
-    '-c:v', 'h264_nvenc', '-preset', 'p6', '-rc', 'vbr', '-cq', '23', '-b:v', '0', '-maxrate', '6M', '-bufsize', '12M',
+    '-map', capList ? '[vout]' : '0:v', '-map', '[aout]', '-t', durS,
+    // Quality over size: constant-quality VBR (cq 21) with a generous ceiling so the fine scan
+    // lines stay clean; ~6–8 Mbit/s on these pictures (≈ 50–60 MB a minute, ~1.8 GB for the whole course).
+    '-c:v', 'h264_nvenc', '-preset', 'p7', '-tune', 'hq', '-rc', 'vbr', '-cq', '21', '-b:v', '0', '-maxrate', '11M', '-bufsize', '22M',
+    '-spatial_aq', '1', '-temporal_aq', '1', '-rc-lookahead', '24', '-profile:v', 'high', '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
     '-pix_fmt', 'yuv420p', '-r', '30',
     '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
     '-movflags', '+faststart',

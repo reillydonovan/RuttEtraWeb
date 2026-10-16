@@ -22,7 +22,7 @@
  * Enter / Backspace) for accessibility and touch parity.
  */
 
-import { GraphNode, GraphPatch, NodeType } from '../../modulation/graph/types';
+import { GraphNode, GraphPatch, NodeType, splitInputRef } from '../../modulation/graph/types';
 import { deleteGraphNode } from '../rack/rackGeometry';
 import { clonePatch } from '../../modulation/graph/clonePatch';
 import { getDef } from '../../modulation/graph/registry';
@@ -30,6 +30,11 @@ import { createPalette } from './palette';
 import { createInspector } from './inspector';
 import { createCableLayer, CableAnchorResolver } from './CableLayer';
 import { openProbeOverlay } from './Probe';
+import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
+import { rejectReason } from '../rack/patchRules';
+import { infoButton } from '../help/infoModal';
+import { nodeInfo } from '../help/infoContent';
+import '../rack/jackRipple.css';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 
@@ -96,6 +101,12 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   // ---------- State ----------
 
   let pending: InProgressConnection | null = null;
+  /** Input end that was picked up to be moved (its cable is hidden while the rubber-band stands in). */
+  let rewire: { nodeId: string; port: string; id: string } | null = null;
+  let selectedCable: string | null = null;
+  let hoverDot: HTMLElement | null = null;
+  let pendingTip: { x: number; y: number } | null = null;
+  const PICK_PX = 22;
   let selectedId: string | null = null;
   let dragging: { id: string; offsetX: number; offsetY: number } | null = null;
   let engine: GraphEngine | null = null;
@@ -132,11 +143,12 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     if (target !== center && target !== cable.el && target !== nodesLayer) return;
     panning = { startX: e.clientX, startY: e.clientY, panX, panY };
     // Clicking empty canvas also cancels an in-progress connection.
-    if (pending) {
-      pending = null;
-      cable.setPending(null);
-      center.classList.remove('connecting');
-    }
+    cancelTooltip(root.ownerDocument);
+    if (pending) cancelPending(false);
+    const cr0 = center.getBoundingClientRect();
+    const hit = cable.hitTest({ x: e.clientX - cr0.left, y: e.clientY - cr0.top });
+    selectedCable = hit; cable.setSelected(hit);
+    if (hit) { panning = null; selectedId = null; e.preventDefault(); return; }
     e.preventDefault();
   });
 
@@ -230,8 +242,12 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
 
     const head = document.createElement('div');
     head.className = 'rw-graph-node-head';
-    head.textContent = def.label;
-    head.title = def.description;
+    const headText = document.createElement('span');
+    headText.className = 'rw-graph-node-title';
+    headText.textContent = def.label;
+    head.appendChild(headText);
+    head.appendChild(infoButton(() => nodeInfo(def), `About the ${def.label} node`));
+    attachTooltip(head, `${def.label} — ${def.description} Drag to move. Right-click or Delete to remove.`);
     el.appendChild(head);
 
     const body = document.createElement('div');
@@ -319,9 +335,11 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     const wrap = document.createElement('div');
     wrap.className = `rw-graph-port rw-graph-port--${side}`;
     const dot = document.createElement('span');
-    dot.className = `rw-graph-port-dot rw-graph-port-dot--${kind}`;
+    dot.className = `rw-graph-port-dot rw-rack-jack rw-graph-port-dot--${kind}`;
     dot.dataset.port = port;
     dot.dataset.side = side;
+    dot.dataset.kind = kind;
+    if (side === 'in' && currentPatch().nodes.find((n) => n.id === nodeId)?.inputs[port]) dot.classList.add('rw-rack-jack--plugged');
     const label = document.createElement('span');
     label.className = 'rw-graph-port-label';
     label.textContent = port;
@@ -344,8 +362,66 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
         e.stopPropagation();
         startPending(nodeId, port);
       });
+    } else {
+      // A connected input can be picked up: drag it to another input to move the cable, or off into
+      // space to unplug it (an empty input starts nothing: cables are made output -> input).
+      dot.addEventListener('mousedown', (e) => {
+        if (probing || pending) return;
+        const src = currentPatch().nodes.find((n) => n.id === nodeId)?.inputs[port];
+        if (!src) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const ref = splitInputRef(src);
+        rewire = { nodeId, port, id: `${nodeId}#${port}` };
+        selectedCable = null; cable.setSelected(null);
+        cable.setHidden(rewire.id);
+        startPending(ref.nodeId, ref.port ?? defaultOutputOf(ref.nodeId));
+      });
     }
+    attachTooltip(dot, () => {
+      if (pending) return null;
+      const connected = side === 'in' && !!currentPatch().nodes.find((n) => n.id === nodeId)?.inputs[port];
+      const lead = `${port} · ${kind} ${side === 'in' ? 'input' : 'output'}`;
+      if (side === 'out') return `${lead} — drag onto an input to patch it. Click to start a cable, then click an input to finish.`;
+      return connected ? `${lead} — drag to move this cable to another input, or off into space to unplug it.` : `${lead} — drop an output's cable here.`;
+    });
     return wrap;
+  }
+
+  function defaultOutputOf(nodeId: string): string {
+    const n = currentPatch().nodes.find((x) => x.id === nodeId);
+    return (n ? getDef(n.type)?.outputs[0]?.name : undefined) ?? 'out';
+  }
+
+  /** The nearest input dot to a screen point inside PICK_PX, or null. */
+  function nearestInDot(x: number, y: number): HTMLElement | null {
+    let best: HTMLElement | null = null;
+    let bestD = PICK_PX;
+    for (const d of Array.from(nodesLayer.querySelectorAll<HTMLElement>('.rw-graph-port-dot[data-side="in"]'))) {
+      const r = d.getBoundingClientRect();
+      const dist = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y);
+      if (dist < bestD) { bestD = dist; best = d; }
+    }
+    return best;
+  }
+  function dotNodeId(d: HTMLElement): string | undefined { return d.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId; }
+
+  function setHoverDot(d: HTMLElement | null, reason?: string): void {
+    if (hoverDot && hoverDot !== d) hoverDot.classList.remove('rw-rack-jack--hover', 'rw-rack-jack--reject');
+    hoverDot = d;
+    center.classList.remove('rw-gr-accept', 'rw-gr-reject');
+    if (!d) { cancelTooltip(root.ownerDocument); return; }
+    const bad = reason !== undefined;
+    d.classList.toggle('rw-rack-jack--hover', !bad);
+    d.classList.toggle('rw-rack-jack--reject', bad);
+    center.classList.add(bad ? 'rw-gr-reject' : 'rw-gr-accept');
+    if (bad) scheduleTooltip(root.ownerDocument, reason, d, 120);
+    else cancelTooltip(root.ownerDocument);
+  }
+  function endPendingUi(): void {
+    setHoverDot(null);
+    pendingTip = null;
+    center.classList.remove('connecting');
   }
 
   function startPending(nodeId: string, port: string): void {
@@ -360,7 +436,9 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     if (!pending) { cable.setPending(null); return; }
     const from = getPortAnchor(pending.fromNodeId, pending.fromPort, 'out');
     if (!from) { cable.setPending(null); return; }
-    cable.setPending({ from, to: cursor ?? from });
+    let accept: boolean | undefined;
+    if (cursor) accept = hoverDot ? !hoverDot.classList.contains('rw-rack-jack--reject') : false;
+    cable.setPending({ from, to: cursor ?? from, ...(accept === undefined ? {} : { accept }) });
   }
 
   function connectPendingTo(nodeId: string, toPort: string): void {
@@ -377,10 +455,39 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
         ? pending.fromNodeId
         : `${pending.fromNodeId}#${pending.fromPort}`;
     }
+    if (rewire) {
+      // Moving an existing cable: free its old input (unless dropped back on it).
+      const old = cur.nodes.find((n) => n.id === rewire!.nodeId);
+      if (old && !(rewire.nodeId === nodeId && rewire.port === toPort)) old.inputs[rewire.port] = null;
+      cable.setHidden(null);
+      rewire = null;
+    }
     pending = null;
     cable.setPending(null);
-    center.classList.remove('connecting');
+    endPendingUi();
     writePatch(cur);
+  }
+
+  /** Abandon the in-progress cable; a picked-up connected cable is unplugged with a falling ghost. */
+  function cancelPending(unplug: boolean): void {
+    if (rewire && unplug) {
+      const e = cable.edge(rewire.id);
+      const cur = currentPatch();
+      const n = cur.nodes.find((x) => x.id === rewire!.nodeId);
+      if (e && pendingTip) cable.addGhost({ a: e.a, b: pendingTip, color: e.color });
+      if (n) n.inputs[rewire.port] = null;
+      cable.setHidden(null);
+      rewire = null;
+      pending = null;
+      cable.setPending(null);
+      endPendingUi();
+      writePatch(cur);
+      return;
+    }
+    if (rewire) { cable.setHidden(null); rewire = null; }
+    pending = null;
+    cable.setPending(null);
+    endPendingUi();
   }
 
   // ---------- Interaction ----------
@@ -443,6 +550,33 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     });
   }
 
+  // ---------- Cable hover / helpers ----------
+
+  function hoverCable(e: MouseEvent): void {
+    const t = e.target as HTMLElement | null;
+    if (!t || (t !== center && t !== cable.el && t !== nodesLayer)) { cable.setHovered(null); center.classList.remove('rw-gr-overcable'); return; }
+    const cr = center.getBoundingClientRect();
+    const id = cable.hitTest({ x: e.clientX - cr.left, y: e.clientY - cr.top });
+    cable.setHovered(id);
+    center.classList.toggle('rw-gr-overcable', !!id);
+    if (id) {
+      const [nid, port] = id.split('#');
+      const node = currentPatch().nodes.find((n) => n.id === nid);
+      const label = node ? (getDef(node.type)?.label ?? nid) : nid;
+      scheduleTooltip(root.ownerDocument, `Cable into ${label} · ${port}. Click to select, Delete to disconnect. Drag its input end to move it.`, { x: e.clientX, y: e.clientY - 14 }, 450);
+    } else cancelTooltip(root.ownerDocument);
+  }
+  function isTyping(t: EventTarget | null): boolean {
+    const el = t as HTMLElement | null;
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+  }
+  function pendingKind(): string | null {
+    if (!pending) return null;
+    const n = currentPatch().nodes.find((x) => x.id === pending!.fromNodeId);
+    const def = n ? getDef(n.type) : null;
+    return def?.outputs.find((o) => o.name === pending!.fromPort)?.kind ?? null;
+  }
+
   // ---------- Drag / resize wiring ----------
 
   function onMouseMove(e: MouseEvent): void {
@@ -456,8 +590,33 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     // v25: rubber-band follows the cursor while a connection is pending.
     if (pending && !dragging) {
       const cr = center.getBoundingClientRect();
-      updatePendingCable({ x: e.clientX - cr.left, y: e.clientY - cr.top });
+      pendingTip = { x: e.clientX - cr.left, y: e.clientY - cr.top };
+      // Snap the hover state to the nearest input dot; a dot that won't take the cable shows why.
+      const near = nearestInDot(e.clientX, e.clientY);
+      if (near) {
+        const nid = dotNodeId(near);
+        const port = near.dataset.port;
+        let why: string | undefined;
+        if (nid && nid === pending.fromNodeId) {
+          why = "A node can't feed its own input — that would loop back on itself.";
+        } else {
+          const srcKind = pendingKind();
+          const dk = near.dataset.kind;
+          if (srcKind && dk && srcKind !== dk && (srcKind === 'video' || dk === 'video')) {
+            why = rejectReason(srcKind === 'video' ? 'video-out' : 'node-out', dk === 'video' ? 'video-in' : 'node-in');
+          }
+        }
+        void port;
+        setHoverDot(near, why);
+        const dr = near.getBoundingClientRect();
+        pendingTip = { x: dr.left + dr.width / 2 - cr.left, y: dr.top + dr.height / 2 - cr.top };
+      } else {
+        setHoverDot(null);
+      }
+      updatePendingCable(pendingTip);
+      return;
     }
+    if (!pending && !dragging && !panning) hoverCable(e);
     if (!dragging) return;
     const cur = currentPatch();
     const node = cur.nodes.find((n) => n.id === dragging!.id);
@@ -479,15 +638,21 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     if (pending) {
       const doc = root.ownerDocument;
       const under = doc.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-      const dot = under?.closest<HTMLElement>('.rw-graph-port-dot');
-      if (dot && dot.dataset.side === 'in') {
-        const nodeEl = dot.closest<HTMLElement>('[data-node-id]');
-        const nodeId = nodeEl?.dataset.nodeId;
+      const dot = hoverDot ?? under?.closest<HTMLElement>('.rw-graph-port-dot') ?? null;
+      const blocked = !!dot && dot.classList.contains('rw-rack-jack--reject');
+      if (dot && dot.dataset.side === 'in' && !blocked) {
+        const nodeId = dotNodeId(dot);
         const port = dot.dataset.port;
         if (nodeId && port) {
           connectPendingTo(nodeId, port);
           ignoreClicksUntil = performance.now() + 250;
         }
+      } else if (rewire) {
+        // A picked-up cable released anywhere but a valid input: unplug it.
+        cancelPending(true);
+        ignoreClicksUntil = performance.now() + 250;
+      } else if (blocked) {
+        setHoverDot(null);   // refused: nothing connects, the cable stays live for another try
       }
     }
   }
@@ -506,10 +671,19 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
 
   // Cancel pending connection on Esc.
   function onKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && pending) {
-      pending = null;
-      cable.setPending(null);
-      center.classList.remove('connecting');
+    if (e.key === 'Escape' && pending) { cancelPending(false); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCable && !isTyping(e.target)) {
+      const [nid, port] = selectedCable.split('#');
+      const cur = currentPatch();
+      const n = cur.nodes.find((x) => x.id === nid);
+      if (n && port) {
+        const edge = cable.edge(selectedCable);
+        if (edge) cable.addGhost({ a: edge.a, b: edge.b, color: edge.color });
+        n.inputs[port] = null;
+        selectedCable = null; cable.setSelected(null);
+        e.preventDefault();
+        writePatch(cur);
+      }
     }
   }
   attachDocListeners(document);

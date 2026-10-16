@@ -102,3 +102,17 @@
   border: 1px solid var(--re-line);
 }
 .rw-info-flow-none { margin: 2px 0 6px; color: var(--re-text-dim); font-size: 11px; }
+
+/* The figure under the summary: a looping clip of the effect + a screenshot of the controls. */
+.rw-info-card.has-media { width: min(780px, 100%); }
+.rw-info-media { margin: 4px 0 12px; display: grid; gap: 10px; }
+.rw-info-media.two { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+.rw-info-media-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rw-info-media video, .rw-info-media img {
+  display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain;
+  border: 1px solid var(--re-line); border-radius: var(--r-m, 4px);
+  background: #000;
+}
+.rw-info-media img { background: var(--c-card, rgba(0, 0, 0, 0.35)); }
+.rw-info-media figcaption { font-size: 10.5px; line-height: 1.35; color: var(--re-text-dim); }
+@media (max-width: 640px) { .rw-info-media.two { grid-template-columns: 1fr; } }

@@ -181,16 +181,11 @@ export function createPatchBayView(
   // are hidden in the bay — see edgeScrollbars.ts). Re-synced in frame().
   const edgeBars = attachEdgeScrollbars(root);
 
-  // Narrow mode: below ~900px the three deck columns stack vertically
-  // so the whole patch stays visible (vertical scroll, no horizontal
-  // truncation) — the bay must work in a 400px side window as well as
-  // the full center (workspace design system: any view, any window).
-  if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      root.classList.toggle('rw-pb--narrow', w > 0 && w < 900);
-    }).observe(root);
-  }
+  // The board keeps its natural left-to-right shape in ANY window (rail → faceplate → raster B /
+  // post-FX): a side window just shows part of it, and you pan or jump (the nav dock below).
+  // It used to collapse to one extreme vertical column under 900px, which buried a freshly
+  // spawned node at the bottom of the stack and made the whole patch hard to read.
+  const BOARD_MIN = 1500;
 
   let canvas = document.createElement('canvas');
   canvas.className = 'rw-pb-cables';
@@ -2164,7 +2159,7 @@ export function createPatchBayView(
   // plain window resize (the bug behind nodes not resizing going from
   // a maximized window back down to a smaller one).
   function syncSurfaceSize(): void {
-    const baseW = root.clientWidth || board.scrollWidth;
+    const baseW = Math.max(root.clientWidth, BOARD_MIN);
     const baseH = root.clientHeight || board.scrollHeight;
     const contentW = freeMode ? Math.max(baseW, parseFloat(board.style.minWidth) || 0) : baseW;
     const contentH = freeMode ? Math.max(baseH, parseFloat(board.style.minHeight) || 0) : baseH;
@@ -2343,7 +2338,7 @@ export function createPatchBayView(
     ? 'Snap all modules back into the stacked layout.'
     : 'Break every module out into free layout, Max/MSP style (dragging any module header does this too).'));
   tidyBtn.addEventListener('click', () => {
-    if (freeMode) { suspendedFree = null; tidy(); } else { freeze(); }
+    if (freeMode) { tidy(); } else { freeze(); }
   });
   const pbTools = document.createElement('span');
   pbTools.className = 'rw-pb-tools';
@@ -2378,7 +2373,7 @@ export function createPatchBayView(
       board.appendChild(unit);
     }
     root.classList.add('rw-pb-freemode');
-    freeRefWidth = root.getBoundingClientRect().width;
+    freeRefWidth = Math.max(root.clientWidth, BOARD_MIN);
     syncSurfaceSize();
     tidyBtn.textContent = 'TIDY';
   }
@@ -2415,6 +2410,49 @@ export function createPatchBayView(
    *  the resting layout is what stays collision-free. Iteration-capped:
    *  a pathological packing degrades to "some overlap remains" rather
    *  than a livelock. */
+  /** Slide `unit` from where it was dropped to the NEAREST spot that overlaps nothing (rings of
+   *  candidates around the drop point). A spawned node should land by the cursor, not be flung to
+   *  the bottom of the board when the neighbourhood is dense. Returns false if no spot was found. */
+  function placeNearestFree(unit: HTMLElement): boolean {
+    const GAP = 10;
+    const rects = Array.from(board.querySelectorAll<HTMLElement>('.rw-pb-unit-free'))
+      .filter((u) => u !== unit)
+      .map((u) => ({ l: parseFloat(u.style.left) || 0, t: parseFloat(u.style.top) || 0, w: u.offsetWidth, h: u.offsetHeight }));
+    const w = unit.offsetWidth, h = unit.offsetHeight;
+    const l0 = parseFloat(unit.style.left) || 0;
+    const t0 = parseFloat(unit.style.top) || 0;
+    const free = (l: number, t: number): boolean => rects.every((r) =>
+      Math.min(l + w + GAP, r.l + r.w) - Math.max(l - GAP, r.l) <= 0 || Math.min(t + h + GAP, r.t + r.h) - Math.max(t - GAP, r.t) <= 0);
+    if (free(l0, t0)) return true;
+    // Prefer a spot the user can SEE (the visible part of the board), then anywhere.
+    const vis = { l: root.scrollLeft / zoom, t: root.scrollTop / zoom, r: (root.scrollLeft + root.clientWidth) / zoom, b: (root.scrollTop + root.clientHeight) / zoom };
+    const inView = (l: number, t: number): boolean => l >= vis.l + 8 && t >= vis.t + 8 && l + w <= vis.r - 8 && t + h <= vis.b - 56;   // 56: the nav dock
+    for (const onlyVisible of [true, false])
+    for (let radius = 24; radius <= 1100; radius += 24) {
+      const steps = Math.max(12, Math.round((radius * Math.PI) / 30));
+      let best: { l: number; t: number; d: number } | null = null;
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const l = Math.max(0, l0 + Math.cos(a) * radius);
+        const t = Math.max(0, t0 + Math.sin(a) * radius);
+        if (!free(l, t) || (onlyVisible && !inView(l, t))) continue;
+        const d = Math.hypot(l - l0, t - t0);
+        if (!best || d < best.d) best = { l, t, d };
+      }
+      if (best) {
+        unit.style.left = `${best.l}px`;
+        unit.style.top = `${best.t}px`;
+        const need = best.l + w + 24;
+        if (need > board.offsetWidth) board.style.minWidth = `${need}px`;
+        const needH = best.t + h + 24;
+        if (needH > board.offsetHeight) board.style.minHeight = `${needH}px`;
+        syncSurfaceSize();
+        return true;
+      }
+    }
+    return false;
+  }
+
   function resolveOverlap(unit: HTMLElement): void {
     const GAP = 10;
     const others = (): HTMLElement[] =>
@@ -3245,7 +3283,7 @@ export function createPatchBayView(
     const bRect = board.getBoundingClientRect();
     mod.style.left = `${Math.max(0, (clientX - bRect.left) / zoom - mod.offsetWidth / 2)}px`;
     mod.style.top = `${Math.max(0, (clientY - bRect.top) / zoom - 10)}px`;
-    resolveOverlap(mod);
+    if (!placeNearestFree(mod)) resolveOverlap(mod);
   }
 
   function addGraphNode(type: NodeType, clientX?: number, clientY?: number): void {
@@ -3291,38 +3329,12 @@ export function createPatchBayView(
     openAddNodeMenu(e.clientX, e.clientY);
   });
 
-  // Narrow mode and free mode don't mix (narrow stacks the columns) —
-  // but a custom node arrangement must SURVIVE the round-trip (owner
-  // bug report): entering narrow suspends the free layout (positions
-  // saved, board tidied); widening past the threshold re-freezes and
-  // restores every node where it was. Only the TIDY button forgets.
-  let suspendedFree: Array<{ unit: HTMLElement; left: string; top: string; width: string }> | null = null;
+  // A free layout tracks the board's width: when the window grows or shrinks past the board's floor
+  // every free unit's left/width scales with it, so a custom arrangement stays proportional.
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? root.clientWidth;
-      const narrow = root.classList.contains('rw-pb--narrow');
-      if (narrow && freeMode) {
-        suspendedFree = allUnits().map((unit) => ({
-          unit, left: unit.style.left, top: unit.style.top, width: unit.style.width,
-        }));
-        tidy();
-      } else if (!narrow && suspendedFree) {
-        const saved = suspendedFree;
-        suspendedFree = null;
-        freeze();
-        for (const p of saved) {
-          p.unit.style.left = p.left;
-          p.unit.style.top = p.top;
-          p.unit.style.width = p.width;
-        }
-        syncSurfaceSize();
-        freeRefWidth = w;
-      } else if (!narrow && freeMode) {
-        // Continuous case: the window is shrinking/growing but never
-        // crossed the narrow threshold. Rescale every free unit's
-        // left/width by how much the container width changed since the
-        // last measurement, so a custom layout tracks the window
-        // horizontally instead of holding stale pixel geometry.
+      const w = Math.max(entries[0]?.contentRect.width ?? root.clientWidth, BOARD_MIN);
+      if (freeMode) {
         if (freeRefWidth == null) freeRefWidth = w;
         else if (w > 0 && Math.abs(w - freeRefWidth) > 0.5) {
           const ratio = w / freeRefWidth;
@@ -3333,16 +3345,65 @@ export function createPatchBayView(
             unit.style.left = `${l * ratio}px`;
             unit.style.width = `${uw * ratio}px`;
           }
-          syncSurfaceSize();
           freeRefWidth = w;
         }
       }
-      // Ground-truth resync on every resize (cheap, idempotent) — keeps
-      // the scrollable surface correct even in plain flow mode after a
-      // zoom action had previously locked in an explicit px size.
+      // Ground-truth resync on every resize (cheap, idempotent).
       syncSurfaceSize();
     }).observe(root);
   }
+
+  // ---------------- navigation dock: jump along the board -----------------
+  // The board is wider than a side window, so a small floating dock jumps to each stage of the
+  // signal path, left to right: sources → video → generators → the faceplate → raster B → post-FX.
+  const navTitle = (u: HTMLElement): string =>
+    (u.querySelector('.rw-pb-module-head, .rw-pb-field-title')?.textContent ?? '').trim().toUpperCase();
+  const unitByTitle = (prefix: string): HTMLElement | undefined => allUnits().find((u) => navTitle(u).startsWith(prefix));
+  function jumpTo(target: HTMLElement | undefined): void {
+    if (!target) return;
+    const r = target.getBoundingClientRect();
+    const rr = root.getBoundingClientRect();
+    root.scrollTo({
+      left: Math.max(0, root.scrollLeft + (r.left - rr.left) - 14),
+      top: Math.max(0, root.scrollTop + (r.top - rr.top) - 14),
+      behavior: 'smooth',
+    });
+  }
+  const navDock = document.createElement('div');
+  navDock.className = 'rw-pb-navdock';
+  const nav = document.createElement('div');
+  nav.className = 'rw-pb-nav';
+  nav.setAttribute('role', 'toolbar');
+  nav.setAttribute('aria-label', 'Jump along the patch');
+  const JUMPS: Array<[string, string, () => HTMLElement | undefined]> = [
+    ['Sources', 'The signal sources bus', () => bus],
+    ['Video', 'Video sources, composite and the renderer', () => unitByTitle('VIDEO SOURCE A')],
+    ['Generators', 'The function generators and graph nodes', () => unitByTitle('FUNCTION GEN 1')],
+    ['Depth', 'Position, depth, beam, rotation … the DCU faceplate', () => unitByTitle('POSITION')],
+    ['Raster B', 'Dual raster and its parameters', () => unitByTitle('DUAL RASTER')],
+    ['Post-FX', 'Colorizer and post effects', () => unitByTitle('COLORIZER')],
+  ];
+  for (const [label, tip, find] of JUMPS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rw-pb-navchip';
+    b.textContent = label;
+    attachTooltip(b, `Jump to: ${tip}`);
+    b.addEventListener('click', () => jumpTo(find()));
+    nav.appendChild(b);
+  }
+  navDock.appendChild(nav);
+  root.appendChild(navDock);
+  // Pin the dock to the bottom-centre of the VISIBLE bay. (CSS sticky can't: the board overflows the
+  // scroller's own box, and a sticky child never leaves its parent's box — so it follows the scroll
+  // offset instead, same as the cable canvas and the edge scroll rails.)
+  const pinNav = (): void => {
+    navDock.style.transform = `translate(${root.scrollLeft}px, ${root.scrollTop + root.clientHeight}px)`;
+    navDock.style.width = `${root.clientWidth}px`;
+  };
+  root.addEventListener('scroll', pinNav, { passive: true });
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(pinNav).observe(root);
+  pinNav();
 
   // ---------------- slot value refresh --------------------------------
   function refreshSlots(): void {

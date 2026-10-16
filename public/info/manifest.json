@@ -1,0 +1,442 @@
+{
+ "section.project": {
+  "shot": "shot-section.project.webp",
+  "shotCaption": "Project in the Controls panel"
+ },
+ "group.project.project": {
+  "shot": "shot-group.project.project.webp",
+  "shotCaption": "Project — Project section"
+ },
+ "group.project.recent-projects": {
+  "shot": "shot-group.project.recent-projects.webp",
+  "shotCaption": "Recent Projects — Project section"
+ },
+ "group.project.auto-save": {
+  "shot": "shot-group.project.auto-save.webp",
+  "shotCaption": "Auto-save — Project section"
+ },
+ "section.video-source-a": {
+  "shot": "shot-section.video-source-a.webp",
+  "shotCaption": "Video Source A in the Controls panel",
+  "clip": "clip-section.video-source-a.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.video-source-a.capture-settings": {
+  "shot": "shot-group.video-source-a.capture-settings.webp",
+  "shotCaption": "Capture Settings — Video Source A section"
+ },
+ "group.video-source-a.webcam": {
+  "shot": "shot-group.video-source-a.webcam.webp",
+  "shotCaption": "Webcam — Video Source A section"
+ },
+ "group.video-source-a.screen-capture": {
+  "shot": "shot-group.video-source-a.screen-capture.webp",
+  "shotCaption": "Screen Capture — Video Source A section"
+ },
+ "group.video-source-a.video-file": {
+  "shot": "shot-group.video-source-a.video-file.webp",
+  "shotCaption": "Video File — Video Source A section"
+ },
+ "group.video-source-a.stream-url": {
+  "shot": "shot-group.video-source-a.stream-url.webp",
+  "shotCaption": "Stream URL — Video Source A section"
+ },
+ "group.video-source-a.video-audio": {
+  "shot": "shot-group.video-source-a.video-audio.webp",
+  "shotCaption": "Video Audio — Video Source A section"
+ },
+ "group.video-source-a.mirror": {
+  "shot": "shot-group.video-source-a.mirror.webp",
+  "shotCaption": "Mirror — Video Source A section"
+ },
+ "group.video-source-a.pattern-generator": {
+  "shot": "shot-group.video-source-a.pattern-generator.webp",
+  "shotCaption": "Pattern Generator — Video Source A section",
+  "clip": "clip-group.video-source-a.pattern-generator.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "section.video-source-b": {
+  "shot": "shot-section.video-source-b.webp",
+  "shotCaption": "Video Source B in the Controls panel"
+ },
+ "group.video-source-b.webcam": {
+  "shot": "shot-group.video-source-b.webcam.webp",
+  "shotCaption": "Webcam — Video Source B section"
+ },
+ "group.video-source-b.screen-capture": {
+  "shot": "shot-group.video-source-b.screen-capture.webp",
+  "shotCaption": "Screen Capture — Video Source B section"
+ },
+ "group.video-source-b.video-file": {
+  "shot": "shot-group.video-source-b.video-file.webp",
+  "shotCaption": "Video File — Video Source B section"
+ },
+ "group.video-source-b.stream-url": {
+  "shot": "shot-group.video-source-b.stream-url.webp",
+  "shotCaption": "Stream URL — Video Source B section"
+ },
+ "section.display-control-unit": {
+  "shot": "shot-section.display-control-unit.webp",
+  "shotCaption": "Display Control Unit in the Controls panel",
+  "clip": "clip-section.display-control-unit.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.position-and-size": {
+  "shot": "shot-group.display-control-unit.position-and-size.webp",
+  "shotCaption": "Position & Size — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.position-and-size.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.depth-z-brightness-displacement": {
+  "shot": "shot-group.display-control-unit.depth-z-brightness-displacement.webp",
+  "shotCaption": "Depth (Z) — Brightness Displacement — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.depth-z-brightness-displacement.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.beam": {
+  "shot": "shot-group.display-control-unit.beam.webp",
+  "shotCaption": "Beam — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.beam.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.rotation": {
+  "shot": "shot-group.display-control-unit.rotation.webp",
+  "shotCaption": "Rotation — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.rotation.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.scan": {
+  "shot": "shot-group.display-control-unit.scan.webp",
+  "shotCaption": "Scan — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.scan.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.linearity": {
+  "shot": "shot-group.display-control-unit.linearity.webp",
+  "shotCaption": "Linearity — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.linearity.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.display-control-unit.luminance-shaping": {
+  "shot": "shot-group.display-control-unit.luminance-shaping.webp",
+  "shotCaption": "Luminance Shaping — Display Control Unit section",
+  "clip": "clip-group.display-control-unit.luminance-shaping.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "section.dual-raster": {
+  "shot": "shot-section.dual-raster.webp",
+  "shotCaption": "Dual Raster in the Controls panel"
+ },
+ "group.dual-raster.dual-trace": {
+  "shot": "shot-group.dual-raster.dual-trace.webp",
+  "shotCaption": "Dual Trace — Dual Raster section"
+ },
+ "group.dual-raster.b-position-and-size": {
+  "shot": "shot-group.dual-raster.b-position-and-size.webp",
+  "shotCaption": "B · Position & Size — Dual Raster section"
+ },
+ "group.dual-raster.b-depth-and-beam": {
+  "shot": "shot-group.dual-raster.b-depth-and-beam.webp",
+  "shotCaption": "B · Depth & Beam — Dual Raster section"
+ },
+ "group.dual-raster.b-rotation": {
+  "shot": "shot-group.dual-raster.b-rotation.webp",
+  "shotCaption": "B · Rotation — Dual Raster section"
+ },
+ "group.dual-raster.b-luminance-shaping": {
+  "shot": "shot-group.dual-raster.b-luminance-shaping.webp",
+  "shotCaption": "B · Luminance Shaping — Dual Raster section"
+ },
+ "section.virtual-camera": {
+  "shot": "shot-section.virtual-camera.webp",
+  "shotCaption": "Virtual Camera in the Controls panel"
+ },
+ "group.virtual-camera.mode": {
+  "shot": "shot-group.virtual-camera.mode.webp",
+  "shotCaption": "Mode — Virtual Camera section"
+ },
+ "group.virtual-camera.resolution": {
+  "shot": "shot-group.virtual-camera.resolution.webp",
+  "shotCaption": "Resolution — Virtual Camera section"
+ },
+ "group.virtual-camera.lens": {
+  "shot": "shot-group.virtual-camera.lens.webp",
+  "shotCaption": "Lens — Virtual Camera section"
+ },
+ "group.virtual-camera.auto-orbit": {
+  "shot": "shot-group.virtual-camera.auto-orbit.webp",
+  "shotCaption": "Auto-orbit — Virtual Camera section"
+ },
+ "group.virtual-camera.fly-settings": {
+  "shot": "shot-group.virtual-camera.fly-settings.webp",
+  "shotCaption": "Fly settings — Virtual Camera section"
+ },
+ "group.virtual-camera.anaglyph-3d": {
+  "shot": "shot-group.virtual-camera.anaglyph-3d.webp",
+  "shotCaption": "Anaglyph 3D — Virtual Camera section"
+ },
+ "section.xr": {
+  "shot": "shot-section.xr.webp",
+  "shotCaption": "XR in the Controls panel"
+ },
+ "group.xr.xr": {
+  "shot": "shot-group.xr.xr.webp",
+  "shotCaption": "XR — XR section"
+ },
+ "group.xr.configuration": {
+  "shot": "shot-group.xr.configuration.webp",
+  "shotCaption": "Configuration — XR section"
+ },
+ "group.xr.device": {
+  "shot": "shot-group.xr.device.webp",
+  "shotCaption": "Device — XR section"
+ },
+ "section.color-post-fx": {
+  "shot": "shot-section.color-post-fx.webp",
+  "shotCaption": "Color / Post FX in the Controls panel"
+ },
+ "group.color-post-fx.color": {
+  "shot": "shot-group.color-post-fx.color.webp",
+  "shotCaption": "Color — Color / Post FX section"
+ },
+ "group.color-post-fx.bloom-phosphor-glow": {
+  "shot": "shot-group.color-post-fx.bloom-phosphor-glow.webp",
+  "shotCaption": "Bloom (Phosphor Glow) — Color / Post FX section"
+ },
+ "group.color-post-fx.scanline-overlay": {
+  "shot": "shot-group.color-post-fx.scanline-overlay.webp",
+  "shotCaption": "Scanline Overlay — Color / Post FX section"
+ },
+ "group.color-post-fx.chromatic-aberration": {
+  "shot": "shot-group.color-post-fx.chromatic-aberration.webp",
+  "shotCaption": "Chromatic Aberration — Color / Post FX section"
+ },
+ "group.color-post-fx.vignette": {
+  "shot": "shot-group.color-post-fx.vignette.webp",
+  "shotCaption": "Vignette — Color / Post FX section"
+ },
+ "group.color-post-fx.burn-in-feedback": {
+  "shot": "shot-group.color-post-fx.burn-in-feedback.webp",
+  "shotCaption": "Burn-In Feedback — Color / Post FX section"
+ },
+ "group.color-post-fx.analog-character": {
+  "shot": "shot-group.color-post-fx.analog-character.webp",
+  "shotCaption": "Analog Character — Color / Post FX section"
+ },
+ "section.modulation": {
+  "shot": "shot-section.modulation.webp",
+  "shotCaption": "Modulation in the Controls panel"
+ },
+ "group.modulation.joystick-xy-pad-z": {
+  "shot": "shot-group.modulation.joystick-xy-pad-z.webp",
+  "shotCaption": "Joystick (XY pad + Z) — Modulation section"
+ },
+ "group.modulation.tempo": {
+  "shot": "shot-group.modulation.tempo.webp",
+  "shotCaption": "Tempo — Modulation section"
+ },
+ "group.modulation.audio-interface-mic": {
+  "shot": "shot-group.modulation.audio-interface-mic.webp",
+  "shotCaption": "Audio Interface (mic) — Modulation section"
+ },
+ "group.modulation.all-slots": {
+  "shot": "shot-group.modulation.all-slots.webp",
+  "shotCaption": "All slots — Modulation section"
+ },
+ "section.geometry": {
+  "shot": "shot-section.geometry.webp",
+  "shotCaption": "Geometry in the Controls panel",
+  "clip": "clip-section.geometry.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.geometry.render-mode": {
+  "shot": "shot-group.geometry.render-mode.webp",
+  "shotCaption": "Render Mode — Geometry section",
+  "clip": "clip-group.geometry.render-mode.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "section.presets": {
+  "shot": "shot-section.presets.webp",
+  "shotCaption": "Presets in the Controls panel",
+  "clip": "clip-section.presets.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.presets.built-in-presets": {
+  "shot": "shot-group.presets.built-in-presets.webp",
+  "shotCaption": "Built-in Presets — Presets section",
+  "clip": "clip-group.presets.built-in-presets.mp4",
+  "caption": "The effect on the live picture"
+ },
+ "group.presets.save-load-settings": {
+  "shot": "shot-group.presets.save-load-settings.webp",
+  "shotCaption": "Save / Load Settings — Presets section"
+ },
+ "group.presets.user-presets": {
+  "shot": "shot-group.presets.user-presets.webp",
+  "shotCaption": "User Presets — Presets section"
+ },
+ "group.presets.import-export": {
+  "shot": "shot-group.presets.import-export.webp",
+  "shotCaption": "Import / Export — Presets section"
+ },
+ "group.presets.backup-and-restore": {
+  "shot": "shot-group.presets.backup-and-restore.webp",
+  "shotCaption": "Backup & Restore — Presets section"
+ },
+ "group.presets.danger-zone": {
+  "shot": "shot-group.presets.danger-zone.webp",
+  "shotCaption": "Danger Zone — Presets section"
+ },
+ "section.performance": {
+  "shot": "shot-section.performance.webp",
+  "shotCaption": "Performance in the Controls panel"
+ },
+ "group.performance.performance-profile": {
+  "shot": "shot-group.performance.performance-profile.webp",
+  "shotCaption": "Performance Profile — Performance section"
+ },
+ "group.performance.render-scale": {
+  "shot": "shot-group.performance.render-scale.webp",
+  "shotCaption": "Render Scale — Performance section"
+ },
+ "group.performance.device": {
+  "shot": "shot-group.performance.device.webp",
+  "shotCaption": "Device — Performance section"
+ },
+ "section.record": {
+  "shot": "shot-section.record.webp",
+  "shotCaption": "Record in the Controls panel"
+ },
+ "group.record.configuration": {
+  "shot": "shot-group.record.configuration.webp",
+  "shotCaption": "Configuration — Record section"
+ },
+ "group.record.record-timeline": {
+  "shot": "shot-group.record.record-timeline.webp",
+  "shotCaption": "Record Timeline — Record section"
+ },
+ "group.record.stereoscopic-3d": {
+  "shot": "shot-group.record.stereoscopic-3d.webp",
+  "shotCaption": "Stereoscopic 3D — Record section"
+ },
+ "section.share": {
+  "shot": "shot-section.share.webp",
+  "shotCaption": "Share in the Controls panel"
+ },
+ "group.share.configuration": {
+  "shot": "shot-group.share.configuration.webp",
+  "shotCaption": "Configuration — Share section"
+ },
+ "group.share.whip-output": {
+  "shot": "shot-group.share.whip-output.webp",
+  "shotCaption": "WHIP Output — Share section"
+ },
+ "section.midi": {
+  "shot": "shot-section.midi.webp",
+  "shotCaption": "MIDI in the Controls panel"
+ },
+ "group.midi.devices": {
+  "shot": "shot-group.midi.devices.webp",
+  "shotCaption": "Devices — MIDI section"
+ },
+ "group.midi.clock": {
+  "shot": "shot-group.midi.clock.webp",
+  "shotCaption": "Clock — MIDI section"
+ },
+ "group.midi.bindings": {
+  "shot": "shot-group.midi.bindings.webp",
+  "shotCaption": "Bindings — MIDI section"
+ },
+ "section.audio": {
+  "shot": "shot-section.audio.webp",
+  "shotCaption": "Audio in the Controls panel"
+ },
+ "group.audio.input": {
+  "shot": "shot-group.audio.input.webp",
+  "shotCaption": "Input — Audio section"
+ },
+ "group.audio.fft": {
+  "shot": "shot-group.audio.fft.webp",
+  "shotCaption": "FFT — Audio section"
+ },
+ "group.audio.bands": {
+  "shot": "shot-group.audio.bands.webp",
+  "shotCaption": "Bands — Audio section"
+ },
+ "group.audio.spectrum-z-displacement": {
+  "shot": "shot-group.audio.spectrum-z-displacement.webp",
+  "shotCaption": "Spectrum -> Z displacement — Audio section"
+ },
+ "group.audio.beat-detector": {
+  "shot": "shot-group.audio.beat-detector.webp",
+  "shotCaption": "Beat detector — Audio section"
+ },
+ "group.audio.monitor": {
+  "shot": "shot-group.audio.monitor.webp",
+  "shotCaption": "Monitor — Audio section"
+ },
+ "section.osc": {
+  "shot": "shot-section.osc.webp",
+  "shotCaption": "OSC in the Controls panel"
+ },
+ "group.osc.bridge": {
+  "shot": "shot-group.osc.bridge.webp",
+  "shotCaption": "Bridge — OSC section"
+ },
+ "group.osc.bindings": {
+  "shot": "shot-group.osc.bindings.webp",
+  "shotCaption": "Bindings — OSC section"
+ },
+ "section.cv": {
+  "shot": "shot-section.cv.webp",
+  "shotCaption": "CV in the Controls panel"
+ },
+ "group.cv.cv-inputs-audio-interface": {
+  "shot": "shot-group.cv.cv-inputs-audio-interface.webp",
+  "shotCaption": "CV Inputs (audio interface) — CV section"
+ },
+ "group.cv.cv-inputs-osc-bridge": {
+  "shot": "shot-group.cv.cv-inputs-osc-bridge.webp",
+  "shotCaption": "CV Inputs (OSC bridge) — CV section"
+ },
+ "group.cv.gamepad-hid": {
+  "shot": "shot-group.cv.gamepad-hid.webp",
+  "shotCaption": "Gamepad / HID — CV section"
+ },
+ "group.cv.other-cv-routes": {
+  "shot": "shot-group.cv.other-cv-routes.webp",
+  "shotCaption": "Other CV routes — CV section"
+ },
+ "section.cv-out": {
+  "shot": "shot-section.cv-out.webp",
+  "shotCaption": "CV Out in the Controls panel"
+ },
+ "group.cv-out.cv-outputs-audio-interface": {
+  "shot": "shot-group.cv-out.cv-outputs-audio-interface.webp",
+  "shotCaption": "CV Outputs (audio interface) — CV Out section"
+ },
+ "section.mcp": {
+  "shot": "shot-section.mcp.webp",
+  "shotCaption": "MCP in the Controls panel"
+ },
+ "group.mcp.mcp-bridge": {
+  "shot": "shot-group.mcp.mcp-bridge.webp",
+  "shotCaption": "MCP Bridge — MCP section"
+ },
+ "section.sonification": {
+  "shot": "shot-section.sonification.webp",
+  "shotCaption": "Sonification in the Controls panel"
+ },
+ "group.sonification.sonification-audible-voice": {
+  "shot": "shot-group.sonification.sonification-audible-voice.webp",
+  "shotCaption": "Sonification (audible voice) — Sonification section"
+ },
+ "group.sonification.voice": {
+  "shot": "shot-group.sonification.voice.webp",
+  "shotCaption": "Voice — Sonification section"
+ },
+ "group.sonification.mapping": {
+  "shot": "shot-group.sonification.mapping.webp",
+  "shotCaption": "Mapping — Sonification section"
+ }
+}
