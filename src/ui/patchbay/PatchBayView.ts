@@ -478,7 +478,8 @@ export function createPatchBayView(
   function centersOf<K>(m: Map<K, HTMLElement>): Array<Pt & { id: K }> {
     const out: Array<Pt & { id: K }> = [];
     for (const [id, el] of m) {
-      const r = el.getBoundingClientRect();
+      let r = el.getBoundingClientRect();
+      if (r.width === 0) { const px = proxyOf.get(el)?.getBoundingClientRect(); if (px && px.width > 0) r = px; }
       if (r.width > 0) out.push({ id, ...rectCenter(r) });
     }
     return out;
@@ -1876,7 +1877,16 @@ export function createPatchBayView(
   // / POST-FX (the `buildFaceplate()` loop below appends that and the
   // rest of col2's fields AFTER this, so it stays at the top). See the
   // module's own construction comment above for why.
+  // The picture path (sources → pattern → composite → dual raster → renderer) stacks up on the
+  // RIGHT, where the output is; the left rail keeps the function generators and graph nodes.
+  const railUnit = (title: string): HTMLElement | undefined =>
+    Array.from(rail.children).find((c) => (c.querySelector('.rw-pb-module-head')?.textContent ?? '').trim().toUpperCase().startsWith(title)) as HTMLElement | undefined;
+  for (const title of ['VIDEO SOURCE A', 'VIDEO SOURCE B', 'PATTERN GENERATOR', 'COMPOSITE']) {
+    const u = railUnit(title);
+    if (u) col2.appendChild(u);
+  }
   if (dualRasterMod) col2.appendChild(dualRasterMod);
+  { const u = railUnit('RENDERER'); if (u) col2.appendChild(u); }
 
   /** Best-effort DESIGNED (stock) numeric range for a modulatable
    *  Settings key, sourced from `PARAM_DOCS`'s human-readable `range`
@@ -2550,6 +2560,53 @@ export function createPatchBayView(
     return null;
   }
 
+  /** A collapsed node keeps its sockets, like a Blender / TouchDesigner node: inputs down the left,
+   *  outputs down the right, as small proxies of the real jacks. Cables anchor to a proxy, a cable can be
+   *  dropped on one, and pressing one starts the same gesture on the real jack. Big faceplate groups show
+   *  only the sockets that are patched. */
+  const proxyOf = new WeakMap<HTMLElement, HTMLElement>();
+  function buildPorts(unit: HTMLElement): void {
+    unit.querySelector(':scope > .rw-pb-ports')?.remove();
+    const jacks = Array.from(unit.querySelectorAll<HTMLElement>('.rw-rack-jack'));
+    if (!jacks.length) return;
+    const strip = document.createElement('div');
+    strip.className = 'rw-pb-ports';
+    const inCol = document.createElement('div');
+    inCol.className = 'rw-pb-ports-col rw-pb-ports-in';
+    const outCol = document.createElement('div');
+    outCol.className = 'rw-pb-ports-col rw-pb-ports-out';
+    const many = jacks.length > 6;
+    for (const jack of jacks) {
+      const p = document.createElement('span');
+      p.className = 'rw-pb-proxy';
+      p.dataset.many = many ? '1' : '';
+      const label = (jack.closest('.rw-pb-cell, .rw-pb-row, .rw-pb-io, div')?.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 28);
+      attachTooltip(p, () => label ? `${label} — expand the node to edit; drag from here to patch.` : 'Socket');
+      p.addEventListener('pointerdown', (ev) => {
+        ev.stopPropagation();
+        jack.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles: true, cancelable: true, clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId,
+          pointerType: ev.pointerType, button: ev.button, buttons: ev.buttons, isPrimary: ev.isPrimary,
+        }));
+      });
+      proxyOf.set(jack, p);
+      (jack.classList.contains('rw-rack-jack--out') ? outCol : inCol).appendChild(p);
+    }
+    strip.append(inCol, outCol);
+    unit.appendChild(strip);
+    syncPorts(unit);
+  }
+  function syncPorts(unit: HTMLElement): void {
+    const jacks = unit.querySelectorAll<HTMLElement>('.rw-rack-jack');
+    for (const jack of Array.from(jacks)) {
+      const p = proxyOf.get(jack);
+      if (!p) continue;
+      const plugged = jack.classList.contains('rw-rack-jack--plugged');
+      p.classList.toggle('rw-pb-proxy--plugged', plugged);
+      p.hidden = p.dataset.many === '1' && !plugged;
+    }
+  }
+
   function makeUnitDraggable(unit: HTMLElement, handle: HTMLElement): void {
     handle.classList.add('rw-pb-unit-handle');
     // Expand / collapse: a collapsed unit is only its header (cables to its jacks anchor there).
@@ -2562,6 +2619,7 @@ export function createPatchBayView(
       e.stopPropagation();
       const c = unit.classList.toggle('rw-pb-unit--collapsed');
       fold.setAttribute('aria-expanded', String(!c));
+      if (c) buildPorts(unit);
     });
     fold.addEventListener('dblclick', (e) => e.stopPropagation());
     attachTooltip(fold, () => (unit.classList.contains('rw-pb-unit--collapsed') ? 'Expand this node' : 'Collapse this node to its header'));
@@ -3483,13 +3541,20 @@ export function createPatchBayView(
     // land exactly where drawn — see fitCableCanvas's docs.
     const { w, h } = fitCableCanvas(canvas, ctx, { width: root.clientWidth * k, height: root.clientHeight * k });
     ctx.clearRect(0, 0, w, h);
+    for (const u of Array.from(root.querySelectorAll<HTMLElement>('.rw-pb-unit--collapsed'))) {
+      // Jacks that appeared since it collapsed (graph rows) get proxies on the next collapse; keep plugged state live.
+      if (!u.querySelector(':scope > .rw-pb-ports')) buildPorts(u);
+      syncPorts(u);
+    }
     const origin = cableOrigin;
     const local = (p: Pt): Pt => ({ x: p.x - origin.x, y: p.y - origin.y });
     const anchor = (el: HTMLElement | undefined): Pt | null => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
       if (r.width > 0) return rectCenter(r);
-      // Inside a collapsed unit: the cable lands on its header instead.
+      // Inside a collapsed unit: the cable lands on that socket's proxy, else the header.
+      const px = proxyOf.get(el)?.getBoundingClientRect();
+      if (px && px.width > 0) return rectCenter(px);
       const head = el.closest('.rw-pb-unit--collapsed')?.querySelector<HTMLElement>(':scope > .rw-pb-unit-handle');
       const hr = head?.getBoundingClientRect();
       return hr && hr.width > 0 ? { x: hr.right - 10, y: hr.top + hr.height / 2 } : null;

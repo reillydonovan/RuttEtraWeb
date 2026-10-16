@@ -720,7 +720,6 @@
 .rw-pb-navchip:hover, .rw-pb-navchip:focus-visible { color: var(--a-text, var(--re-accent)); background: var(--a-16, rgba(95, 255, 133, 0.16)); outline: none; }
 
 /* ---------- fold: collapse a node to its header ---------- */
-.rw-pb-unit--collapsed > :not(.rw-pb-unit-handle) { display: none !important; }
 .rw-pb-unit--collapsed { min-height: 0; }
 .rw-pb-fold {
   flex: none; width: 16px; height: 16px; padding: 0; margin: 0 6px 0 0;
@@ -735,3 +734,18 @@
 .rw-pb-unit--collapsed .rw-pb-fold::before { transform: rotate(-45deg); left: 3px; top: 4px; }
 .rw-pb-fold:hover { opacity: 1; color: var(--re-accent); }
 .rw-pb-unit-handle { display: flex; align-items: center; }
+
+/* ---------- collapsed node: its sockets stay visible (inputs left, outputs right) ---------- */
+.rw-pb-ports { display: none; }
+.rw-pb-unit--collapsed > .rw-pb-ports { display: flex !important; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 6px 10px 8px; }
+.rw-pb-unit--collapsed > :not(.rw-pb-unit-handle):not(.rw-pb-ports) { display: none !important; }
+.rw-pb-ports-col { display: flex; flex-direction: column; gap: 5px; }
+.rw-pb-ports-out { align-items: flex-end; }
+.rw-pb-proxy {
+  width: 11px; height: 11px; border-radius: 50%; box-sizing: border-box;
+  border: 1.5px solid var(--re-accent); background: rgba(0,0,0,0.6);
+  cursor: var(--rw-cur-jack, pointer);
+}
+.rw-pb-proxy[hidden] { display: none; }
+.rw-pb-proxy--plugged { background: var(--re-accent); box-shadow: 0 0 6px var(--re-accent); }
+.rw-pb-proxy:hover { box-shadow: 0 0 8px var(--re-accent); }
