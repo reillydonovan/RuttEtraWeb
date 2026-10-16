@@ -231,7 +231,7 @@ export class ControlPanel {
   // Panel width resize (clamped 280–600, persisted as Settings.panelWidth)
   // -----------------------------------------------------------------
 
-  private static readonly WIDTH_MIN = 220;
+  private static readonly WIDTH_MIN = 320;
   private static readonly WIDTH_MAX = 1400;
 
   private applyPanelWidth(w: number): void {

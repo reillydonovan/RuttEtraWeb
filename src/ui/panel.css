@@ -2019,3 +2019,8 @@ body[data-layout="compact"] .rw-group-head::before { display: none; }
 .rw-group:hover { border-color: var(--re-line-hi); }
 .rw-group:not(.rw-group--collapsed) { border-left: 2px solid var(--re-accent); }
 .rw-group:focus-within { border-color: var(--re-accent); }
+
+/* Per-param "+" LFO patch: reads "LFO" (green) once patched, with a ✕ to remove it. */
+.rw-patch-toggle.active { color: var(--re-accent); border-color: var(--re-accent); }
+.rw-patch-remove[hidden] { display: none; }
+.rw-inline-group > span:not(:first-child) { align-self: center; }

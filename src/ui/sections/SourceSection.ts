@@ -684,13 +684,46 @@ function buildParamControl(settings: SettingsStore, key: PatternParamKey): Param
 function buildModPatchButton(settings: SettingsStore, target: ModTarget): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'rw-btn';
-  btn.textContent = '+';
-  btn.title = `Patch a Classic LFO -> ${String(target)}`;
+  btn.className = 'rw-btn rw-patch-toggle';
   btn.style.flex = '0 0 auto';
   btn.style.minWidth = '24px';
   btn.style.padding = '0 8px';
+  const slotFor = (): number =>
+    settings.get('modSlots').findIndex((s: ModSlot) => s.enabled && s.target === target);
+  // "+" patches a Classic LFO into this param; once patched it reads "LFO" (click: show it in
+  // Modulation, where its rate / amount live) and the ✕ beside it removes the patch.
+  const sync = (): void => {
+    const patched = slotFor() >= 0;
+    btn.textContent = patched ? 'LFO' : '+';
+    btn.classList.toggle('active', patched);
+    btn.title = patched
+      ? `Patched from Classic slot ${slotFor() + 1} — click to show its controls in Modulation. Use ✕ to remove it.`
+      : `Patch a Classic LFO -> ${String(target)}`;
+    rm.hidden = !patched;
+  };
+  const rm = document.createElement('button');
+  rm.type = 'button';
+  rm.className = 'rw-btn rw-patch-remove';
+  rm.textContent = '✕';
+  rm.title = 'Remove this LFO patch';
+  rm.style.flex = '0 0 auto';
+  rm.style.padding = '0 6px';
+  rm.addEventListener('click', () => {
+    const i = slotFor();
+    if (i < 0) return;
+    const slots = settings.get('modSlots').slice();
+    slots[i] = { ...slots[i], enabled: false, target: 'none' as ModTarget };
+    settings.set('modSlots', slots);
+  });
+  const reveal = (idx: number): void => {
+    const card = document.querySelector<HTMLElement>(`.rw-mod-slot[data-mod-slot="${idx}"]`);
+    const sec = card?.closest<HTMLElement>('.rw-section');
+    sec?.classList.remove('collapsed');
+    window.setTimeout(() => card?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+  };
   btn.addEventListener('click', () => {
+    const existing = slotFor();
+    if (existing >= 0) { reveal(existing); return; }
     const slots = settings.get('modSlots').slice();
     let idx = slots.findIndex((s: ModSlot) => !s.enabled || s.target === 'none');
     if (idx < 0) idx = 0;
@@ -708,6 +741,14 @@ function buildModPatchButton(settings: SettingsStore, target: ModTarget): HTMLEl
     while (expanded.length <= idx) expanded.push(false);
     expanded[idx] = true;
     settings.set('modSlotExpanded', expanded);
+    reveal(idx);
   });
-  return btn;
+  settings.subscribe('modSlots', sync);
+  sync();
+  const wrap = document.createElement('span');
+  wrap.style.display = 'inline-flex';
+  wrap.style.gap = '4px';
+  wrap.style.alignItems = 'center';
+  wrap.append(btn, rm);
+  return wrap;
 }

@@ -119,7 +119,7 @@ export function createRackLayer(
 
     for (const el of Array.from(panelRoot.querySelectorAll<HTMLElement>('.rw-slider[data-param-key]'))) {
       const key = el.dataset.paramKey!;
-      if (!TARGET_KEYS.has(key) || paramJacks.has(key)) continue;
+      if (!TARGET_KEYS.has(key) || paramJacks.get(key)?.isConnected) continue;   // a rebuilt row (new element, same key) needs fresh jacks
       const jack = doc.createElement('span');
       jack.className = 'rw-rack-jack rw-rack-jack--in';
       jack.dataset.rackJack = key;
@@ -157,7 +157,7 @@ export function createRackLayer(
 
     for (const card of Array.from(panelRoot.querySelectorAll<HTMLElement>('.rw-mod-slot[data-mod-slot]'))) {
       const index = Number(card.dataset.modSlot);
-      if (!Number.isFinite(index) || slotJacks.has(index)) continue;
+      if (!Number.isFinite(index) || slotJacks.get(index)?.isConnected) continue;
       const jack = doc.createElement('span');
       jack.className = 'rw-rack-jack rw-rack-jack--out';
       jack.dataset.rackJackOut = String(index);
