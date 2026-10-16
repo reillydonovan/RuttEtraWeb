@@ -691,11 +691,13 @@ html body[data-theme="modern"][data-theme] {
     border-radius: calc(var(--r-m) - 1px) calc(var(--r-m) - 1px) 0 0;
   }
   &[data-skin="rack"] .rw-section-head { padding-left: var(--sp-3); padding-right: var(--sp-2); }
-  & .rw-section-head .rw-chev { color: var(--t-dim); font-size: 10px; transition: color var(--t-fast) linear; }
-  & .rw-section-head:hover .rw-chev { color: var(--a); }
-  & .rw-section-body { padding: var(--sp-2) var(--sp-3) var(--sp-3); background: transparent; }
+  /* The section caret is the same control as a group's (panel.css `.rw-chev`): left of the title. */
+  & .rw-section-body { padding: var(--sp-3); background: transparent; }   /* equal on all sides: content sits centred in its card */
+  & .rw-group:is(.rw-group--collapsed) { padding-bottom: 0; }   /* the full-bleed head is the whole collapsed card */
+  /* Groups are spaced by their container's gap, never by margins (margins doubled up at the ends). */
+  & :where(.rw-section-body > div):has(> .rw-group) { display: flex; flex-direction: column; gap: var(--sp-2); }
   & .rw-group {
-    margin: var(--sp-2) 0;
+    margin: 0;
     padding: var(--sp-2) var(--sp-3);
     border: none;
     border-radius: var(--r-s);

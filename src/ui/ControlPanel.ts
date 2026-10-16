@@ -329,9 +329,9 @@ export class ControlPanel {
     head.className = 'rw-section-head';
     const titleSpan = document.createElement('span');
     titleSpan.textContent = section.title;
-    const chev = document.createElement('span');
+    // An <i>, not a <span>: lookups find a section's title as its head's first <span>.
+    const chev = document.createElement('i');
     chev.className = 'rw-chev';
-    chev.textContent = '▾';
     // ⓘ — opens this section's reference (keys gathered at click time,
     // so controls added after construction are included).
     const info = infoButton(() => {
@@ -339,7 +339,8 @@ export class ControlPanel {
       const c = sectionInfo(section.title, keys);
       return keys.length ? { ...c, flow: paramsFlow(flowStateOf(this.settings), section.title, keys) } : c;
     }, `About ${section.title}`);
-    head.append(titleSpan, info, chev);
+    titleSpan.style.flex = '1 1 auto';
+    head.append(chev, titleSpan, info);   // caret first: parents and children share one disclosure pattern
     const hint = SECTION_HINTS[section.title];
     if (hint) attachTooltip(head, hint);
 
