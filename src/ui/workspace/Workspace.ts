@@ -538,6 +538,20 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     return null;
   }
 
+  /** An occupied, visible window whose BODY is under the pointer (a tab dropped anywhere on a
+   *  window joins its tab strip — the natural target, not only the thin strip itself). */
+  function windowBodyAt(x: number, y: number, state: TabsState): WindowId | null {
+    // The center window sits beneath the side windows and the dock in z-order, so test it last.
+    const order: WindowId[] = ['right', 'left', 'bottom', 'center'];
+    for (const id of order) {
+      const w = windows.get(id);
+      if (!w || state.tabs[id].length === 0) continue;
+      const r = w.shell.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id;
+    }
+    return null;
+  }
+
   /** Insertion index within a strip from the pointer's x position. */
   function stripIndexAt(win: Win, x: number): number {
     const tabs = Array.from(win.strip.querySelectorAll<HTMLElement>('.rw-wtab'));
@@ -556,6 +570,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     let ghost: HTMLElement | null = null;
     let hoverStrip: WindowId | null = null;
     let hoverEmpty: { win: WindowId; dock?: 'top' | 'bottom' } | null = null;
+    let hoverBody: WindowId | null = null;
     let dropX = startX;
     let edgeMark: HTMLElement | null = null;
 
@@ -609,6 +624,10 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       }
       hoverStrip = stripWindowAt(e.clientX, e.clientY);
       hoverEmpty = hoverStrip ? null : emptyWindowAt(e.clientX, e.clientY, currentState(), from);
+      hoverBody = hoverStrip || hoverEmpty ? null : windowBodyAt(e.clientX, e.clientY, currentState());
+      // Dropping a window's only tab back onto itself changes nothing: don't advertise it.
+      if (hoverBody === from && currentState().tabs[from].length === 1) hoverBody = null;
+      for (const w of windows.values()) w.shell.classList.toggle('rw-drop-target', w.id === hoverBody);
       for (const w of windows.values()) {
         w.bar.classList.toggle('rw-strip-hover', w.id === hoverStrip);
       }
@@ -634,7 +653,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       document.removeEventListener('pointercancel', onCancel);
       ghost?.remove();
       document.body.classList.remove('rw-region-dragging');
-      for (const w of windows.values()) w.bar.classList.remove('rw-strip-hover');
+      for (const w of windows.values()) { w.bar.classList.remove('rw-strip-hover'); w.shell.classList.remove('rw-drop-target'); }
       setEmptyReveal(null);
       edgeMark?.remove();
       setCaret(null, 0);
@@ -645,7 +664,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
         refresh();
         return;
       }
-      const target = hoverStrip ?? hoverEmpty?.win ?? null;
+      const target = hoverStrip ?? hoverEmpty?.win ?? hoverBody ?? null;
       if (target) {
         const win = windows.get(target);
         const index = hoverStrip && win ? stripIndexAt(win, dropX) : undefined;

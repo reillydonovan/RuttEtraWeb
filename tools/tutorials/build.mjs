@@ -281,7 +281,8 @@ async function record(lesson) {
       if (left > 0) await page.waitForTimeout(left);
     };
     await page.waitForTimeout(LEAD_MS);
-    await tour.run(page, seg, h);
+    try { await tour.run(page, seg, h); }
+    catch (e) { await page.screenshot({ path: path.join(HERE, "out", `fail-${lesson.id}.png`) }).catch(() => {}); throw e; }
     await page.waitForTimeout(TAIL_MS);
   } catch (e) {
     failure = e;

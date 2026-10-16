@@ -5,7 +5,7 @@ import { findJack } from '../lib/bay.mjs';
 export const lines = [
   { id: 'intro', text: 'The Patch Bay is the whole instrument as one hardware faceplate. Maximize it to see more.' },
   { id: 'anatomy', text: 'Along the top, the Sources bus offers signals: waveforms, audio, beats, MIDI, and more. Every parameter has an input jack, a knob, and an output jack.' },
-  { id: 'srcin', text: 'Cables run from an output to an input. Drag the triangle wave toward the bottom edge, and the board scrolls with you. Drop it on Function Generator one, the same slot as in the Modulation panel.' },
+  { id: 'srcin', text: 'Cables run from an output to an input. Drag the triangle wave down onto Function Generator one, the same slot as in the Modulation panel. Near an edge, the board scrolls with you.' },
   { id: 'out', text: 'Now its output. Grab the output jack, and carry it up to H Size.' },
   { id: 'watch', text: 'Restore the window. The raster now stretches in and out with the triangle wave.' },
   { id: 'move', text: 'Back in the bay, grab a cable by its input end to move it. Drop it on V Size.' },
@@ -36,7 +36,9 @@ export async function run(page, seg, h) {
 
   await seg('srcin', async () => {
     const from = await jack(page, { bus: 'TRI' });
-    await h.dragPan(from, { x: 120, y: 1062 }, findJack, { mod: 'FUNCTION GEN 1', srcin: true, margin: 70 });
+    const to = await page.evaluate(findJack, { mod: 'FUNCTION GEN 1', srcin: true, margin: 40 });
+    if (to) await h.drag(from, to, 55);
+    else await h.dragPan(from, { x: 120, y: 1062 }, findJack, { mod: 'FUNCTION GEN 1', srcin: true, margin: 70 });
     await h.check(() => document.querySelector('[data-mod-slot="0"] select.rw-mod-slot-src')?.value === 'triangle', 'gen 1 source = triangle');
   });
 

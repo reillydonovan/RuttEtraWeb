@@ -51,8 +51,11 @@ export async function run(page, seg, h) {
   await seg('scope', async () => {
     const lfo = await page.evaluate(findModule, 'LFO');
     let spot = null;
-    for (const dx of [260, 320, 380, 440]) {
-      const p = { x: lfo.x + dx, y: lfo.top + 40 };
+    // Beside the LFO, else below it (the generator rail sits against the board's left edge).
+    const cands = [260, 320, 380, 440].map((dx) => ({ x: lfo.x + dx, y: lfo.top + 40 }))
+      .concat([-200, -170].map((dx) => ({ x: lfo.x + dx, y: lfo.top + 40 })))
+      .concat([0, -60, 60].map((dx) => ({ x: lfo.x + dx, y: lfo.bottom + 60 })));
+    for (const p of cands) {
       if (await page.evaluate(isEmpty, [p.x, p.y])) { spot = p; break; }
     }
     if (!spot) throw new Error('no empty board space beside the LFO');

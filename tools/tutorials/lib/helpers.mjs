@@ -99,6 +99,13 @@ export function helpers(page) {
      * silent miss throws here instead of being recorded.
      */
     async drag(from, to, steps = 45) {
+      // Only a drag that starts ON a jack carries a cable (a knob, region box or node header doesn't).
+      const fromJack = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.rw-rack-jack, .rw-pb-proxy'), [from.x, from.y]);
+      if (!fromJack) {
+        await h.glide(from); await page.mouse.down(); await h.wait(160);
+        await page.mouse.move(to.x, to.y, { steps }); await h.wait(220); await page.mouse.up();
+        return;
+      }
       await h.glide(from);
       await page.mouse.down();
       await h.wait(160);

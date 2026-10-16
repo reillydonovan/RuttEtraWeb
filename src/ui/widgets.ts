@@ -86,13 +86,8 @@ export function row(label: string, control: HTMLElement, hint?: string): HTMLEle
   return r;
 }
 
-const GROUP_OPEN_KEY = 'rw-groups-open';
-function readOpenGroups(): Record<string, boolean> {
-  try { return JSON.parse(localStorage.getItem(GROUP_OPEN_KEY) ?? '{}') as Record<string, boolean>; } catch { return {}; }
-}
-function writeOpenGroup(id: string, open: boolean): void {
-  try { const m = readOpenGroups(); m[id] = open; localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(m)); } catch { /* storage unavailable: the choice just isn't remembered */ }
-}
+// Old builds remembered open groups; that state is no longer read (groups always start collapsed).
+try { localStorage.removeItem('rw-groups-open'); } catch { /* no storage */ }
 
 /** Open every collapsed group that contains `el` (search results, tutorials and tours call this
  *  before scrolling to a control, so a collapsed group never hides what they point at). */
@@ -110,17 +105,14 @@ export function group(title: string): { root: HTMLElement; body: HTMLElement } {
   head.textContent = title;
   head.setAttribute('role', 'button');
   head.tabIndex = 0;
-  // Collapsed by default (a section with many groups is a wall otherwise); the choice is
-  // remembered per group title. A group that is the only one in its section never collapses (CSS).
-  const idOf = (): string => title;
-  // `rw-groups-default = open` (set by the video-course recorder) starts every group open.
+  // Every child group starts collapsed on every load (owner: "by default all controls children
+  // should be collapsed"); open state lasts for the session only. `rw-groups-default = open`
+  // (set by the video-course recorder) starts them open instead.
   let defaultOpen = false;
   try { defaultOpen = localStorage.getItem('rw-groups-default') === 'open'; } catch { /* no storage */ }
-  const saved = readOpenGroups()[idOf()];
-  root.classList.toggle('rw-group--collapsed', saved === undefined ? !defaultOpen : !saved);
+  root.classList.toggle('rw-group--collapsed', !defaultOpen);
   const toggle = (): void => {
     const nowCollapsed = !root.classList.contains('rw-group--collapsed');
-    writeOpenGroup(idOf(), !nowCollapsed);
     animateToggle(root,
       () => root.classList.toggle('rw-group--collapsed', nowCollapsed),
       () => root.classList.toggle('rw-group--collapsed', !nowCollapsed),

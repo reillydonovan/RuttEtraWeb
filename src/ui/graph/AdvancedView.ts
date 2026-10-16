@@ -31,7 +31,6 @@ import { createInspector } from './inspector';
 import { createCableLayer, CableAnchorResolver } from './CableLayer';
 import { openProbeOverlay } from './Probe';
 import { attachTooltip, scheduleTooltip, cancelTooltip } from '../tooltip';
-import { rejectReason } from '../rack/patchRules';
 import { infoButton } from '../help/infoModal';
 import { nodeInfo } from '../help/infoContent';
 import '../rack/jackRipple.css';
@@ -570,12 +569,6 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     const el = t as HTMLElement | null;
     return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
   }
-  function pendingKind(): string | null {
-    if (!pending) return null;
-    const n = currentPatch().nodes.find((x) => x.id === pending!.fromNodeId);
-    const def = n ? getDef(n.type) : null;
-    return def?.outputs.find((o) => o.name === pending!.fromPort)?.kind ?? null;
-  }
 
   // ---------- Drag / resize wiring ----------
 
@@ -599,13 +592,9 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
         let why: string | undefined;
         if (nid && nid === pending.fromNodeId) {
           why = "A node can't feed its own input — that would loop back on itself.";
-        } else {
-          const srcKind = pendingKind();
-          const dk = near.dataset.kind;
-          if (srcKind && dk && srcKind !== dk && (srcKind === 'video' || dk === 'video')) {
-            why = rejectReason(srcKind === 'video' ? 'video-out' : 'node-out', dk === 'video' ? 'video-in' : 'node-in');
-          }
         }
+        // Port kinds (audio / video / control) are categories of scalar signals, not types:
+        // any output may feed any input. Only a loop back into the same node is refused.
         void port;
         setHoverDot(near, why);
         const dr = near.getBoundingClientRect();

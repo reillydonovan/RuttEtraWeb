@@ -66,7 +66,10 @@ export async function run(page, seg, h) {
   });
 
   await seg('route', async () => {
-    await h.drag(await jack(page, { mod: 'DUAL RASTER', out: true }), await jack(page, { mod: 'RENDERER', row: 'IN' }), 60);
+    const from = await jack(page, { mod: 'DUAL RASTER', out: true });
+    const to = await page.evaluate(findJack, { mod: 'RENDERER', row: 'IN', margin: 60 });
+    if (to) await h.drag(from, to, 60);
+    else await h.dragPan(from, { x: 1700, y: 1062 }, findJack, { mod: 'RENDERER', row: 'IN', margin: 70 });
   });
 
   await seg('result', async () => {

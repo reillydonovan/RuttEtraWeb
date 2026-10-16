@@ -492,3 +492,7 @@ body .rw-left-resize { top: var(--rw-strip, 22px); bottom: 0; }
 .rw-drop-edge::after { content: 'DOCK HERE'; color: var(--re-accent); font: 11px var(--re-mono); letter-spacing: 0.2em; }
 .rw-drop-edge[data-edge="top"] { top: var(--rw-menubar-h, 0px); }
 .rw-drop-edge[data-edge="bottom"] { bottom: 0; }
+
+/* A tab dragged over a window's body: that window will take it (joins its tab strip). */
+body.rw-region-dragging .rw-drop-target { outline: 2px dashed var(--re-accent); outline-offset: -2px; }
+body.rw-region-dragging .rw-drop-target > .rw-region-bar { background: rgba(95, 255, 133, 0.14); }

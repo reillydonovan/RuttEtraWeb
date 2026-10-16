@@ -36,7 +36,11 @@ export async function run(page, seg, h) {
   await seg('intro', async () => {
     await h.wait(2600);
     await h.glide(await jack(page, { mod: 'VIDEO SOURCE A', out: true }), 30);
+    await page.evaluate(scrollToModule, 'COMPOSITE');
+    await h.settle();
     await h.glide(await jack(page, { mod: 'COMPOSITE', row: 'A' }), 30);
+    await page.evaluate(() => document.querySelector('.rw-patchbay').scrollTo({ top: 0, behavior: 'smooth' }));
+    await h.settle();
   });
 
   await seg('file', async () => {
@@ -51,9 +55,12 @@ export async function run(page, seg, h) {
   });
 
   await seg('pattern', async () => {
-    await page.evaluate(scrollToModule, 'COMPOSITE');
-    await h.wait(1100);
-    await h.drag(await jack(page, { mod: 'PATTERN GENERATOR', out: true }), await jack(page, { mod: 'COMPOSITE', row: 'B' }), 55);
+    await page.evaluate(scrollToModule, 'PATTERN GENERATOR');
+    await h.settle();
+    const from = await jack(page, { mod: 'PATTERN GENERATOR', out: true });
+    const to = await page.evaluate(findJack, { mod: 'COMPOSITE', row: 'B', margin: 60 });
+    if (to) await h.drag(from, to, 55);
+    else await h.dragPan(from, { x: 1700, y: 1062 }, findJack, { mod: 'COMPOSITE', row: 'B', margin: 70 });
     await h.check(() => {
       const m = [...document.querySelectorAll('.rw-pb-module')].find((e) => e.querySelector('.rw-pb-module-head')?.textContent.trim().startsWith('PATTERN GENERATOR'));
       return m?.querySelector('.rw-rack-jack--out')?.classList.contains('rw-rack-jack--plugged');
@@ -65,7 +72,12 @@ export async function run(page, seg, h) {
   });
 
   await seg('renderer', async () => {
-    await h.drag(await jack(page, { mod: 'COMPOSITE', out: true }), await jack(page, { mod: 'RENDERER', row: 'IN' }), 45);
+    await page.evaluate(scrollToModule, 'COMPOSITE');
+    await h.settle();
+    const to = await page.evaluate(findJack, { mod: 'RENDERER', row: 'IN', margin: 60 });
+    const from = await jack(page, { mod: 'COMPOSITE', out: true });
+    if (to) await h.drag(from, to, 45);
+    else await h.dragPan(from, { x: 1700, y: 1062 }, findJack, { mod: 'RENDERER', row: 'IN', margin: 70 });
   });
 
   await seg('result', async () => {
