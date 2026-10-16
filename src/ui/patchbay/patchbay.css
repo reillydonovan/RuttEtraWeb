@@ -718,3 +718,20 @@
   transition: color 120ms, background 120ms;
 }
 .rw-pb-navchip:hover, .rw-pb-navchip:focus-visible { color: var(--a-text, var(--re-accent)); background: var(--a-16, rgba(95, 255, 133, 0.16)); outline: none; }
+
+/* ---------- fold: collapse a node to its header ---------- */
+.rw-pb-unit--collapsed > :not(.rw-pb-unit-handle) { display: none !important; }
+.rw-pb-unit--collapsed { min-height: 0; }
+.rw-pb-fold {
+  flex: none; width: 16px; height: 16px; padding: 0; margin: 0 6px 0 0;
+  background: none; border: none; color: inherit; opacity: 0.75; position: relative;
+  cursor: var(--rw-cur-pointer);
+}
+.rw-pb-fold::before {
+  content: ''; position: absolute; left: 4px; top: 3px; width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.15s ease;
+}
+.rw-pb-unit--collapsed .rw-pb-fold::before { transform: rotate(-45deg); left: 3px; top: 4px; }
+.rw-pb-fold:hover { opacity: 1; color: var(--re-accent); }
+.rw-pb-unit-handle { display: flex; align-items: center; }

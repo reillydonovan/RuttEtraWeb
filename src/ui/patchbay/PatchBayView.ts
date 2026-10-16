@@ -2552,6 +2552,20 @@ export function createPatchBayView(
 
   function makeUnitDraggable(unit: HTMLElement, handle: HTMLElement): void {
     handle.classList.add('rw-pb-unit-handle');
+    // Expand / collapse: a collapsed unit is only its header (cables to its jacks anchor there).
+    const fold = document.createElement('button');
+    fold.type = 'button';
+    fold.className = 'rw-pb-fold';
+    fold.setAttribute('aria-label', 'Collapse or expand');
+    fold.setAttribute('aria-expanded', 'true');
+    fold.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const c = unit.classList.toggle('rw-pb-unit--collapsed');
+      fold.setAttribute('aria-expanded', String(!c));
+    });
+    fold.addEventListener('dblclick', (e) => e.stopPropagation());
+    attachTooltip(fold, () => (unit.classList.contains('rw-pb-unit--collapsed') ? 'Expand this node' : 'Collapse this node to its header'));
+    if (handle.parentElement === unit) handle.prepend(fold);
     handle.addEventListener('pointerdown', (ev) => {
       const t = ev.target as HTMLElement;
       if (t.closest('input, select, button, .rw-rack-jack')) return;
@@ -3474,7 +3488,11 @@ export function createPatchBayView(
     const anchor = (el: HTMLElement | undefined): Pt | null => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
-      return r.width > 0 ? rectCenter(r) : null;
+      if (r.width > 0) return rectCenter(r);
+      // Inside a collapsed unit: the cable lands on its header instead.
+      const head = el.closest('.rw-pb-unit--collapsed')?.querySelector<HTMLElement>(':scope > .rw-pb-unit-handle');
+      const hr = head?.getBoundingClientRect();
+      return hr && hr.width > 0 ? { x: hr.right - 10, y: hr.top + hr.height / 2 } : null;
     };
 
     const slots = settings.get('modSlots');
