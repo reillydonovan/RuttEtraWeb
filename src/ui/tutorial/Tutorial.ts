@@ -18,6 +18,7 @@
  * without dismissing anything.
  */
 
+import { expandGroupsAround } from '../widgets';
 import './tutorial.css';
 
 export interface TutorialStep {
@@ -152,7 +153,9 @@ export function startTutorial(steps: TutorialStep[]): void {
     // Scroll to whatever the step actually points at (a specific param
     // row, if it has one) — not just the section before() expanded,
     // which may be taller than the viewport and center on the wrong part.
-    currentTarget()?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const tgt = currentTarget();
+    expandGroupsAround(tgt);
+    tgt?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     stepLabel.textContent = `STEP ${idx + 1} OF ${steps.length}`;
     title.textContent = step.title;

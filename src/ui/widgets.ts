@@ -85,12 +85,41 @@ export function row(label: string, control: HTMLElement, hint?: string): HTMLEle
   return r;
 }
 
+const GROUP_OPEN_KEY = 'rw-groups-open';
+function readOpenGroups(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(GROUP_OPEN_KEY) ?? '{}') as Record<string, boolean>; } catch { return {}; }
+}
+function writeOpenGroup(id: string, open: boolean): void {
+  try { const m = readOpenGroups(); m[id] = open; localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(m)); } catch { /* storage unavailable: the choice just isn't remembered */ }
+}
+
+/** Open every collapsed group that contains `el` (search results, tutorials and tours call this
+ *  before scrolling to a control, so a collapsed group never hides what they point at). */
+export function expandGroupsAround(el: Element | null): void {
+  for (let g = el?.closest('.rw-group') ?? null; g; g = g.parentElement?.closest('.rw-group') ?? null) {
+    g.classList.remove('rw-group--collapsed');
+  }
+}
+
 export function group(title: string): { root: HTMLElement; body: HTMLElement } {
   const root = document.createElement('div');
   root.className = 'rw-group';
   const head = document.createElement('div');
   head.className = 'rw-group-head';
   head.textContent = title;
+  head.setAttribute('role', 'button');
+  head.tabIndex = 0;
+  // Collapsed by default (a section with many groups is a wall otherwise); the choice is
+  // remembered per group title. A group that is the only one in its section never collapses (CSS).
+  const idOf = (): string => title;
+  root.classList.toggle('rw-group--collapsed', readOpenGroups()[idOf()] !== true);
+  const toggle = (): void => {
+    const nowCollapsed = !root.classList.contains('rw-group--collapsed');
+    root.classList.toggle('rw-group--collapsed', nowCollapsed);
+    writeOpenGroup(idOf(), !nowCollapsed);
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
   const body = document.createElement('div');
   body.className = 'rw-group-body';
   // ⓘ — what this group is for, plus a reference row for every parameter inside

@@ -1983,3 +1983,22 @@ body[data-layout="compact"] .rw-mod-slot-expand { width: 40px; height: 40px; }
   font-size: 18px;
   color: var(--re-phosphor, #66ff66);
 }
+
+/* Collapsible child groups (Unity-style hierarchy): the head is the toggle. */
+.rw-group-head { cursor: var(--rw-cur-pointer); user-select: none; display: flex; align-items: center; gap: 6px; }
+.rw-group-head::before {
+  content: ''; flex: none; width: 8px; height: 8px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px); transition: transform 0.15s ease; opacity: 0.8;
+}
+.rw-group--collapsed > .rw-group-head::before { transform: rotate(-45deg); }
+.rw-group--collapsed > .rw-group-body { display: none !important; }
+.rw-group--collapsed > .rw-group-head { margin-bottom: 0; }
+.rw-group-head:hover { color: var(--re-accent); }
+/* A lone group in its section has nothing to be tidier than: always open, no toggle. */
+.rw-section-body > .rw-group:only-child > .rw-group-body { display: block !important; }
+.rw-section-body > .rw-group:only-child > .rw-group-head::before { display: none; }
+.rw-section-body > .rw-group:only-child > .rw-group-head { cursor: default; }
+/* Phone sheets: always expanded (the sheet is already one section at a time). */
+body[data-layout="compact"] .rw-group--collapsed > .rw-group-body { display: block !important; }
+body[data-layout="compact"] .rw-group-head::before { display: none; }

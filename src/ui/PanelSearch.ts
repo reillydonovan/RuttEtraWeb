@@ -15,6 +15,7 @@
  * and blurs. Purely additive — no section markup changes.
  */
 
+import { expandGroupsAround } from './widgets';
 import { SettingsStore } from '../state/Settings';
 import type { TabId } from './ControlPanel';
 
@@ -67,6 +68,7 @@ export function createPanelSearch(
         const hint = r.querySelector('.rw-hint')?.textContent ?? '';
         const hit = `${label} ${hint}`.toLowerCase().includes(q);
         r.classList.toggle('rw-row--hit', hit);
+        if (hit) expandGroupsAround(r);
         sectionHasHit = sectionHasHit || hit;
       }
       for (const r of rows) {
