@@ -249,9 +249,15 @@ export class ControlPanel {
    * pop-out / recomputes them on pop-in via refreshInset().
    */
   private publishInset(width?: number): void {
+    // Only the primary panel (#panel-root, the side window) owns a screen inset. An extra Controls
+    // instance hosted as a tab in another window (the centre, the bay window) must not publish one,
+    // or it pins the timeline dock / renderer at a stale edge after the side window empties.
+    if (this.root.id !== 'panel-root') { window.dispatchEvent(new Event('rw:layout-resize')); return; }
     const style = this.root.ownerDocument.documentElement.style;
+    // Collapsed: the shell is its tab strip (workspace.css `--rw-strip`), so publish what it measures.
+    const stripW = parseFloat(getComputedStyle(this.root.ownerDocument.body).getPropertyValue('--rw-strip')) || 40;
     const w = this.collapsed
-      ? 40
+      ? stripW
       : Math.max(ControlPanel.WIDTH_MIN, Math.min(
           ControlPanel.WIDTH_MAX, width ?? this.settings.get('panelWidth')));
     // Since the v31 tab model the panel shell is one of two side windows;

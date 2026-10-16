@@ -517,16 +517,23 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
   /** For empty (hidden) windows only: which one's dock area is near the
    *  pointer. Proximity-based, one at a time (owner feedback) — occupied
    *  windows are targeted via their visible tab strips instead. */
-  function emptyWindowAt(x: number, y: number, state: TabsState): { win: WindowId; dock?: 'top' | 'bottom' } | null {
+  function emptyWindowAt(x: number, y: number, state: TabsState, from?: WindowId): { win: WindowId; dock?: 'top' | 'bottom' } | null {
     const vw = window.innerWidth, vh = window.innerHeight;
     const empty = (id: WindowId): boolean => state.tabs[id].length === 0;
-    if (empty('left') && x < vw * 0.15) return { win: 'left' };
-    if (empty('right') && x > vw * 0.85) return { win: 'right' };
+    // Screen sides, not window ids: with the default mirrored layout (panelDock 'left') the 'right'
+    // window (Controls) sits on the LEFT edge and the 'left' window (Patch Bay) on the RIGHT.
+    const onLeft: WindowId = mirrored() ? 'right' : 'left';
+    const onRight: WindowId = mirrored() ? 'left' : 'right';
+    if (empty(onLeft) && x < vw * 0.15) return { win: onLeft };
+    if (empty(onRight) && x > vw * 0.85) return { win: onRight };
     // The bottom WINDOW answers both horizontal edges: drop at the
     // bottom of the screen → docked bottom; at the top (below the menu
     // bar) → docked top. Same proximity pattern as the side windows.
-    if (empty('bottom') && y > vh * 0.78) return { win: 'bottom', dock: 'bottom' };
-    if (empty('bottom') && y < vh * 0.22 && y > 30) return { win: 'bottom', dock: 'top' };
+    // ...and its own single tab dragged to the other edge re-docks it there (top ↔ bottom).
+    const bottomFree = empty('bottom') || (from === 'bottom' && state.tabs.bottom.length === 1);
+    const dock = settings.get('timelineDock');
+    if (bottomFree && y > vh * 0.78 && (empty('bottom') || dock !== 'bottom')) return { win: 'bottom', dock: 'bottom' };
+    if (bottomFree && y < vh * 0.22 && y > 30 && (empty('bottom') || dock !== 'top')) return { win: 'bottom', dock: 'top' };
     if (empty('center') && x > vw * 0.3 && x < vw * 0.7 && y > vh * 0.3 && y < vh * 0.7) return { win: 'center' };
     return null;
   }
@@ -550,6 +557,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
     let hoverStrip: WindowId | null = null;
     let hoverEmpty: { win: WindowId; dock?: 'top' | 'bottom' } | null = null;
     let dropX = startX;
+    let edgeMark: HTMLElement | null = null;
 
     const start = (): void => {
       started = true;
@@ -600,11 +608,19 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
         ghost.style.top = `${e.clientY + 12}px`;
       }
       hoverStrip = stripWindowAt(e.clientX, e.clientY);
-      hoverEmpty = hoverStrip ? null : emptyWindowAt(e.clientX, e.clientY, currentState());
+      hoverEmpty = hoverStrip ? null : emptyWindowAt(e.clientX, e.clientY, currentState(), from);
       for (const w of windows.values()) {
         w.bar.classList.toggle('rw-strip-hover', w.id === hoverStrip);
       }
       setEmptyReveal(hoverEmpty?.win ?? null);
+      // An occupied bottom window being re-docked (its own tab dragged to the other edge) has no
+      // empty shell to reveal: show where it will land with an edge marker instead.
+      const redock = hoverEmpty?.win === 'bottom' && hoverEmpty.dock && currentState().tabs.bottom.length > 0 ? hoverEmpty.dock : null;
+      if (redock) {
+        edgeMark ??= Object.assign(document.createElement('div'), { className: 'rw-drop-edge' });
+        if (!edgeMark.isConnected) document.body.appendChild(edgeMark);
+        edgeMark.dataset.edge = redock;
+      } else edgeMark?.remove();
       // Preview the dock edge on the revealed bottom window.
       if (hoverEmpty?.win === 'bottom' && hoverEmpty.dock && settings.get('timelineDock') !== hoverEmpty.dock) {
         // visual only — the shell repositions via its data-dock CSS on drop
@@ -620,6 +636,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
       document.body.classList.remove('rw-region-dragging');
       for (const w of windows.values()) w.bar.classList.remove('rw-strip-hover');
       setEmptyReveal(null);
+      edgeMark?.remove();
       setCaret(null, 0);
       if (!apply) { window.dispatchEvent(new Event('rw:layout-resize')); return; }
       if (!started) {

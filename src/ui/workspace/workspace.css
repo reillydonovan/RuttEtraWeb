@@ -480,3 +480,15 @@ body :is(.rw-panel-resize, .rw-left-resize, .rw-tl-height-resize):is(:hover, .ac
    over the tabs); the grip is centred on what remains. */
 body .rw-panel-resize,
 body .rw-left-resize { top: var(--rw-strip, 22px); bottom: 0; }
+
+/* Re-docking the timeline (its own tab dragged to the other edge): where it will land. */
+.rw-drop-edge {
+  position: fixed; left: var(--rw-panel-inset-left, 0px); right: var(--rw-panel-inset-right, 0px);
+  height: 160px; z-index: 60; pointer-events: none;
+  background: rgba(95, 255, 133, 0.08); outline: 1px dashed var(--re-accent);
+  box-shadow: inset 0 0 30px rgba(95, 255, 133, 0.15);
+  display: flex; align-items: center; justify-content: center;
+}
+.rw-drop-edge::after { content: 'DOCK HERE'; color: var(--re-accent); font: 11px var(--re-mono); letter-spacing: 0.2em; }
+.rw-drop-edge[data-edge="top"] { top: var(--rw-menubar-h, 0px); }
+.rw-drop-edge[data-edge="bottom"] { bottom: 0; }
