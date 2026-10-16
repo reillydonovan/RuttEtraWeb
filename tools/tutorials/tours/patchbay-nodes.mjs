@@ -63,6 +63,15 @@ export async function run(page, seg, h) {
     await h.wait(700);
     await h.click('.rw-pb-addnode-menu .rw-graph-palette-item', 'Scope', { exact: true, steps: 25 });
     await h.wait(700);
+    // The new node lands in the nearest free spot: bring it (and the LFO above it) into view.
+    await page.evaluate(() => {
+      const bay = document.querySelector('.rw-patchbay');
+      const mod = [...document.querySelectorAll('.rw-pb-graphnode')].pop();
+      const r = mod.getBoundingClientRect(), b = bay.getBoundingClientRect();
+      const dy = r.bottom - (b.bottom - 80);
+      if (dy > 0) bay.scrollBy({ top: dy, behavior: 'smooth' });
+    });
+    await h.settle();
   });
 
   await seg('wire', async () => {

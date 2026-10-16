@@ -37,10 +37,11 @@ export const lines = [
   { id: 'cold', text: 'In 1973, a small company in New York built a machine that could bend television.' },
   { id: 'name', text: 'It was called the Rutt Etra Scan Processor. It did not filter a picture. It reached inside the tube, and steered the beam.' },
   { id: 'height', text: 'Brighter became higher. Darker became lower. A flat image turned into a landscape, drawn in light.' },
+  { id: 'color', text: "Feed it real video, and the beam carries the picture's own colour. Every line is painted by the source." },
   { id: 'few', text: 'Only about seventeen to twenty-one were ever built, and the tube inside each one burned out. When the hardware goes, the practice goes with it.' },
   { id: 'rebuilt', text: 'So it was rebuilt, from its own documentation. An AI was pointed at the archive: the brochure, the manual, the panel diagram. It read all of it, wrote a specification, and built the instrument against it. A person directed every decision.' },
   { id: 'web', text: 'It runs in a browser. Nothing to install. No waiting list. One link.' },
-  { id: 'bay', text: 'The whole machine is laid out as a faceplate you can patch.' },
+  { id: 'bay', text: 'The whole machine is laid out as a faceplate you can patch, and every module folds down to just its sockets.' },
   { id: 'patch', text: 'Drag a cable from an oscillator into depth, and the picture breathes.' },
   { id: 'inputs', text: 'Audio, MIDI, gamepads, control voltage. Anything that moves can move the picture.' },
   { id: 'push', text: 'And then you push it. Two oscillators on the linearity, and the amount turned up. The raster pinches, folds, and flips over itself.' },
@@ -163,6 +164,20 @@ export async function run(page, seg, h) {
     await h.drag({ x: 1000, y: 600 }, { x: 760, y: 480 }, 100);
   });
 
+  // 3b — the colour channel: real video, coloured by its own pixels.
+  await seg('color', async () => {
+    if (!HAS_FACE) {
+      const chooser = page.waitForEvent('filechooser');
+      await page.evaluate(() => document.getElementById('boot-file-input')?.click());
+      await (await chooser).setFiles(h.fixtures.clip);
+      await h.wait(1200);
+    }
+    await quiet.select(page, 'colorMode', 'video');
+    await quiet.ramp(page, h, 'zPush', 1.6, 1200);
+    await caption(page, 'colour from the source', 'every scan line painted by the video', 4200);
+    await h.drag({ x: 760, y: 480 }, { x: 1020, y: 520 }, 150);
+  });
+
   await seg('few', async () => {
     await quiet.select(page, 'colorMode', 'phosphorAmber');
     await caption(page, 'Rutt/Etra · built', 'about seventeen to twenty-one', 4200);
@@ -188,6 +203,15 @@ export async function run(page, seg, h) {
     for (const b of ['SINE', 'SAW', 'AUDIO ENV', 'BEAT', 'MIDI CC']) {
       const j = await page.evaluate(findJack, { bus: b });
       if (j) { await h.glide(j, 12); await h.wait(160); }
+    }
+    // Fold two modules down to their sockets (spring motion, Blender-style collapsed nodes).
+    for (const title of ['POSITION & SIZE', 'BEAM']) {
+      const fold = await page.evaluate((t) => {
+        const hd = [...document.querySelectorAll('.rw-patchbay .rw-pb-unit-handle')].find((x) => x.textContent.trim().toUpperCase().startsWith(t));
+        const b = hd?.querySelector('.rw-pb-fold')?.getBoundingClientRect();
+        return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
+      }, title);
+      if (fold) { await h.click(fold, null, { steps: 14, pause: 140 }); await h.wait(700); }
     }
   });
 
