@@ -25,7 +25,7 @@
 /* Controls GROUP (a headed block inside a section): the ⓘ floats at the
    head's right edge, outside the head so its text stays exactly the title. */
 .rw-group { position: relative; }
-.rw-group > .rw-group-info { position: absolute; top: 6px; right: 8px; margin: 0; }
+.rw-group > .rw-group-info { position: absolute; top: 8px; right: 8px; margin: 0; }
 /* Controls section head: ⓘ sits just left of the chevron. */
 .rw-section-head .rw-info-btn { margin-right: 8px; }
 /* Patch Bay: field titles become a row so the ⓘ can sit at the right. */

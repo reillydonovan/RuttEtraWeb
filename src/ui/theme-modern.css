@@ -721,7 +721,9 @@ html body[data-theme="modern"][data-theme] {
     &:not(.rw-group--collapsed) { box-shadow: inset 2px 0 0 var(--a-55); }
     &:not(.rw-group--collapsed):hover { box-shadow: inset 2px 0 0 var(--a); }
     &:focus-within { box-shadow: inset 2px 0 0 var(--a), 0 0 0 1px var(--a-30); }
-    & > .rw-group-head { border-radius: var(--r-s); transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+    /* The head is full-bleed inside the group (negative margins cancel the group's padding), so its
+       hover wash and press fill the whole card edge to edge, never a small box inside it. */
+    & > .rw-group-head { margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0; padding: var(--sp-2) calc(var(--sp-3) + 28px) var(--sp-2) var(--sp-3); min-height: 36px; box-sizing: border-box; border-radius: var(--r-s); transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
     & > .rw-group-head:hover { color: var(--a); background: var(--a-08); }
     & > .rw-group-head:active { background: var(--a-16); }
   }

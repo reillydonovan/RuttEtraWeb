@@ -2024,3 +2024,6 @@ body[data-layout="compact"] .rw-group-head::before { display: none; }
 .rw-patch-toggle.active { color: var(--re-accent); border-color: var(--re-accent); }
 .rw-patch-remove[hidden] { display: none; }
 .rw-inline-group > span:not(:first-child) { align-self: center; }
+/* Classic: the group head spans the whole card so hover fills it edge to edge. */
+.rw-group > .rw-group-head { margin: -6px -8px 0; padding: 6px 36px 6px 8px; }
+.rw-group:not(.rw-group--collapsed) > .rw-group-head { margin-bottom: 4px; }
