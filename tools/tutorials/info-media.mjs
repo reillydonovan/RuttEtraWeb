@@ -254,5 +254,123 @@ async function clips() {
   await browser.close();
 }
 
+// ------------------------------------------------------------------ timeline + manual
+// The Timeline ⓘ (key timeline.overview): a real score — a Z Push lane with three points and two
+// scenes — as a screenshot of the dock, plus a clip of it playing (picture + dock). Also a shot of
+// the Help tab's Manual section (key section.manual), which `shots` skips.
+async function timeline() {
+  const browser = await chromium.launch(LAUNCH);
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
+  const { page, h, errors } = await openApp(ctx);
+  page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('Score') : d.accept()));
+  // Same as the course recorder: child groups open, so rows are reachable.
+  await page.evaluate(() => localStorage.setItem('rw-groups-default', 'open'));
+  await page.reload();
+  await page.waitForSelector('#rw-splash', { state: 'detached', timeout: 60000 });
+  await page.waitForTimeout(500);
+  await page.click('#boot-pattern');
+  await page.waitForTimeout(1500);
+  const rulerAt = (bar) => page.evaluate((n) => {
+    const r = document.querySelector('#timeline-dock .rw-tl-ruler').getBoundingClientRect();
+    return { x: r.x + n * 60 + 1, y: r.y + r.height / 2 };
+  }, bar);
+  const trackAt = (bar) => page.evaluate((n) => {
+    const r = document.querySelector('#timeline-dock .rw-tl-ruler').getBoundingClientRect();
+    const t = document.querySelector('#timeline-dock .rw-tl-track').getBoundingClientRect();
+    return { x: r.x + n * 60, y: t.y + t.height / 2 };
+  }, bar);
+  const knob = async (dy) => h.knob(await h.at('#panel-root [data-param-key="zPush"] .rw-knob'), dy, 30);
+
+  // Manual section (Help tab).
+  await page.click('#panel-root .rw-tab[data-tab="help"]');
+  await page.waitForTimeout(500);
+  const man = page.locator('#panel-root .rw-section').filter({ has: page.locator(':scope > .rw-section-head > span:text-is("Manual")') }).first();
+  const mb = await man.boundingBox();
+  if (mb) {
+    const png = path.join(OUT, `shot-${fileSafe(keys.section('Manual'))}.png`);
+    await page.screenshot({ path: png, clip: { x: mb.x, y: mb.y, width: mb.width, height: Math.min(mb.height, 760) } });
+    note(keys.section('Manual'), { shot: toWebp(png, png.replace(/\.png$/, '.webp')), shotCaption: 'The Manual, in the Help tab of Controls' });
+  }
+
+  // Build the score.
+  await page.click('#panel-root .rw-tab[data-tab="synth"]');
+  await page.click('#timeline-dock [data-tl="new"]');
+  await page.waitForTimeout(800);
+  await h.section('Display Control Unit');
+  await h.reveal('#panel-root [data-param-key="zPush"]', null, 'center');
+  await page.mouse.dblclick(...Object.values(await trackAt(0.25)));                 // scene 1
+  await page.mouse.click(...Object.values(await rulerAt(1)));
+  await h.reveal('#panel-root [data-param-key="zPush"]', null, 'center');
+  await h.click('#panel-root [data-param-key="zPush"] > .rw-kf-diamond');
+  await page.mouse.click(...Object.values(await rulerAt(3)));
+  await knob(-70);
+  await page.mouse.click(...Object.values(await rulerAt(5)));
+  await knob(50);
+  await h.section('Presets');
+  await page.evaluate(() => [...document.querySelectorAll('#panel-root .rw-preset-chip')].find((c) => c.textContent.trim() === 'Amber Terminal')?.click());
+  await page.waitForTimeout(500);
+  await page.mouse.dblclick(...Object.values(await trackAt(5.4)));                  // scene 2
+  await page.mouse.click(...Object.values(await rulerAt(4)));
+  await page.mouse.move(980, 400);
+  await page.waitForTimeout(700);
+  const counts = await page.evaluate(() => ({ scenes: document.querySelectorAll('.rw-tl-kf').length, pts: document.querySelectorAll('.rw-tl-lane-pt').length }));
+  console.log('[timeline] score', counts);
+  // Make it readable: a taller dock, the lane unfolded, bars 0–7 filling the width.
+  const grip = await page.locator('#timeline-dock .rw-tl-height-resize').first().boundingBox();
+  if (grip) {
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y - 200, { steps: 12 });
+    await page.mouse.up();
+  }
+  await page.evaluate(() => { const r = document.querySelector('.rw-tl-lane-row'); if (r && !r.classList.contains('expanded')) r.querySelector('.rw-tl-lane-expand')?.click(); });
+  await page.waitForTimeout(400);
+  const barPx = () => page.evaluate(() => { const p = [...document.querySelectorAll('.rw-tl-lane-pt')].map((e) => e.getBoundingClientRect().x).sort((x, y) => x - y); return (p[2] - p[0]) / 4; });
+  const target = await page.evaluate(() => { const c = document.querySelector('#rw-center-shell').getBoundingClientRect(); const r = document.querySelector('#timeline-dock .rw-tl-ruler').getBoundingClientRect(); return (c.right - r.left - 24) / 7.4; });
+  const over = await page.locator('#timeline-dock .rw-tl-track').first().boundingBox();
+  await page.mouse.move(over.x + 40, over.y + over.height / 2);
+  for (let i = 0; i < 40 && (await barPx()) < target; i++) {
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -60); await page.keyboard.up('Control');
+    await page.waitForTimeout(60);
+  }
+  await page.evaluate(() => { const s = document.querySelector('#timeline-dock .rw-tl-scroller'); if (s) s.scrollLeft = 0; });
+  await page.mouse.move(980, 300);
+  await page.waitForTimeout(500);
+  console.log('[timeline] px/bar', Math.round(await barPx()), 'target', Math.round(target));
+  const crop = await page.evaluate(() => {
+    const c = document.querySelector('#rw-center-shell').getBoundingClientRect();
+    const d = document.querySelector('#timeline-dock').getBoundingClientRect();
+    return { x: Math.round(c.left), cTop: Math.round(c.top), top: Math.round(d.top), w: Math.round(c.width) & ~1, bottom: Math.round(d.bottom) };
+  });
+  const png = path.join(OUT, 'shot-timeline.overview.png');
+  await page.screenshot({ path: png, clip: { x: crop.x, y: crop.top, width: crop.w, height: crop.bottom - crop.top } });
+  note('timeline.overview', { shot: toWebp(png, png.replace(/\.png$/, '.webp')), shotCaption: 'A score: two scenes on the SCENES track, a Z Push lane with three points' });
+
+  // Clip: play it, picture + dock.
+  const dir = path.join(WORK, 'timeline');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  // Same columns as the shot, plus the picture above the dock.
+  const area = { x: crop.x, y: crop.cTop & ~1, w: crop.w, hgt: (crop.bottom - crop.cTop) & ~1 };
+  await page.click('#timeline-dock [data-tl="stop"]');
+  const cap = await startScreencast(ctx, page, dir, { width: 1920, height: 1080 });
+  const t0 = Date.now();
+  await page.click('#timeline-dock [data-tl="play"]');
+  await page.mouse.move(980, 400);
+  await h.wait(12500);
+  const list = await cap.finish(t0, Date.now());
+  const mp4 = path.join(OUT, 'clip-timeline.overview.mp4');
+  execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list,
+    '-vf', `fps=30,crop=iw*${area.w / 1920}:ih*${area.hgt / 1080}:iw*${area.x / 1920}:ih*${area.y / 1080},scale=800:-2:flags=lanczos:in_range=pc:out_range=tv,format=yuv420p`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '26',
+    '-an', '-movflags', '+faststart', mp4]);
+  fs.rmSync(dir, { recursive: true, force: true });
+  note('timeline.overview', { clip: path.basename(mp4), caption: 'Playing it: the lane moves Z Push while the picture blends from scene 1 to scene 2' });
+  save();
+  console.log(`[timeline] clip ${(fs.statSync(mp4).size / 1024).toFixed(0)} KB${errors.length ? `, page errors: ${errors.slice(0, 3).join(' | ')}` : ''}`);
+  await page.evaluate(() => localStorage.removeItem('rw-groups-default'));
+  await browser.close();
+}
+
 if (MODE === 'shots' || MODE === 'all') await shots();
 if (MODE === 'clips' || MODE === 'all') await clips();
+if (MODE === 'timeline' || MODE === 'all') await timeline();

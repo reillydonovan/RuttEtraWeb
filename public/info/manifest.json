@@ -438,5 +438,15 @@
  "group.sonification.mapping": {
   "shot": "shot-group.sonification.mapping.webp",
   "shotCaption": "Mapping — Sonification section"
+ },
+ "section.manual": {
+  "shot": "shot-section.manual.webp",
+  "shotCaption": "The Manual, in the Help tab of Controls"
+ },
+ "timeline.overview": {
+  "shot": "shot-timeline.overview.webp",
+  "shotCaption": "A score: two scenes on the SCENES track, a Z Push lane with three points",
+  "clip": "clip-timeline.overview.mp4",
+  "caption": "Playing it: the lane moves Z Push while the picture blends from scene 1 to scene 2"
  }
 }

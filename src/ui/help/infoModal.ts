@@ -153,6 +153,8 @@ async function attachMedia(doc: Document, body: HTMLElement, card: HTMLElement, 
     const i = doc.createElement('img');
     i.src = m.shot; i.alt = m.shotCaption ?? 'The controls'; i.decoding = 'async';
     i.addEventListener('error', () => i.closest('.rw-info-media-cell')?.remove());
+    // A wide strip (e.g. the timeline dock) is unreadable at half width: stack it full width.
+    i.addEventListener('load', () => { if (i.naturalWidth > 2.2 * i.naturalHeight) fig.classList.remove('two'); });
     add(i, m.shotCaption);
   }
   card.classList.add('has-media');
