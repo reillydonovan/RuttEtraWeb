@@ -800,8 +800,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
 }
 .rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { display: block; }
-.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary + .rw-info-btn { margin-left: 6px; }
-.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary ~ .rw-info-btn { margin-left: 6px; }
 
 /* Collapsed node: a compact card — header only, no divider line, sockets as labelled rows. */
 .rw-pb-unit--collapsed > .rw-pb-unit-handle { border-bottom-color: transparent; margin-bottom: 0; padding-bottom: 0; }
@@ -852,3 +850,11 @@
 .rw-pb-ports[data-many] .rw-pb-port { min-height: 12px; }
 .rw-pb-ports[data-many] .rw-pb-proxy { width: 9px; height: 9px; border-width: 1.5px; }
 .rw-pb-ports[data-many] .rw-pb-port-label { font-size: 9.5px; line-height: 12px; }
+/* A collapsed node has one compact width everywhere (the rail node's), not its column's; its
+   summary sits on a second line under the title so neither is squeezed. */
+.rw-pb-unit--collapsed { width: 232px; align-self: flex-start; }
+.rw-pb-unit--collapsed > .rw-pb-unit-handle { flex-wrap: wrap; row-gap: 2px; }
+.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { order: 9; flex-basis: 100%; max-width: none; text-align: left; margin: 0 0 4px 24px; }
+.rw-pb-rail > .rw-pb-unit--collapsed { max-width: 100%; }
+
+.rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-info-btn { margin-left: auto; }

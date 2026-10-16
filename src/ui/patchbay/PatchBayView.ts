@@ -2683,10 +2683,15 @@ export function createPatchBayView(
       const closing = !unit.classList.contains('rw-pb-unit--collapsed');
       fold.setAttribute('aria-expanded', String(!closing));
       if (closing) buildPorts(unit);
-      animateToggle(unit,
-        () => unit.classList.toggle('rw-pb-unit--collapsed', closing),
-        () => unit.classList.toggle('rw-pb-unit--collapsed', !closing),
-        { caret: '--caret', fromDeg: closing ? 0 : -90, toDeg: closing ? -90 : 0 });
+      // A collapsed node is only as wide as its rows (CSS: fit-content, 200–300px); its open width
+      // (a free-layout node carries one inline) is kept and restored when it opens again.
+      if (closing) unit.dataset.openWidth = unit.style.width;
+      const setState = (collapsed: boolean): void => {
+        unit.classList.toggle('rw-pb-unit--collapsed', collapsed);
+        unit.style.width = collapsed ? '' : (unit.dataset.openWidth ?? '');
+      };
+      animateToggle(unit, () => setState(closing), () => setState(!closing),
+        { caret: '--caret', fromDeg: closing ? 0 : -90, toDeg: closing ? -90 : 0, width: true });
     });
     fold.addEventListener('dblclick', (e) => e.stopPropagation());
     attachTooltip(fold, () => (unit.classList.contains('rw-pb-unit--collapsed') ? 'Expand this node' : 'Collapse this node to its header'));

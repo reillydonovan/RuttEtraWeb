@@ -61,7 +61,7 @@ export function animateToggle(
   host: HTMLElement,
   mutate: () => void,
   undo: () => void,
-  opts: { caret?: string; fromDeg?: number; toDeg?: number; onDone?: () => void } = {},
+  opts: { caret?: string; fromDeg?: number; toDeg?: number; onDone?: () => void; width?: boolean } = {},
 ): void {
   const prev = running.get(host);
   const liveH = host.offsetHeight;
@@ -69,10 +69,13 @@ export function animateToggle(
   prev?.cancel();
 
   const startH = liveH;
+  const startW = host.offsetWidth;
   host.style.height = '';
   host.style.overflow = '';
   mutate();
   const endH = host.offsetHeight;
+  const endW = host.offsetWidth;
+  const endWidthStyle = host.style.width;   // what the new state wants once the motion is over
 
   if (reduced() || Math.abs(endH - startH) < 2 || !host.isConnected) {
     opts.onDone?.();
@@ -85,6 +88,10 @@ export function animateToggle(
   host.style.height = `${startH}px`;
   host.classList.add('rw-animating');
   const hs: Spring = { x: startH, v: carryV, target: endH, cfg: HEIGHT_SPRING };
+  // Width (opt-in): the same critically damped spring, so a node narrows as it closes.
+  const doW = !!opts.width && Math.abs(endW - startW) > 2;
+  const ws: Spring = { x: startW, v: 0, target: endW, cfg: HEIGHT_SPRING };
+  if (doW) host.style.width = `${startW}px`;
   // Content fade / settle: 0 → 1 when growing, 1 → 0 when shrinking.
   const growing = endH > startH;
   const fs: Spring = { x: growing ? 0 : 1, v: 0, target: growing ? 1 : 0, cfg: SETTLE_SPRING };
@@ -101,6 +108,7 @@ export function animateToggle(
   const finish = (): void => {
     alive = false;
     if (shrinking) mutate();
+    if (doW) host.style.width = endWidthStyle;
     host.style.height = '';
     host.style.overflow = '';
     host.style.removeProperty('--rw-mo-fade');
@@ -115,12 +123,13 @@ export function animateToggle(
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     step(hs, dt); step(fs, dt);
+    if (doW) { step(ws, dt); host.style.width = `${Math.max(0, ws.x)}px`; }
     if (hasCaret) step(cs, dt);
     entry.heightV = hs.v;
     host.style.height = `${Math.max(0, hs.x)}px`;
     host.style.setProperty('--rw-mo-fade', String(Math.min(1, Math.max(0, fs.x))));
     if (hasCaret) host.style.setProperty(opts.caret!, `${cs.x}deg`);
-    if (settled(hs, 0.4) && settled(fs, 0.01) && (!hasCaret || settled(cs, 0.2))) { finish(); return; }
+    if (settled(hs, 0.4) && settled(fs, 0.01) && (!hasCaret || settled(cs, 0.2)) && (!doW || settled(ws, 0.4))) { finish(); return; }
     raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);
