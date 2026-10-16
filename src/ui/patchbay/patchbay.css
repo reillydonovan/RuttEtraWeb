@@ -829,3 +829,9 @@
 /* Narrow rail nodes: the collapsed summary drops under the title instead of squeezing it. */
 .rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle { flex-wrap: wrap; row-gap: 2px; }
 .rw-pb-rail > .rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-pb-summary { order: 9; flex-basis: 100%; max-width: none; text-align: left; margin: 0 0 4px 24px; }
+/* Big groups (more than 6 sockets) collapse to a compact strip of dots: every input on the left,
+   every output on the right, patched ones lit. Hover a dot for its name. */
+.rw-pb-ports[data-many] .rw-pb-ports-col { flex-direction: row; flex-wrap: wrap; gap: 5px; max-width: 48%; }
+.rw-pb-ports[data-many] .rw-pb-ports-out { justify-content: flex-end; }
+.rw-pb-ports[data-many] .rw-pb-port-label { display: none; }
+.rw-pb-ports[data-many] .rw-pb-port { min-height: 0; }

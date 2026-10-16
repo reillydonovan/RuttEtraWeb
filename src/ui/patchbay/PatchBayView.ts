@@ -2594,6 +2594,7 @@ export function createPatchBayView(
     const outCol = document.createElement('div');
     outCol.className = 'rw-pb-ports-col rw-pb-ports-out';
     const many = jacks.length > 6;
+    if (many) strip.dataset.many = '1';
     // A socket's name: the faceplate cell's label, or the short text beside a module jack (IN, OUT, A, B…).
     const nameOf = (jack: HTMLElement): string => {
       const cell = jack.closest('.rw-pb-cell');
@@ -2646,7 +2647,7 @@ export function createPatchBayView(
       if (plugged) patched++;
       dot.classList.toggle('rw-pb-proxy--plugged', plugged);
       const row = dot.parentElement as HTMLElement | null;
-      if (row) { row.hidden = row.dataset.many === '1' && !plugged; if (!row.hidden) visible++; }
+      if (row) visible++;   // every socket stays visible; big groups draw them as a compact dot strip
     }
     const strip = unit.querySelector<HTMLElement>(':scope > .rw-pb-ports');
     if (strip && strip.hidden !== (visible === 0)) strip.hidden = visible === 0;
