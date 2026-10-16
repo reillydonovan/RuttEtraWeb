@@ -2041,3 +2041,4 @@ body[data-layout="compact"] .rw-group-head::before { display: none; }
 }
 .rw-section-head:active .rw-chev { background-color: var(--a-30, rgba(95,255,133,0.3)); }
 .rw-group--collapsed { padding-bottom: 0; }
+.rw-group > .rw-group-head { min-height: 36px; box-sizing: border-box; padding-left: 12px; }
