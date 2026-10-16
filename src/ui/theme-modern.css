@@ -670,8 +670,9 @@ html body[data-theme="modern"][data-theme] {
     background-size: var(--sel-caret) auto;
   }
   & .rw-skin-select.active { color: var(--t-max); border-color: transparent; box-shadow: none; }
-  /* Hover after .active, or a non-default skin (HW/RACK) never highlights. */
-  & .rw-skin-select:hover { background-color: var(--a-16); color: var(--a); }
+  /* Same hover as every input well (green edge); restated after .active,
+     which would otherwise blank the edge for a non-default skin (HW/RACK). */
+  & .rw-skin-select:hover { border-color: var(--a-30); }
   & .rw-skin-select:focus-visible { outline: none; box-shadow: var(--focus); }
   & .rw-panel-search { padding: 0 var(--sp-3) var(--sp-2); }
   & .rw-panel-search :where(input) { width: 100%; padding: 0 var(--sp-2); }
