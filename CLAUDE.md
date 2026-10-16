@@ -672,3 +672,4 @@ Owner reports after the design pass, each fixed and checked live in Chrome (Play
 - **Child groups always start collapsed** (no remembered state, no lone-group exception).
 - **Graph editor**: port kinds (audio / video / control) are categories of scalar signals, not types — any output may feed any input; only a loop into the same node is refused.
 - **Tutorial harness**: `h.drag` verifies a cable only when the drag starts on a jack; `verifyDrop` re-queries the jack (the graph editor re-renders on connect); `scrollToModule` also scrolls horizontally (the board is four columns wide); failed tours save `out/fail-<id>.png`. All 31 lessons dry-run green, then re-recorded.
+- **Status (2026-10-16)**: v1.34.0 dist and the 31 re-recorded lessons are on the server; the owner is checking every tutorial for correctness. Promo v2 is uploaded but needs a rework (direction to come from the owner).
