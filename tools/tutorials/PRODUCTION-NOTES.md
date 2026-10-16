@@ -3,6 +3,15 @@
 A running log (owner: "when making videos, note problems you encounter and fix them as you go").
 Newest first. Each entry: what went wrong, how it was found, the fix, and where.
 
+## 2026-10-17 — v1.34 re-record (hierarchy, four-column Patch Bay) + promo pass
+
+- Groups now start collapsed in the app, so the recorder sets `rw-groups-default = open` (tours were written with groups open).
+- Graph port dots became real jacks (`rw-rack-jack`): `h.drag` now verifies a cable only when the drag starts on a jack, and `verifyDrop` re-queries the jack because the graph editor re-renders on connect.
+- The Patch Bay is four columns wide, so `scrollToModule` also scrolls sideways; video/raster lessons reach the Renderer with `dragPan`.
+- Found while recording and fixed in the app: the graph editor refused video-kind outputs into control inputs (port kinds are categories, not types); the "Advanced view loading…" note lingered above the editor.
+- Promo: the phone iframe needs ~20+ s to boot under the dev server while the main page records, so it is created hidden early and revealed later (no dead air); app toasts are hidden in the film; new colour-channel beat uses `fixtures/color.mp4` (the conic test clip multiplied by a moving rainbow gradient).
+- Failed tours now save `out/fail-<id>.png`.
+
 ## 2026-10-15/16 — Modern re-record, phone + Patch Bay lessons, Laura voice
 
 **Tours that claimed things the app hadn't done**

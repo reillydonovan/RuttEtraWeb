@@ -1328,7 +1328,9 @@ async function bootSynth(): Promise<void> {
 
   // Boot-time recovery prompt. Defer one frame so the panel finishes
   // mounting before the alert / confirm fires.
-  if (pendingRecovery) {
+  // Only the top-level window asks: an embedded instance (an iframe preview) must not pop a
+  // blocking dialog over its host page, or consume the snapshot the real window should offer.
+  if (pendingRecovery && window.top === window) {
     setTimeout(() => {
       const age = AutoSave.formatAge(pendingRecovery.writtenAt);
       const ok = confirm(

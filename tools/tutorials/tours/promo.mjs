@@ -20,7 +20,10 @@ export const noCursor = true;        // a film, not a tutorial: no painted point
 export const noCard = true;
 export const music = true;           // also writes promo-music.mp4
 // Desktop Chrome would open the OS share dialog from the phone's shutter.
-export const initScripts = ['Object.defineProperty(Navigator.prototype, "canShare", { value: undefined, configurable: true });'];
+// A film, not a session: app toasts ("Pattern layer switched off…") stay in the DOM but off screen
+// (the phone segment still waits on its "Photo saved" toast text).
+const HIDE_TOASTS = `(() => { const add = () => { const st = document.createElement('style'); st.textContent = '#rw-toast-host{visibility:hidden!important}'; document.documentElement.appendChild(st); }; if (document.documentElement) add(); else document.addEventListener('DOMContentLoaded', add); })();`;
+export const initScripts = ['Object.defineProperty(Navigator.prototype, "canShare", { value: undefined, configurable: true });', HIDE_TOASTS];
 
 const FACE = process.env.PROMO_FACE
   ?? path.resolve('..', '..', '..', 'ruttetraweb-presentation', 'media', 'demo', 'face.mp4');
@@ -141,6 +144,25 @@ export async function pre(page, h) {
   await maxCenter(page, h, true);
 }
 
+/** The phone is a second real app instance in an iframe. It takes a while to boot under the dev
+ *  server while the main page renders and is captured, so it is created early, hidden off-screen,
+ *  and only revealed in the phone segment. */
+async function ensurePhone(page) {
+  await page.evaluate(() => {
+    if (document.getElementById('promo-phone')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'promo-phone';
+    Object.assign(wrap.style, { position: 'fixed', left: '-3000px', top: '70px', width: '390px', height: '800px', zIndex: '2147483000', visibility: 'hidden',
+      borderRadius: '46px', border: '10px solid #0b0b0c', boxShadow: '0 30px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.12)', overflow: 'hidden', background: '#000' });
+    const f = document.createElement('iframe');
+    f.src = `${location.origin}${location.pathname}?layout=compact`;
+    f.allow = 'camera; microphone';
+    Object.assign(f.style, { width: '100%', height: '100%', border: '0' });
+    wrap.appendChild(f);
+    document.documentElement.appendChild(wrap);
+  });
+}
+
 export async function run(page, seg, h) {
   // 1 — the title screen, full-bleed, as a first-time visitor sees it.
   await seg('cold', async () => { await h.wait(2200); });
@@ -169,7 +191,7 @@ export async function run(page, seg, h) {
     if (!HAS_FACE) {
       const chooser = page.waitForEvent('filechooser');
       await page.evaluate(() => document.getElementById('boot-file-input')?.click());
-      await (await chooser).setFiles(h.fixtures.clip);
+      await (await chooser).setFiles(path.resolve('fixtures', 'color.mp4'));
       await h.wait(1200);
     }
     await quiet.select(page, 'colorMode', 'video');
@@ -241,6 +263,7 @@ export async function run(page, seg, h) {
 
   // 5 — push it: two LFOs on the linearity, the amount turned up. Real knobs, real panel.
   await seg('push', async () => {
+    await ensurePhone(page);   // boots in the background, revealed in the phone segment
     await h.section('Modulation');
     await h.click('#panel-root .rw-mod-mode-switch button[data-mode="graph"]', null, { steps: 12, pause: 80 });
     await h.wait(500);
@@ -304,22 +327,15 @@ export async function run(page, seg, h) {
   // 8 — the phone: a SECOND, real instance of the app in its phone layout.
   await seg('phone', async () => {
     await mcp.request('set_graph_patch', { patch: null });
-    await page.evaluate(() => {
-      const wrap = document.createElement('div');
-      wrap.id = 'promo-phone';
-      Object.assign(wrap.style, { position: 'fixed', right: '90px', top: '70px', width: '390px', height: '800px', zIndex: '2147483000',
-        borderRadius: '46px', border: '10px solid #0b0b0c', boxShadow: '0 30px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.12)', overflow: 'hidden', background: '#000' });
-      const f = document.createElement('iframe');
-      f.src = `${location.origin}${location.pathname}?layout=compact`;
-      f.allow = 'camera; microphone';
-      Object.assign(f.style, { width: '100%', height: '100%', border: '0' });
-      wrap.appendChild(f);
-      document.documentElement.appendChild(wrap);
-    });
+    await ensurePhone(page);
+    await page.evaluate(() => { const w = document.getElementById('promo-phone'); w.style.left = ''; w.style.right = '90px'; w.style.visibility = 'visible'; });
     let frame = null;
     for (let i = 0; i < 100 && !frame; i++) { frame = page.frames().find((f) => f.url().includes('layout=compact')) ?? null; if (!frame) await h.wait(100); }
     if (!frame) throw new Error('promo: the phone frame never loaded');
     await frame.waitForSelector('#boot-pattern', { timeout: 20000 });
+    // The app inside must have booted (the dev server streams hundreds of modules while the
+    // main page is rendering and being captured): wait for its layout stamp before pressing anything.
+    await frame.waitForFunction(() => !!document.body.dataset.layout, null, { timeout: 120000 });
     await h.wait(600);
     await frame.evaluate(() => document.getElementById('boot-pattern').click());
     await frame.waitForSelector('.rw-looks', { timeout: 20000 });
