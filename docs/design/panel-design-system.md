@@ -260,9 +260,8 @@ Gotchas that have bitten (each is commented in the file):
 - **Sections and groups** both collapse. The caret is on the LEFT of the
   title in both (same chevron, same states: rest grey, hover green wash,
   pressed deeper wash + 0.88 scale, focus ring; points down when open,
-  right when closed). Groups start collapsed and remember their state per
-  title; a section with a single group never collapses it; phones show
-  groups open.
+  right when closed). Groups start collapsed on every
+  load (open state lasts the session only); phones show groups open.
 - **Group cards**: the head is a full-bleed 36px bar (hover and press fill
   the whole card); the ⓘ sits centred on it 12px from the right, mirroring
   the caret 12px from the left. An open group shows a green rule on its

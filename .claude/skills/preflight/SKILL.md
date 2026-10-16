@@ -357,6 +357,17 @@ Run these in order; stop and report on the first failure:
   zero (cable anchors, snap search).
 
 
+## Workspace drop invariants (v1.34)
+
+- **Screen side ≠ window id.** With the default `panelDock: 'left'` the
+  'right' window (Controls) is on the LEFT. Anything that maps a pointer
+  position to a window (drop zones, edge reveals, insets) goes through
+  `mirrored()` — test drags with BOTH the default and the Classic preset.
+- **Only `#panel-root` publishes `--rw-panel-inset-*`**; a Controls view
+  hosted in another window is an extra instance and must not.
+- **Refresh recovery is unconditional**: `beforeunload` snapshots when
+  dirty; don't re-gate it on the Auto-save toggle (owner decision).
+
 ## Deploy warning
 
 Pushing to `main` triggers the production FTP deploy
