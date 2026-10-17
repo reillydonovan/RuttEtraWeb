@@ -754,7 +754,7 @@
 
 /* ---------- responsive text: nothing overlaps, nothing is silently cut ---------- */
 /* Header pieces (fold caret, LED, ⓘ, ✕) keep their size; the title takes what is left and wraps. */
-.rw-pb-unit-handle { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.rw-pb-unit-handle { min-width: 0; line-height: 1.25; overflow-wrap: break-word; }
 .rw-pb-unit-handle > :is(.rw-pb-fold, .rw-pb-led-toggle, .rw-info-btn, .rw-pb-graphnode-del, button, input) { flex: none; }
 .rw-pb-unit-handle > .rw-info-btn { margin-left: auto; }
 .rw-pb-unit-handle > .rw-pb-led-toggle { margin-right: 2px; }
@@ -762,7 +762,7 @@
 .rw-pb-cell-top { align-items: flex-start; }
 .rw-pb-cell-top span:not(.rw-rack-jack) {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
-  white-space: normal; line-height: 1.15; overflow: hidden; text-overflow: clip; overflow-wrap: anywhere;
+  white-space: normal; line-height: 1.15; overflow: hidden; text-overflow: clip; overflow-wrap: break-word;
 }
 .rw-pb-cell-top > .rw-rack-jack, .rw-pb-cell-top > .rw-range-menu-btn { margin-top: 1px; }
 .rw-pb-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }

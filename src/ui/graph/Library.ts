@@ -101,8 +101,8 @@ export function renderLibrarySidebar(deps: PatchSectionDeps): HTMLElement {
       card.addEventListener('click', () => void loadPatch(up.name, up.patch));
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'rw-graph-library-del';
-      del.textContent = '×';
+      del.className = 'rw-graph-library-del rw-x';
+      del.textContent = '✕';
       del.title = `Delete "${up.name}"`;
       del.addEventListener('click', () => {
         const next = deletePatch(loadUserLibrary(), up.id);

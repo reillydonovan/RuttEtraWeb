@@ -98,13 +98,15 @@ AR passthrough (on Quest 3, Vision Pro, and other passthrough-capable devices) p
 
 ### Recording
 
-- **Format** — Auto, MP4, WebM-VP9, WebM-VP8. Auto picks the highest-quality codec the current browser supports. MP4 is ideal for direct social/media upload; WebM is better for archival.
-- **FPS** — 30 / 60. Recording at 60 needs a steady 60fps render — drop to Balanced profile if you see frame drops.
-- **Bitrate** — 1 to 50 Mbps. 8 Mbps is broadcast-grade for 1080p; 20 Mbps is over-provisioned and useful for masters.
-- **Include mic** — encode the live microphone (or whichever audio input is selected) into the file's audio track.
-- **Filename** — auto-generated as `rutt-etra-YYYYMMDD-HHMMSS.<ext>`.
+- **Encoder** — **High quality (WebCodecs)**, the default, drives the browser's video encoder directly: H.264 High profile (or VP9 / AV1), quality-first encoding that never drops frames to keep up, a 2 s keyframe interval, a frame size locked at the start of the take, and a frame clock taken from real time so the file plays at true speed. **Compatibility (MediaRecorder)** is the browser's built-in realtime recorder; it is also used automatically where WebCodecs is missing (the status line says which encoder a take is using).
+- **Rate control** (High quality only) — **Constant quality** spends bits wherever the picture needs them, which is what thin scan lines need; file size follows the content. **Bitrate** targets the Bitrate slider for a predictable file size.
+- **Format** — Auto / MP4 (H.264), WebM-VP9, WebM-VP8. MP4 opens in every editor and uploads anywhere; WebM-VP9 is smaller at the same quality.
+- **FPS** — 15 to 120. Recording at 60 needs a steady 60 fps render; drop to the Balanced profile if the HUD shows fewer.
+- **Bitrate** — 1 to 200 Mbps; the target in Bitrate mode and for the Compatibility encoder. Line art needs more than ordinary video: 40 Mbps or more for 1080p, 80–150 for 4K.
+- **Include mic / video audio** — mixed into one stereo track (AAC in MP4, Opus in WebM).
+- **Filename** — auto-generated as `ruttetra-<timestamp>.<ext>`.
 
-The **Resolution** picker determines recording dimensions. Set Resolution to FHD before clicking Record if you want a 1920×1080 output.
+The **Virtual Camera ▸ Resolution** picker sets the recording size. For the sharpest lines pick a fixed size (FHD for 1920×1080, or 4K) instead of Match Window: the lines then span more pixels, and the size can't change mid-take when you move a window. A size change during a take is letterboxed rather than rescaled.
 
 ### Stereoscopic 3D recording
 

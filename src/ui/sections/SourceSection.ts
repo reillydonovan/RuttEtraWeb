@@ -703,7 +703,7 @@ function buildModPatchButton(settings: SettingsStore, target: ModTarget): HTMLEl
   };
   const rm = document.createElement('button');
   rm.type = 'button';
-  rm.className = 'rw-btn rw-patch-remove';
+  rm.className = 'rw-btn rw-patch-remove rw-x';
   rm.textContent = '✕';
   rm.title = 'Remove this LFO patch';
   rm.style.flex = '0 0 auto';

@@ -9,6 +9,7 @@
  */
 
 import { Settings } from '../state/Settings';
+import { tintHexFor } from '../state/colorModes';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -89,7 +90,32 @@ export function lerpSnapshot(
     }
     (out as Record<string, unknown>)[k] = v;
   }
+  blendColorMode(a, b, t, excluded, prevApplied, out);
   return out;
+}
+
+/**
+ * Color Mode is an enum, so the generic rule would hard-cut it at the midpoint. Every mode but
+ * 'video' is a tint on brightness (grayscale = white), so between two such modes we glide the
+ * TINT instead: mid-segment the raster draws in Custom mode with the blended colour; each end
+ * lands exactly on its own snapshot's mode + customTint. A change to or from 'video' still steps.
+ */
+function blendColorMode(
+  a: Partial<Settings>, b: Partial<Settings>, t: number,
+  excluded: ReadonlySet<string>, prevApplied: Partial<Settings> | undefined, out: Partial<Settings>,
+): void {
+  if (excluded.has('colorMode') || excluded.has('customTint')) return;
+  const am = a.colorMode, bm = b.colorMode;
+  if (!am || !bm || am === bm || t <= 0 || t >= 1) return;
+  const at = tintHexFor(am, a.customTint ?? b.customTint ?? '#ffffff');
+  const bt = tintHexFor(bm, b.customTint ?? a.customTint ?? '#ffffff');
+  if (!at || !bt) return;
+  const set = <K extends 'colorMode' | 'customTint'>(k: K, v: Settings[K]): void => {
+    if (prevApplied && Object.is(prevApplied[k], v)) { delete out[k]; return; }
+    out[k] = v;
+  };
+  set('colorMode', 'phosphorCustom');
+  set('customTint', lerpValue(at, bt, t) as string);
 }
 
 /**

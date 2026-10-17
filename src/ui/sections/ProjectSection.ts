@@ -317,9 +317,10 @@ export function createProjectSection(deps: ProjectSectionDeps): HTMLElement {
 
       const dropBtn = document.createElement('button');
       dropBtn.type = 'button';
-      dropBtn.className = 'rw-btn';
-      dropBtn.textContent = '×';
-      dropBtn.title = 'Remove from recent list';
+      dropBtn.className = 'rw-btn rw-recent-del rw-x';
+      dropBtn.textContent = '✕';
+      dropBtn.setAttribute('aria-label', 'Remove from recent list');
+      attachTooltip(dropBtn, 'Remove from recent list');
       dropBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         projectStore.dropRecent(entry);

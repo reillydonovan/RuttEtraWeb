@@ -168,6 +168,11 @@ export class StereoCompositor {
     return (this.canvas as Captureable).captureStream(fps);
   }
 
+  /** The side-by-side canvas — read directly by the WebCodecs recording engine. */
+  getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
   /** Per-frame draw into the offscreen canvas. No-op when inactive. */
   tick(): void {
     if (!this.active) return;

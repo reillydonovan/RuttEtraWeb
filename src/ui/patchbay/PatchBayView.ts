@@ -3033,7 +3033,7 @@ export function createPatchBayView(
         // (AdvancedView.ts), same shared `deleteGraphNode` removal
         // logic so both surfaces stay consistent (principle 1).
         const delBtn = document.createElement('span');
-        delBtn.className = 'rw-pb-graphnode-del';
+        delBtn.className = 'rw-pb-graphnode-del rw-x rw-x--s';
         delBtn.textContent = '✕';
         delBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
         delBtn.addEventListener('click', (ev) => {

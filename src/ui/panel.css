@@ -102,7 +102,8 @@ html, body, #app {
   background: radial-gradient(circle at 50% 40%, rgba(95,255,133,0.05), transparent 60%), var(--re-bg);
   z-index: 5;
   pointer-events: auto;
-  transition: opacity 240ms ease-out;
+  /* A slow crossfade: the landing screen dissolves into the live raster. */
+  transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1);
   /* left/top/width/height are set inline in main.ts's resize(), matching
      the canvas's own bounded rect (panel/timeline dock insets) — the
      `inset: 0` above is only the pre-resize fallback. overflow:auto is a
@@ -110,6 +111,7 @@ html, body, #app {
   overflow: auto;
 }
 #overlay.hidden { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #overlay { transition: none; } }
 
 #boot-message {
   text-align: center;
@@ -390,6 +392,17 @@ html, body, #app {
 .rw-skin-select.active { box-shadow: var(--re-glow); }
 /* Hover on an already-lit (non-default skin) select still shows a change. */
 .rw-skin-select:hover { background-color: rgba(124, 255, 160, 0.12); }
+/* ✕ — every close / remove button in the app carries .rw-x (add it to new ones):
+   a true circle with the glyph centred, whatever button class it also has.
+   Repeated class so it outranks per-component width/padding rules. .rw-x--s is
+   the small size for tab strips, node headers and toasts. */
+.rw-x.rw-x.rw-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; box-sizing: border-box;
+  width: 22px; height: 22px; min-width: 22px; min-height: 0;
+  padding: 0; border-radius: 50%; line-height: 1; font-size: 11px;
+}
+.rw-x.rw-x.rw-x.rw-x--s { width: 16px; height: 16px; min-width: 16px; font-size: 9px; }
 .rw-skin-select option { background: var(--re-bg); color: var(--re-text); }
 /* Safety net: EVERY native dropdown's option list follows the theme. Without
    it the OS popup renders white (and the light text unreadable) wherever the
@@ -829,7 +842,10 @@ input[type="file"]::-webkit-file-upload-button:hover {
   border: 1px dashed var(--re-line);
   padding: 4px 6px;
   white-space: pre-wrap;
-  word-break: break-all;
+  /* Wrap between words; only a single word longer than the line (a URL, a codec
+     string) breaks mid-word. break-all split ordinary words at any letter. */
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* QR code container */
@@ -1118,12 +1134,14 @@ body.viewer-mode #stage { background: #000; }
   background: rgba(0,0,0,0.4);
   border: 1px solid var(--re-line);
   color: var(--re-text);
-  cursor: var(--rw-cur-grab);
+  /* A button first (click applies the look); dragging onto the timeline is the
+     secondary gesture, so the move glyph appears only while a drag is happening. */
+  cursor: var(--rw-cur-pointer);
   user-select: none;
   transition: border-color 100ms, color 100ms, transform 80ms;
 }
 .rw-preset-chip:hover { border-color: var(--re-accent); color: var(--re-accent); }
-.rw-preset-chip:active { cursor: var(--rw-cur-grabbing); }
+.rw-preset-chip.dragging { cursor: var(--rw-cur-grabbing); }
 .rw-preset-chip.dragging { opacity: 0.6; transform: scale(0.95); }
 
 /* Help: markdown body */

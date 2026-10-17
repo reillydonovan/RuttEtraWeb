@@ -599,3 +599,22 @@
 .rw-tl-header .rw-tl-time { min-width: 9.5em; text-align: center; font-size: 15px; }
 .rw-tl-header .rw-tl-icon { min-width: 28px; padding-left: 6px; padding-right: 6px; text-align: center; }
 .rw-tl-header .rw-tl-deck .rw-btn.active { color: var(--re-accent); border-color: var(--re-accent); }
+
+/* New (+) and More (⋯): drawn icons, not font glyphs — a "+" and a "⋯" sit off the
+   centre line in most fonts, so they never look centred in a round button. The text
+   stays for screen readers and tests; the icon is a mask in the button's colour. */
+.rw-tl-header .rw-btn:is([data-tl="new"], [data-tl="more"]) {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0; color: inherit;
+}
+.rw-tl-header .rw-btn:is([data-tl="new"], [data-tl="more"])::before {
+  content: ''; flex: none; width: 12px; height: 12px; background: var(--rw-tl-icon-color, currentColor);
+  -webkit-mask: var(--rw-tl-icon) center / contain no-repeat;
+          mask: var(--rw-tl-icon) center / contain no-repeat;
+}
+.rw-tl-header .rw-btn[data-tl="new"] {
+  --rw-tl-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 1.5v9M1.5 6h9' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.rw-tl-header .rw-btn[data-tl="more"] {
+  --rw-tl-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='2' cy='6' r='1.25'/%3E%3Ccircle cx='6' cy='6' r='1.25'/%3E%3Ccircle cx='10' cy='6' r='1.25'/%3E%3C/svg%3E");
+}

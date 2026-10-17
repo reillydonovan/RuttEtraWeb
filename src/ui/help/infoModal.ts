@@ -37,7 +37,7 @@ export function openInfoModal(doc: Document, info: InfoContent): HTMLElement {
   const titles = el('div');
   if (info.kicker) titles.appendChild(el('div', 'rw-info-kicker', info.kicker));
   titles.appendChild(el('div', 'rw-info-title', info.title));
-  const close = el('button', 'rw-info-close', '✕');
+  const close = el('button', 'rw-info-close rw-x', '✕');
   close.type = 'button';
   close.setAttribute('aria-label', 'Close');
   head.append(titles, close);

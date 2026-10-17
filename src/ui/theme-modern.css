@@ -176,6 +176,9 @@ html body[data-theme="modern"].rw-popout-body {
    bar, one continuous black band like a unified macOS toolbar) →
    WINDOW (content area) → CARD (sections, modules). */
 html body[data-theme="modern"][data-theme] {
+  /* Taller bar so the 22px menu pills sit with 3px above and below
+     (+1px hairline). Every offset consumer reads this one var. */
+  &:not([data-layout="compact"]):not(.viewer-mode) { --rw-menubar-h: 29px; }
   & #rw-menubar {
     background: var(--c-bar);
     border-bottom: 1px solid var(--c-hair);
@@ -430,6 +433,19 @@ html body[data-theme="modern"][data-theme] {
   & .rw-panel-actions button { width: var(--ctl-m); height: var(--ctl-m); font-size: 14px; }
   & .rw-region-btn { width: 22px; height: 22px; font-size: 12px; }
   & :is(.rw-wtab-close, .rw-pb-graphnode-del) { width: 16px; height: 16px; font-size: 10px; border-radius: 50%; }
+  /* ✕ — one shape for every close / remove button (.rw-x, see panel.css): a circle on the
+     control grid, glyph centred, red on hover (it removes or closes something). */
+  & .rw-x.rw-x {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; box-sizing: border-box;
+    width: var(--ctl-s); height: var(--ctl-s); min-width: var(--ctl-s); min-height: 0;
+    padding: 0; border-radius: 50%; line-height: 1; font-size: 10px;
+  }
+  & .rw-x.rw-x.rw-x--s { width: 16px; height: 16px; min-width: 16px; font-size: 9px; }
+  & .rw-x.rw-x:hover:not(:disabled) { color: var(--red); box-shadow: inset 0 0 0 1px var(--red); background: rgba(255, 92, 92, 0.1); }
+  & .rw-x.rw-x.rw-info-close { width: 24px; height: 24px; min-width: 24px; }
+  /* Phones: the sheet close keeps its 40px touch target. */
+  &[data-layout="compact"] .rw-sheet-close.rw-x.rw-x { width: 40px; height: 40px; min-width: 40px; font-size: 14px; }
   & .rw-wtab-close:hover, & .rw-pb-graphnode-del:hover { background: rgba(255, 92, 92, 0.22); color: #fff; }
 
   /* ---- INPUT wells ---- */
@@ -594,8 +610,15 @@ html body[data-theme="modern"][data-theme] {
     letter-spacing: 0;
     text-transform: none;
     color: var(--t-body);
+    /* A fixed-height pill centred in the bar (equal space above and below,
+       the 1px hairline excluded), text centred inside it. */
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    height: 22px;
+    line-height: 1;
     padding: 0 var(--sp-2);
-    margin: 3px 0;
+    margin: 0;
     text-shadow: none;
   }
   & .rw-menubar-item:hover, & .rw-menubar-item.open { color: var(--a); background: var(--a-16); }
@@ -943,7 +966,7 @@ html body[data-theme="modern"][data-theme] {
     padding: 0;
     border-radius: 50%;
     line-height: 1;
-    font-size: 15px;
+    font-size: 0; /* the icon is drawn (timeline.css); the text glyph sat off-centre */
   }
   & .rw-tl-group .rw-btn.warn:hover { background: rgba(255, 92, 92, 0.16); }
   & .rw-tl-zone--score > .rw-select { min-height: var(--ctl-m); }
@@ -1054,6 +1077,11 @@ html body[data-theme="modern"][data-theme] {
   & .rw-mod-slot-tools .rw-mod-slot-del { width: var(--ctl-s); padding: 0; }
   & .rw-mod-slot-tools .rw-mod-slot-del:hover { color: var(--red); box-shadow: inset 0 0 0 1px var(--red); background: rgba(255, 92, 92, 0.1); }
   & .rw-mod-slot-expand { width: var(--ctl-m); height: var(--ctl-m); border-radius: 50%; }
+  /* The expand caret now sits in the tools row: a circle the height of Reset. */
+  & .rw-mod-slot-tools .rw-btn.rw-mod-slot-expand {
+    width: var(--ctl-s); min-width: var(--ctl-s); max-width: var(--ctl-s); flex: 0 0 var(--ctl-s);
+    height: var(--ctl-s); padding: 0; border-radius: 50%;
+  }
   & .rw-mod-slot-tools .rw-btn:disabled { opacity: 0.4; }
 }
 

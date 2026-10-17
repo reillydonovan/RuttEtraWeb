@@ -277,8 +277,8 @@ export function createInspector(opts: InspectorOptions): {
 
     const del = document.createElement('button');
     del.type = 'button';
-    del.className = 'rw-btn';
-    del.textContent = '×';
+    del.className = 'rw-btn rw-x';
+    del.textContent = '✕';
     del.title = 'Remove binding';
     del.addEventListener('click', () => {
       const p = opts.getPatch();

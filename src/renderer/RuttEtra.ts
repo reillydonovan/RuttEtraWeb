@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import vertSrc from './shaders/ruttEtra.vert.glsl?raw';
 import fragSrc from './shaders/ruttEtra.frag.glsl?raw';
 import { SettingsStore, ColorMode } from '../state/Settings';
+import { PHOSPHOR_GREEN_HEX, tintHexFor } from '../state/colorModes';
 import { LiveValuesStore } from '../modulation/LiveValues';
 
 const COLOR_MODE_INDEX: Record<ColorMode, number> = {
@@ -23,8 +24,7 @@ const COLOR_MODE_INDEX: Record<ColorMode, number> = {
   video: 2,
 };
 
-const PHOSPHOR_GREEN = new THREE.Color('#5fff85');
-const PHOSPHOR_AMBER = new THREE.Color('#ffb347');
+const PHOSPHOR_GREEN = new THREE.Color(PHOSPHOR_GREEN_HEX);
 
 export class RuttEtraScene {
   readonly scene = new THREE.Scene();
@@ -465,13 +465,7 @@ export class RuttEtraScene {
 
   private applyTint(mode: ColorMode, customHex: string): void {
     for (const set of [this.uniforms, this.uniformsB]) {
-      const tint = set.uTint.value as THREE.Color;
-      switch (mode) {
-        case 'phosphorGreen':  tint.copy(PHOSPHOR_GREEN); break;
-        case 'phosphorAmber':  tint.copy(PHOSPHOR_AMBER); break;
-        case 'phosphorCustom': tint.set(customHex); break;
-        default:               tint.set('#ffffff');
-      }
+      (set.uTint.value as THREE.Color).set(tintHexFor(mode, customHex) ?? '#ffffff');
     }
   }
 }

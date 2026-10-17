@@ -133,7 +133,7 @@ Every knob from the original Rutt Electrophysics brochure, grouped as in the pan
 
 - **H Center / V Center** — pivot point for spin / position. Move it before spinning to orbit around a corner.
 - **H Spin / V Spin** — manual rotation (radians).
-- **H Spin Rate / V Spin Rate** — auto-rotation speed. The mesh spins continuously; combine with damped LFO modulation for tumbling.
+- **H Spin Rate / V Spin Rate** — auto-rotation speed. The mesh spins continuously; combine with damped LFO modulation for tumbling. **Stop Spin** zeroes both rates and leaves the raster at whatever angle it reached; **Reset Rotation** also returns H/V Spin, Rotation, the 0/90 switch and H/V Center to their start position.
 - **H Reverse / V Reverse** — flip handedness on each spin axis without changing magnitude.
 - **Display 0° / 90°** — discrete flip equivalent to swapping the original hardware's 90° toggle.
 - **Rotation** — continuous in-plane rotation in degrees (knob + switch, exactly like the hardware's rotation control: the knob composes on top of the 0/90 switch, pivoting on H/V Center). Modulatable — an LFO here gives a slow tumble; CV in gives voltage-controlled rotation.
@@ -179,6 +179,9 @@ The **Color / Post FX** section shapes the rendered scanlines after synthesis �
 - **Scanline overlay** — a CRT shadow-line texture over the final image, with intensity and density controls.
 - **Chromatic aberration** — radial RGB split, strongest toward the frame edges.
 - **Vignette** — edge darkening.
+- **Resets** — every group ends with its own Reset button (Reset Color, Reset Bloom, … Reset Analog) that puts just that group back to its defaults; **Reset Color / Post FX** at the bottom resets the whole section.
+
+Scene keyframes crossfade Color mode: between any two of Grayscale, Green, Amber and Custom Tint the raster glides through the blended tint (it reads as Custom Tint while in transit) and lands exactly on the next scene's mode. A change to or from Sampled Video still switches at the midpoint, since there is no tint to blend.
 
 #### Burn-In Feedback
 

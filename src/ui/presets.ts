@@ -4,7 +4,7 @@
  * omitted so loading a preset doesn't disrupt the active video source.
  */
 
-import { Settings } from '../state/Settings';
+import { DEFAULTS, type Settings } from '../state/Settings';
 
 export interface Preset {
   id: string;
@@ -13,7 +13,7 @@ export interface Preset {
   values: Partial<Settings>;
 }
 
-export const PRESETS: Preset[] = [
+const LOOKS: Preset[] = [
   {
     id: 'classic-1974',
     name: 'Classic 1974',
@@ -59,6 +59,24 @@ export const PRESETS: Preset[] = [
       scanlineEnabled: true, scanlineIntensity: 0.3, scanlineDensity: 540,
       chromaEnabled: true, chromaAmount: 0.0035,
       vignetteEnabled: true, vignetteAmount: 0.7,
+    },
+  },
+  {
+    id: 'sampled-video',
+    name: 'Sampled Video',
+    description: 'Scan lines keep the colours of the picture they trace, with a soft glow.',
+    values: {
+      colorMode: 'video',
+      backgroundColor: '#000000',
+      zPush: 0.9, zBias: 0,
+      threshold: 0.04, contrast: 1.1, gamma: 1.0,
+      intensity: 1.15, focus: 0.05,
+      bloomEnabled: true, bloomIntensity: 0.6, bloomRadius: 0.5, bloomThreshold: 0.15,
+      scanlineEnabled: true, scanlineIntensity: 0.12, scanlineDensity: 640,
+      chromaEnabled: false,
+      vignetteEnabled: true, vignetteAmount: 0.45,
+      feedbackEnabled: false,
+      renderMode: 'scanlines',
     },
   },
   {
@@ -188,6 +206,22 @@ export const PRESETS: Preset[] = [
     },
   },
 ];
+
+/** Keys a "look" owns: everything any built-in look sets, minus the Pattern Generator
+ *  (pressing Default must never switch off the picture currently on screen). */
+const LOOK_KEYS = [...new Set(LOOKS.flatMap((p) => Object.keys(p.values)))]
+  .filter((k) => !k.startsWith('pattern')) as (keyof Settings)[];
+
+/** "Default": every look key back to the factory value — a reset, applied like any preset
+ *  (only these keys, so bindings, the patch, layout and sources are untouched). */
+const DEFAULT_LOOK: Preset = {
+  id: 'default',
+  name: 'Default',
+  description: 'Back to the factory look: every colour, depth, bloom and post-FX setting the other presets change, at its default.',
+  values: Object.fromEntries(LOOK_KEYS.map((k) => [k, DEFAULTS[k]])) as Partial<Settings>,
+};
+
+export const PRESETS: Preset[] = [DEFAULT_LOOK, ...LOOKS];
 
 /** The preset the boot overlay's PATTERN button starts with. */
 export const NO_CAMERA_PRESET_ID = 'pattern-terrain';

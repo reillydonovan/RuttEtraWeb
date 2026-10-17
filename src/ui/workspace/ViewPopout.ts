@@ -139,7 +139,7 @@ export function popoutView(opts: {
       tabEl.appendChild(label);
       if (tabs.length > 1) {
         const close = w.document.createElement('span');
-        close.className = 'rw-wtab-close';
+        close.className = 'rw-wtab-close rw-x rw-x--s';
         close.textContent = '✕';
         close.addEventListener('pointerdown', (ev) => ev.stopPropagation());
         close.addEventListener('click', () => closeTab(i));

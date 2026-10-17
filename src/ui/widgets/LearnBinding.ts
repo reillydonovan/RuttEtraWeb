@@ -114,7 +114,7 @@ export function createLearnTable<B extends { id: string; target: string; curve: 
     });
     row.appendChild(max);
 
-    const remove = button('×', () => hooks.remove(b.id), 'danger');
+    const remove = button('✕', () => hooks.remove(b.id), 'danger rw-x');
     remove.title = 'Remove binding';
     row.appendChild(remove);
 

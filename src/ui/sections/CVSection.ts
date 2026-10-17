@@ -548,8 +548,8 @@ function buildOscChannelRow(
   head.appendChild(labelInput);
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
-  removeBtn.className = 'rw-btn rw-cv-remove';
-  removeBtn.textContent = '×';
+  removeBtn.className = 'rw-btn rw-cv-remove rw-x';
+  removeBtn.textContent = '✕';
   head.appendChild(removeBtn);
   root.appendChild(head);
 

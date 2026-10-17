@@ -117,11 +117,12 @@ export function createRecordSection(
   const qualityNote = document.createElement('p');
   qualityNote.className = 'section-note';
   qualityNote.innerHTML =
-    'Line art and thin meshes need <b>high bitrate</b> to avoid compression '
-    + 'artifacts — more than typical video. '
-    + '25 Mbps is a good baseline for 1080p; use 50–100 Mbps for 4K or '
-    + 'when fine wire detail must be preserved. '
-    + 'VP9 delivers better quality than H.264 at the same bitrate.';
+    'Thin scan lines are the hardest picture for a video codec. The <b>High quality</b> '
+    + 'encoder records at a locked size and frame rate with <b>constant quality</b>, which '
+    + 'spends bits where the lines are. For the sharpest lines, set a fixed size in '
+    + '<b>Virtual Camera → Resolution</b> (e.g. 1080p) rather than Match Window. '
+    + 'Choose <b>Bitrate</b> rate control if you need a predictable file size (40 Mbps+ for 1080p, '
+    + '80–150 for 4K). <b>Compatibility</b> uses the browser’s realtime recorder.';
 
   cfg.body.append(
     resReadout,
@@ -132,14 +133,24 @@ export function createRecordSection(
       { value: 'webm-vp9', label: 'WebM / VP9' },
       { value: 'webm-vp8', label: 'WebM / VP8' },
     ])),
+    row('Encoder', dropdown(settings, 'recordEncoder', [
+      { value: 'webcodecs',     label: 'High quality (WebCodecs)' },
+      { value: 'mediarecorder', label: 'Compatibility (MediaRecorder)' },
+    ])),
+    row('Rate Control', dropdown(settings, 'recordRateControl', [
+      { value: 'quality', label: 'Constant quality (best for line art)' },
+      { value: 'bitrate', label: 'Bitrate (predictable file size)' },
+    ])),
     row('FPS',     slider(settings, 'recordFps',          15, 120, 1)),
-    row('Bitrate', slider(settings, 'recordBitrateMbps',   1, 100, 1)),
+    row('Bitrate', slider(settings, 'recordBitrateMbps',   1, 200, 1), 'Mbps — target for Bitrate mode and Compatibility'),
     row('Include Mic', toggle(settings, 'recordIncludeMic')),
     row('Include Video Audio', toggle(settings, 'recordIncludeVideoAudio')),
   );
   root.appendChild(cfg.root);
 
   const status = readout();
+  const IDLE_TEXT = 'no recording active';
+  status.textContent = IDLE_TEXT;
   const startBtn = button('Start Recording', async () => {
     try {
       const stereoEnabled = settings.get('stereoRecordingEnabled');
@@ -153,6 +164,8 @@ export function createRecordSection(
         includeMic:        settings.get('recordIncludeMic'),
         includeVideoAudio: settings.get('recordIncludeVideoAudio'),
         preferredFormat:   settings.get('recordPreferredFormat'),
+        engine:   settings.get('recordEncoder'),
+        rateControl: settings.get('recordRateControl'),
         ...(stereoEnabled && stereoCompositor ? {
           stereo: {
             enabled: true,
@@ -176,7 +189,16 @@ export function createRecordSection(
   root.appendChild(btns);
   root.appendChild(status);
 
+  // Status line follows the recorder: timer while recording, "saving…" while the file is
+  // finalized, then back to idle (the saved-file toast reports the result).
+  let wasActive = false;
   recorder.subscribe((s) => {
+    if (s === 'finalizing') status.textContent = 'saving recording…';
+    else if (s === 'idle' && wasActive) {
+      const eng = recorder.engineSummary();
+      status.textContent = eng.startsWith('save failed') ? eng : IDLE_TEXT;
+    }
+    wasActive = s !== 'idle';
     if (s === 'recording') {
       startBtn.setAttribute('disabled', 'true');
       stopBtn.removeAttribute('disabled');
@@ -193,7 +215,9 @@ export function createRecordSection(
       const s = ms / 1000;
       const m = Math.floor(s / 60);
       const sec = (s - m * 60).toFixed(1);
-      status.innerHTML = `<span class="rw-rec-dot"></span>recording ${m}:${sec.padStart(4, '0')}`;
+      const eng = recorder.engineSummary();
+      status.innerHTML = `<span class="rw-rec-dot"></span>recording ${m}:${sec.padStart(4, '0')}`
+        + (eng ? `<br><span style="opacity:0.7">${eng.replace(/[<>&]/g, '')}</span>` : '');
     }
     requestAnimationFrame(tick);
   }
@@ -228,6 +252,8 @@ export function createRecordSection(
           includeMic:        settings.get('recordIncludeMic'),
           includeVideoAudio: settings.get('recordIncludeVideoAudio'),
           preferredFormat:   settings.get('recordPreferredFormat'),
+          engine:   settings.get('recordEncoder'),
+          rateControl: settings.get('recordRateControl'),
           filenameHint:      t.name,
         });
         armed = true;

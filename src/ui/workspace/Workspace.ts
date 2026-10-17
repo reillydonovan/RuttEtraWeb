@@ -468,7 +468,7 @@ export function createWorkspace(deps: WorkspaceDeps): WorkspaceController {
         const label = document.createElement('span');
         label.textContent = VIEW_LABELS[v];
         const close = document.createElement('span');
-        close.className = 'rw-wtab-close';
+        close.className = 'rw-wtab-close rw-x rw-x--s';
         close.textContent = '✕';
         close.addEventListener('pointerdown', (ev) => ev.stopPropagation());
         close.addEventListener('click', (ev) => {

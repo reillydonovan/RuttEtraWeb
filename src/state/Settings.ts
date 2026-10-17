@@ -1016,6 +1016,14 @@ export interface Settings {
   recordBitrateMbps: number;
   recordPreferredFormat: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
   recordFps: number;
+  /** Encoder engine (v37). 'webcodecs' drives the browser's encoder directly (H.264 High /
+   *  VP9, quality-first, locked size + frame rate) and falls back to 'mediarecorder' where
+   *  WebCodecs is missing; 'mediarecorder' forces the old realtime path. */
+  recordEncoder: 'webcodecs' | 'mediarecorder';
+  /** Rate control for the WebCodecs engine (v37): 'quality' = constant quality (the encoder
+   *  spends bits where the picture needs them — best for thin scan lines), 'bitrate' = the
+   *  Bitrate slider as a target. MediaRecorder always uses the bitrate. */
+  recordRateControl: 'quality' | 'bitrate';
 
   // ---------- MIDI (v2) ----------
   midiInputId: string;
@@ -1477,9 +1485,11 @@ export const DEFAULTS: Settings = {
 
   recordIncludeMic: false,
   recordIncludeVideoAudio: false,
-  recordBitrateMbps: 25,
+  recordBitrateMbps: 40,
   recordPreferredFormat: 'auto',
   recordFps: 60,
+  recordEncoder: 'webcodecs',
+  recordRateControl: 'quality',
 
   midiInputId: '',
   midiOutputId: '',
@@ -1547,7 +1557,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 36;
+const CURRENT_VERSION = 37;
 /** The Settings schema version this build writes (`_v`). Stamp it on every
  *  settings snapshot you save (projects, user presets, exports) so a later
  *  load migrates FROM the right version instead of re-running every step
@@ -2220,6 +2230,14 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.leftCollapsed = (s.leftCollapsed as boolean | undefined) ?? false;
     s.centerCollapsed = (s.centerCollapsed as boolean | undefined) ?? false;
     s._v = 36;
+  }
+
+  // v36 -> v37: recording engine + rate control (record quality audit). Additive defaults —
+  // every session gets the WebCodecs engine with constant-quality rate control.
+  if ((s._v ?? 1) < 37) {
+    s.recordEncoder = (s.recordEncoder as Settings['recordEncoder'] | undefined) ?? 'webcodecs';
+    s.recordRateControl = (s.recordRateControl as Settings['recordRateControl'] | undefined) ?? 'quality';
+    s._v = 37;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

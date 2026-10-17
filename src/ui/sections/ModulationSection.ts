@@ -786,9 +786,9 @@ function showMigrationToast(message: string): void {
   t.appendChild(msg);
   const dismiss = document.createElement('button');
   dismiss.type = 'button';
-  dismiss.className = 'rw-toast-dismiss';
+  dismiss.className = 'rw-toast-dismiss rw-x rw-x--s';
   dismiss.setAttribute('aria-label', 'Dismiss');
-  dismiss.textContent = '×';
+  dismiss.textContent = '✕';
   dismiss.addEventListener('click', () => t.remove());
   t.appendChild(dismiss);
   host.appendChild(t);

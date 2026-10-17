@@ -19,6 +19,7 @@
 
 import { OutputCurve } from '../../state/Settings';
 import { createRawKnob } from '../widgets';
+import { animateToggle } from '../motion';
 
 // ====================================================================
 // Adapter interfaces
@@ -810,8 +811,18 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   expandBtn.title = 'Show / hide source-specific controls';
   expandBtn.setAttribute('aria-label', 'Show or hide the slot controls');
   expandBtn.setAttribute('aria-expanded', 'false');
-  expandBtn.addEventListener('click', () => adapter.expanded.set(!adapter.expanded.get()));
-  line1.appendChild(expandBtn);
+  // Springs open/closed (motion.ts, the same feel as sections and groups). The new state is
+  // committed when the spring settles: the Beginner view re-renders its rows on commit,
+  // which would cut a running animation short.
+  let expandAnimating = false;
+  expandBtn.addEventListener('click', () => {
+    if (expandAnimating) return;
+    const next = !adapter.expanded.get();
+    expandAnimating = true;
+    animateToggle(card, () => applyOpen(next), () => applyOpen(!next), {
+      onDone: () => { expandAnimating = false; adapter.expanded.set(next); },
+    });
+  });
 
   // Amount slider
   const amtWrap = el('div', 'rw-slider rw-mod-slot-amount');
@@ -907,9 +918,12 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     if (ev.shiftKey) { ev.stopImmediatePropagation(); ev.preventDefault(); adapter.hardReset(); }
   }, true);
   const delBtn = buildIconBtn(adapter.caps.resetLabel, '✕', () => adapter.reset());
-  delBtn.classList.add('rw-mod-slot-del');
+  delBtn.classList.add('rw-mod-slot-del', 'rw-x');
   delBtn.setAttribute('aria-label', adapter.caps.resetLabel);
-  toolsR.append(softResetBtn, delBtn);
+  // ✕ (remove) sits top right, on the source line; the expand caret sits bottom right,
+  // next to the controls it opens.
+  line1.appendChild(delBtn);
+  toolsR.append(softResetBtn, expandBtn);
   tools.append(toolsL, toolsR);
   header.appendChild(tools);
 
@@ -1000,6 +1014,12 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // -------------------- refresh / render --------------------
 
+  function applyOpen(open: boolean): void {
+    body.style.display = open ? '' : 'none';
+    expandBtn.setAttribute('aria-expanded', String(open));
+    card.classList.toggle('expanded', open);
+  }
+
   function refresh(): void {
     if (enInput && adapter.enabled) {
       const v = adapter.enabled.get();
@@ -1013,11 +1033,8 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     amtKnob.refresh();
     if (pasteBtn) pasteBtn.disabled = !canPaste();
 
-    // Sync expand state.
-    const open = adapter.expanded.get();
-    body.style.display = open ? '' : 'none';
-    expandBtn.setAttribute('aria-expanded', String(open));
-    card.classList.toggle('expanded', open);
+    // Sync expand state (left alone while the expand spring is running).
+    if (!expandAnimating) applyOpen(adapter.expanded.get());
 
     // Source-kind change forces a body rebuild.
     if (adapter.sourceKind !== lastSourceKind) {

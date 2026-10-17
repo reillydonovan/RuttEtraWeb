@@ -96,15 +96,19 @@ export function createDcuSection(
     row('Rotation',   slider(settings, 'rotation', -180, 180, 0.1), 'degrees — knob + switch compose'),
   );
 
-  const stopSpinBtn = button('Stop All Spin', () => {
-    settings.set('hSpin', 0);
-    settings.set('vSpin', 0);
-    settings.set('hSpinRate', 0);
-    settings.set('vSpinRate', 0);
+  // Stop freezes the raster where it is; Reset returns it to its start orientation.
+  const stopSpinBtn = button('Stop Spin', () => {
+    settings.patch({ hSpinRate: 0, vSpinRate: 0 });
+  });
+  const resetRotBtn = button('Reset Rotation', () => {
+    settings.patch({
+      hSpinRate: 0, vSpinRate: 0, hSpin: 0, vSpin: 0,
+      rotation: 0, rotate90: false, hCenter: 0, vCenter: 0,
+    });
   });
   const spinBtnRow = document.createElement('div');
   spinBtnRow.className = 'rw-btn-row';
-  spinBtnRow.appendChild(stopSpinBtn);
+  spinBtnRow.append(stopSpinBtn, resetRotBtn);
   rot.body.appendChild(spinBtnRow);
   root.appendChild(rot.root);
 

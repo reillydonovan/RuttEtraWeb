@@ -3,8 +3,13 @@
  * audio and / or sonification voice) and trigger a download when the
  * user stops.
  *
- * Codec preference: MP4/H.264 → WebM/VP9 → WebM/VP8. Some browsers (Chrome
- * on Linux, older Firefox) only support WebM.
+ * Two engines (record-quality audit, 2026-10-17):
+ *   - WebCodecs (default, WebCodecsCapture.ts): H.264 High / VP9 / AV1 driven
+ *     directly, quality-first, constant quality, locked size + frame rate.
+ *     Frames are captured right after each render via `captureRenderedFrame()`.
+ *   - MediaRecorder (fallback / "Compatibility"): the browser's realtime
+ *     recorder. Codec preference: MP4/H.264 (High → Main → Baseline) →
+ *     WebM/VP9 → WebM/VP8. Used when WebCodecs is missing or fails to start.
  *
  * Audio sources mixed into the stream:
  *   - mic (optional, via getUserMedia)
@@ -52,6 +57,8 @@ export interface StereoRecordingSource {
   start(eyeWidth: number, eyeHeight: number): void;
   /** End the compositor's per-frame render. Called once MediaRecorder has stopped. */
   stop(): void;
+  /** The side-by-side canvas itself — lets the WebCodecs engine read it directly. */
+  getCanvas?(): HTMLCanvasElement;
 }
 
 export interface RecordOptions {
@@ -64,6 +71,10 @@ export interface RecordOptions {
    *  was not provided to the `CanvasRecorder` constructor. */
   includeVideoAudio?: boolean;
   preferredFormat?: 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8';
+  /** 'webcodecs' (default) tries the high-quality engine first; 'mediarecorder' forces the old one. */
+  engine?: 'webcodecs' | 'mediarecorder';
+  /** WebCodecs rate control: constant quality (default) or the bitrate as a target. */
+  rateControl?: 'quality' | 'bitrate';
   /** Optional slug prepended to the auto-generated filename (no extension). */
   filenameHint?: string;
   /**
@@ -95,6 +106,10 @@ export interface RecordOptions {
 export type StereoFinalizeOutcome = InjectionResult | null;
 
 const FORMAT_CHAIN: { id: string; mime: string; ext: string }[] = [
+  // High, then Main, before Constrained Baseline (42E01F) — Baseline has no CABAC,
+  // B-frames or 8×8 transform and smears thin scan lines.
+  { id: 'mp4',      mime: 'video/mp4;codecs=avc1.640033',     ext: 'mp4' },
+  { id: 'mp4',      mime: 'video/mp4;codecs=avc1.4d0033',     ext: 'mp4' },
   { id: 'mp4',      mime: 'video/mp4;codecs=avc1.42E01F',     ext: 'mp4' },
   { id: 'mp4',      mime: 'video/mp4',                         ext: 'mp4' },
   { id: 'webm-vp9', mime: 'video/webm;codecs=vp9,opus',        ext: 'webm' },
@@ -115,6 +130,11 @@ export class CanvasRecorder {
   private listeners = new Set<(state: 'idle' | 'recording' | 'finalizing') => void>();
   private savedListeners = new Set<(file: File) => void>();
   private startTime = 0;
+  /** Active WebCodecs take, if that engine is recording. */
+  private wc: import('./WebCodecsCapture').WebCodecsCapture | null = null;
+  private wcActive = false;
+  /** What the current / last take is encoded with, for the status line. */
+  private engineText = '';
   /** Stereo-mode state captured at `start()` so `finalize()` knows
    *  whether to call the injector and which source to `stop()`. Null
    *  for monoscopic recordings. */
@@ -159,7 +179,15 @@ export class CanvasRecorder {
   }
 
   isRecording(): boolean {
-    return this.recorder?.state === 'recording';
+    return this.wcActive || this.recorder?.state === 'recording';
+  }
+
+  /** e.g. "H.264 High · constant quality · 1920×1080 · 60 fps", or the compatibility note. */
+  engineSummary(): string { return this.engineText; }
+
+  /** Call right after every render (main.ts frame loop). Cheap no-op unless a WebCodecs take is running. */
+  captureRenderedFrame(): void {
+    if (this.wcActive) this.wc?.captureRenderedFrame();
   }
 
   /** Time elapsed (ms) since recording started; 0 when idle. */
@@ -259,6 +287,42 @@ export class CanvasRecorder {
       for (const t of sonStream.getAudioTracks()) audioTracks.push(t);
     }
 
+    // ---- High-quality engine first ----
+    if ((opts.engine ?? 'webcodecs') === 'webcodecs') {
+      const srcCanvas = opts.stereo?.enabled ? opts.stereo.source.getCanvas?.() : this.canvas;
+      try {
+        const mod = await import('./WebCodecsCapture');
+        if (!srcCanvas) throw new Error('stereo source has no canvas');
+        if (!mod.webCodecsAvailable(audioTracks.length > 0)) throw new Error('WebCodecs is not available in this browser');
+        this.wc = await mod.WebCodecsCapture.create({
+          canvas: srcCanvas,
+          fps: opts.fps,
+          format: preferred as 'auto' | 'mp4' | 'webm-vp9' | 'webm-vp8',
+          rateControl: opts.rateControl ?? 'quality',
+          bitsPerSecond: opts.bitsPerSecond ?? 40_000_000,
+          audioTracks,
+        });
+        // This engine reads the canvas itself; release the capture stream opened above.
+        for (const t of videoStream.getVideoTracks()) t.stop();
+        this.currentMime = this.wc.mime;
+        this.currentExt = this.wc.ext;
+        this.engineText = this.wc.summary;
+        this.wcActive = true;
+        this.startTime = performance.now();
+        this.emit('recording');
+        void Promise.all([import('../platform/WakeLock'), import('../platform/HapticFeedback')])
+          .then(([{ wakeLock }, { haptic }]) => { void wakeLock().acquire(); haptic('success'); })
+          .catch(() => { /* ignore */ });
+        return;
+      } catch (err) {
+        this.wc = null;
+        console.warn('[record] high-quality encoder unavailable, using MediaRecorder:', err);
+        this.engineText = `compatibility encoder (${err instanceof Error ? err.message : String(err)})`;
+      }
+    } else {
+      this.engineText = 'compatibility encoder (MediaRecorder)';
+    }
+
     const combined = audioTracks.length === 0
       ? videoStream
       : new MediaStream([...videoStream.getVideoTracks(), ...audioTracks]);
@@ -310,13 +374,32 @@ export class CanvasRecorder {
   }
 
   stop(): void {
+    if (this.wcActive && this.wc) {
+      const wc = this.wc;
+      this.wcActive = false;
+      this.emit('finalizing');
+      void wc.finish()
+        .then((blob) => this.finalize(blob))
+        .catch((err) => {
+          console.error('[record] could not finalize recording', err);
+          this.engineText = `save failed: ${err instanceof Error ? err.message : String(err)}`;
+          this.wc = null;
+          this.stereoState?.source.stop();
+          this.stereoState = null;
+          for (const t of this.micStream?.getTracks() ?? []) t.stop();
+          this.micStream = null;
+          this.emit('idle');
+        });
+      return;
+    }
     if (!this.recorder || this.recorder.state === 'inactive') return;
     this.emit('finalizing');
     this.recorder.stop();
   }
 
-  private async finalize(): Promise<void> {
-    let blob = new Blob(this.chunks, { type: this.currentMime });
+  private async finalize(encoded?: Blob): Promise<void> {
+    let blob = encoded ?? new Blob(this.chunks, { type: this.currentMime });
+    this.wc = null;
     let outcome: StereoFinalizeOutcome = null;
 
     // Stereo path: stop the compositor and (when an MP4 was produced

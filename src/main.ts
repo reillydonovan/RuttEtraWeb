@@ -629,9 +629,23 @@ async function bootSynth(): Promise<void> {
       `v${__BUILD_INFO__.version} · ${__BUILD_INFO__.commit} · ${__BUILD_INFO__.builtAt}`;
   }
   let overlayDismissed = false;
-  function dismissOverlay(): void {
+  /** Fade the landing screen out. With `waitForFrame`, hold it until the source video has a
+   *  frame to show (≤1.5 s), so the fade reveals the picture rather than black-then-pop. */
+  function dismissOverlay(waitForFrame = false): void {
     overlayDismissed = true;
-    overlay.classList.add('hidden');
+    if (!waitForFrame || video.readyState >= 2) { overlay.classList.add('hidden'); return; }
+    let done = false;
+    const go = (): void => {
+      if (done) return;
+      done = true;
+      video.removeEventListener('loadeddata', go);
+      // A frame or two for the texture to upload and the raster to draw.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (overlayDismissed) overlay.classList.add('hidden');
+      }));
+    };
+    video.addEventListener('loadeddata', go);
+    setTimeout(go, 1500);
   }
   /** Bring the "select a source" screen back (File ▸ New Project). */
   function showOverlay(): void {
@@ -639,8 +653,13 @@ async function bootSynth(): Promise<void> {
     overlay.classList.remove('hidden');
     resize(); // re-pin it over the canvas's current rect
   }
+  // Whatever surface starts the picture (boot buttons, Controls, Patch Bay, MCP),
+  // the landing screen fades out and the raster fades in beneath it.
   source.subscribe((st) => {
-    if (st.kind !== 'none') dismissOverlay();
+    if (st.kind !== 'none' && !overlayDismissed) dismissOverlay(true);
+  });
+  settings.subscribe('patternEnabled', (on) => {
+    if (on && !overlayDismissed) dismissOverlay();
   });
   // Phone: the raster follows the picture's own shape (a portrait selfie fills
   // the portrait screen instead of sitting in a 4:3 letterbox). Once per new
@@ -1378,6 +1397,8 @@ async function bootSynth(): Promise<void> {
           bitsPerSecond: settings.get('recordBitrateMbps') * 1_000_000,
           includeMic: settings.get('recordIncludeMic'),
           preferredFormat: settings.get('recordPreferredFormat'),
+          engine: settings.get('recordEncoder'),
+          rateControl: settings.get('recordRateControl'),
         });
       }
     },
@@ -1418,6 +1439,8 @@ async function bootSynth(): Promise<void> {
           bitsPerSecond: settings.get('recordBitrateMbps') * 1_000_000,
           includeMic: settings.get('recordIncludeMic'),
           preferredFormat: settings.get('recordPreferredFormat'),
+          engine: settings.get('recordEncoder'),
+          rateControl: settings.get('recordRateControl'),
         });
       },
       isRecording: () => recorder.isRecording(),
@@ -2110,6 +2133,8 @@ async function bootSynth(): Promise<void> {
       postfx.render(dt);
     }
     watcher.onFrame(dt);
+    // High-quality recording reads the canvas right after it is drawn (no-op unless recording).
+    recorder.captureRenderedFrame();
 
     frames++;
     if (now - fpsClock >= 500) {

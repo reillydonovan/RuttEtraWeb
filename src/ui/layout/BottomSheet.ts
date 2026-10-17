@@ -86,10 +86,10 @@ export class BottomSheet {
       handle.appendChild(title);
     }
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'rw-sheet-close';
+    closeBtn.className = 'rw-sheet-close rw-x';
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
+    closeBtn.textContent = '✕';
     closeBtn.addEventListener('click', () => this.dismiss());
     handle.appendChild(closeBtn);
 

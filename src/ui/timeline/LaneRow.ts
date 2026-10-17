@@ -190,8 +190,8 @@ export class LaneRow {
 
     const del = document.createElement('button');
     del.type = 'button';
-    del.className = 'rw-btn';
-    del.textContent = '×';
+    del.className = 'rw-btn rw-x';
+    del.textContent = '✕';
     attachTooltip(del, 'Delete lane (and all its points — undoable)');
     del.addEventListener('click', (ev) => {
       ev.stopPropagation();

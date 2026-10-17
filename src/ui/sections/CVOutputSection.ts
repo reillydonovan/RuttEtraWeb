@@ -363,7 +363,7 @@ function buildChannelRow(
   head.appendChild(testBtn);
 
   const delBtn = document.createElement('button');
-  delBtn.className = 'rw-btn small';
+  delBtn.className = 'rw-btn small rw-x';
   delBtn.type = 'button';
   delBtn.title = 'Remove this CV output';
   delBtn.textContent = '✕';

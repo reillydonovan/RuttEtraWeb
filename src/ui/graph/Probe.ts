@@ -48,8 +48,8 @@ export function openProbeOverlay(host: HTMLElement, opts: ProbeOptions): ProbeHa
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
-  closeBtn.className = 'rw-btn rw-graph-probe-close';
-  closeBtn.textContent = '×';
+  closeBtn.className = 'rw-btn rw-graph-probe-close rw-x';
+  closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', close);
   overlay.appendChild(closeBtn);
 
