@@ -606,6 +606,8 @@
 .rw-tl-header .rw-btn:is([data-tl="new"], [data-tl="more"]) {
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 0; color: inherit;
+  /* The hidden text is still a flex item: with the button's 4px gap it pushed the icon 2px left. */
+  gap: 0; letter-spacing: 0;
 }
 .rw-tl-header .rw-btn:is([data-tl="new"], [data-tl="more"])::before {
   content: ''; flex: none; width: 12px; height: 12px; background: var(--rw-tl-icon-color, currentColor);
