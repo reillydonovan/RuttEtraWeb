@@ -144,7 +144,8 @@ a { color: var(--re-accent); }
 }
 .tut-item {
   display: grid;
-  grid-template-columns: 2.2em 1fr auto;
+  /* Number column fits two digits + the watched ✓ ("31 ✓") without wrapping. */
+  grid-template-columns: 3.4em 1fr auto;
   align-items: baseline;
   gap: 6px;
   padding: 6px 14px;
@@ -154,7 +155,7 @@ a { color: var(--re-accent); }
 }
 .tut-item:hover { background: rgba(95, 255, 133, 0.06); }
 .tut-item.active { border-left-color: var(--re-accent); background: rgba(95, 255, 133, 0.08); color: var(--re-accent); }
-.tut-num { color: var(--re-text-dim); }
+.tut-num { color: var(--re-text-dim); white-space: nowrap; }
 .tut-item.watched .tut-num { color: var(--re-accent); }
 .tut-item.watched .tut-num::after { content: ' ✓'; }
 .tut-dur { color: var(--re-text-dim); font-size: 12px; }
