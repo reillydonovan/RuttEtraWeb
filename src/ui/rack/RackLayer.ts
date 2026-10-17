@@ -25,11 +25,14 @@
  * subscription). Nothing here touches live values — the base/live split
  * is untouched by cables (skin invariants, PRINCIPLES.md).
  *
- * Anchoring: endpoints are resolved per frame from live DOM rects, with
- * a fallback chain for hidden endpoints — the row's jack if visible,
- * else its section's header (collapsed accordion), else the tab strip
- * (other tab). So a cable into a collapsed section visibly plugs into
- * that section's header instead of vanishing.
+ * Anchoring: a cable is drawn only between two real sockets. An end is its
+ * row's jack when that is on screen; when the jack is folded away inside a
+ * collapsed section or group, that header shows a small socket of its own
+ * (placed clear of the caret and ⓘ) and the cable plugs into it. An end with
+ * no socket at all — a jack on the other tab, or a graph node, which has no
+ * jack in the Controls panel — draws no cable; the jack that IS on screen
+ * still lights as patched. (Owner report: cables ending on bare header edges,
+ * over the ⓘ and caret, read as broken.)
  */
 
 import { subscribeSkin, getSkin } from '../skin';
@@ -106,7 +109,8 @@ export function createRackLayer(
   type Pending =
     | { kind: 'to-param'; slotIndex: number; pos: Pt; hover: string | null }
     | { kind: 'to-slot'; paramKey: string; pos: Pt; hover: OutHover }
-    | { kind: 'graph-to-param'; bindingId: string; pos: Pt; hover: string | null }
+    // `from`: where it was picked up — the rubber band's fixed end when the graph source has no socket here.
+    | { kind: 'graph-to-param'; bindingId: string; pos: Pt; from: Pt; hover: string | null }
     | { kind: 'pout-to-param'; paramKey: string; pos: Pt; hover: string | null };
   let pending: Pending | null = null;
 
@@ -178,39 +182,59 @@ export function createRackLayer(
     return r.width > 0 && r.height > 0 ? r : null;
   }
 
-  /** True when a cable end would only be drawn at a fallback spot (its
-   *  jack is hidden — collapsed section or another tab). */
-  function hidden(jack: HTMLElement | undefined): boolean {
-    return !jack || !visibleRect(jack);
-  }
-  /** A cable is worth drawing only if at least one real end is on screen.
-   *  With BOTH ends hidden, both fall back to the same header or tab
-   *  strip and the cable degenerates into a stray stub (owner report: a
-   *  tracer under the I/O tab for a patch that lives on the Synth tab). */
-  function drawable(a: HTMLElement | undefined, b: HTMLElement | undefined): boolean {
-    return !(hidden(a) && hidden(b));
-  }
+  /** Header sockets standing in for jacks folded inside collapsed sections/groups. */
+  const proxies = new Map<HTMLElement, HTMLElement>();
+  let proxiesUsed = new Set<HTMLElement>();
 
-  /** Jack itself → its section's header → the tab strip. Null = undrawable. */
-  function anchorFor(jack: HTMLElement): Pt | null {
-    const own = visibleRect(jack);
-    if (own) return rectCenter(own);
-    const head = visibleRect(jack.closest<HTMLElement>('.rw-section')?.querySelector('.rw-section-head') ?? null);
-    if (head) return { x: head.right - 14, y: head.top + head.height / 2 };
-    const tabs = visibleRect(panelRoot.querySelector('.rw-tabs'));
-    if (tabs) return { x: tabs.left + tabs.width / 2, y: tabs.bottom - 4 };
+  /** The innermost collapsed section/group around `jack` whose header is on screen. */
+  function collapsedHeadFor(jack: HTMLElement): HTMLElement | null {
+    for (let el = jack.parentElement; el && el !== panelRoot; el = el.parentElement) {
+      const folded = el.classList.contains('rw-group--collapsed')
+        || (el.classList.contains('rw-section') && el.classList.contains('collapsed'));
+      if (!folded) continue;
+      const head = el.querySelector<HTMLElement>(':scope > .rw-group-head, :scope > .rw-section-head');
+      if (head && visibleRect(head)) return head;
+    }
     return null;
   }
 
-  /** Anchor for the graph engine's end of a binding cable: the section
-   *  that hosts the Modulation UI (located via any slot card). */
-  function graphSourceAnchor(): Pt | null {
-    const card = panelRoot.querySelector<HTMLElement>('.rw-mod-slot[data-mod-slot]');
-    if (!card) return null;
-    const head = visibleRect(card.closest<HTMLElement>('.rw-section')?.querySelector('.rw-section-head') ?? null);
-    if (head) return { x: head.left + 14, y: head.top + head.height / 2 };
-    const tabs = visibleRect(panelRoot.querySelector('.rw-tabs'));
-    return tabs ? { x: tabs.left + tabs.width / 2, y: tabs.bottom - 4 } : null;
+  function proxyFor(head: HTMLElement): HTMLElement {
+    let sock = proxies.get(head);
+    if (!sock || !sock.isConnected) {
+      sock = head.ownerDocument.createElement('span');
+      sock.className = 'rw-rack-jack rw-rack-proxy rw-rack-jack--plugged';
+      sock.setAttribute('aria-hidden', 'true');
+      attachTooltip(sock, 'A cable is patched to a control inside — expand to see it.');
+      // Section heads: just before the ⓘ. Group heads keep their ⓘ outside the head.
+      const info = head.querySelector(':scope > .rw-info-btn');
+      head.insertBefore(sock, info);
+      proxies.set(head, sock);
+    }
+    return sock;
+  }
+
+  /** Where a cable end is drawn: the jack, or its collapsed header's socket. Null = no socket. */
+  function endpoint(jack: HTMLElement | undefined): { pt: Pt; head: HTMLElement | null } | null {
+    if (!jack) return null;
+    const own = visibleRect(jack);
+    if (own) return { pt: rectCenter(own), head: null };
+    const head = collapsedHeadFor(jack);
+    if (!head) return null;
+    proxiesUsed.add(head);
+    const r = visibleRect(proxyFor(head));
+    return r ? { pt: rectCenter(r), head } : null;
+  }
+
+  /** Both ends resolved, and not both folded into the same header (that would be a dot). */
+  function cableEnds(a: HTMLElement | undefined, b: HTMLElement | undefined): [Pt, Pt] | null {
+    const ea = endpoint(a); const eb = endpoint(b);
+    if (!ea || !eb || (ea.head && ea.head === eb.head)) return null;
+    return [ea.pt, eb.pt];
+  }
+
+  function clearProxies(): void {
+    for (const sock of proxies.values()) sock.remove();
+    proxies.clear();
   }
 
   // ------------------------------------------------------------------
@@ -390,7 +414,7 @@ export function createRackLayer(
    *  drop in space to unplug (binding kept, retargeted to 'none' — the
    *  same non-destructive unplug the Patch Bay uses). */
   function beginGraphDrag(ev: PointerEvent, bindingId: string, grabbedJack: HTMLElement): void {
-    const p: Pending = { kind: 'graph-to-param', bindingId, pos: { x: ev.clientX, y: ev.clientY }, hover: null };
+    const p: Pending = { kind: 'graph-to-param', bindingId, pos: { x: ev.clientX, y: ev.clientY }, from: { x: ev.clientX, y: ev.clientY }, hover: null };
     pending = p;
     // A parameter can't modulate itself: the param this cable reads is not
     // a target, and releasing over it leaves the cable where it was.
@@ -509,45 +533,39 @@ export function createRackLayer(
       if (pending?.kind === 'to-param' && pending.slotIndex === c.slotIndex) continue;
       const jack = paramJacks.get(c.target);
       const outJack = slotJacks.get(c.slotIndex);
-      if (!jack || !outJack || !drawable(outJack, jack)) continue;
-      const a = anchorFor(outJack);
-      const b = anchorFor(jack);
-      if (!a || !b) continue;
+      if (!jack || !outJack) continue;
       plugged.add(c.target);
+      const ends = cableEnds(outJack, jack);
+      if (!ends) continue;
+      const [a, b] = ends;
       drawPatchCable(ctx, local(a), local(b), CLASSIC_COLOR, {
         style: 'sag', dim: !c.enabled, dashed: !reduceMotion && c.enabled, dashOffset,
       });
     }
 
-    // Graph binding cables. A binding fed by a `param-out` node starts at
-    // that param's OUTPUT jack (a param → param patch); any other graph
-    // source starts at the Modulation section's header.
+    // Graph binding cables. Only a binding fed by a `param-out` node has a source
+    // socket here (that param's OUTPUT jack); other graph nodes have no jack in the
+    // Controls panel, so their bindings light the target jack without a cable.
     const graph = settings.get('modGraph');
     const pluggedOut = new Set<string>();
-    /** Where a graph binding's source end is drawn. */
+    /** Where a graph binding's source end is drawn (null = no socket in Controls). */
     const graphSrcAnchor = (sourceNodeId: string): Pt | null => {
       const fromKey = paramOutKeyOf(graph, sourceNodeId);
       const outJack = fromKey ? paramOutJacks.get(fromKey) : undefined;
-      return outJack ? anchorFor(outJack) : graphSourceAnchor();
+      return endpoint(outJack)?.pt ?? null;
     };
     for (const g of graphCables(graph)) {
       if (g.paramKey === 'none') continue;
       if (pending?.kind === 'graph-to-param' && pending.bindingId === g.bindingId) continue;
       const jack = paramJacks.get(g.paramKey);
       if (!jack) continue;
-      // Source end: the feeding param's OUT jack, or (other graph nodes)
-      // the Modulation header — treat that as hidden when the Modulation
-      // section's slot cards aren't on screen.
-      const fromKey0 = paramOutKeyOf(graph, g.sourceNodeId);
-      const srcJack = fromKey0 ? paramOutJacks.get(fromKey0)
-        : panelRoot.querySelector<HTMLElement>('.rw-mod-slot[data-mod-slot]') ?? undefined;
-      if (!drawable(srcJack, jack)) continue;
-      const a = graphSrcAnchor(g.sourceNodeId);
-      const b = anchorFor(jack);
-      if (!a || !b) continue;
       plugged.add(g.paramKey);
       const fromKey = paramOutKeyOf(graph, g.sourceNodeId);
       if (fromKey) pluggedOut.add(fromKey);
+      const srcJack = fromKey ? paramOutJacks.get(fromKey) : undefined;
+      const ends = cableEnds(srcJack, jack);
+      if (!ends) continue;
+      const [a, b] = ends;
       drawPatchCable(ctx, local(a), local(b), GRAPH_COLOR, {
         style: 'sag', dim: !g.enabled, dashed: false,
       });
@@ -558,17 +576,17 @@ export function createRackLayer(
       let a: Pt | null = null;
       let color = CLASSIC_COLOR;
       if (pending.kind === 'to-param') {
-        const j = slotJacks.get(pending.slotIndex); a = j ? anchorFor(j) : null;
+        const j = slotJacks.get(pending.slotIndex); a = endpoint(j)?.pt ?? null;
       } else if (pending.kind === 'to-slot') {
-        const j = paramJacks.get(pending.paramKey); a = j ? anchorFor(j) : null;
+        const j = paramJacks.get(pending.paramKey); a = endpoint(j)?.pt ?? null;
         if (pending.hover?.kind === 'pout') color = GRAPH_COLOR;
       } else if (pending.kind === 'pout-to-param') {
-        const j = paramOutJacks.get(pending.paramKey); a = j ? anchorFor(j) : null;
+        const j = paramOutJacks.get(pending.paramKey); a = endpoint(j)?.pt ?? null;
         color = GRAPH_COLOR;
       } else {
         const id = pending.bindingId;
         const b = graph?.bindings.find((x) => x.id === id);
-        a = b ? graphSrcAnchor(b.sourceNodeId) : null;
+        a = (b ? graphSrcAnchor(b.sourceNodeId) : null) ?? pending.from;
         color = GRAPH_COLOR;
       }
       const accepting = pending.hover != null;
@@ -581,6 +599,12 @@ export function createRackLayer(
         });
       }
     }
+
+    // Drop header sockets no cable used this frame.
+    for (const [head, sock] of proxies) {
+      if (!proxiesUsed.has(head)) { sock.remove(); proxies.delete(head); }
+    }
+    proxiesUsed = new Set();
 
     // Lit ring on plugged input jacks (DOM write only on state change).
     for (const [key, el] of paramJacks) {
@@ -631,6 +655,7 @@ export function createRackLayer(
     observer?.disconnect();
     observer = null;
     canvas?.remove();
+    clearProxies();
     canvas = null;
     ctx = null;
     pending = null;

@@ -141,3 +141,14 @@ body[data-skin="rack"] .rw-rack-jack--grab {
 
 .rw-rack-dragging,
 .rw-rack-dragging .rw-rack-jack { cursor: var(--rw-cur-jack-active); }
+
+/* Header socket: stands in for a jack folded inside a collapsed section / group, so a
+   cable always ends in a socket. Not draggable — a click falls through to the header
+   and expands it. Section heads: sits just before the ⓘ. Group heads: their ⓘ is
+   positioned outside the head at the right, so the socket keeps clear of it. */
+body[data-skin="rack"]:not([data-layout="compact"]) .rw-rack-jack.rw-rack-proxy {
+  width: 12px; height: 12px; flex: 0 0 12px;
+  margin: 0 8px 0 auto;
+  cursor: inherit;
+}
+body[data-skin="rack"]:not([data-layout="compact"]) .rw-group-head > .rw-rack-proxy { margin-right: 34px; }
