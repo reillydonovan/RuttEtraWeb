@@ -302,6 +302,10 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
           src.params = {};
         }),
         options: sourceOptions().map((o) => ({ v: o.type, l: o.label })),
+        // What the chosen node is — the registry's one-line description.
+        describe: () => {
+          return getDef(liveSource().type)?.description ?? null;
+        },
       },
       target: {
         get: () => liveBinding().paramKey,

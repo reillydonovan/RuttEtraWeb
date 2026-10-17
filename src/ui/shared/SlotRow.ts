@@ -53,6 +53,8 @@ export interface EnumAdapter<T extends string = string> {
   get(): T;
   set(value: T): void;
   help?: string;
+  /** Hover text that follows the CURRENT value (e.g. what the chosen graph node does). */
+  describe?: () => string | null | undefined;
   /**
    * Each option may carry an optional `group` label. When ANY option
    * has a group, the rendered `<select>` uses `<optgroup>` elements:
@@ -839,6 +841,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     }
   }
   srcSel.addEventListener('change', () => adapter.source.set(srcSel.value));
+  if (adapter.source.describe) attachTooltip(srcSel, adapter.source.describe);
   line1.appendChild(srcSel);
 
   // Expand toggle
