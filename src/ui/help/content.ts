@@ -765,7 +765,7 @@ more accurate colour preservation than simple channel-splitting.
 | **Enable** | Switches the canvas to anaglyph mode. Toggle off to return to normal view. |
 | **Eye Sep (cm)** | Inter-pupillary distance in centimetres. Default 6.4 cm matches average human IPD. Increase for stronger depth; decrease to reduce eye strain on close objects. |
 
-Both controls are in the **Camera → Anaglyph 3D** group.
+Both controls are in the **Virtual Camera → Anaglyph 3D** group.
 
 ## What works in anaglyph mode
 

@@ -100,7 +100,7 @@ export function createRecordSection(
     const scale = settings.get('renderScale');
     resReadout.innerHTML =
       `Recording at: <b>${w} × ${h}</b><br>` +
-      `<span style="opacity:0.8">(Render resolution: ${presetLabel} · Render scale ${scale.toFixed(2)}) — change in <b>Camera → Resolution</b></span>`;
+      `<span style="opacity:0.8">(Render resolution: ${presetLabel} · Render scale ${scale.toFixed(2)}) — change in <b>Virtual Camera → Resolution</b></span>`;
   }
   refreshResReadout();
   // Refresh whenever any setting that affects canvas dimensions changes.
