@@ -1,9 +1,9 @@
-// Lesson 7 — Classic modulation: a sine wave moving Z Push.
+// Lesson 7 — Function generators: a sine wave moving Z Push.
 import { bootPattern } from '../lib/helpers.mjs';
 
 export const lines = [
   { id: 'intro', text: 'Modulation moves parameters for you, so the picture keeps changing on its own. Open the Modulation section.' },
-  { id: 'slots', text: 'Classic mode has four slots. Each is a function generator: a source, a target, and an amount.' },
+  { id: 'slots', text: 'Generators mode has four function generators. Each one is a source, a target, and an amount.' },
   { id: 'target', text: "Slot one's source is already a sine wave. Set its target to Z Push." },
   { id: 'enable', text: 'Switch the slot on.' },
   { id: 'amount', text: 'Amount is how far it swings. Turn it up, and the raster starts to breathe.' },

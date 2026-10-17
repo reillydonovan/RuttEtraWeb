@@ -177,7 +177,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
 
   const header = document.createElement('div');
   header.className = 'rw-beginner-header';
-  header.textContent = 'Beginner view — same expandable rows as Classic';
+  header.textContent = 'Beginner view — same expandable rows as the Function Generators';
   root.appendChild(header);
 
   const rowsHost = document.createElement('div');

@@ -86,7 +86,7 @@ export function buildTutorialSteps(deps: TutorialDeps): TutorialStep[] {
     {
       title: 'Make it move on its own',
       body:
-        'The Classic tab gives you 4 simple LFO slots — pick a Target ' +
+        'The Generators tab gives you 4 function generators — pick a Target ' +
         'and a shape, done. For bigger patches (or math between signals), ' +
         'switch to Graph mode: a node editor with its own Sample Patches ' +
         'and free-text Note nodes for documenting what you built.',

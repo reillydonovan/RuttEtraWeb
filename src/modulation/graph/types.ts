@@ -158,6 +158,10 @@ export interface PortSpec {
   kind: 'control' | 'audio' | 'video' | 'gate' | 'trigger';
   /** Optional human-readable label; defaults to `name`. */
   label?: string;
+  /** OUTPUTS: the value span this port produces, [lo, hi] — fixed, or from the node's params
+   *  (e.g. an LFO's `bipolar`). Drives a binding's Range row (target-unit From → To) and the
+   *  Node Catalog. Every output of every node declares one (portRange.test.ts). */
+  range?: readonly [number, number] | ((params: Record<string, number | string | boolean>) => readonly [number, number]);
 }
 
 /**

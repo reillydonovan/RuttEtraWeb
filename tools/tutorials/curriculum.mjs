@@ -22,7 +22,7 @@ export const TRACKS = [
       { id: 'controls-tour', title: 'Finding your way around', blurb: 'Tabs, sections, search, knobs, ranges, and the ⓘ help.' },
       { id: 'shaping', title: 'Shaping the raster', blurb: 'Size, depth, rotation and luminance — the scan processor itself.' },
       { id: 'look', title: 'Color, glow and presets', blurb: 'Bloom, feedback, the virtual camera, and one-click presets.' },
-      { id: 'modulation', title: 'Modulation', blurb: 'A Classic modulation slot: a sine wave moving a parameter.' },
+      { id: 'modulation', title: 'Modulation', blurb: 'A function generator: a sine wave moving a parameter.' },
     ],
   },
   {

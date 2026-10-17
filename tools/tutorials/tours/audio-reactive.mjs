@@ -11,7 +11,7 @@ export const lines = [
   { id: 'beat', text: 'Turn on the beat detector. Its light flashes on every hit, and Beat becomes a modulation source.' },
   { id: 'spectrum', text: 'Spectrum to Z displacement lifts each scan line by its own frequency band. Turn up the amount.' },
   { id: 'patch', text: 'Or patch sound anywhere. In Graph mode, the Library has an audio-reactive bloom patch. Load it, and the glow pumps with every beep.' },
-  { id: 'classic', text: 'Classic slots can use Audio, a single band, or Beat as their source, too.' },
+  { id: 'classic', text: 'Function generators can use Audio, a single band, or Beat as their source, too.' },
   { id: 'outro', text: 'Plug in a real mic, or load a song file, and the whole picture plays along. Next: the oscilloscope.' },
 ];
 export const poster = 'spectrum';

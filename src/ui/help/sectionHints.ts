@@ -16,7 +16,7 @@ export const SECTION_HINTS: Record<string, string> = {
   'Virtual Camera': 'The free-flight 3D camera that views the scanline mesh (not your webcam): orbit/fly modes, field of view, and the saved default view.',
   XR: 'WebXR headset output — view the scanline mesh in VR or AR.',
   'Color / Post FX': 'Color grading and the CRT post-processing chain: bloom, feedback/burn-in, scanlines, analog character.',
-  Modulation: 'The two modulation engines — Classic (4-slot patch matrix) and Graph (node-based) — that drive parameters over time from LFOs, audio, MIDI, CV, and more.',
+  Modulation: 'The two modulation engines — Function Generators (4 slots) and Graph (node-based) — that drive parameters over time from LFOs, audio, MIDI, CV, and more.',
   Geometry: 'Mesh density and wireframe/solid rendering options for the scanline mesh itself.',
   Presets: 'Save, load, and manage full-settings snapshots ("looks") for instant recall.',
   Project: 'Save and load the entire workspace — settings, presets, and timelines — as a single project file.',

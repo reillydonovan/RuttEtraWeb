@@ -17,7 +17,8 @@ register<{}>({
   label: 'Audio Envelope',
   description: 'Broadband amplitude follower — overall input loudness.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'audio' }],
+  // Envelope is 0..1 (FFTAnalyzer clamps), times Gain.
+  outputs: [{ name: 'out', kind: 'audio', range: (p) => { const g = +(p.gain ?? 1); return p.bipolar === true ? [-1, 2 * g - 1] : [0, g]; } }],
   params: {
     bipolar: { kind: 'boolean', default: false, help: 'ON maps the loudness to -1..+1 (silence is -1); OFF keeps it 0 and up.' },
     gain:    { kind: 'number', min: 0, max: 4, step: 0.01, default: 1, help: 'Multiplies the loudness: above 1 makes quiet sound react more, below 1 tames it.' },
@@ -39,7 +40,8 @@ register<{}>({
   label: 'Audio Band',
   description: 'Single FFT band as a CV — pick the band index, smoothing, gain.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'audio' }],
+  // Each band is 0..1 (FFTAnalyzer clamps), times Gain.
+  outputs: [{ name: 'out', kind: 'audio', range: (p) => { const g = +(p.gain ?? 1); return p.bipolar === true ? [-1, 2 * g - 1] : [0, g]; } }],
   params: {
     band:    { kind: 'number', min: 0,  max: 127, step: 1,    default: 0, help: 'Which frequency band to follow: 0 is the lowest (bass), higher numbers go up toward treble.' },
     gain:    { kind: 'number', min: 0,  max: 4,   step: 0.01, default: 1, help: 'Multiplies the band level: above 1 makes it react more strongly.' },
@@ -72,7 +74,7 @@ register<PitchState>({
   label: 'Audio Pitch',
   description: 'Fundamental frequency tracker — output normalized over a Hz range.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'audio' }],
+  outputs: [{ name: 'out', kind: 'audio', range: [0, 1] }],
   params: {
     minHz:    { kind: 'number', min: 30,   max: 1000,  step: 1, default: 80, help: 'Lowest pitch to listen for, in Hz; this pitch outputs 0.' },
     maxHz:    { kind: 'number', min: 100,  max: 10000, step: 1, default: 800, help: 'Highest pitch to listen for, in Hz; this pitch outputs 1.' },
@@ -142,7 +144,7 @@ register<OnsetState>({
   label: 'Audio Onset',
   description: 'Transient detector — decaying pulse on each detected onset.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'trigger' }],
+  outputs: [{ name: 'out', kind: 'trigger', range: [0, 1] }],
   params: {
     threshold: { kind: 'number', min: 0,  max: 1,    step: 0.01, default: 0.15, help: 'How sudden a jump in loudness counts as a hit when no beat detector is running; lower is more sensitive.' },
     decayMs:   { kind: 'number', min: 10, max: 1000, step: 1,    default: 120, help: 'How long each pulse takes to fade back to 0, in milliseconds.' },

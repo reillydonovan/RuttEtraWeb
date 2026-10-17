@@ -529,7 +529,7 @@ function buildSourceControls(args: {
   // Source kind picker.
   const kindOptions: { v: CVOutputChannel['sourceKind']; l: string }[] = [
     { v: 'constant',        l: 'Constant value' },
-    { v: 'classic-slot',    l: 'Classic slot' },
+    { v: 'classic-slot',    l: 'function generator' },
     { v: 'graph-node',      l: 'Graph node' },
     { v: 'settings-param',  l: 'Settings param' },
     { v: 'pattern-output',  l: 'Pattern output' },

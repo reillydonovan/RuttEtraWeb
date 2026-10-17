@@ -32,7 +32,7 @@ import { PARAM_DOCS } from './help/paramDocs';
 function attachModulationIndicator(control: HTMLElement, paramKey: string): void {
   const dot = document.createElement('span');
   dot.className = 'rw-mod-dot';
-  dot.title = 'This param is being modulated by both Classic and Graph engines.';
+  dot.title = 'This param is being modulated by both the Function Generators and the Graph.';
   dot.setAttribute('aria-hidden', 'true');
   control.appendChild(dot);
   const apply = (a: TargetActivity): void => {

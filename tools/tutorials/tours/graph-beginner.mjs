@@ -2,13 +2,13 @@
 import { bootPattern } from '../lib/helpers.mjs';
 
 export const lines = [
-  { id: 'intro', text: 'Classic mode gives you four fixed slots. Graph mode is a node engine with more than fifty node types. Switch the Modulation section to Graph.' },
-  { id: 'add', text: 'Beginner view looks like the Classic slots, but each row is a real node with a binding. Click Add patch: an LFO into Z Push.' },
+  { id: 'intro', text: 'Generators mode gives you four function generators. Graph mode is a node engine with more than fifty node types. Switch the Modulation section to Graph.' },
+  { id: 'add', text: 'Beginner view looks like the function generators, but each row is a real node with a binding. Click Add patch: an LFO into Z Push.' },
   { id: 'noise', text: 'Change its source to Noise. White noise jitters the depth on every frame.' },
   { id: 'target', text: 'Point it at Rotation instead, and turn the amount up. Now the whole raster shivers.' },
   { id: 'ramp', text: 'Add a second row. A Ramp, sweeping H Size from narrow to wide, over and over.' },
   { id: 'library', text: 'The Library holds ready-made patches. Load Getting Started, a slow breathing depth with a note explaining it.' },
-  { id: 'both', text: 'Both mode runs Classic slots and the graph together, so switching never throws your slots away.' },
+  { id: 'both', text: 'Both mode runs the function generators and the graph together, so switching never throws your patches away.' },
   { id: 'outro', text: 'Beginner view covers simple one-to-one patches. Next, the Advanced canvas, where nodes feed each other.' },
 ];
 export const poster = 'target';

@@ -4,7 +4,7 @@ This synth was built with a small number of rules in mind. They're worth knowing
 
 <h3 id="one-concept">One concept, one place to set it.</h3>
 
-When you change the BPM, it changes everywhere at once — Classic LFOs in tempo mode, the Timeline, Graph clock nodes. There aren't three separate BPM fields scattered through the UI. The synth tries to have a single source of truth for any concept you care about, so changing your mind in one place updates everywhere it matters.
+When you change the BPM, it changes everywhere at once — function generator LFOs in tempo mode, the Timeline, Graph clock nodes. There aren't three separate BPM fields scattered through the UI. The synth tries to have a single source of truth for any concept you care about, so changing your mind in one place updates everywhere it matters.
 
 <h3 id="modulation-knobs">Modulation doesn't overwrite your knobs.</h3>
 
@@ -30,7 +30,7 @@ When you shorten a timeline, keyframes past the new end aren't deleted — they'
 
 <h3 id="matches-how-you-think">The structure matches how you think about it, not how it's built.</h3>
 
-Patterns are layers because that's how compositing makes sense. Preset keyframes and automation lanes are separate concepts because "set the overall structure" and "animate one knob" are different jobs. Classic and Graph modulation coexist because they're genuinely different mental models. The synth tries to bend its data toward how you reason, not toward what's convenient to code.
+Patterns are layers because that's how compositing makes sense. Preset keyframes and automation lanes are separate concepts because "set the overall structure" and "animate one knob" are different jobs. The Function Generators and Graph modulation coexist because they're genuinely different mental models. The synth tries to bend its data toward how you reason, not toward what's convenient to code.
 
 <h3 id="manual-with-feature">Every feature comes with the manual entry.</h3>
 

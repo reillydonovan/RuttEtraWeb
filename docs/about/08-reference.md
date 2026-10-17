@@ -133,7 +133,7 @@ Field guide:
 - `formatVersion` — schema version for migration. Bumped on breaking changes; `parseProject()` runs migration steps when an older version is loaded, and saving back always writes at the current version.
 - `type` — must be `"ruttetra-project"`. Guards against accidentally loading a preset or timeline file.
 - `appVersion`, `savedAt`, `name`, `description` — metadata.
-- `settings` — the full `Partial<Settings>` snapshot. Carries every persistent subsystem: DCU controls, modulation patches (Classic + Graph), camera `defaultView`, color / FX, MIDI bindings, OSC bindings, CV input + output channels, sonification config, pattern generator config, workspace UI, resolution + render scale, performance profile.
+- `settings` — the full `Partial<Settings>` snapshot. Carries every persistent subsystem: DCU controls, modulation patches (Function Generators + Graph), camera `defaultView`, color / FX, MIDI bindings, OSC bindings, CV input + output channels, sonification config, pattern generator config, workspace UI, resolution + render scale, performance profile.
 - `userPresets` — the named user presets at save time. Replaces the in-memory list on load.
 - `timelines` — full timeline snapshots (no external references). `activeTimelineId` selects which one is loaded into the sequencer.
 

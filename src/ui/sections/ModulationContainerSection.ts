@@ -56,7 +56,7 @@ export function createModulationContainerSection(deps: ModulationContainerDeps):
   switchEl.setAttribute('role', 'tablist');
   switchEl.setAttribute('aria-label', 'Modulation engine mode');
   const modes: { id: ModMode; label: string }[] = [
-    { id: 'classic', label: 'Classic' },
+    { id: 'classic', label: 'Generators' },
     { id: 'graph',   label: 'Graph' },
     { id: 'both',    label: 'Both' },
   ];
@@ -119,7 +119,7 @@ export function createModulationContainerSection(deps: ModulationContainerDeps):
     const slots = settings.get('modSlots') as ModSlot[];
     const patch = classicToGraph(slots);
     if (patch.nodes.length === 0) {
-      alert('No enabled Classic slots to convert.');
+      alert('No enabled function generators to convert.');
       return;
     }
     settings.set('modGraph', patch);

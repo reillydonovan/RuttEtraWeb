@@ -220,7 +220,7 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
     timelineDock: 'bottom', timelineHeight: 220,
   },
   {
-    id: 'classic', label: 'Classic (no left window)',
+    id: 'classic', label: 'Simple (no left window)',
     state: T({ center: ['renderer'], left: [], right: ['panel', 'patchbay'], bottom: ['timeline'] }),
     panelDock: 'right',
     panelCollapsed: false, panelWidth: 360, leftPanelWidth: 400,

@@ -66,7 +66,7 @@ export async function run(page, seg, h) {
   await seg('source', async () => {
     const S = await h.sec('CV Out');
     const src = await page.evaluate((s) => {
-      const sel = [...document.querySelectorAll(`${s} select`)].find((x) => [...x.options].some((o) => /Classic slot/i.test(o.textContent)));
+      const sel = [...document.querySelectorAll(`${s} select`)].find((x) => [...x.options].some((o) => /function generator/i.test(o.textContent)));
       if (!sel) return null;
       const b = sel.getBoundingClientRect();
       return { x: b.x + b.width / 2, y: b.y + b.height / 2 };

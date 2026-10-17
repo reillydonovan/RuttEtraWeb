@@ -56,8 +56,8 @@ export const GROUP_HINTS: Record<string, string> = {
   'Vignette': 'Darkens the corners of the picture.',
 
   // ── Modulation ──────────────────────────────────────────────────────
-  'All slots': 'Settings shared by every Classic modulation slot.',
-  'Tempo': 'The one tempo the whole synth shares: Classic LFOs, the Timeline and graph clocks all follow it. Set it here or let MIDI clock drive it.',
+  'All slots': 'Settings shared by every function generator.',
+  'Tempo': 'The one tempo the whole synth shares: function generator LFOs, the Timeline and graph clocks all follow it. Set it here or let MIDI clock drive it.',
   'Joystick (XY pad + Z)': 'A touch pad and slider you can use as three modulation sources (X, Y, Z) — useful with a phone or touchscreen.',
   'Audio Interface (mic)': 'Use a microphone or audio interface as a modulation source.',
 

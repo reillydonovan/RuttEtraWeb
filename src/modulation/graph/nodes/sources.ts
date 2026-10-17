@@ -23,7 +23,7 @@ register<LFOState>({
   label: 'LFO',
   description: 'Low-frequency oscillator — sine/triangle/saw/square/pulse.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => (p.bipolar === false ? [0, 1] : [-1, 1]) }],
   params: {
     shape:    { kind: 'enum', options: ['sine', 'triangle', 'saw', 'square', 'pulse'], default: 'sine', help: 'Waveform shape: sine is smooth, triangle is linear, saw ramps up and drops, square and pulse jump.' },
     // Floor matches the Classic slot LFO (0.001 Hz = 1000 s period) so
@@ -72,7 +72,7 @@ register<RampState>({
   label: 'Ramp',
   description: 'Linear ramp generator — up/down/triangle/one-shot.',
   inputs: [{ name: 'trigger', kind: 'trigger' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => (p.bipolar === false ? [0, 1] : [-1, 1]) }],
   params: {
     mode:     { kind: 'enum', options: ['up', 'down', 'triangle', 'one-shot'], default: 'up', help: 'Ramp direction: up rises and repeats, down falls, triangle rises then falls, one-shot rises once and holds.' },
     timeSec:  { kind: 'number', min: 0.05, max: 600, step: 0.05, default: 4, help: 'How long one ramp takes, in seconds. A pulse on the trigger input restarts it.' },
@@ -120,7 +120,9 @@ register<NoiseState>({
   label: 'Noise',
   description: 'White / pink / sample-and-hold noise generator.',
   inputs: [{ name: 'clock', kind: 'trigger' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // Pink noise is a sum of leaky integrators scaled by 0.11: it stays inside ±1 in practice,
+  // though not provably (a long same-sign run can overshoot slightly).
+  outputs: [{ name: 'out', kind: 'control', range: (p) => (p.bipolar === false ? [0, 1] : [-1, 1]) }],
   params: {
     kind:    { kind: 'enum', options: ['white', 'pink', 'sample-and-hold'], default: 'white', help: 'Noise type: white jitters every frame, pink drifts more smoothly, sample-and-hold steps on each clock pulse.' },
     bipolar: { kind: 'boolean', default: true, help: 'ON centres the noise on 0 (-1 to +1); OFF keeps it 0 to 1.' },
@@ -165,7 +167,7 @@ register<{}>({
   label: 'Constant',
   description: 'Fixed value — useful as a baseline to sum against.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const v = +(p.value ?? 0); return [v, v]; } }],
   params: {
     value: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0, help: 'The fixed value this node always outputs.' },
   },
@@ -186,8 +188,8 @@ register<ClockState>({
   description: 'Pulse generator at internal BPM or MIDI clock division. Internal BPM is the global Tempo (shared with Timeline + Classic LFOs).',
   inputs: [],
   outputs: [
-    { name: 'out',  kind: 'trigger' },
-    { name: 'phase', kind: 'control' },
+    { name: 'out',  kind: 'trigger', range: [0, 1] },
+    { name: 'phase', kind: 'control', range: [0, 1] },
   ],
   params: {
     source:   { kind: 'enum', options: ['internal', 'midi'], default: 'internal', help: 'Where the tempo comes from: internal follows the global Tempo, midi follows incoming MIDI clock.' },
@@ -244,13 +246,20 @@ const PATTERN_OUTPUT_OPTIONS = (() => {
   return ids.length > 0 ? ids : [''];
 })();
 
+/** The pattern signal's declared polarity (PatternOutputDef.range); an unknown or empty id reads 0. */
+const PATTERN_OUTPUT_UNIPOLAR = new Map(listPatternOutputs().map((e) => [e.busId, e.signal.range === 'unipolar']));
+function patternOutputRange(id: string): readonly [number, number] {
+  const uni = PATTERN_OUTPUT_UNIPOLAR.get(id);
+  return uni === undefined ? [0, 0] : uni ? [0, 1] : [-1, 1];
+}
+
 register<{}>({
   type: 'pattern-output',
   category: 'Sources',
   label: 'Pattern Output',
   description: 'Read an internal control signal from the active Pattern Generator (Lissajous X/Y, Sine Bands wave, Oscilloscope mean/trigger/peak, etc.).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => patternOutputRange(String(p.output ?? '')) }],
   params: {
     /** Bus id `<patternKind>:<signalId>` — e.g. `'lissajous:x'`. */
     output: {
@@ -286,8 +295,8 @@ register<{ count: number }>({
   description: 'Frame-locked sync pulses — the emulated vertical-sync clock. Pulse fires every N frames; phase ramps 0..1 across the period. Feed pulse into Sample & Hold or the Sequencer to lock them to the raster.',
   inputs: [],
   outputs: [
-    { name: 'pulse', kind: 'trigger' },
-    { name: 'phase', kind: 'control' },
+    { name: 'pulse', kind: 'trigger', range: [0, 1] },
+    { name: 'phase', kind: 'control', range: [0, 1] },
   ],
   params: {
     division: { kind: 'enum', options: ['1', '2', '4', '8', '16'], default: '1', help: 'Fire a pulse every N rendered frames (1 = every frame).' },

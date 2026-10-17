@@ -17,7 +17,8 @@ register<{}>({
   label: 'Attenuator',
   description: 'Multiply input by a 0..1 level (basic volume).',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const l = Math.abs(+(p.level ?? 1)); return [-l, l]; } }],
   params: { level: { kind: 'number', min: 0, max: 1, step: 0.001, default: 1, help: 'How much of the input passes through: 1 is all of it, 0 is silence.' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -33,7 +34,8 @@ register<{}>({
   label: 'Inverter',
   description: 'Negate input.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(_ctx, _s, ins, _params, outputs) {
@@ -49,7 +51,8 @@ register<{}>({
   label: 'Offset',
   description: 'Add a DC bias to the input.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const b = +(p.bias ?? 0); return [-1 + b, 1 + b]; } }],
   params: { bias: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0, help: 'Amount added to the input, shifting the whole signal up (positive) or down (negative).' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -65,7 +68,8 @@ register<{}>({
   label: 'Scale',
   description: 'Multiply by a constant (can be >1 or negative).',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const g = Math.abs(+(p.factor ?? 1)); return [-g, g]; } }],
   params: { factor: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Multiplier for the input: above 1 boosts, below 1 shrinks, negative flips it upside down.' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -75,13 +79,27 @@ register<{}>({
 
 // ---------- Range ----------
 
+/** Range node's output span: [outMin, outMax] when clamped, else what a ±1 input maps to. */
+function rangeNodeSpan(p: Record<string, number | string | boolean>): readonly [number, number] {
+  const inMin = +(p.inMin ?? 0), inMax = +(p.inMax ?? 1), outMin = +(p.outMin ?? 0), outMax = +(p.outMax ?? 1);
+  const map = (x: number): number => {
+    let t = inMax === inMin ? 0 : (x - inMin) / (inMax - inMin);
+    if (p.clamp !== false) t = Math.min(1, Math.max(0, t));
+    return outMin + (outMax - outMin) * t;
+  };
+  const a = map(-1), b = map(1);
+  return p.clamp !== false ? [Math.min(outMin, outMax), Math.max(outMin, outMax)] : [Math.min(a, b), Math.max(a, b)];
+}
+
+
 register<{}>({
   type: 'range',
   category: 'Processors',
   label: 'Range',
   description: 'Remap input range [a,b] to output range [c,d] with optional clamp.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // exact when clamped; otherwise for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: rangeNodeSpan }],
   params: {
     inMin:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 0, help: 'Input value that maps to Out Min.' },
     inMax:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Input value that maps to Out Max.' },
@@ -118,7 +136,8 @@ register<{}>({
     { name: 'in3', kind: 'control' },
     { name: 'in4', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for ±1 inputs
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const g = [1, 2, 3, 4].reduce((s, i) => s + Math.abs(+(p[`gain${i}`] ?? 1)), 0); return [-g, g]; } }],
   params: {
     gain1: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 1 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
     gain2: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 2 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
@@ -146,7 +165,8 @@ register<{}>({
     { name: 'a', kind: 'control' },
     { name: 'b', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for ±1 inputs
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(_ctx, _s, ins, _p, outputs) {
@@ -166,7 +186,8 @@ register<{}>({
     { name: 'b', kind: 'control' },
     { name: 'x', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for ±1 inputs
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     bias: { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Meant as the blend when X is unpatched (0 = A, 1 = B). Currently has no effect: an unpatched X reads 0, so patch X.' },
   },
@@ -193,7 +214,8 @@ register<{}>({
     { name: 'in3', kind: 'control' },
     { name: 'in4', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for ±1 inputs
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(_ctx, _s, ins, _p, outputs) {
@@ -217,7 +239,8 @@ register<{}>({
     { name: 'in3', kind: 'control' },
     { name: 'in4', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for ±1 inputs
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(_ctx, _s, ins, _p, outputs) {
@@ -241,7 +264,7 @@ register<{}>({
     { name: 'a', kind: 'control' },
     { name: 'b', kind: 'control' },
   ],
-  outputs: [{ name: 'out', kind: 'gate' }],
+  outputs: [{ name: 'out', kind: 'gate', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) }],
   params: {
     bipolar: { kind: 'boolean', default: false, help: 'ON outputs -1 instead of 0 when A is not greater than B.' },
   },
@@ -265,7 +288,8 @@ register<SHState>({
     { name: 'in',      kind: 'control' },
     { name: 'trigger', kind: 'trigger' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({ value: 0, lastTrigger: 0 }),
   tick(_ctx, state, ins, _p, outputs) {
@@ -286,7 +310,8 @@ register<SlewState>({
   label: 'Slew',
   description: 'Rise/fall slew limiter — smooth jagged signals (audio, motion).',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     riseMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100, help: 'How slowly the output follows the input upward, in milliseconds (0 = instantly).' },
     fallMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100, help: 'How slowly the output follows the input downward, in milliseconds (0 = instantly).' },
@@ -312,7 +337,7 @@ register<{}>({
   label: 'Quantize',
   description: 'Snap input to N evenly-spaced steps in its range.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const a = +(p.inMin ?? -1), b = +(p.inMax ?? 1); return [Math.min(a, b), Math.max(a, b)]; } }],
   params: {
     steps: { kind: 'number', min: 2, max: 64, step: 1, default: 8, help: 'Number of fixed levels the input snaps to; fewer steps gives a chunkier staircase.' },
     inMin: { kind: 'number', min: -8, max: 8, step: 0.01, default: -1, help: 'Bottom of the range to divide into steps; lower inputs snap to this value.' },
@@ -341,7 +366,8 @@ register<{}>({
   label: 'Curve',
   description: 'Apply easing curve (linear / exp / log / S) to the input.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     shape: { kind: 'enum', options: ['linear', 'exp', 'log', 'sCurve'], default: 'linear', help: 'Response shape: linear leaves it alone, exp starts slow then rises fast, log rises fast then eases, sCurve eases both ends.' },
     amount: { kind: 'number', min: 0, max: 4, step: 0.01, default: 1, help: 'How strongly the exp and log shapes bend the signal; no effect on linear or sCurve.' },
@@ -377,7 +403,8 @@ register<DelayState>({
   label: 'Delay',
   description: 'Delay input by N frames — enables short feedback loops.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     frames: { kind: 'number', min: 1, max: 240, step: 1, default: 1, help: 'How many frames late the output repeats the input (60 is about one second at 60 fps).' },
   },
@@ -414,7 +441,8 @@ register<THState>({
     { name: 'in',   kind: 'control' },
     { name: 'gate', kind: 'gate' },
   ],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({ value: 0 }),
   tick(_ctx, state, ins, _p, outputs) {
@@ -440,7 +468,7 @@ register<EnvState>({
   label: 'Envelope (ADSR)',
   description: 'Gate-triggered attack/decay/sustain/release envelope — patch a beat, comparator, or Sync pulse into gate and shape any parameter like a VCA.',
   inputs: [{ name: 'gate', kind: 'gate' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: [0, 1] }],
   params: {
     attackMs:  { kind: 'number', min: 1, max: 10000, step: 1, default: 50, help: 'Time to rise to full level when the gate opens, in milliseconds.' },
     decayMs:   { kind: 'number', min: 1, max: 10000, step: 1, default: 200, help: 'Time to fall from full level to the Sustain level, in milliseconds.' },
@@ -497,7 +525,8 @@ register<SvfState>({
   label: 'Filter (LP/HP/BP)',
   description: 'Control-rate resonant filter (state-variable). Lowpass smooths, highpass isolates wiggle, bandpass rings around the cutoff — resonance adds overshoot like an analog filter.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // approx. for a ±1 input: resonance peaks near 1/(1 - resonance)
+  outputs: [{ name: 'out', kind: 'control', range: (p) => { const g = 1 / Math.max(0.05, 1 - +(p.resonance ?? 0)); return [-g, g]; } }],
   params: {
     type:      { kind: 'enum', options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass', help: 'Lowpass smooths out fast wiggles, highpass keeps only the wiggles, bandpass keeps motion near the cutoff.' },
     cutoffHz:  { kind: 'number', min: 0.01, max: 12, step: 0.01, default: 2, help: 'Frequency where the filter starts to act, in cycles per second (Hz).' },
@@ -536,7 +565,8 @@ register<{}>({
   label: 'Scope',
   description: 'Passthrough oscilloscope: out = in, unchanged. Splice into any cable to SEE the signal — the Patch Bay renders a live trace on the module.',
   inputs: [{ name: 'in', kind: 'control' }],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // for a ±1 input
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(_ctx, _s, ins, _p, outputs) {

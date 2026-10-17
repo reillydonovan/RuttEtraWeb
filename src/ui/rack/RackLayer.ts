@@ -130,7 +130,7 @@ export function createRackLayer(
       attachTooltip(jack, () => {
         const i = slotForParam(settings.get('modSlots'), key);
         return i >= 0
-          ? `Patched from Classic slot ${i + 1} — drag to move the cable, drop in space to unplug.`
+          ? `Patched from function generator ${i + 1} — drag to move the cable, drop in space to unplug.`
           : TWO_WAY_PATCHING
             ? 'Modulation input — drag from here to a slot’s output jack (or the other way around) to patch it.'
             : 'Modulation input — drag a cable into it from an output jack (a modulation slot’s OUT, or another knob’s OUT).';

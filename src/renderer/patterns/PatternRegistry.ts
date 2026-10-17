@@ -605,7 +605,7 @@ export const GRAD_SHAPE_OPTIONS: { value: PatternGradientShape; label: string }[
 
 export const SCOPE_SOURCE_OPTIONS: { value: PatternScopeSourceKind; label: string }[] = [
   { value: 'audio',          label: 'Audio'           },
-  { value: 'classic-slot',   label: 'Classic Slot'    },
+  { value: 'classic-slot',   label: 'Function Generator'    },
   { value: 'graph-node',     label: 'Graph Node'      },
   { value: 'settings-param', label: 'Settings Param'  },
   { value: 'beat',           label: 'Beat Pulse'      },

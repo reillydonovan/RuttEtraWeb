@@ -1281,7 +1281,7 @@ async function bootSynth(): Promise<void> {
               label: 'Layout',
               submenu: () => [
                 { label: 'Default (4-up: controls left, output center)', run: () => workspace.applyPreset('default') },
-                { label: 'Classic (no left window)', run: () => workspace.applyPreset('classic') },
+                { label: 'Simple (no left window)', run: () => workspace.applyPreset('classic') },
                 { label: 'Tall (everything in one column)', run: () => workspace.applyPreset('tall') },
                 { label: 'Wide (tall bottom strip)', run: () => workspace.applyPreset('wide') },
                 { label: 'Performance (output maximized)', run: () => workspace.applyPreset('performance') },

@@ -64,7 +64,7 @@ const MD_QUICKSTART = `
 > view in (RENDERER / CONTROLS /
 > TIMELINE / PATCH BAY). Moving a view never disturbs another window —
 > its old home just shows its own next tab. ⤢ maximizes, – collapses.
-> **Window ▸ Layout**: Default (4-up), Classic, Tall, Wide,
+> **Window ▸ Layout**: Default (4-up), Simple, Tall, Wide,
 > Performance, Patch Bay — and **Reset Layout** to retreat to stock.
 >
 > New to patching? The About page's **Tutorials** section walks through
@@ -81,7 +81,7 @@ const MD_QUICKSTART = `
 > a module's header to reorder or break it into free layout. Drag a
 > cable or module to the edge of the view and the board glides along
 > so you can reach a jack that's off-screen. The four
-> Classic slots become FUNCTION GENERATOR modules with SRC IN and OUT
+> The function generators appear as FUNCTION GENERATOR modules with SRC IN and OUT
 > jacks, VIDEO SOURCE A/B modules switch webcam/screen/file feeds (A
 > mirrors Controls ▸ Video Source A; B is independent), each with an OUT jack —
 > drag both onto a COMPOSITE module's two inputs (Add/Subtract/
@@ -156,7 +156,7 @@ hardware panel — rotary knobs (drag vertically; hold \`Shift\` for fine
 control), bat switches, LCD readouts. **RACK** adds modular chrome and
 **live patch cables**: every modulatable knob grows an input and an
 output jack, each
-Classic mod slot gets an output jack, and dragging a cable between them
+function generator gets an output jack, and dragging a cable between them
 from the output into the input sets that slot's Target, exactly the same edit
 as the Modulation panel's dropdown. Drop a cable in empty space to
 unplug it. Drag a knob's output jack onto another knob's input to
@@ -211,9 +211,9 @@ const MD_MOD = `
 # Modulation — two engines, one panel
 
 The **Modulation** panel hosts two independent engines. Pick which is active
-with the **Classic | Graph | Both** switch at the top.
+with the **Generators | Graph | Both** switch at the top.
 
-- **Classic** is the original 4-slot matrix — fast to set up, easy to read.
+- **Generators** — the four function generators, the original 4-slot matrix — fast to set up, easy to read.
 - **Graph** is a free-form node graph — every signal is a value, every wire
   is a patch cord. Inspired by the original Rutt/Etra's voltage-control
   philosophy.
@@ -221,7 +221,7 @@ with the **Classic | Graph | Both** switch at the top.
   Watch for the small dual-color dot next to a slider — it lights up when both
   engines are touching the same param.
 
-## Classic in 30 seconds
+## Function Generators in 30 seconds
 
 Each slot routes a **source** to a **target** with an **amount**.
 
@@ -240,7 +240,7 @@ Each slot routes a **source** to a **target** with an **amount**.
   open the **Audio** panel, pick **mic**, and tap a kick. Relief jumps on every
   hit.
 
-## Tuning a Classic patch
+## Tuning a function generator
 
 Every slot is a small voltage-control chain:
 
@@ -310,7 +310,7 @@ through one of four routes:
   Expert Sleepers ES-8 / ES-9, MOTU UltraLite, or some Focusrite Scarletts
   pass DC voltages through their audio inputs unchanged. Plug a CV into
   the interface, select that channel as a CV input in the **I/O → CV**
-  panel, and it shows up as a source under both Classic (\`CV Input
+  panel, and it shows up as a source under both the Function Generators (\`CV Input
   (audio)\`) and Graph (\`CV Input\` node) modulation. ±5V Eurorack-style
   CV is the default range; the panel lets you swap to 0–5V, ±10V, or
   0–10V to match other formats.
@@ -394,7 +394,7 @@ modulation source, or graph node can be routed to a CV output channel.
 5. Pick a **Source**:
    - **Constant value** — useful for testing. Just emits a fixed
      voltage.
-   - **Classic slot** — a Classic patch's post-output value.
+   - **function generator** — a function generator's post-output value.
      <i>Also</i> set that slot's Target to "CV Out: Ch N" — the slot
      drives the channel directly through the routing token.
    - **Graph node** — by id + port. Or, more cleanly, drop a
@@ -617,16 +617,16 @@ sources are mixed together by the browser. Same for broadcasts.
 
 ## Coexistence
 
-In **Both** mode, Classic and Graph write to the same Settings keys; their
+In **Both** mode, the Function Generators and Graph write to the same Settings keys; their
 effects sum. The dual-color dot on a slider tells you when this is happening.
-Switching to **Graph** silences Classic immediately and vice versa — old
+Switching to **Graph** silences the function generators immediately and vice versa — old
 values are preserved, the engines just stop pushing.
 
-## Converting Classic to Graph
+## Converting Function Generators to Graph
 
-The bottom of the Classic body has a **Convert to Graph →** button. It builds
+The bottom of the Generators body has a **Convert to Graph →** button. It builds
 an equivalent graph patch (one source node + one binding per enabled slot)
-and switches you to Graph mode. Your Classic slots are left untouched, so you
+and switches you to Graph mode. Your function generators are left untouched, so you
 can flip back any time.
 
 ## Probing & feedback delays
@@ -1077,7 +1077,7 @@ const MD_TIPS = `
 - **Recording produces tiny files.** Some browsers don't expose \`MediaRecorder\` for canvases at high resolution. Try lowering FPS or switching format to \`webm-vp8\`.
 - **Timeline doesn't move.** Make sure you have **at least 2 keyframes** and that the selected timeline is the one in the picker (drop the dropdown, pick it).
 - **Help panel keeps opening.** Toggle **Don't auto-open** in the *Quick start* tab.
-- **My Classic patch stopped working when I switched to Graph.** The mode switch is exclusive: \`Graph\` silences Classic, \`Classic\` silences Graph. Pick **Both** if you want them to run together.
+- **My function generator patch stopped working when I switched to Graph.** The mode switch is exclusive: \`Graph\` silences the function generators, \`Generators\` silences Graph. Pick **Both** if you want them to run together.
 - **Video nodes always read 0.** The Graph engine only constructs a \`VideoTap\` once you switch to Graph or Both mode — make sure a video source is actually playing in the **Source** panel.
 - **A patch is humming / oscillating.** Feedback loops get an implicit one-frame delay, but the loop's gain still matters. Add an attenuator (or a longer **Delay** node) inside the loop to tame it.
 - **Probe shows nothing.** The probe overlay reads the engine's last frame; if the patch is empty, mode is \`classic\`, or the source node has no input wired, it'll just sit at 0.
@@ -1088,7 +1088,7 @@ const MD_TIPS = `
 - **Render Scale is a multiplier on the chosen resolution.** 4K × 0.5 scale renders 1080p internally and upscales — fast performance recovery if your GPU is struggling, with no change to the recording dimension story.
 - **Letterbox fit guarantees pixel-accurate recording.** Fill or Stretch can crop or distort the render when the window doesn't match the preset's aspect ratio. Use Letterbox for predictable recording output.
 - **Custom resolution on mobile may be slow.** On compact/touch devices the Resolution dropdown caps selectable options at Full HD. Higher presets are still listed but grayed out.
-- **There is one BPM.** The Tempo BPM at the top of the Modulation panel is shared by the Timeline, every Classic LFO in Tempo sync mode, and the Graph Clock node — change it once and it's reflected everywhere. The Timeline transport's BPM input is now just a window onto the same value.
+- **There is one BPM.** The Tempo BPM at the top of the Modulation panel is shared by the Timeline, every function generator LFO in Tempo sync mode, and the Graph Clock node — change it once and it's reflected everywhere. The Timeline transport's BPM input is now just a window onto the same value.
 - **MIDI sync without a clock holds at the last known rate.** If you select MIDI sync on a slot but never plug a clock in (or your DAW stops sending one), the slot doesn't silently fall back to the internal BPM. The **NO CLOCK** badge under the slot warns you. Switch to Tempo sync if you want it to follow the global BPM, or to Free for a fixed Hz.
 - **One-shot ramps.** Turn the Ramp slot's **Loop** toggle off to make it run once and hold. Hit the slot's **Retrigger** button (or assign it via MIDI) whenever you want to fire the envelope again.
 - **Use the slot's Output stage to fit a parameter's range.** Set Min / Max to clamp the swing, Offset to bias the result around a non-zero rest value, and the Curve dropdown to bend the response without baking the curve into the source itself — handy when re-routing the same LFO to several params with different feels.
@@ -1099,8 +1099,8 @@ The **Source** panel's Pattern Generator group is an independent video-signal la
 
 - **Kind** picks the generator: Calibration (Solid / Gradient / Bars / Grid / Checker), Waveform (Sine / Triangle / Saw / Square / Pulse Bands, Lissajous, Spiral), Noise (White / Perlin / Worley), or Oscilloscope.
 - **Blend** and **Mix** describe how the pattern combines with whatever video source is active. *Replace* hides the video; *Multiply* / *Screen* / *Mask* etc. composite. *Crossfade* is a clean A/B between video and pattern.
-- All numeric per-pattern parameters (frequency, brightness, contrast, scale, octaves, scope sweep, ...) are full **modulation targets** — they appear in the Classic slot and Graph cv-output target lists under the **Pattern:** prefix.
-- The **Oscilloscope** kind renders any signal you can sample (audio, a Classic mod-matrix slot, a Graph node port, a numeric Settings key, BeatDetector pulses) as a phosphor trace. The trace itself becomes the input to the DCU, so Z Push will then displace the synth surface along the *shape of your signal*. This is the most Rutt-faithful generator: the original 1974 hardware was famously a hijacked oscilloscope.
+- All numeric per-pattern parameters (frequency, brightness, contrast, scale, octaves, scope sweep, ...) are full **modulation targets** — they appear in the function generator and Graph cv-output target lists under the **Pattern:** prefix.
+- The **Oscilloscope** kind renders any signal you can sample (audio, a function generator, a Graph node port, a numeric Settings key, BeatDetector pulses) as a phosphor trace. The trace itself becomes the input to the DCU, so Z Push will then displace the synth surface along the *shape of your signal*. This is the most Rutt-faithful generator: the original 1974 hardware was famously a hijacked oscilloscope.
 - All pattern controls remain editable when **Enable** is OFF — you can wire up a full pattern + modulation patch first, then flip the layer on.
 
 ### Patterns publish their own modulation signals
@@ -1114,7 +1114,7 @@ Every pattern's internal control signals are exposed back to the modulation syst
 
 How to use them:
 
-- **Classic mode** — open a slot's source dropdown and pick from the **Pattern Outputs** group: e.g. *Pattern: Lissajous X* → Z Push wobbles in lockstep with the visible curve's horizontal motion.
+- **Generators mode** — open a slot's source dropdown and pick from the **Pattern Outputs** group: e.g. *Pattern: Lissajous X* → Z Push wobbles in lockstep with the visible curve's horizontal motion.
 - **Graph mode** — drop in a **Pattern Output** node and pick a signal from its dropdown. Wire it through Slew → Output(BloomIntensity) to make bloom follow the scope's mean envelope, for instance.
 - **CV out** — set any CV-output channel's source to **Pattern output** and pick a signal. An external hardware oscilloscope can then display the same Lissajous X the synth's visual layer is drawing.
 

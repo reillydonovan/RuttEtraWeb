@@ -4,7 +4,7 @@ export const fakeMedia = true;
 export const lines = [
   { id: 'intro', text: 'The Pattern Generator has an Oscilloscope kind: it draws a signal as a glowing trace. Turn it on over the camera, set Kind to Oscilloscope, and Blend to Add.' },
   { id: 'thick', text: 'A thin trace barely lifts the raster, so make it thick. Now it rides across the picture as a ridge.' },
-  { id: 'source', text: "Set the scope's source to Classic Slot, and its reference to one: modulation slot one." },
+  { id: 'source', text: "Set the scope's source to Function Generator, and its reference to one: generator one." },
   { id: 'slot', text: 'Switch slot one on. Its sine wave is drawn live.' },
   { id: 'square', text: 'Change the waveform to a square wave, and the trace snaps between two levels.' },
   { id: 'sweep', text: 'Sweep sets how fast the trace crosses the screen. Persist sets how long it glows.' },

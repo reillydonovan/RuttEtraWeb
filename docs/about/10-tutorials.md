@@ -25,7 +25,7 @@ Short narrated lessons, each building on the one before, on the
 5. [Finding your way around](./tutorials.html#controls-tour) — Tabs, sections, search, knobs, ranges, and the ⓘ help.
 6. [Shaping the raster](./tutorials.html#shaping) — Size, depth, rotation and luminance — the scan processor itself.
 7. [Color, glow and presets](./tutorials.html#look) — Bloom, feedback, the virtual camera, and one-click presets.
-8. [Modulation](./tutorials.html#modulation) — A Classic modulation slot: a sine wave moving a parameter.
+8. [Modulation](./tutorials.html#modulation) — A function generator: a sine wave moving a parameter.
 
 **The Timeline**
 
@@ -99,7 +99,7 @@ Goal: your mic's loudness drives **Z Push** (the depth of the scanline
 mesh), so the image physically pulses with sound. Two ways to wire it —
 the Patch Bay way (visual, recommended for learning) and the Controls
 way (fast once you know the instrument). Both edit the SAME thing: a
-Classic modulation slot. The cables in the bay and the dropdowns in the
+function generator. The cables in the bay and the dropdowns in the
 Modulation panel are two views of one patch — watch them mirror each
 other as you go.
 
@@ -150,7 +150,7 @@ Z Push lands exactly where you left it.
 - Any parameter works the same way: every labeled jack on the bay — all
   ~90 of them, Camera FOV to Pattern Frequency to CV OUT channels — is a
   valid Target, and the same list backs every Target dropdown.
-- Four generators run at once (they're the Classic matrix). For patches
+- Four generators run at once (the four function generators). For patches
   bigger than four routes — or math between signals — switch the
   Modulation section to **Graph** mode: an unlimited node graph
   (LFOs, audio bands, MIDI, CV, logic, envelopes) with its own editor,

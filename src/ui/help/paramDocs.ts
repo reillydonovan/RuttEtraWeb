@@ -58,8 +58,8 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   patternPointDensity:{ description: 'Worley-noise feature-point density. Higher = more cells.', range: '0.5..32', panel: 'Pattern' },
   patternAxis:       { description: 'Direction for waveform / bars patterns: horizontal, vertical, both (XOR), or radial.', panel: 'Pattern' },
   patternGradientShape:{ description: 'Gradient shape: linear (uses Phase as direction angle) or radial (Phase shifts the origin).', panel: 'Pattern' },
-  patternScopeSourceKind: { description: 'Where the oscilloscope trace samples its signal: live audio, a Classic mod-matrix slot, a Graph node port, a numeric Settings key, or BeatDetector pulses.', panel: 'Pattern' },
-  patternScopeSourceRef:  { description: 'Reference for the chosen scope source. Audio: ignored. Classic Slot: 1-4. Graph Node: "<nodeId>:<port>" (default port "out"). Settings Param: any numeric Settings key (e.g. "zPush").', panel: 'Pattern' },
+  patternScopeSourceKind: { description: 'Where the oscilloscope trace samples its signal: live audio, a function generator, a Graph node port, a numeric Settings key, or BeatDetector pulses.', panel: 'Pattern' },
+  patternScopeSourceRef:  { description: 'Reference for the chosen scope source. Audio: ignored. Function Generator: 1-4. Graph Node: "<nodeId>:<port>" (default port "out"). Settings Param: any numeric Settings key (e.g. "zPush").', panel: 'Pattern' },
   patternScopeSweep:      { description: 'Horizontal sweep speed: how many buffer windows fit on screen. Higher = compressed time view.', range: '0.1..4', panel: 'Pattern' },
   patternScopeTrigger:    { description: 'Rising-edge trigger threshold. 0 disables triggering. Otherwise the trace re-aligns each frame to the first rising crossing of this level — periodic waveforms stay locked.', range: '-1..1', panel: 'Pattern' },
   patternScopePersist:    { description: 'Phosphor-decay amount. 0 = no trail; 0.99 = long persistent glow. Implemented via a feedback render target.', range: '0..0.99', panel: 'Pattern' },
@@ -168,7 +168,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
 
   // ----- Modulation -----
   modSlots:        { description: 'Up to 4 modulation slots. Each routes a source through a per-slot output stage to a target parameter.', panel: 'Modulation' },
-  internalBpm:     { description: 'Global Tempo, shared by Timeline playback, Classic LFOs in Tempo sync mode, and the Graph Clock node. There is no per-timeline BPM in v8 — set it once here.', range: '20..300', panel: 'Modulation' },
+  internalBpm:     { description: 'Global Tempo, shared by Timeline playback, function generator LFOs in Tempo sync mode, and the Graph Clock node. There is no per-timeline BPM in v8 — set it once here.', range: '20..300', panel: 'Modulation' },
   modSlotExpanded: { description: 'UI-only: which slots are currently showing their expanded controls. Excluded from preset export.', panel: 'Modulation' },
   'modSlot.syncMode':      { description: 'How the LFO clock is generated: Free (slot Hz), MIDI (locked to incoming MIDI clock — holds last rate when silent, no fallback), or Tempo (locked to global Tempo BPM).', panel: 'Modulation' },
   'modSlot.lfoDepth':      { description: 'LFO amplitude before the output stage. 1 = full swing, 0 = silent.', range: '0..1', panel: 'Modulation' },

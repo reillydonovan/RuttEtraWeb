@@ -71,7 +71,7 @@ const PANEL_FIELDS: ReadonlyArray<{ title: string; panels: readonly string[] }> 
  * the same key overwrite each other's jack registration, so whichever
  * builds second "wins" the wireable instance and the other's jack
  * becomes visually present but permanently unwireable (found live:
- * an owner-reported "brightness IN wired from Classic slot" drag
+ * an owner-reported "brightness IN wired from function generator" drag
  * silently no-opped because the general faceplate's AUXILIARY catch-all
  * had re-registered `patternBrightness` after the Pattern Generator
  * module built its own copy first).

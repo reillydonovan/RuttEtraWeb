@@ -38,7 +38,8 @@ register<{}>({
   label: 'Video Luma',
   description: 'Average luminance of a region of the input video (0..1).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'video' }],
+  // Luma is 0..1, times Gain.
+  outputs: [{ name: 'out', kind: 'video', range: (p) => { const g = +(p.gain ?? 1); return p.bipolar === true ? [-1, 2 * g - 1] : [0, g]; } }],
   params: {
     ...REGION_PARAMS,
     bipolar: { kind: 'boolean', default: false, help: 'ON maps brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
@@ -61,7 +62,7 @@ register<{}>({
   label: 'Video Row Luma',
   description: 'Average luminance of a single horizontal scanline.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'video' }],
+  outputs: [{ name: 'out', kind: 'video', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) }],
   params: {
     y:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Which scanline to read, from 0 (top) to 1 (bottom).' },
     bipolar: { kind: 'boolean', default: false, help: 'ON maps the line’s brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
@@ -83,7 +84,7 @@ register<{}>({
   label: 'Video Column Luma',
   description: 'Average luminance of a single vertical column.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'video' }],
+  outputs: [{ name: 'out', kind: 'video', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) }],
   params: {
     x:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Which column to read, from 0 (left) to 1 (right).' },
     bipolar: { kind: 'boolean', default: false, help: 'ON maps the column’s brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
@@ -105,7 +106,7 @@ register<{}>({
   label: 'Video Motion',
   description: 'Frame-difference magnitude over a region — detects movement.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'video' }],
+  outputs: [{ name: 'out', kind: 'video', range: [0, 1] }],
   params: {
     ...REGION_PARAMS,
     gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2, help: 'Boosts the motion reading so small movements register; the output tops out at 1.' },
@@ -127,9 +128,9 @@ register<{}>({
   description: 'Average HSV of a region — three outputs (h / s / v).',
   inputs: [],
   outputs: [
-    { name: 'h', kind: 'video' },
-    { name: 's', kind: 'video' },
-    { name: 'v', kind: 'video' },
+    { name: 'h', kind: 'video', range: [0, 1] },
+    { name: 's', kind: 'video', range: [0, 1] },
+    { name: 'v', kind: 'video', range: [0, 1] },
   ],
   params: { ...REGION_PARAMS },
   init: () => ({}),
@@ -149,7 +150,7 @@ register<{}>({
   label: 'Video Edge',
   description: 'Sobel edge density over a region — high for detailed input.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'video' }],
+  outputs: [{ name: 'out', kind: 'video', range: [0, 1] }],
   params: {
     ...REGION_PARAMS,
     gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2, help: 'Boosts the edge-detail reading so softer images still register; the output tops out at 1.' },

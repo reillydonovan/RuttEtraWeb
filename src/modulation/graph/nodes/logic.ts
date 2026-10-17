@@ -14,7 +14,7 @@ register<TGState>({
   label: 'Trigger → Gate',
   description: 'Convert a one-frame pulse into a sustained gate of N ms.',
   inputs: [{ name: 'in', kind: 'trigger' }],
-  outputs: [{ name: 'out', kind: 'gate' }],
+  outputs: [{ name: 'out', kind: 'gate', range: [0, 1] }],
   params: {
     lengthMs: { kind: 'number', min: 1, max: 5000, step: 1, default: 250, help: 'How long the gate stays open after each incoming pulse, in milliseconds.' },
   },
@@ -44,7 +44,7 @@ register<GTState>({
   label: 'Gate → Trigger',
   description: "Emit a one-frame pulse on the gate's rising edge.",
   inputs: [{ name: 'in', kind: 'gate' }],
-  outputs: [{ name: 'out', kind: 'trigger' }],
+  outputs: [{ name: 'out', kind: 'trigger', range: [0, 1] }],
   params: {},
   init: () => ({ lastGate: 0 }),
   tick(_ctx, state, ins, _p, outputs) {
@@ -64,7 +64,7 @@ register<CDState>({
   label: 'Clock ÷ N',
   description: 'Pass every N-th rising clock pulse through.',
   inputs: [{ name: 'clock', kind: 'trigger' }],
-  outputs: [{ name: 'out', kind: 'trigger' }],
+  outputs: [{ name: 'out', kind: 'trigger', range: [0, 1] }],
   params: {
     divisor: { kind: 'number', min: 1, max: 64, step: 1, default: 2, help: 'Let one pulse through for every N clock pulses in (2 = half speed).' },
   },
@@ -101,8 +101,9 @@ register<SeqState>({
     { name: 'reset', kind: 'trigger' },
   ],
   outputs: [
-    { name: 'out',  kind: 'control' },
-    { name: 'gate', kind: 'gate' },
+    // Step values are -1..+1 params; the output is one of them.
+    { name: 'out',  kind: 'control', range: [-1, 1] },
+    { name: 'gate', kind: 'gate', range: [0, 1] },
   ],
   params: {
     steps: { kind: 'number', min: 2, max: 16, step: 1, default: 8, help: 'How many steps play before the sequence loops back to step 1.' },

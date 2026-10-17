@@ -14,7 +14,7 @@ register<{}>({
   label: 'Joystick X',
   description: 'Joystick / XY-pad horizontal axis (-1..+1).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(ctx, _s, _i, _p, outputs) { outputs.out = ctx.joystick.x; },
@@ -26,7 +26,7 @@ register<{}>({
   label: 'Joystick Y',
   description: 'Joystick / XY-pad vertical axis (-1..+1).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(ctx, _s, _i, _p, outputs) { outputs.out = ctx.joystick.y; },
@@ -38,7 +38,7 @@ register<{}>({
   label: 'Joystick Z',
   description: 'Joystick Z (mouse wheel / pad scroll) axis (-1..+1).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {},
   init: () => ({}),
   tick(ctx, _s, _i, _p, outputs) { outputs.out = ctx.joystick.z; },
@@ -52,7 +52,7 @@ register<{}>({
   label: 'MIDI CC',
   description: 'Last value received on the chosen MIDI CC (channel + number).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) }],
   params: {
     channel: { kind: 'number', min: 1,  max: 16,  step: 1, default: 1, help: 'MIDI channel to listen on (1-16).' },
     cc:      { kind: 'number', min: 0,  max: 127, step: 1, default: 1, help: 'Controller number to follow (0-127); 1 is usually the mod wheel.' },
@@ -78,8 +78,8 @@ register<{}>({
   description: 'Last note pitch + velocity from the chosen MIDI channel.',
   inputs: [],
   outputs: [
-    { name: 'pitch',    kind: 'control' },
-    { name: 'velocity', kind: 'control' },
+    { name: 'pitch',    kind: 'control', range: [0, 1] },
+    { name: 'velocity', kind: 'control', range: [0, 1] },
   ],
   params: {
     channel: { kind: 'number', min: 1, max: 16, step: 1, default: 1, help: 'MIDI channel to listen on (1-16) for the last note played.' },
@@ -103,7 +103,8 @@ register<{}>({
   label: 'OSC In',
   description: 'Last value received on a bound OSC address.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // OSC values pass through unclamped; this is the span for the usual 0..1 message.
+  outputs: [{ name: 'out', kind: 'control', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) }],
   params: {
     address: { kind: 'enum', options: ['/most-recent'], default: '/most-recent', help: 'Which OSC address to read; /most-recent follows whatever message arrived last.' },
     bipolar: { kind: 'boolean', default: false, help: 'ON maps an incoming 0..1 value to -1..+1; OFF passes it through.' },
@@ -129,7 +130,9 @@ register<{}>({
   description: 'External voltage control via DC-coupled audio interface, OSC bridge, or MIDI CC.',
   inputs: [],
   outputs: [
-    { name: 'out', kind: 'control', label: 'Out (-1..1)' },
+    // Clamped to ±1; the OSC and MIDI CC routes with Bipolar off read 0..1. The audio route
+    // follows the channel's own polarity, so it may span the full ±1.
+    { name: 'out', kind: 'control', label: 'Out (-1..1)', range: (p) => ((p.route ?? 'audio') !== 'audio' && p.bipolar === false ? [0, 1] : [-1, 1]) },
   ],
   params: {
     /**
@@ -191,7 +194,7 @@ register<{}>({
   label: 'Gamepad Axis',
   description: 'Axis of the connected gamepad / HID controller (-1..1, deadzone applied).',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     axis: { kind: 'number', min: 0, max: 31, step: 1, default: 0, help: 'Which stick axis to read, counting from 0 (on most pads 0 and 1 are the left stick).' },
   },
@@ -210,8 +213,8 @@ register<{}>({
   description: 'Button of the connected gamepad / HID controller (0..1).',
   inputs: [],
   outputs: [
-    { name: 'out',  kind: 'control' },
-    { name: 'gate', kind: 'gate' },
+    { name: 'out',  kind: 'control', range: (p) => (p.bipolar === true ? [-1, 1] : [0, 1]) },
+    { name: 'gate', kind: 'gate', range: [0, 1] },
   ],
   params: {
     button: { kind: 'number', min: 0, max: 31, step: 1, default: 0, help: 'Which button to read, counting from 0; analog triggers give values in between.' },
@@ -248,7 +251,8 @@ register<{}>({
   label: 'Param Out',
   description: 'A synth parameter’s live value (base + all modulation, one frame behind) as a control signal — what the Patch Bay’s per-param OUT jacks create. Raw parameter units; add a Scale/Range processor to normalize.',
   inputs: [],
-  outputs: [{ name: 'out', kind: 'control' }],
+  // Raw parameter units: the true span is that param's own range, not knowable statically.
+  outputs: [{ name: 'out', kind: 'control', range: [-1, 1] }],
   params: {
     key: { kind: 'enum', options: PARAM_OUT_KEYS, default: 'zPush', help: 'Which synth parameter to read; outputs its live value, modulation included.' },
   },

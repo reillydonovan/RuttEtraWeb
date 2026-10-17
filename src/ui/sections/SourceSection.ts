@@ -630,7 +630,7 @@ function rebuildParams(host: HTMLElement, settings: SettingsStore, kind: Pattern
     note.textContent =
       'Scope source: pick what to sample.\n' +
       'Audio:      live mic / file / tab via FFT analyser.\n' +
-      'Classic Slot: 1-4 (mod-matrix slot index).\n' +
+      'Function Generator: 1-4.\n' +
       'Graph Node: <nodeId>:<port>, e.g. "lfo-1:out".\n' +
       'Settings Param: any numeric Settings key, e.g. "zPush".\n' +
       'Beat Pulse: BeatDetector pulse (1.0 on hit, decay).';

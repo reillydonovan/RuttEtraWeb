@@ -84,7 +84,7 @@ interface ModuleText { summary: string; tips?: string[]; about?: string }
 /** Patch Bay hardware modules and faceplate fields, keyed by header text. */
 export const MODULE_INFO: Record<string, ModuleText> = {
   'FUNCTION GEN': {
-    summary: 'One of the four Classic modulation slots, as a hardware module: a waveform running at RATE and scaled by AMT, sent from its OUT jack into any parameter.',
+    summary: 'One of the four function generators, as a hardware module: a waveform running at RATE and scaled by AMT, sent from its OUT jack into any parameter.',
     tips: [
       'Drag OUT onto a parameter’s IN jack to modulate that parameter.',
       'Drag a waveform from the SOURCES bus into SRC IN to change its shape.',
@@ -202,7 +202,7 @@ const SECTION_GUIDES: Record<string, { sections: InfoSection[]; tips: string[]; 
       { name: 'Quick start', text: 'The menu bar, windows and tabs, skins, the Patch Bay and the first things to try.' },
       { name: 'Controls', text: 'Every panel section and parameter, with ranges.' },
       { name: 'Shortcuts', text: 'Keyboard shortcuts, globally and while the timeline is hovered.' },
-      { name: 'Modulation · Timeline · Project', text: 'The Classic and Graph engines, keyframing and scenes, saving your work.' },
+      { name: 'Modulation · Timeline · Project', text: 'The Function Generator and Graph engines, keyframing and scenes, saving your work.' },
       { name: 'WebXR · Anaglyph 3D · 3D Recording', text: 'Headset, red/cyan and stereo output.' },
       { name: 'Video Audio · Streaming', text: 'Sound from video files; WebRTC and WHIP broadcast.' },
       { name: 'Tips & gotchas · About', text: 'Known quirks and the version you are running.' },

@@ -416,7 +416,7 @@ function buildTempoGroup(settings: SettingsStore): HTMLElement {
 
   const hint = document.createElement('div');
   hint.className = 'rw-hint';
-  hint.textContent = 'Shared by Timeline, Classic LFOs (Tempo sync), and the Graph Clock node.';
+  hint.textContent = 'Shared by Timeline, function generator LFOs (Tempo sync), and the Graph Clock node.';
   g.body.appendChild(hint);
 
   const apply = (v: number) => {

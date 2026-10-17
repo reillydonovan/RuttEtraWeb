@@ -36,9 +36,9 @@ Switching `Kind` resets only the parameters that pattern actually uses to its de
 
 #### Modulation
 
-Every numeric pattern parameter (Frequency, Brightness, Contrast, Phase, Scale, Thickness, Density, Lissajous Freq Ratio, Spiral Arms, Perlin Octaves, Worley Point Density, Mix, Scope Sweep / Trigger / Persist / Thickness) is a first-class **ModTarget**. They show up in the Classic slot's Target dropdown and the Graph engine's `cv-output` target list under the **Pattern:** prefix. The base/live value separation in `LiveValuesStore` applies as usual — an LFO writes an additive offset, the slider keeps showing the *base* value, and the renderer reads `getLive()` each frame.
+Every numeric pattern parameter (Frequency, Brightness, Contrast, Phase, Scale, Thickness, Density, Lissajous Freq Ratio, Spiral Arms, Perlin Octaves, Worley Point Density, Mix, Scope Sweep / Trigger / Persist / Thickness) is a first-class **ModTarget**. They show up in the function generator's Target dropdown and the Graph engine's `cv-output` target list under the **Pattern:** prefix. The base/live value separation in `LiveValuesStore` applies as usual — an LFO writes an additive offset, the slider keeps showing the *base* value, and the renderer reads `getLive()` each frame.
 
-Modulate a pattern parameter like any other: pick it as a Classic slot's **Target** (pattern params are listed with the **Pattern:** prefix), patch a cable into its jack in the RACK skin, or wire it in the Patch Bay.
+Modulate a pattern parameter like any other: pick it as a function generator's **Target** (pattern params are listed with the **Pattern:** prefix), patch a cable into its jack in the RACK skin, or wire it in the Patch Bay.
 
 #### Compositing
 
@@ -61,8 +61,8 @@ Modulate a pattern parameter like any other: pick it as a Classic slot's **Targe
 
 The Oscilloscope kind expects a one-dimensional signal sampled into a circular buffer. The buffer is uploaded as a 1D `DataTexture` and rendered as a beam trace in the fragment shader, with optional phosphor decay (a feedback render-target accumulator).
 
-- **Source kind** picks where samples come from: live audio time-domain, a Classic mod-matrix slot value, a Graph node port, an arbitrary numeric Settings key (read through `LiveValuesStore` so modulation appears in the trace), or BeatDetector pulses.
-- **Source ref** is the sub-selector. For Audio it's ignored; for Classic Slot it's a 1-based slot number; for Graph Node it's `<nodeId>:<port>` (default port `out`); for Settings Param it's any numeric Settings key, e.g. `zPush`.
+- **Source kind** picks where samples come from: live audio time-domain, a function generator's value, a Graph node port, an arbitrary numeric Settings key (read through `LiveValuesStore` so modulation appears in the trace), or BeatDetector pulses.
+- **Source ref** is the sub-selector. For Audio it's ignored; for Function Generator it's a 1-based slot number; for Graph Node it's `<nodeId>:<port>` (default port `out`); for Settings Param it's any numeric Settings key, e.g. `zPush`.
 - **Sweep** controls how many buffer windows fit on screen — values >1 compress time; values <1 zoom in.
 - **Trigger** is a rising-edge alignment threshold. Set to 0 to disable; non-zero values realign the displayed window so the trace stays visually stable on periodic signals.
 - **Persist** is the phosphor decay between 0 and 0.99. Higher = longer trail.
@@ -96,7 +96,7 @@ Catalog of published signals:
 
 Three places they show up:
 
-- **Classic mode source dropdown** — every signal is a top-level option in a `Pattern Outputs` group: pick **Pattern: Lissajous X**, route it to `Z Push`, watch Z Push wobble in lockstep with the visible curve.
+- **Generators mode source dropdown** — every signal is a top-level option in a `Pattern Outputs` group: pick **Pattern: Lissajous X**, route it to `Z Push`, watch Z Push wobble in lockstep with the visible curve.
 - **Graph mode** — drop in a **Pattern Output** node, pick a signal from its dropdown, and wire it through the rest of the graph. A `pattern-output → slew → cv-output(BloomIntensity)` chain makes bloom smoothly follow whatever you're scoping.
 - **CV out** — a per-channel **Pattern output** source kind sends the signal as voltage. An external hardware oscilloscope plugged into channel 2 then displays the same Lissajous X the synth's visual layer is drawing.
 
@@ -104,8 +104,8 @@ The pattern's CPU mirror runs once per frame in `PatternRenderer.tick()`, after 
 
 #### Common patches
 
-- **Audio-reactive sine bands.** Source `Sine Bands`, then Classic slot 1: source `audio-band`, target `Pattern: Frequency`, amount `0.6`. Set the band index in the slot's expanded body to a kick band; clap-band gives nicer mid-frequency wobble.
-- **Recursive scope-of-LFO.** Source `Oscilloscope`, scope source `Classic Slot`, ref `1`. Slot 1: source `triangle`, target `none`, amount `1`. The slot itself doesn't drive a target; it just provides a value the scope samples each frame. Modulate slot 1's frequency from another slot for tempo-locked Z-displacement.
+- **Audio-reactive sine bands.** Source `Sine Bands`, then function generator 1: source `audio-band`, target `Pattern: Frequency`, amount `0.6`. Set the band index in the slot's expanded body to a kick band; clap-band gives nicer mid-frequency wobble.
+- **Recursive scope-of-LFO.** Source `Oscilloscope`, scope source `Function Generator`, ref `1`. Slot 1: source `triangle`, target `none`, amount `1`. The slot itself doesn't drive a target; it just provides a value the scope samples each frame. Modulate slot 1's frequency from another slot for tempo-locked Z-displacement.
 - **Perlin-noise crossfade with motion.** Source `Perlin Noise`, blend `Crossfade`, mix `0.5`. Patch a Graph **video-motion** node into a `cv-output` node targeting `Pattern: Mix`. Now the camera detects motion → the pattern fades in over the live video, generative feedback that responds to movement.
 
 ### Display Control Unit (DCU)
