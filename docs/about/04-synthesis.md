@@ -38,7 +38,7 @@ Switching `Kind` resets only the parameters that pattern actually uses to its de
 
 Every numeric pattern parameter (Frequency, Brightness, Contrast, Phase, Scale, Thickness, Density, Lissajous Freq Ratio, Spiral Arms, Perlin Octaves, Worley Point Density, Mix, Scope Sweep / Trigger / Persist / Thickness) is a first-class **ModTarget**. They show up in the Classic slot's Target dropdown and the Graph engine's `cv-output` target list under the **Pattern:** prefix. The base/live value separation in `LiveValuesStore` applies as usual — an LFO writes an additive offset, the slider keeps showing the *base* value, and the renderer reads `getLive()` each frame.
 
-The small **+** button next to each pattern parameter slider creates a sine LFO already targeted at that param: it scans the modulation slot list, finds the first slot that is disabled or pointing at `none`, sets it to `source: 'sine', target: <param>, amount: 0.25`, and expands the slot's UI in the Modulation panel so you can keep tweaking.
+Modulate a pattern parameter like any other: pick it as a Classic slot's **Target** (pattern params are listed with the **Pattern:** prefix), patch a cable into its jack in the RACK skin, or wire it in the Patch Bay.
 
 #### Compositing
 
@@ -104,7 +104,7 @@ The pattern's CPU mirror runs once per frame in `PatternRenderer.tick()`, after 
 
 #### Common patches
 
-- **Audio-reactive sine bands.** Source `Sine Bands`, then Classic slot 1: source `audio-band`, target `Pattern: Frequency`, amount `0.6`. Tap the **+** next to Frequency for a starting point. Set the band index in the slot's expanded body to a kick band; clap-band gives nicer mid-frequency wobble.
+- **Audio-reactive sine bands.** Source `Sine Bands`, then Classic slot 1: source `audio-band`, target `Pattern: Frequency`, amount `0.6`. Set the band index in the slot's expanded body to a kick band; clap-band gives nicer mid-frequency wobble.
 - **Recursive scope-of-LFO.** Source `Oscilloscope`, scope source `Classic Slot`, ref `1`. Slot 1: source `triangle`, target `none`, amount `1`. The slot itself doesn't drive a target; it just provides a value the scope samples each frame. Modulate slot 1's frequency from another slot for tempo-locked Z-displacement.
 - **Perlin-noise crossfade with motion.** Source `Perlin Noise`, blend `Crossfade`, mix `0.5`. Patch a Graph **video-motion** node into a `cv-output` node targeting `Pattern: Mix`. Now the camera detects motion → the pattern fades in over the live video, generative feedback that responds to movement.
 

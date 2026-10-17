@@ -2036,9 +2036,6 @@ body[data-layout="compact"] .rw-group-head::before { display: none; }
 .rw-group:not(.rw-group--collapsed) { border-left: 2px solid var(--re-accent); }
 .rw-group:focus-within { border-color: var(--re-accent); }
 
-/* Per-param "+" LFO patch: reads "LFO" (green) once patched, with a ✕ to remove it. */
-.rw-patch-toggle.active { color: var(--re-accent); border-color: var(--re-accent); }
-.rw-patch-remove[hidden] { display: none; }
 .rw-inline-group > span:not(:first-child) { align-self: center; }
 /* Classic: the group head spans the whole card so hover fills it edge to edge. */
 .rw-group > .rw-group-head { margin: -6px -8px 0; padding: 6px 36px 6px 8px; }

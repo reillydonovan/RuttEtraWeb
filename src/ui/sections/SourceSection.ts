@@ -15,7 +15,7 @@
  */
 
 import {
-  SettingsStore, PatternKind, PatternBlendMode, ModTarget, ModSlot, DEFAULT_MOD_SLOT,
+  SettingsStore, PatternKind, PatternBlendMode,
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
 import { layoutManager } from '../layout/LayoutManager';
@@ -617,13 +617,10 @@ function rebuildParams(host: HTMLElement, settings: SettingsStore, kind: Pattern
   for (const key of def.paramKeys) {
     const ctrl = buildParamControl(settings, key);
     if (!ctrl) continue;
-    const wrap = document.createElement('div');
-    wrap.className = 'rw-inline-group';
-    wrap.appendChild(ctrl.el);
-    if (ctrl.canModulate) {
-      wrap.appendChild(buildModPatchButton(settings, key as ModTarget));
-    }
-    host.appendChild(row(ctrl.label, wrap));
+    // A plain row like every other parameter: modulate it from a slot's Target, a Rack
+    // cable or the Patch Bay. (The old one-off "+ / LFO ✕" shortcut lived only here and
+    // collided with the Rack jacks — removed at the owner's call, 2026-10-17.)
+    host.appendChild(row(ctrl.label, ctrl.el));
   }
 
   if (kind === 'oscilloscope') {
@@ -641,16 +638,16 @@ function rebuildParams(host: HTMLElement, settings: SettingsStore, kind: Pattern
   }
 }
 
-interface ParamControl { el: HTMLElement; label: string; canModulate: boolean }
+interface ParamControl { el: HTMLElement; label: string }
 
 function buildParamControl(settings: SettingsStore, key: PatternParamKey): ParamControl | null {
   switch (key) {
     case 'patternAxis':
-      return { el: dropdown(settings, 'patternAxis', AXIS_OPTIONS), label: 'Axis', canModulate: false };
+      return { el: dropdown(settings, 'patternAxis', AXIS_OPTIONS), label: 'Axis' };
     case 'patternGradientShape':
-      return { el: dropdown(settings, 'patternGradientShape', GRAD_SHAPE_OPTIONS), label: 'Shape', canModulate: false };
+      return { el: dropdown(settings, 'patternGradientShape', GRAD_SHAPE_OPTIONS), label: 'Shape' };
     case 'patternScopeSourceKind':
-      return { el: dropdown(settings, 'patternScopeSourceKind', SCOPE_SOURCE_OPTIONS), label: 'Source', canModulate: false };
+      return { el: dropdown(settings, 'patternScopeSourceKind', SCOPE_SOURCE_OPTIONS), label: 'Source' };
     case 'patternScopeSourceRef': {
       const inp = document.createElement('input');
       inp.type = 'text';
@@ -659,7 +656,7 @@ function buildParamControl(settings: SettingsStore, key: PatternParamKey): Param
       inp.value = settings.get('patternScopeSourceRef');
       settings.subscribe('patternScopeSourceRef', (v) => { inp.value = v; });
       inp.addEventListener('change', () => settings.set('patternScopeSourceRef', inp.value));
-      return { el: inp, label: 'Ref', canModulate: false };
+      return { el: inp, label: 'Ref' };
     }
   }
   // Numeric params -> slider
@@ -668,87 +665,5 @@ function buildParamControl(settings: SettingsStore, key: PatternParamKey): Param
   return {
     el: slider(settings, key as never, r.min, r.max, r.step),
     label: prettyParamLabel(key),
-    canModulate: true,
   };
-}
-
-
-/**
- * "+" button that pre-targets the first available Classic slot at this
- * param, enables it, sets a small default amount, and expands its UI
- * row so the user can see and tweak the new patch immediately.
- *
- * If all slots are taken, falls back to overwriting slot 0. The user
- * still sees the slot expand, signaling that a patch landed.
- */
-function buildModPatchButton(settings: SettingsStore, target: ModTarget): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'rw-btn rw-patch-toggle';
-  btn.style.flex = '0 0 auto';
-  btn.style.minWidth = '24px';
-  btn.style.padding = '0 8px';
-  const slotFor = (): number =>
-    settings.get('modSlots').findIndex((s: ModSlot) => s.enabled && s.target === target);
-  // "+" patches a Classic LFO into this param; once patched it reads "LFO" (click: show it in
-  // Modulation, where its rate / amount live) and the ✕ beside it removes the patch.
-  const sync = (): void => {
-    const patched = slotFor() >= 0;
-    btn.textContent = patched ? 'LFO' : '+';
-    btn.classList.toggle('active', patched);
-    btn.title = patched
-      ? `Patched from Classic slot ${slotFor() + 1} — click to show its controls in Modulation. Use ✕ to remove it.`
-      : `Patch a Classic LFO -> ${String(target)}`;
-    rm.hidden = !patched;
-  };
-  const rm = document.createElement('button');
-  rm.type = 'button';
-  rm.className = 'rw-btn rw-patch-remove rw-x';
-  rm.textContent = '✕';
-  rm.title = 'Remove this LFO patch';
-  rm.style.flex = '0 0 auto';
-  rm.style.padding = '0 6px';
-  rm.addEventListener('click', () => {
-    const i = slotFor();
-    if (i < 0) return;
-    const slots = settings.get('modSlots').slice();
-    slots[i] = { ...slots[i], enabled: false, target: 'none' as ModTarget };
-    settings.set('modSlots', slots);
-  });
-  const reveal = (idx: number): void => {
-    const card = document.querySelector<HTMLElement>(`.rw-mod-slot[data-mod-slot="${idx}"]`);
-    const sec = card?.closest<HTMLElement>('.rw-section');
-    sec?.classList.remove('collapsed');
-    window.setTimeout(() => card?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
-  };
-  btn.addEventListener('click', () => {
-    const existing = slotFor();
-    if (existing >= 0) { reveal(existing); return; }
-    const slots = settings.get('modSlots').slice();
-    let idx = slots.findIndex((s: ModSlot) => !s.enabled || s.target === 'none');
-    if (idx < 0) idx = 0;
-    const cur = slots[idx] ?? DEFAULT_MOD_SLOT;
-    slots[idx] = {
-      ...cur,
-      enabled: true,
-      source: 'sine',
-      target,
-      amount: 0.25,
-      frequency: cur.frequency || 0.5,
-    };
-    settings.set('modSlots', slots);
-    const expanded = (settings.get('modSlotExpanded') ?? []).slice();
-    while (expanded.length <= idx) expanded.push(false);
-    expanded[idx] = true;
-    settings.set('modSlotExpanded', expanded);
-    reveal(idx);
-  });
-  settings.subscribe('modSlots', sync);
-  sync();
-  const wrap = document.createElement('span');
-  wrap.style.display = 'inline-flex';
-  wrap.style.gap = '4px';
-  wrap.style.alignItems = 'center';
-  wrap.append(btn, rm);
-  return wrap;
 }

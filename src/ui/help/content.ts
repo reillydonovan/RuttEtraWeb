@@ -1099,7 +1099,7 @@ The **Source** panel's Pattern Generator group is an independent video-signal la
 
 - **Kind** picks the generator: Calibration (Solid / Gradient / Bars / Grid / Checker), Waveform (Sine / Triangle / Saw / Square / Pulse Bands, Lissajous, Spiral), Noise (White / Perlin / Worley), or Oscilloscope.
 - **Blend** and **Mix** describe how the pattern combines with whatever video source is active. *Replace* hides the video; *Multiply* / *Screen* / *Mask* etc. composite. *Crossfade* is a clean A/B between video and pattern.
-- All numeric per-pattern parameters (frequency, brightness, contrast, scale, octaves, scope sweep, ...) are full **modulation targets** — they appear in the Classic slot and Graph cv-output target lists under the **Pattern:** prefix. The small **+** button next to each pattern slider creates a sine LFO already targeted at that param.
+- All numeric per-pattern parameters (frequency, brightness, contrast, scale, octaves, scope sweep, ...) are full **modulation targets** — they appear in the Classic slot and Graph cv-output target lists under the **Pattern:** prefix.
 - The **Oscilloscope** kind renders any signal you can sample (audio, a Classic mod-matrix slot, a Graph node port, a numeric Settings key, BeatDetector pulses) as a phosphor trace. The trace itself becomes the input to the DCU, so Z Push will then displace the synth surface along the *shape of your signal*. This is the most Rutt-faithful generator: the original 1974 hardware was famously a hijacked oscilloscope.
 - All pattern controls remain editable when **Enable** is OFF — you can wire up a full pattern + modulation patch first, then flip the layer on.
 
