@@ -398,10 +398,26 @@ export function buildDropdownRow<T extends string>(label: string, a: EnumAdapter
   };
 }
 
+/** A collapsible sub-group inside a slot card (LFO, Output, Audio…): the same caret, click,
+ *  keyboard and spring as the panel's groups (widgets.group). Starts open — the card was just
+ *  expanded to show these controls. */
 function buildGroup(title: string): { root: HTMLElement; body: HTMLElement } {
   const root = el('div', 'rw-group');
   const head = el('div', 'rw-group-head', title);
+  head.setAttribute('role', 'button');
+  head.tabIndex = 0;
+  head.setAttribute('aria-expanded', 'true');
   const body = el('div', 'rw-group-body');
+  const toggle = (): void => {
+    const closing = !root.classList.contains('rw-group--collapsed');
+    head.setAttribute('aria-expanded', String(!closing));
+    animateToggle(root,
+      () => root.classList.toggle('rw-group--collapsed', closing),
+      () => root.classList.toggle('rw-group--collapsed', !closing),
+      { caret: '--caret', fromDeg: closing ? 0 : -90, toDeg: closing ? -90 : 0 });
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
   root.append(head, body);
   return { root, body };
 }
