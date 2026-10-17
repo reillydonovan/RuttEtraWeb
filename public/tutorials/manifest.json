@@ -11,7 +11,7 @@
      "number": 1,
      "title": "First look",
      "blurb": "Pick a source, orbit the camera, turn up Z Push, and make your first patch.",
-     "duration": 72.3,
+     "duration": 71.8,
      "chapters": [
       {
        "t": 0.7,
@@ -30,11 +30,11 @@
        "text": "Drag in the render window to orbit the virtual camera around it."
       },
       {
-       "t": 27.4,
+       "t": 27.3,
        "text": "The Controls panel on the left holds every parameter. Type in the search box to find one. Here, Z Push, the depth of the raster."
       },
       {
-       "t": 36.1,
+       "t": 36,
        "text": "Drag a knob up to turn it up. More push, deeper relief."
       },
       {
@@ -50,11 +50,11 @@
        "text": "Drag from the LFO's output jack onto Z Push's input. The cable is the patch."
       },
       {
-       "t": 60.3,
+       "t": 59.7,
        "text": "Restore the window, and the raster now breathes on its own."
       },
       {
-       "t": 63.9,
+       "t": 63.4,
        "text": "Pick a source, shape it, and patch movement into it. Next, we will learn our way around the windows."
       }
      ]
@@ -75,11 +75,11 @@
        "text": "The tab strip names what each window shows. Here: the Controls, the Renderer, the Patch Bay, and the Timeline."
       },
       {
-       "t": 14.8,
+       "t": 14.7,
        "text": "The arrow button in a window's corner maximizes it. Click it again to restore."
       },
       {
-       "t": 19.9,
+       "t": 19.8,
        "text": "The minus button collapses a window down to just its tab strip. Click the strip, or the same button, to bring it back."
       },
       {
@@ -116,7 +116,7 @@
        "text": "Every picture starts with a source. You can pick one on the start screen, or any time in the Video Source A section of the Controls."
       },
       {
-       "t": 8.4,
+       "t": 8.3,
        "text": "Open the Synth tab. Source is near the top."
       },
       {
@@ -140,7 +140,7 @@
        "text": "Turn the pattern back on, and set Blend to Screen. Now both show through."
       },
       {
-       "t": 42.9,
+       "t": 42.8,
        "text": "Any source can feed the raster. Next, we will find our way around the Controls panel."
       }
      ]
@@ -151,7 +151,7 @@
      "title": "On your phone",
      "blurb": "The camera-style layout: pick a camera, swipe a look, take a photo, record a clip, and open the controls.",
      "aspect": "540 / 1170",
-     "duration": 78.4,
+     "duration": 78.3,
      "chapters": [
       {
        "t": 0.7,
@@ -166,35 +166,35 @@
        "text": "Swipe the looks along the bottom, and tap one. Each look is a whole color and feel, applied in one tap."
       },
       {
-       "t": 24.3,
+       "t": 23.9,
        "text": "Drag on the picture to orbit around it."
       },
       {
-       "t": 28.7,
+       "t": 28.3,
        "text": "The flip button swaps between the front and back camera."
       },
       {
-       "t": 32.1,
+       "t": 31.7,
        "text": "In Photo mode, the shutter saves a picture. On a phone, it opens your share sheet, so you can send it straight to a friend."
       },
       {
-       "t": 39.1,
+       "t": 38.7,
        "text": "Switch to Video, and the shutter records. Tap it again to stop, and the clip is saved, with a Share button."
       },
       {
-       "t": 46,
+       "t": 45.9,
        "text": "The tabs open the real controls. Source starts with the same four choices: front camera, back camera, your library, or the pattern."
       },
       {
-       "t": 54.5,
+       "t": 54.4,
        "text": "Shape holds the scan processor: size, position, depth and rotation. Drag any bar to change it, and watch the picture behind the sheet."
       },
       {
-       "t": 63.1,
+       "t": 62.9,
        "text": "More has presets, recording options, sharing, and the manual."
       },
       {
-       "t": 67.2,
+       "t": 67.1,
        "text": "Turn the phone sideways, and the shutter moves to the edge. The Patch Bay and Timeline are on the desktop. Everything you save opens in either place."
       }
      ]
@@ -210,7 +210,7 @@
      "number": 5,
      "title": "Finding your way around",
      "blurb": "Tabs, sections, search, knobs, ranges, and the ⓘ help.",
-     "duration": 51.8,
+     "duration": 51.9,
      "chapters": [
       {
        "t": 0.7,
@@ -233,7 +233,7 @@
        "text": "Drag a knob up or down to change it. Hold Shift for fine control. Double-click to reset it."
       },
       {
-       "t": 28.7,
+       "t": 28.8,
        "text": "The small arrow by a knob opens its menu: type an exact value, widen the knob's range, or reset."
       },
       {
@@ -255,7 +255,7 @@
      "number": 6,
      "title": "Shaping the raster",
      "blurb": "Size, depth, rotation and luminance — the scan processor itself.",
-     "duration": 60.5,
+     "duration": 57.3,
      "chapters": [
       {
        "t": 0.7,
@@ -266,27 +266,27 @@
        "text": "H Size and V Size stretch the raster. H Position and V Position slide it around."
       },
       {
-       "t": 17,
+       "t": 16.2,
        "text": "Z Push is depth: how far bright areas lift toward you. Z Bias moves the whole sheet forward or back."
       },
       {
-       "t": 26.1,
+       "t": 24.6,
        "text": "Rotation turns the raster in its own plane."
       },
       {
-       "t": 31.5,
+       "t": 29.8,
        "text": "V Spin turns it around its vertical axis."
       },
       {
-       "t": 36.6,
+       "t": 34.6,
        "text": "Threshold hides the darkest parts of the picture, so only the brighter areas draw."
       },
       {
-       "t": 42.6,
+       "t": 40,
        "text": "Intensity sets the brightness of the beam. Focus softens or sharpens it."
       },
       {
-       "t": 53.3,
+       "t": 50,
        "text": "Double-click any knob to put it back. Next: color, glow, and presets."
       }
      ]
@@ -296,18 +296,18 @@
      "number": 7,
      "title": "Color, glow and presets",
      "blurb": "Bloom, feedback, the virtual camera, and one-click presets.",
-     "duration": 56.2,
+     "duration": 54.7,
      "chapters": [
       {
        "t": 0.7,
        "text": "Color and Post FX change how the beam looks on screen, after the scan processor has drawn it."
       },
       {
-       "t": 6.5,
+       "t": 6.4,
        "text": "Color Mode picks the phosphor. Amber, like an old terminal. Then back to green."
       },
       {
-       "t": 11.5,
+       "t": 11.4,
        "text": "Bloom is the phosphor glow. Push the intensity for a hot, blown-out beam."
       },
       {
@@ -315,15 +315,15 @@
        "text": "Burn-In Feedback leaves trails, like slow phosphor. Turn it on, and move the camera to see them."
       },
       {
-       "t": 24.6,
+       "t": 24.5,
        "text": "In Virtual Camera, Field of View works like a zoom lens."
       },
       {
-       "t": 37.2,
+       "t": 35.7,
        "text": "Presets apply a whole look at once. Heavy Bloom. Lissajous Scope. Classic 1974."
       },
       {
-       "t": 48.3,
+       "t": 46.8,
        "text": "Mix and match, then save your own look in the Presets section. Next: modulation."
       }
      ]
@@ -333,7 +333,7 @@
      "number": 8,
      "title": "Modulation",
      "blurb": "A Classic modulation slot: a sine wave moving a parameter.",
-     "duration": 39.7,
+     "duration": 39.3,
      "chapters": [
       {
        "t": 0.7,
@@ -356,11 +356,11 @@
        "text": "Amount is how far it swings. Turn it up, and the raster starts to breathe."
       },
       {
-       "t": 25.6,
+       "t": 25.5,
        "text": "Expand the slot for more. Rate sets how fast the wave cycles, in hertz."
       },
       {
-       "t": 31.4,
+       "t": 30.9,
        "text": "This slot also appears in the Patch Bay as Function Generator one. Next: the Timeline."
       }
      ]
@@ -376,7 +376,7 @@
      "number": 9,
      "title": "Keyframes",
      "blurb": "Create a timeline, key a parameter at two bars, and play it back.",
-     "duration": 48.5,
+     "duration": 48.4,
      "chapters": [
       {
        "t": 0.7,
@@ -407,7 +407,7 @@
        "text": "Press Play. The depth rises from bar one to bar three, holds, and the timeline loops."
       },
       {
-       "t": 40.5,
+       "t": 40.4,
        "text": "Key as many parameters as you like. Next: scenes, which capture a whole look at once."
       }
      ]
@@ -417,7 +417,7 @@
      "number": 10,
      "title": "Scenes",
      "blurb": "Snapshot whole looks as scenes and let the timeline move between them.",
-     "duration": 44.3,
+     "duration": 43.5,
      "chapters": [
       {
        "t": 0.7,
@@ -432,19 +432,19 @@
        "text": "Now change the look. Apply the Amber Terminal preset, and push the depth."
       },
       {
-       "t": 18,
+       "t": 17.3,
        "text": "Double-click at bar four, to capture the second scene."
       },
       {
-       "t": 21.5,
+       "t": 20.7,
        "text": "Rewind, and press Play. The picture travels from the first look to the second."
       },
       {
-       "t": 31.7,
+       "t": 30.9,
        "text": "Right-click a scene marker to preview it, replace its snapshot, or change its easing."
       },
       {
-       "t": 36.7,
+       "t": 35.9,
        "text": "Keyframes and scenes work together on one timeline. Next: the Patch Bay."
       }
      ]
@@ -501,7 +501,7 @@
      "number": 12,
      "title": "Cables",
      "blurb": "Waveforms into a function generator, its output into a parameter; move and unplug.",
-     "duration": 54.8,
+     "duration": 54.7,
      "chapters": [
       {
        "t": 0.7,
@@ -569,7 +569,7 @@
        "text": "To remove a node, click its X and confirm. Its cables go with it."
       },
       {
-       "t": 32.3,
+       "t": 32.4,
        "text": "Every node type is listed in the Node Catalog on the About page. Next: routing video."
       }
      ]
@@ -579,22 +579,22 @@
      "number": 14,
      "title": "Video routing",
      "blurb": "Composite a video file with the Pattern Generator and feed the renderer.",
-     "duration": 38,
+     "duration": 38.3,
      "chapters": [
       {
        "t": 0.7,
        "text": "The Patch Bay also routes the picture itself. Video cables are magenta."
       },
       {
-       "t": 6.3,
+       "t": 6.2,
        "text": "Load a video into Video Source A, with its File button."
       },
       {
-       "t": 10.2,
+       "t": 10,
        "text": "Open its preview to check that it is playing."
       },
       {
-       "t": 13,
+       "t": 12.9,
        "text": "Now patch the Pattern Generator's video output into Composite's B input."
       },
       {
@@ -602,15 +602,15 @@
        "text": "Set the Composite blend to Screen, so both pictures show."
       },
       {
-       "t": 21.6,
+       "t": 21.7,
        "text": "Finally, patch Composite's output into the Renderer's input."
       },
       {
-       "t": 25.5,
+       "t": 25.6,
        "text": "Restore the window. The raster now carries both pictures at once."
       },
       {
-       "t": 30,
+       "t": 30.3,
        "text": "Video Source B and Dual Raster patch the same way. From here, everything is one cable away."
       }
      ]
@@ -635,7 +635,7 @@
        "text": "Right-click empty space, and add a Note. Type on it. Notes are labels that live in the patch, so you can explain what a patch is for."
       },
       {
-       "t": 27.8,
+       "t": 27.7,
        "text": "Restore the window, and open Modulation in the Controls panel. The cable you just made is a row there. The Patch Bay and the Controls panel are two views of one patch."
       },
       {
@@ -704,7 +704,7 @@
      "number": 17,
      "title": "The Advanced canvas",
      "blurb": "Add nodes, wire them, edit them in the inspector, bind to the synth, and probe a signal.",
-     "duration": 59.5,
+     "duration": 59.4,
      "chapters": [
       {
        "t": 0.7,
@@ -715,11 +715,11 @@
        "text": "Click a palette item to add a node. An LFO. A Clock. And a Sample and Hold."
       },
       {
-       "t": 16.2,
+       "t": 16.1,
        "text": "Drag nodes by their headers to lay the patch out, left to right."
       },
       {
-       "t": 20.3,
+       "t": 20.2,
        "text": "Drag from an output dot to an input dot. The LFO into the Sample and Hold's input. The Clock's pulse into its trigger."
       },
       {
@@ -731,15 +731,15 @@
        "text": "Bindings send a node to the synth. Add a binding from the Sample and Hold to Z Push."
       },
       {
-       "t": 38.6,
+       "t": 38.5,
        "text": "Probe draws a live trace of any output. Stepped values: the classic sample and hold staircase."
       },
       {
-       "t": 45,
+       "t": 44.9,
        "text": "Restore the window. The depth now jumps to a new random level on every beat."
       },
       {
-       "t": 50.1,
+       "t": 50,
        "text": "Every node works this way: outputs to inputs, bindings to the synth. Next, two pictures at once with Dual Raster."
       }
      ]
@@ -755,7 +755,7 @@
      "number": 18,
      "title": "Dual Raster",
      "blurb": "A second raster with its own geometry, wipe and interleave modes, and its own picture from the Patch Bay.",
-     "duration": 67,
+     "duration": 68.7,
      "chapters": [
       {
        "t": 0.7,
@@ -770,27 +770,27 @@
        "text": "Trace splits the frame between the two. Sweep it across: A on one side, B on the other."
       },
       {
-       "t": 22.9,
+       "t": 23,
        "text": "Raster B has its own geometry. Push its depth the other way, and turn it."
       },
       {
-       "t": 31.7,
+       "t": 32.3,
        "text": "Alternate lines interleaves them instead. Every other scan line belongs to B."
       },
       {
-       "t": 36.4,
+       "t": 37,
        "text": "B still shows the camera. In the Patch Bay, give it a picture of its own: the Pattern Generator's output into Dual Raster's B input."
       },
       {
-       "t": 45.3,
+       "t": 46.2,
        "text": "Then the Dual Raster's output into the Renderer."
       },
       {
-       "t": 51.4,
+       "t": 53.1,
        "text": "Restore the window. The camera and the pattern now share one raster, line by line."
       },
       {
-       "t": 56.8,
+       "t": 58.4,
        "text": "Each raster can take a camera, a file, a stream, a pattern, or a composite of two. Next, sound."
       }
      ]
@@ -837,7 +837,7 @@
      "number": 20,
      "title": "The Oscilloscope",
      "blurb": "Draw any signal as a trace and let the raster turn it into terrain.",
-     "duration": 59.1,
+     "duration": 59.7,
      "chapters": [
       {
        "t": 0.7,
@@ -856,19 +856,19 @@
        "text": "Switch slot one on. Its sine wave is drawn live."
       },
       {
-       "t": 27.9,
+       "t": 28.2,
        "text": "Change the waveform to a square wave, and the trace snaps between two levels."
       },
       {
-       "t": 32.4,
+       "t": 32.7,
        "text": "Sweep sets how fast the trace crosses the screen. Persist sets how long it glows."
       },
       {
-       "t": 44.1,
+       "t": 44.7,
        "text": "The scope can also draw audio, a graph node, any parameter, or the beat pulse."
       },
       {
-       "t": 49.4,
+       "t": 50,
        "text": "A scope as a video source: any signal in the synth can become the picture. Next: deeper looks."
       }
      ]
@@ -884,7 +884,7 @@
      "number": 21,
      "title": "Render modes and Post FX",
      "blurb": "Wireframe and dot rasters, custom tint, shaped feedback, analog character, chroma, scanlines.",
-     "duration": 54.6,
+     "duration": 53,
      "chapters": [
       {
        "t": 0.7,
@@ -903,15 +903,15 @@
        "text": "Burn-In Feedback leaves trails. Its shape can be a circle, so only the middle of the frame smears. Move the camera to paint with it."
       },
       {
-       "t": 28.1,
+       "t": 27.5,
        "text": "Analog Character adds grain, dropouts and a rolling hum bar, like a tired old monitor."
       },
       {
-       "t": 38.1,
+       "t": 36.6,
        "text": "Chromatic aberration splits the colors at the edges. Scanlines and a vignette finish the CRT look."
       },
       {
-       "t": 44.8,
+       "t": 43.1,
        "text": "Each effect has its own on switch, and every slider can be modulated. Next: saving and sharing your work."
       }
      ]
@@ -921,14 +921,14 @@
      "number": 22,
      "title": "Save, record, share",
      "blurb": "User presets, project files, recording a clip, and live sharing with a link and QR code.",
-     "duration": 59.5,
+     "duration": 59.2,
      "chapters": [
       {
        "t": 0.7,
        "text": "Three ways to keep your work: presets save a look, projects save everything, and recordings save the picture."
       },
       {
-       "t": 7.8,
+       "t": 7.7,
        "text": "In Presets, name the current look and click Save Current. It joins your saved presets, ready to load later."
       },
       {
@@ -936,7 +936,7 @@
        "text": "Try another look, then load yours back from the saved list."
       },
       {
-       "t": 19.6,
+       "t": 19.5,
        "text": "Project, at the top of the Synth tab, saves the whole workspace: settings, presets, timelines and patches. Save As asks for a name, and the file downloads."
       },
       {
@@ -944,15 +944,15 @@
        "text": "Record captures the output as a video file. Start, let it run, then Stop and Download."
       },
       {
-       "t": 38.7,
+       "t": 38.3,
        "text": "Share broadcasts the output live. Start Broadcast gives you a link and a QR code; anyone who opens it watches in their browser."
       },
       {
-       "t": 46.7,
+       "t": 46.4,
        "text": "WHIP output streams to OBS, MediaMTX or Cloudflare instead, for bigger audiences."
       },
       {
-       "t": 52.3,
+       "t": 52,
        "text": "That covers the intermediate course. The advanced lessons start with deep patching."
       }
      ]
@@ -1017,7 +1017,7 @@
      "number": 24,
      "title": "Feedback and chaos",
      "blurb": "Resonant filtered noise, Param Out, a frame delay, and a patch that feeds on itself.",
-     "duration": 70,
+     "duration": 69.7,
      "chapters": [
       {
        "t": 0.7,
@@ -1028,7 +1028,7 @@
        "text": "Raw noise is jittery. A resonant low-pass filter turns it into a slow, rubbery wobble."
       },
       {
-       "t": 15.6,
+       "t": 15.5,
        "text": "Send the filtered noise to H Position, Rotation and Z Push. The raster drifts like it is underwater."
       },
       {
@@ -1040,19 +1040,19 @@
        "text": "Delay it by thirty frames, half a second, and scale it up."
       },
       {
-       "t": 41.6,
+       "t": 41.5,
        "text": "Now close the loop: send the delayed copy back into Z Push. The depth chases its own echo. Keep the loop gain below one, or it runs away."
       },
       {
-       "t": 50.2,
+       "t": 50.1,
        "text": "Probe the loop. No two cycles are quite the same."
       },
       {
-       "t": 54.7,
+       "t": 54.5,
        "text": "Restore the window, and let it run."
       },
       {
-       "t": 60.2,
+       "t": 59.9,
        "text": "Feedback is where the strange stuff lives. Keep the amounts small, and nudge. Next: the camera as a modulation source."
       }
      ]
@@ -1062,7 +1062,7 @@
      "number": 25,
      "title": "The camera as a source",
      "blurb": "Video Luma with a picked region, Video Motion through a Slew, and the motion-glitch patch.",
-     "duration": 53.4,
+     "duration": 53.6,
      "chapters": [
       {
        "t": 0.7,
@@ -1089,11 +1089,11 @@
        "text": "The Library has more: Motion-Triggered Glitch tears the raster whenever something moves."
       },
       {
-       "t": 40.1,
+       "t": 40.2,
        "text": "Restore the window. The camera is now playing the synth."
       },
       {
-       "t": 44.7,
+       "t": 44.9,
        "text": "Point a webcam at a dancer, a lava lamp, or your own hands. Next: MIDI and OSC."
       }
      ]
@@ -1109,7 +1109,7 @@
      "number": 26,
      "title": "MIDI and OSC",
      "blurb": "Connect a controller, learn a mapping, MIDI clock in and out, and OSC over the network.",
-     "duration": 63.6,
+     "duration": 63.5,
      "chapters": [
       {
        "t": 0.7,
@@ -1124,19 +1124,19 @@
        "text": "Now the controller plays the depth directly. Each binding has its own curve and range."
       },
       {
-       "t": 19.7,
+       "t": 19.6,
        "text": "MIDI clock in sets the tempo from a drum machine or a DAW. The readout shows the incoming BPM. Clock Out sends the tempo the other way."
       },
       {
-       "t": 29.1,
+       "t": 29,
        "text": "OSC works over the network, from TouchOSC, Max, or SuperCollider, through the small bridge in the tools folder. Enter the bridge address and connect."
       },
       {
-       "t": 38.7,
+       "t": 38.6,
        "text": "Learn works the same way: choose H Size, click Learn, and send a message."
       },
       {
-       "t": 43.9,
+       "t": 43.8,
        "text": "Every OSC message on that address now moves the parameter. Copy TouchOSC layout gives you a ready-made control surface."
       },
       {
@@ -1150,7 +1150,7 @@
      "number": 27,
      "title": "CV, gamepads and MCP",
      "blurb": "Control voltage inputs, OSC CV, gamepads, and an AI assistant driving the synth over MCP.",
-     "duration": 67.3,
+     "duration": 67.2,
      "chapters": [
       {
        "t": 0.7,
@@ -1181,7 +1181,7 @@
        "text": "Now the assistant is in control. It deepens the raster, widens it, turns it, and then builds a modulation patch from scratch."
       },
       {
-       "t": 56.9,
+       "t": 56.8,
        "text": "Anything an assistant can set, it can also read back: parameters, patches, even a screenshot. Next: the outputs."
       }
      ]
@@ -1261,7 +1261,7 @@
        "text": "Preview stereo shows both eyes for three seconds, before you commit to a recording."
       },
       {
-       "t": 34.4,
+       "t": 34.3,
        "text": "With a WebXR headset connected, the XR section puts you inside the raster, at tabletop, room or architectural scale."
       },
       {
@@ -1290,7 +1290,7 @@
        "text": "Back to the default layout. Bracket keys flip between the panel tabs, and slash jumps to the search box."
       },
       {
-       "t": 20.9,
+       "t": 21,
        "text": "The Performance section trades quality for speed. Battery caps the frame rate and drops the heavy effects. Render Scale changes the internal resolution."
       },
       {
@@ -1306,11 +1306,11 @@
        "text": "For syncing with video, the Timeline can count in timecode, frames, or samples instead of bars."
       },
       {
-       "t": 49.8,
+       "t": 49.9,
        "text": "And for two screens, Window, Pop Out Output sends the picture to its own window, ready to go fullscreen on a projector, while the controls stay on your laptop."
       },
       {
-       "t": 59.4,
+       "t": 59.5,
        "text": "Last lesson: putting it all together."
       }
      ]
@@ -1320,42 +1320,42 @@
      "number": 31,
      "title": "Showcase: getting weird",
      "blurb": "Five strange setups: a feedback tunnel, interleaved worlds, resonant chaos, sound terrain, anaglyph Lissajous.",
-     "duration": 165.9,
+     "duration": 168.1,
      "chapters": [
       {
        "t": 0.7,
        "text": "To finish, six setups built from everything in this course. None of them took more than a minute. Let's get weird."
       },
       {
-       "t": 8.2,
+       "t": 7.3,
        "text": "One. A feedback tunnel. The camera, amber phosphor, circular burn-in with a long decay, and the camera slowly orbiting."
       },
       {
-       "t": 21.3,
+       "t": 21.1,
        "text": "Every frame smears into the next, so the picture leaves a trail of itself."
       },
       {
-       "t": 26.1,
+       "t": 25.8,
        "text": "Two. Interleaved worlds. Dual Raster, alternate lines, with raster B pushed the opposite way and turned. Two copies of the same camera, woven together. One pushes toward you, the other falls away, and every other scan line flips between them, so the picture seems to argue with itself. Orbit around it, and the two layers slide apart."
       },
       {
-       "t": 51,
+       "t": 51.8,
        "text": "Three. Resonant chaos, loaded from a saved patch: filtered noise wobbling the rotation, and a feedback loop chasing the depth. Wireframe mode makes it a sculpture."
       },
       {
-       "t": 61.8,
+       "t": 62.9,
        "text": "Four. Sound terrain. The microphone drives spectrum displacement, so every frequency band lifts its own scan lines. Magenta, with heavy bloom."
       },
       {
-       "t": 80.9,
+       "t": 82.3,
        "text": "Five. The raster, turned inside out. One low frequency oscillator on horizontal linearity, another on vertical, and then we turn the amount up. The lines pinch, fold, and flip over themselves, and all of it is the same camera."
       },
       {
-       "t": 142.6,
+       "t": 144.6,
        "text": "Six. A Lissajous figure, in red and cyan anaglyph, drifting in 3D. Put on the glasses."
       },
       {
-       "t": 155.8,
+       "t": 157.7,
        "text": "That's the instrument. Now go make something nobody has seen before."
       }
      ]

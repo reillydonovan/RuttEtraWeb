@@ -17,45 +17,45 @@ Add Video Luma.
 It reports how bright a region of the frame is.
 
 5
-00:00:11.181 --> 00:00:14.312
+00:00:11.186 --> 00:00:14.317
 Drag on the thumbnail in the inspector to choose the region.
 
 6
-00:00:14.312 --> 00:00:16.242
+00:00:14.317 --> 00:00:16.247
 Here, the moving shape in the middle.
 
 7
-00:00:16.701 --> 00:00:17.691
+00:00:16.705 --> 00:00:17.695
 Bind it to Z Push.
 
 8
-00:00:17.691 --> 00:00:20.276
+00:00:17.695 --> 00:00:20.280
 Now the depth follows that part of the picture.
 
 9
-00:00:20.736 --> 00:00:23.730
+00:00:20.733 --> 00:00:23.727
 Video Motion measures how much the image is changing.
 
 10
-00:00:23.730 --> 00:00:26.215
+00:00:23.727 --> 00:00:26.212
 Smooth it with a Slew, and send it to Bloom.
 
 11
-00:00:34.370 --> 00:00:39.664
+00:00:34.409 --> 00:00:39.703
 The Library has more: Motion-Triggered Glitch tears the raster whenever something moves.
 
 12
-00:00:40.122 --> 00:00:41.132
+00:00:40.161 --> 00:00:41.171
 Restore the window.
 
 13
-00:00:41.132 --> 00:00:43.047
+00:00:41.171 --> 00:00:43.086
 The camera is now playing the synth.
 
 14
-00:00:44.739 --> 00:00:49.305
+00:00:44.866 --> 00:00:49.432
 Point a webcam at a dancer, a lava lamp, or your own hands.
 
 15
-00:00:49.305 --> 00:00:50.776
+00:00:49.432 --> 00:00:50.903
 Next: MIDI and OSC.

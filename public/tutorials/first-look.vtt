@@ -5,77 +5,77 @@ WEBVTT
 This is Rutt Etra Web, a browser recreation of the 1973 Rutt Etra scan processor, an analog video synthesizer.
 
 2
-00:00:08.441 --> 00:00:10.265
+00:00:08.448 --> 00:00:10.272
 No camera needed for this tour.
 
 3
-00:00:10.265 --> 00:00:14.385
+00:00:10.272 --> 00:00:14.392
 Click Pattern, and the built-in pattern generator becomes the picture.
 
 4
-00:00:14.850 --> 00:00:17.298
+00:00:14.852 --> 00:00:17.300
 The image is drawn as horizontal scan lines.
 
 5
-00:00:17.298 --> 00:00:21.583
+00:00:17.300 --> 00:00:21.585
 Brighter areas push the lines toward you, so the picture becomes a landscape.
 
 6
-00:00:22.040 --> 00:00:25.476
+00:00:22.043 --> 00:00:25.479
 Drag in the render window to orbit the virtual camera around it.
 
 7
-00:00:27.435 --> 00:00:30.892
+00:00:27.328 --> 00:00:30.785
 The Controls panel on the left holds every parameter.
 
 8
-00:00:30.892 --> 00:00:33.175
+00:00:30.785 --> 00:00:33.068
 Type in the search box to find one.
 
 9
-00:00:33.175 --> 00:00:35.654
+00:00:33.068 --> 00:00:35.547
 Here, Z Push, the depth of the raster.
 
 10
-00:00:36.110 --> 00:00:37.955
+00:00:36.003 --> 00:00:37.848
 Drag a knob up to turn it up.
 
 11
-00:00:37.955 --> 00:00:39.546
+00:00:37.848 --> 00:00:39.439
 More push, deeper relief.
 
 12
-00:00:42.130 --> 00:00:46.954
+00:00:42.068 --> 00:00:46.892
 The Patch Bay on the right is the same instrument, laid out as a hardware faceplate.
 
 13
-00:00:46.954 --> 00:00:48.678
+00:00:46.892 --> 00:00:48.616
 Maximize it to see every jack.
 
 14
-00:00:49.133 --> 00:00:51.408
+00:00:49.074 --> 00:00:51.349
 Right-click empty space to add a node.
 
 15
-00:00:51.408 --> 00:00:53.684
+00:00:51.349 --> 00:00:53.625
 We will add an LFO, a slow oscillator.
 
 16
-00:00:54.135 --> 00:00:57.741
+00:00:54.081 --> 00:00:57.687
 Drag from the LFO's output jack onto Z Push's input.
 
 17
-00:00:57.741 --> 00:00:59.336
+00:00:57.687 --> 00:00:59.282
 The cable is the patch.
 
 18
-00:01:00.274 --> 00:01:03.478
+00:00:59.736 --> 00:01:02.940
 Restore the window, and the raster now breathes on its own.
 
 19
-00:01:03.930 --> 00:01:06.954
+00:01:03.393 --> 00:01:06.417
 Pick a source, shape it, and patch movement into it.
 
 20
-00:01:06.954 --> 00:01:09.688
+00:01:06.417 --> 00:01:09.151
 Next, we will learn our way around the windows.

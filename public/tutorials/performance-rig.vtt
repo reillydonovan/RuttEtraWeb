@@ -9,49 +9,49 @@ On stage you want the picture big and the controls close.
 The Performance layout maximizes the output.
 
 3
-00:00:07.989 --> 00:00:11.350
+00:00:08.008 --> 00:00:11.369
 Press H for the HUD: frame rate, source and render size.
 
 4
-00:00:11.350 --> 00:00:12.911
+00:00:11.369 --> 00:00:12.930
 Press it again to hide it.
 
 5
-00:00:13.368 --> 00:00:14.816
+00:00:13.388 --> 00:00:14.836
 Back to the default layout.
 
 6
-00:00:14.816 --> 00:00:18.894
+00:00:14.836 --> 00:00:18.914
 Bracket keys flip between the panel tabs, and slash jumps to the search box.
 
 7
-00:00:20.939 --> 00:00:23.639
+00:00:20.959 --> 00:00:23.659
 The Performance section trades quality for speed.
 
 8
-00:00:23.639 --> 00:00:26.725
+00:00:23.659 --> 00:00:26.745
 Battery caps the frame rate and drops the heavy effects.
 
 9
-00:00:26.725 --> 00:00:29.205
+00:00:26.745 --> 00:00:29.225
 Render Scale changes the internal resolution.
 
 10
-00:00:29.657 --> 00:00:35.647
+00:00:29.679 --> 00:00:35.669
 Virtual Camera sets a fixed output resolution, like full HD for a projector, letterboxed to fit.
 
 11
-00:00:36.105 --> 00:00:43.210
+00:00:36.129 --> 00:00:43.234
 Fly mode turns the camera into a free-flying ship: W A S D to move, the mouse to steer, Shift to boost.
 
 12
-00:00:43.670 --> 00:00:49.382
+00:00:43.687 --> 00:00:49.399
 For syncing with video, the Timeline can count in timecode, frames, or samples instead of bars.
 
 13
-00:00:49.833 --> 00:00:58.981
+00:00:49.852 --> 00:00:59.000
 And for two screens, Window, Pop Out Output sends the picture to its own window, ready to go fullscreen on a projector, while the controls stay on your laptop.
 
 14
-00:00:59.432 --> 00:01:01.754
+00:00:59.454 --> 00:01:01.776
 Last lesson: putting it all together.

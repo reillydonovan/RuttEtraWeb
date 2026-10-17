@@ -5,53 +5,53 @@ WEBVTT
 Beyond bloom and color, Geometry and Post FX change the whole character of the beam.
 
 2
-00:00:06.167 --> 00:00:08.668
+00:00:06.170 --> 00:00:08.671
 Geometry sets how the raster is drawn.
 
 3
-00:00:08.668 --> 00:00:10.774
+00:00:08.671 --> 00:00:10.777
 Wireframe makes it a solid mesh.
 
 4
-00:00:10.774 --> 00:00:12.947
+00:00:10.777 --> 00:00:12.950
 Dot Raster draws only the points.
 
 5
-00:00:13.400 --> 00:00:16.014
+00:00:13.401 --> 00:00:16.015
 Custom Tint picks any phosphor color you like.
 
 6
-00:00:16.014 --> 00:00:17.208
+00:00:16.015 --> 00:00:17.209
 Magenta, for a start.
 
 7
-00:00:17.663 --> 00:00:19.490
+00:00:17.671 --> 00:00:19.498
 Burn-In Feedback leaves trails.
 
 8
-00:00:19.490 --> 00:00:23.380
+00:00:19.498 --> 00:00:23.388
 Its shape can be a circle, so only the middle of the frame smears.
 
 9
-00:00:23.380 --> 00:00:25.325
+00:00:23.388 --> 00:00:25.333
 Move the camera to paint with it.
 
 10
-00:00:28.087 --> 00:00:32.916
+00:00:27.455 --> 00:00:32.284
 Analog Character adds grain, dropouts and a rolling hum bar, like a tired old monitor.
 
 11
-00:00:38.069 --> 00:00:41.330
+00:00:36.613 --> 00:00:39.874
 Chromatic aberration splits the colors at the edges.
 
 12
-00:00:41.330 --> 00:00:44.152
+00:00:39.874 --> 00:00:42.696
 Scanlines and a vignette finish the CRT look.
 
 13
-00:00:44.781 --> 00:00:49.525
+00:00:43.147 --> 00:00:47.891
 Each effect has its own on switch, and every slider can be modulated.
 
 14
-00:00:49.525 --> 00:00:51.932
+00:00:47.891 --> 00:00:50.298
 Next: saving and sharing your work.

@@ -9,73 +9,73 @@ The screen is four windows: left, center, right, and bottom.
 Each one holds tabs, like a desktop editor.
 
 3
-00:00:07.654 --> 00:00:10.273
+00:00:07.655 --> 00:00:10.274
 The tab strip names what each window shows.
 
 4
-00:00:10.273 --> 00:00:14.294
+00:00:10.274 --> 00:00:14.295
 Here: the Controls, the Renderer, the Patch Bay, and the Timeline.
 
 5
-00:00:14.759 --> 00:00:17.834
+00:00:14.747 --> 00:00:17.822
 The arrow button in a window's corner maximizes it.
 
 6
-00:00:17.834 --> 00:00:19.403
+00:00:17.822 --> 00:00:19.391
 Click it again to restore.
 
 7
-00:00:19.853 --> 00:00:23.503
+00:00:19.841 --> 00:00:23.491
 The minus button collapses a window down to just its tab strip.
 
 8
-00:00:23.503 --> 00:00:26.633
+00:00:23.491 --> 00:00:26.621
 Click the strip, or the same button, to bring it back.
 
 9
-00:00:27.092 --> 00:00:29.332
+00:00:27.072 --> 00:00:29.312
 The Window menu has layout presets.
 
 10
-00:00:29.332 --> 00:00:31.828
+00:00:29.312 --> 00:00:31.808
 Tall stacks everything into one column.
 
 11
-00:00:32.278 --> 00:00:34.646
+00:00:32.264 --> 00:00:34.632
 Default brings back the four-window layout.
 
 12
-00:00:36.293 --> 00:00:37.875
+00:00:36.305 --> 00:00:37.887
 Under View, pick a skin.
 
 13
-00:00:37.875 --> 00:00:39.458
+00:00:37.887 --> 00:00:39.470
 CRT is flat and compact.
 
 14
-00:00:39.458 --> 00:00:41.701
+00:00:39.470 --> 00:00:41.713
 Hardware turns sliders into knobs.
 
 15
-00:00:41.701 --> 00:00:44.141
+00:00:41.713 --> 00:00:44.153
 Rack, the default, adds patch cables.
 
 16
-00:00:48.638 --> 00:00:52.018
+00:00:48.616 --> 00:00:51.996
 Control plus and Control minus change the text size.
 
 17
-00:00:52.018 --> 00:00:53.514
+00:00:51.996 --> 00:00:53.492
 Control zero resets it.
 
 18
-00:00:53.964 --> 00:00:55.166
+00:00:53.951 --> 00:00:55.153
 Rearrange freely.
 
 19
-00:00:55.166 --> 00:00:59.196
+00:00:55.153 --> 00:00:59.183
 Reset Layout, in the Window menu, always brings you home.
 
 20
-00:00:59.196 --> 00:01:00.186
+00:00:59.183 --> 00:01:00.173
 Next: sources.

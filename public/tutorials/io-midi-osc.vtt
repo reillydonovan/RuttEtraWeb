@@ -13,57 +13,57 @@ First, MIDI.
 Click Connect MIDI, and pick your controller.
 
 4
-00:00:08.394 --> 00:00:12.827
+00:00:08.400 --> 00:00:12.833
 To map a knob, choose a target, click Learn, then move the control.
 
 5
-00:00:12.827 --> 00:00:13.688
+00:00:12.833 --> 00:00:13.694
 Here, Z Push.
 
 6
-00:00:14.139 --> 00:00:16.398
+00:00:14.147 --> 00:00:16.406
 Now the controller plays the depth directly.
 
 7
-00:00:16.398 --> 00:00:18.504
+00:00:16.406 --> 00:00:18.512
 Each binding has its own curve and range.
 
 8
-00:00:19.671 --> 00:00:23.579
+00:00:19.626 --> 00:00:23.534
 MIDI clock in sets the tempo from a drum machine or a DAW.
 
 9
-00:00:23.579 --> 00:00:25.938
+00:00:23.534 --> 00:00:25.893
 The readout shows the incoming BPM.
 
 10
-00:00:25.938 --> 00:00:28.633
+00:00:25.893 --> 00:00:28.588
 Clock Out sends the tempo the other way.
 
 11
-00:00:29.089 --> 00:00:35.950
+00:00:29.038 --> 00:00:35.899
 OSC works over the network, from TouchOSC, Max, or SuperCollider, through the small bridge in the tools folder.
 
 12
-00:00:35.950 --> 00:00:38.237
+00:00:35.899 --> 00:00:38.186
 Enter the bridge address and connect.
 
 13
-00:00:38.694 --> 00:00:43.430
+00:00:38.639 --> 00:00:43.375
 Learn works the same way: choose H Size, click Learn, and send a message.
 
 14
-00:00:43.886 --> 00:00:47.606
+00:00:43.834 --> 00:00:47.554
 Every OSC message on that address now moves the parameter.
 
 15
-00:00:47.606 --> 00:00:51.455
+00:00:47.554 --> 00:00:51.403
 Copy TouchOSC layout gives you a ready-made control surface.
 
 16
-00:00:51.906 --> 00:00:57.912
+00:00:51.856 --> 00:00:57.862
 MIDI and OSC sources also exist as graph nodes, for patching instead of mapping.
 
 17
-00:00:57.912 --> 00:01:00.915
+00:00:57.862 --> 00:01:00.865
 Next: control voltage, gamepads and MCP.
