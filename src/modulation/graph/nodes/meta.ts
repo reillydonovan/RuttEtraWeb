@@ -18,7 +18,7 @@ register<{}>({
   inputs: [],
   outputs: [],
   params: {
-    text: { kind: 'text', default: 'Note' },
+    text: { kind: 'text', default: 'Note', help: 'The note’s text — write anything that explains the patch.' },
   },
   init: () => ({}),
   tick: () => {},

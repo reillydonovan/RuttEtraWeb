@@ -54,9 +54,9 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    channel: { kind: 'number', min: 1,  max: 16,  step: 1, default: 1 },
-    cc:      { kind: 'number', min: 0,  max: 127, step: 1, default: 1 },
-    bipolar: { kind: 'boolean', default: false },
+    channel: { kind: 'number', min: 1,  max: 16,  step: 1, default: 1, help: 'MIDI channel to listen on (1-16).' },
+    cc:      { kind: 'number', min: 0,  max: 127, step: 1, default: 1, help: 'Controller number to follow (0-127); 1 is usually the mod wheel.' },
+    bipolar: { kind: 'boolean', default: false, help: 'ON maps the controller to -1..+1 (a centred knob reads 0); OFF keeps it 0 to 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -82,7 +82,7 @@ register<{}>({
     { name: 'velocity', kind: 'control' },
   ],
   params: {
-    channel: { kind: 'number', min: 1, max: 16, step: 1, default: 1 },
+    channel: { kind: 'number', min: 1, max: 16, step: 1, default: 1, help: 'MIDI channel to listen on (1-16) for the last note played.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -105,8 +105,8 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    address: { kind: 'enum', options: ['/most-recent'], default: '/most-recent' },
-    bipolar: { kind: 'boolean', default: false },
+    address: { kind: 'enum', options: ['/most-recent'], default: '/most-recent', help: 'Which OSC address to read; /most-recent follows whatever message arrived last.' },
+    bipolar: { kind: 'boolean', default: false, help: 'ON maps an incoming 0..1 value to -1..+1; OFF passes it through.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -138,15 +138,15 @@ register<{}>({
      *   osc      — OSC bridge `/cv/<n>` (Route C)
      *   midi-cc  — pulled in for completeness; bound via MIDI Learn separately
      */
-    route:    { kind: 'enum', options: ['audio', 'osc', 'midi-cc'], default: 'audio' },
+    route:    { kind: 'enum', options: ['audio', 'osc', 'midi-cc'], default: 'audio', help: 'Where the voltage arrives: audio is a DC-coupled interface input, osc the CV bridge, midi-cc a MIDI knob.' },
     /** Channel/bridge/CC number (0-indexed for audio/osc, 0..127 for midi-cc). */
-    channel:  { kind: 'number', min: 0, max: 127, step: 1, default: 0 },
+    channel:  { kind: 'number', min: 0, max: 127, step: 1, default: 0, help: 'Input to read: interface or bridge channel counting from 0, or the CC number on the midi-cc route.' },
     /** When the audio route is active, this overrides the channel's
      *  global polarity for THIS node only. Useful when the same physical
      *  CV is read by two patches that need different shapings. */
-    bipolar:  { kind: 'boolean', default: true },
+    bipolar:  { kind: 'boolean', default: true, help: 'OSC and MIDI CC routes: ON maps 0..1 to -1..+1. The audio route uses the channel\'s own polarity.' },
     /** When using the midi-cc route, MIDI channel 1..16 (0 = omni). */
-    midiChannel: { kind: 'number', min: 0, max: 16, step: 1, default: 0 },
+    midiChannel: { kind: 'number', min: 0, max: 16, step: 1, default: 0, help: 'MIDI channel for the midi-cc route (1-16); 0 currently reads channel 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -193,7 +193,7 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    axis: { kind: 'number', min: 0, max: 31, step: 1, default: 0 },
+    axis: { kind: 'number', min: 0, max: 31, step: 1, default: 0, help: 'Which stick axis to read, counting from 0 (on most pads 0 and 1 are the left stick).' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -214,8 +214,8 @@ register<{}>({
     { name: 'gate', kind: 'gate' },
   ],
   params: {
-    button: { kind: 'number', min: 0, max: 31, step: 1, default: 0 },
-    bipolar: { kind: 'boolean', default: false },
+    button: { kind: 'number', min: 0, max: 31, step: 1, default: 0, help: 'Which button to read, counting from 0; analog triggers give values in between.' },
+    bipolar: { kind: 'boolean', default: false, help: 'ON makes the main output -1 when released and +1 when pressed; the gate output is unaffected.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -250,7 +250,7 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    key: { kind: 'enum', options: PARAM_OUT_KEYS, default: 'zPush' },
+    key: { kind: 'enum', options: PARAM_OUT_KEYS, default: 'zPush', help: 'Which synth parameter to read; outputs its live value, modulation included.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {

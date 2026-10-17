@@ -609,3 +609,7 @@ body.about-body::before {
   color: var(--re-text-dim);
   font-size: 0.85em;
 }
+
+/* Node Catalog: one parameter per line, with its help text (the in-app tooltip). */
+.about-param-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.about-param-list li { line-height: 1.45; }

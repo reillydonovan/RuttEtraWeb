@@ -20,6 +20,7 @@
 import { OutputCurve } from '../../state/Settings';
 import { createRawKnob } from '../widgets';
 import { animateToggle } from '../motion';
+import { attachTooltip } from '../tooltip';
 
 // ====================================================================
 // Adapter interfaces
@@ -32,12 +33,15 @@ export interface NumAdapter {
   min: number;
   max: number;
   step: number;
+  /** Hover tooltip for the row (graph rows: the node param's registry `help`). */
+  help?: string;
 }
 
 /** Generic getter/setter for a boolean field. */
 export interface BoolAdapter {
   get(): boolean;
   set(value: boolean): void;
+  help?: string;
 }
 
 /** Generic getter/setter for an enum / string field with a fixed option set.
@@ -48,6 +52,7 @@ export interface BoolAdapter {
 export interface EnumAdapter<T extends string = string> {
   get(): T;
   set(value: T): void;
+  help?: string;
   /**
    * Each option may carry an optional `group` label. When ANY option
    * has a group, the rendered `<select>` uses `<optgroup>` elements:
@@ -337,6 +342,7 @@ export function buildNumField(label: string, a: NumAdapter): NumFieldUi {
   const lbl = el('label', 'rw-label', label);
   wrap.classList.add('rw-control');
   root.append(lbl, wrap);
+  if (a.help) attachTooltip(root, a.help);
 
   return {
     root,
@@ -363,6 +369,7 @@ export function buildToggleRow(label: string, a: BoolAdapter, txt = ''): ToggleU
   const lbl = el('label', 'rw-label', label);
   wrapLbl.classList.add('rw-control');
   root.append(lbl, wrapLbl);
+  if (a.help) attachTooltip(root, a.help);
   return {
     root,
     refresh(): void { if (cb.checked !== a.get()) cb.checked = a.get(); },
@@ -384,6 +391,7 @@ export function buildDropdownRow<T extends string>(label: string, a: EnumAdapter
   const root = el('div', 'rw-row');
   const lbl = el('label', 'rw-label', label);
   root.append(lbl, sel);
+  if (a.help) attachTooltip(root, a.help);
   return {
     root,
     refresh(): void { if (sel.value !== a.get()) sel.value = a.get(); },
@@ -689,25 +697,38 @@ function buildGamepadGroup(g: NonNullable<SlotRowAdapter['gamepad']>): BodyGroup
   return { root: grp.root, refresh, dispose };
 }
 
+/** What each Output-stage control does — the same in Classic slots and Graph rows. */
+const OUTPUT_HELP = {
+  apply:  'Additive moves the target up and down around its knob; Multiply scales the knob’s value instead.',
+  curve:  'Shape of the response: Linear as-is, Exp eases in, Log eases out, S-curve both, Step snaps to three levels.',
+  min:    'Output when the source is at its lowest (−1). Raise it to keep the modulation off the bottom.',
+  max:    'Output when the source is at its highest (+1). Lower it to keep the modulation off the top.',
+  offset: 'Added to the output after the range — shifts the whole swing up or down.',
+  invert: 'Flips the signal: high becomes low.',
+  rise:   'Milliseconds to glide when the signal rises — smooths sudden jumps upward.',
+  fall:   'Milliseconds to glide when the signal falls — smooths sudden drops.',
+};
+
 function buildOutputStageGroup(o: SlotRowAdapter['output']): BodyGroup {
   const g = buildGroup('Output');
   const refreshers: Array<() => void> = [];
+  const h = <T extends { help?: string }>(a: T, help: string): T => ({ ...a, help: a.help ?? help });
   if (o.applyMode) {
-    const modeUi = buildDropdownRow('Apply', o.applyMode);
+    const modeUi = buildDropdownRow('Apply', h(o.applyMode, OUTPUT_HELP.apply));
     refreshers.push(modeUi.refresh); g.body.appendChild(modeUi.root);
   }
-  const curveUi = buildDropdownRow<OutputCurve>('Curve', o.curve);
+  const curveUi = buildDropdownRow<OutputCurve>('Curve', h(o.curve, OUTPUT_HELP.curve));
   refreshers.push(curveUi.refresh); g.body.appendChild(curveUi.root);
-  const minUi = buildNumField('Min', o.min); refreshers.push(minUi.refresh); g.body.appendChild(minUi.root);
-  const maxUi = buildNumField('Max', o.max); refreshers.push(maxUi.refresh); g.body.appendChild(maxUi.root);
-  const offUi = buildNumField('Offset', o.offset); refreshers.push(offUi.refresh); g.body.appendChild(offUi.root);
-  const invUi = buildToggleRow('Invert', o.invert, 'invert output'); refreshers.push(invUi.refresh); g.body.appendChild(invUi.root);
+  const minUi = buildNumField('Min', h(o.min, OUTPUT_HELP.min)); refreshers.push(minUi.refresh); g.body.appendChild(minUi.root);
+  const maxUi = buildNumField('Max', h(o.max, OUTPUT_HELP.max)); refreshers.push(maxUi.refresh); g.body.appendChild(maxUi.root);
+  const offUi = buildNumField('Offset', h(o.offset, OUTPUT_HELP.offset)); refreshers.push(offUi.refresh); g.body.appendChild(offUi.root);
+  const invUi = buildToggleRow('Invert', h(o.invert, OUTPUT_HELP.invert), 'invert output'); refreshers.push(invUi.refresh); g.body.appendChild(invUi.root);
   if (o.slewRise) {
-    const riseUi = buildNumField('Slew ↑ ms', o.slewRise);
+    const riseUi = buildNumField('Slew ↑ ms', h(o.slewRise, OUTPUT_HELP.rise));
     refreshers.push(riseUi.refresh); g.body.appendChild(riseUi.root);
   }
   if (o.slewFall) {
-    const fallUi = buildNumField('Slew ↓ ms', o.slewFall);
+    const fallUi = buildNumField('Slew ↓ ms', h(o.slewFall, OUTPUT_HELP.fall));
     refreshers.push(fallUi.refresh); g.body.appendChild(fallUi.root);
   }
   return { root: g.root, refresh(): void { for (const r of refreshers) r(); } };

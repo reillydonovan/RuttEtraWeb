@@ -147,6 +147,13 @@ html body[data-theme="modern"][data-layout="compact"] #capture-dock > * { pointe
   transition: transform var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
 }
 .rw-cap-btn:active { transform: scale(var(--press)); background: var(--c-fill-hi); }
+/* Flip + mic share the left column. The mic only matters in Video mode; in Photo it keeps
+   its space (no jump) but hides. Off = dimmed, slashed icon. */
+.rw-cap-left { justify-self: start; display: flex; gap: var(--sp-2); align-items: center; }
+.rw-cap-left .rw-cap-btn { justify-self: auto; }
+#capture-dock[data-mode="photo"] .rw-cap-mic { visibility: hidden; }
+.rw-cap-mic.off { color: var(--t-dim); }
+#capture-dock.recording .rw-cap-mic { opacity: 0.4; pointer-events: none; }
 
 .rw-shutter-wrap { position: relative; display: grid; justify-items: center; }
 .rw-shutter {
@@ -301,7 +308,7 @@ body.peeking #capture-dock { visibility: hidden; }
   html body[data-theme="modern"][data-layout="compact"] .rw-looks { display: none; }
   html body[data-theme="modern"][data-layout="compact"] .rw-capture-row { grid-template-columns: 1fr; grid-template-rows: auto auto auto; justify-items: center; gap: var(--sp-3); padding: 0; }
   html body[data-theme="modern"][data-layout="compact"] .rw-cap-btn, html body[data-theme="modern"][data-layout="compact"] .rw-cap-mode { justify-self: center; }
-  html body[data-theme="modern"][data-layout="compact"] .rw-cap-flip { order: 1; }
+  html body[data-theme="modern"][data-layout="compact"] .rw-cap-left { order: 1; justify-self: center; }
   html body[data-theme="modern"][data-layout="compact"] .rw-shutter-wrap { order: 2; }
   html body[data-theme="modern"][data-layout="compact"] .rw-cap-mode { order: 3; flex-direction: column; border-radius: var(--r-l); }
   html body[data-theme="modern"][data-layout="compact"] .rw-cap-timer { bottom: auto; top: calc(100% + var(--sp-2)); }

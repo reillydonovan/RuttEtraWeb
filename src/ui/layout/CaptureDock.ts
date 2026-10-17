@@ -31,6 +31,8 @@ export interface CaptureDockDeps {
   /** Swap front/back camera; resolves to the facing now in use, or null when
    *  the active source isn't a webcam (button is then a no-op with a hint). */
   flipCamera: () => Promise<'user' | 'environment' | null>;
+  /** Record the microphone with video (Settings.recordIncludeMic). */
+  mic?: { get: () => boolean; set: (on: boolean) => void };
   /** The phone's Source sheet leads with these four big choices. */
   quickSource?: {
     webcam: (facing: 'user' | 'environment') => Promise<void>;
@@ -94,6 +96,31 @@ export class CaptureDock {
     flip.innerHTML = ICON_FLIP;
     flip.addEventListener('click', () => void this.flip());
 
+    // Mic: record sound with the video (Video mode only — a photo has no audio).
+    const mic = document.createElement('button');
+    mic.type = 'button';
+    mic.className = 'rw-cap-btn rw-cap-mic';
+    const syncMic = (): void => {
+      const on = deps.mic?.get() ?? false;
+      mic.classList.toggle('off', !on);
+      mic.innerHTML = on ? ICON_MIC : ICON_MIC_OFF;
+      mic.setAttribute('aria-pressed', String(on));
+      mic.setAttribute('aria-label', on ? 'Sound on — tap to record without sound' : 'Sound off — tap to record sound');
+    };
+    mic.addEventListener('click', () => {
+      if (!deps.mic || deps.isRecording()) return;
+      const on = !deps.mic.get();
+      deps.mic.set(on);
+      syncMic();
+      deps.haptic('click');
+      deps.toast(on ? 'Sound on — videos record your microphone' : 'Sound off — videos record without sound');
+    });
+    syncMic();
+    if (!deps.mic) mic.hidden = true;
+    const left = document.createElement('div');
+    left.className = 'rw-cap-left';
+    left.append(flip, mic);
+
     this.shutter = document.createElement('button');
     this.shutter.type = 'button';
     this.shutter.className = 'rw-shutter';
@@ -121,7 +148,7 @@ export class CaptureDock {
     shutterWrap.className = 'rw-shutter-wrap';
     shutterWrap.append(this.timer, this.shutter);
 
-    row.append(flip, shutterWrap, seg);
+    row.append(left, shutterWrap, seg);
     this.el.append(strip, row);
 
     this.setMode(this.mode);
@@ -260,6 +287,12 @@ function downloadFile(file: File): void {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+const ICON_MIC =
+  '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>';
+const ICON_MIC_OFF =
+  '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.6 2.5M5.5 11a6.5 6.5 0 0 0 10.4 5.2M18.5 11a6.4 6.4 0 0 1-.5 2.5M12 17.5V21M8.5 21h7M4 4l16 16"/></svg>';
 const ICON_FLIP =
   '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
   '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/>' +

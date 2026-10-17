@@ -295,7 +295,7 @@ export function nodeInfo(def: Pick<NodeDef, 'type' | 'label' | 'category' | 'des
   }
   const params = Object.entries(def.params).filter(([, s]) => s.kind !== 'text');
   if (params.length) {
-    sections.push({ heading: 'Controls', rows: params.map(([name, s]) => ({ name, detail: specDetail(s) })) });
+    sections.push({ heading: 'Controls', rows: params.map(([name, s]) => ({ name, detail: specDetail(s), ...(s.help ? { text: s.help } : {}) })) });
   }
   if (def.outputs.length) {
     sections.push({ heading: 'Outputs', rows: def.outputs.map((p) => ({ name: p.label ?? p.name, detail: p.kind })) });

@@ -65,6 +65,9 @@ export interface RecordOptions {
   fps: number;
   bitsPerSecond?: number;
   includeMic?: boolean;
+  /** Which mic (Settings.recordMicDeviceId): '' = the running camera's own mic,
+   *  'default' = the system default, else a deviceId. */
+  micDeviceId?: string;
   /** Bake the video element's own audio track into the recording.
    *  Independent of speaker-playback (`videoAudioEnabled` setting).
    *  No-op when the active source has no audio or `VideoAudioCapture`
@@ -161,7 +164,26 @@ export class CanvasRecorder {
     /** Video element audio capture. Pass `VideoSourceManager` directly;
      *  the duck-typed interface means tests can stub it. */
     private videoAudioCapture: VideoAudioCapture | null = null,
+    /** The running camera's video track, if any — pairs "Camera's microphone" with the
+     *  audio input in the same device group (a webcam's built-in mic). */
+    private cameraTrack: () => MediaStreamTrack | null = () => null,
   ) {}
+
+  /** getUserMedia audio constraints for the chosen mic. */
+  private async micConstraints(choice: string): Promise<MediaTrackConstraints | true> {
+    if (choice && choice !== 'default') return { deviceId: { exact: choice } };
+    if (choice === 'default') return true;
+    // '' — the camera's own microphone: the audio input sharing the camera's groupId.
+    try {
+      const gid = this.cameraTrack()?.getSettings().groupId;
+      if (gid) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mic = devices.find((d) => d.kind === 'audioinput' && d.groupId === gid && d.deviceId);
+        if (mic) return { deviceId: { exact: mic.deviceId } };
+      }
+    } catch { /* fall through to the default input */ }
+    return true; // a phone's (or a camera without a mic's) default input
+  }
 
   /** Swap the metadata injector at runtime. Used by tests; also a
    *  reasonable knob for production if a future stage adds a
@@ -264,7 +286,15 @@ export class CanvasRecorder {
     const audioTracks: MediaStreamTrack[] = [];
     if (opts.includeMic) {
       try {
-        this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audio = await this.micConstraints(opts.micDeviceId ?? '');
+        try {
+          this.micStream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+        } catch (err) {
+          // A remembered device that's gone (unplugged webcam): use the default input.
+          if (audio === true) throw err;
+          console.warn('[record] chosen microphone unavailable, using the default input.', err);
+          this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        }
         for (const t of this.micStream.getAudioTracks()) audioTracks.push(t);
       } catch (err) {
         console.warn('Mic unavailable; recording video only.', err);

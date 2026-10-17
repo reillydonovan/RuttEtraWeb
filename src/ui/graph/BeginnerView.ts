@@ -288,6 +288,8 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       const v = liveSource().params[k];
       return (v ?? fallback) as T;
     };
+    /** Hover tooltip for a node param — the registry's `help` (one source for every surface). */
+    const ph = (k: string): string | undefined => getDef(liveSource().type)?.params[k]?.help;
 
     const adapter: SlotRowAdapter = {
       // Graph rows don't have a per-row enable toggle — the binding's
@@ -326,21 +328,25 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       // -------------------- LFO group (shape: rate, phase, duty, bipolar) --------------------
       lfo: {
         frequency: {
+          help: ph('rate'),
           get: () => liveParam<number>('rate', 1),
           set: (v) => mutate((_c, src) => { if (src) src.params.rate = v; }, { skipRerender: true }),
           min: 0.01, max: 30, step: 0.01,
         },
         phase: {
+          help: ph('phase'),
           get: () => liveParam<number>('phase', 0),
           set: (v) => mutate((_c, src) => { if (src) src.params.phase = v; }, { skipRerender: true }),
           min: 0, max: 1, step: 0.001,
         },
         duty: {
+          help: ph('duty'),
           get: () => liveParam<number>('duty', 0.5),
           set: (v) => mutate((_c, src) => { if (src) src.params.duty = v; }, { skipRerender: true }),
           min: 0.05, max: 0.95, step: 0.01,
         },
         bipolar: {
+          help: ph('bipolar'),
           get: () => liveParam<boolean>('bipolar', true),
           set: (v) => mutate((_c, src) => { if (src) src.params.bipolar = v; }),
         },
@@ -356,11 +362,13 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       // -------------------- Ramp group --------------------
       ramp: {
         timeSec: {
+          help: ph('timeSec'),
           get: () => liveParam<number>('timeSec', 4),
           set: (v) => mutate((_c, src) => { if (src) src.params.timeSec = v; }, { skipRerender: true }),
           min: 0.05, max: 600, step: 0.05,
         },
         mode: {
+          help: ph('mode'),
           get: () => liveParam<string>('mode', 'up'),
           set: (v) => mutate((_c, src) => { if (src) src.params.mode = v; }),
           options: RAMP_MODE_OPTS,
@@ -372,11 +380,13 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       // -------------------- Audio group --------------------
       audio: {
         bandIndex: liveSource().type === 'audio-band' ? {
+          help: ph('band'),
           get: () => liveParam<number>('band', 0),
           set: (v) => mutate((_c, src) => { if (src) src.params.band = Math.round(v); }, { skipRerender: true }),
           min: 0, max: 127, step: 1,
         } : undefined,
         gain: {
+          help: ph('gain'),
           get: () => liveParam<number>('gain', 1),
           set: (v) => mutate((_c, src) => { if (src) src.params.gain = v; }, { skipRerender: true }),
           min: 0, max: 4, step: 0.01,
@@ -389,6 +399,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
 
       constant: {
         value: {
+          help: ph('value'),
           get: () => liveParam<number>('value', 0),
           set: (v) => mutate((_c, src) => { if (src) src.params.value = v; }, { skipRerender: true }),
           min: -1, max: 1, step: 0.001,
@@ -397,6 +408,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
 
       midiClock: {
         clockDivision: {
+          help: ph('division'),
           get: () => liveParam<string>('division', '1/4'),
           set: (v) => mutate((_c, src) => { if (src) src.params.division = v as ClockDivision; }),
           options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
@@ -406,6 +418,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       // -------------------- v9: CV input --------------------
       cv: {
         channel: {
+          help: ph('channel'),
           get: () => liveParam<number>('channel', 0),
           set: (v) => mutate((_c, src) => { if (src) src.params.channel = Math.max(0, Math.round(v)); }, { skipRerender: true }),
           min: 0, max: 31, step: 1,
@@ -446,6 +459,7 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
       // -------------------- v9: Gamepad --------------------
       gamepad: {
         index: {
+          help: ph(liveSource().type === 'gamepad-button' ? 'button' : 'axis'),
           get: () => liveParam<number>(liveSource().type === 'gamepad-button' ? 'button' : 'axis', 0),
           set: (v) => mutate((_c, src) => {
             if (!src) return;

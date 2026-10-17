@@ -103,7 +103,7 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
 
   // Recorder
   'recordIncludeMic', 'recordBitrateMbps', 'recordPreferredFormat', 'recordFps',
-  'recordEncoder', 'recordRateControl', 'recordIncludeVideoAudio',
+  'recordEncoder', 'recordRateControl', 'recordIncludeVideoAudio', 'recordMicDeviceId',
 
   // Help / timeline meta
   'helpSeen', 'helpAutoOpen', 'helpActiveTab',

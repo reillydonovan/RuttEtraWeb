@@ -106,11 +106,19 @@ export class WebCodecsCapture {
         numberOfChannels: 2, sampleRate: 48000, quality: new Quality({ bitrate: 192_000 }),
       });
       if (acodec) {
-        audioCtx = new AudioContext({ sampleRate: 48000 });
-        const dest = audioCtx.createMediaStreamDestination();
-        dest.channelCount = 2;
-        for (const t of o.audioTracks) audioCtx.createMediaStreamSource(new MediaStream([t])).connect(dest);
-        const track = dest.stream.getAudioTracks()[0] as MediaStreamAudioTrack;
+        let track: MediaStreamAudioTrack;
+        if (o.audioTracks.length === 1) {
+          // One source (the usual case: the mic) goes straight to the encoder — no AudioContext,
+          // which iOS starts suspended and which would otherwise record silence.
+          track = o.audioTracks[0] as MediaStreamAudioTrack;
+        } else {
+          audioCtx = new AudioContext({ sampleRate: 48000 });
+          await audioCtx.resume().catch(() => { /* already running */ });
+          const dest = audioCtx.createMediaStreamDestination();
+          dest.channelCount = 2;
+          for (const t of o.audioTracks) audioCtx.createMediaStreamSource(new MediaStream([t])).connect(dest);
+          track = dest.stream.getAudioTracks()[0] as MediaStreamAudioTrack;
+        }
         output.addAudioTrack(new MediaStreamAudioTrackSource(track, { codec: acodec, quality: new Quality({ bitrate: 192_000 }) }));
       } else {
         console.warn('[record] no audio encoder for this container; recording video only.');

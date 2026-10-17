@@ -551,6 +551,7 @@ async function bootSynth(): Promise<void> {
     sonification,
     stereoMetaMod.injectStereoscopicMetadata,
     source,  // VideoAudioCapture — duck-typed via getCaptureStream()
+    () => source.getState().stream?.getVideoTracks()[0] ?? null, // pairs "Camera's microphone"
   );
   const broadcastMod = await import('./stream/Broadcaster');
   const broadcaster = new broadcastMod.Broadcaster(sonification);
@@ -1396,6 +1397,7 @@ async function bootSynth(): Promise<void> {
           fps: settings.get('recordFps'),
           bitsPerSecond: settings.get('recordBitrateMbps') * 1_000_000,
           includeMic: settings.get('recordIncludeMic'),
+          micDeviceId: settings.get('recordMicDeviceId'),
           preferredFormat: settings.get('recordPreferredFormat'),
           engine: settings.get('recordEncoder'),
           rateControl: settings.get('recordRateControl'),
@@ -1438,12 +1440,17 @@ async function bootSynth(): Promise<void> {
           fps: settings.get('recordFps'),
           bitsPerSecond: settings.get('recordBitrateMbps') * 1_000_000,
           includeMic: settings.get('recordIncludeMic'),
+          micDeviceId: settings.get('recordMicDeviceId'),
           preferredFormat: settings.get('recordPreferredFormat'),
           engine: settings.get('recordEncoder'),
           rateControl: settings.get('recordRateControl'),
         });
       },
       isRecording: () => recorder.isRecording(),
+      mic: {
+        get: () => settings.get('recordIncludeMic'),
+        set: (on) => settings.set('recordIncludeMic', on),
+      },
       onRecordState: (fn) => recorder.subscribe(fn),
       elapsedMs: () => recorder.elapsedMs(),
       flipCamera: async () => {

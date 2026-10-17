@@ -3267,7 +3267,7 @@ export function createPatchBayView(
           cb.addEventListener('change', () => writeGraphNodeParam(nodeId, paramName, cb.checked));
           ctl = cb;
         }
-        attachTooltip(row, `${label} · ${paramName}`);
+        attachTooltip(row, spec.help ?? rowLabel.textContent ?? paramName);
         row.append(rowLabel);
         if (knob) {
           row.appendChild(knob.el);

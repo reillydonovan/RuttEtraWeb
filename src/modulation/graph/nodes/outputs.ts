@@ -31,7 +31,7 @@ register<{}>({
     /** 0-based output channel index on the configured DC-coupled
      *  interface. Cosmetic mirror of the I/O panel — changing here
      *  just routes this node to a different CVOutputChannel. */
-    channel: { kind: 'number', min: 0, max: 31, step: 1, default: 0 },
+    channel: { kind: 'number', min: 0, max: 31, step: 1, default: 0, help: 'Which CV output channel receives the signal, counting from 0.' },
   },
   init: () => ({}),
   tick(ctx, _s, inputs, params, _outputs) {

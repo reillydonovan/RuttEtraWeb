@@ -18,7 +18,7 @@ register<{}>({
   description: 'Multiply input by a 0..1 level (basic volume).',
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
-  params: { level: { kind: 'number', min: 0, max: 1, step: 0.001, default: 1 } },
+  params: { level: { kind: 'number', min: 0, max: 1, step: 0.001, default: 1, help: 'How much of the input passes through: 1 is all of it, 0 is silence.' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
     outputs.out = (ins.in ?? 0) * +(params.level as number);
@@ -50,7 +50,7 @@ register<{}>({
   description: 'Add a DC bias to the input.',
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
-  params: { bias: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0 } },
+  params: { bias: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0, help: 'Amount added to the input, shifting the whole signal up (positive) or down (negative).' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
     outputs.out = (ins.in ?? 0) + +(params.bias as number);
@@ -66,7 +66,7 @@ register<{}>({
   description: 'Multiply by a constant (can be >1 or negative).',
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
-  params: { factor: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1 } },
+  params: { factor: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Multiplier for the input: above 1 boosts, below 1 shrinks, negative flips it upside down.' } },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
     outputs.out = (ins.in ?? 0) * +(params.factor as number);
@@ -83,11 +83,11 @@ register<{}>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    inMin:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 0 },
-    inMax:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 1 },
-    outMin: { kind: 'number', min: -8, max: 8, step: 0.01, default: 0 },
-    outMax: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1 },
-    clamp:  { kind: 'boolean', default: true },
+    inMin:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 0, help: 'Input value that maps to Out Min.' },
+    inMax:  { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Input value that maps to Out Max.' },
+    outMin: { kind: 'number', min: -8, max: 8, step: 0.01, default: 0, help: 'Output value when the input sits at In Min.' },
+    outMax: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Output value when the input sits at In Max.' },
+    clamp:  { kind: 'boolean', default: true, help: 'ON keeps the output between Out Min and Out Max even when the input strays outside its range.' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -120,10 +120,10 @@ register<{}>({
   ],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    gain1: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
-    gain2: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
-    gain3: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
-    gain4: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+    gain1: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 1 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
+    gain2: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 2 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
+    gain3: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 3 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
+    gain4: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1, help: 'Level of input 4 in the mix (0 = off, 1 = unchanged, 2 = doubled).' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -168,7 +168,7 @@ register<{}>({
   ],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    bias: { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5 },
+    bias: { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Meant as the blend when X is unpatched (0 = A, 1 = B). Currently has no effect: an unpatched X reads 0, so patch X.' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -243,7 +243,7 @@ register<{}>({
   ],
   outputs: [{ name: 'out', kind: 'gate' }],
   params: {
-    bipolar: { kind: 'boolean', default: false },
+    bipolar: { kind: 'boolean', default: false, help: 'ON outputs -1 instead of 0 when A is not greater than B.' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -288,8 +288,8 @@ register<SlewState>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    riseMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100 },
-    fallMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100 },
+    riseMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100, help: 'How slowly the output follows the input upward, in milliseconds (0 = instantly).' },
+    fallMs: { kind: 'number', min: 0, max: 5000, step: 1, default: 100, help: 'How slowly the output follows the input downward, in milliseconds (0 = instantly).' },
   },
   init: () => ({ value: 0 }),
   tick(ctx, state, ins, params, outputs) {
@@ -314,9 +314,9 @@ register<{}>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    steps: { kind: 'number', min: 2, max: 64, step: 1, default: 8 },
-    inMin: { kind: 'number', min: -8, max: 8, step: 0.01, default: -1 },
-    inMax: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1 },
+    steps: { kind: 'number', min: 2, max: 64, step: 1, default: 8, help: 'Number of fixed levels the input snaps to; fewer steps gives a chunkier staircase.' },
+    inMin: { kind: 'number', min: -8, max: 8, step: 0.01, default: -1, help: 'Bottom of the range to divide into steps; lower inputs snap to this value.' },
+    inMax: { kind: 'number', min: -8, max: 8, step: 0.01, default: 1, help: 'Top of the range to divide into steps; higher inputs snap to this value.' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -343,8 +343,8 @@ register<{}>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    shape: { kind: 'enum', options: ['linear', 'exp', 'log', 'sCurve'], default: 'linear' },
-    amount: { kind: 'number', min: 0, max: 4, step: 0.01, default: 1 },
+    shape: { kind: 'enum', options: ['linear', 'exp', 'log', 'sCurve'], default: 'linear', help: 'Response shape: linear leaves it alone, exp starts slow then rises fast, log rises fast then eases, sCurve eases both ends.' },
+    amount: { kind: 'number', min: 0, max: 4, step: 0.01, default: 1, help: 'How strongly the exp and log shapes bend the signal; no effect on linear or sCurve.' },
   },
   init: () => ({}),
   tick(_ctx, _s, ins, params, outputs) {
@@ -379,7 +379,7 @@ register<DelayState>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    frames: { kind: 'number', min: 1, max: 240, step: 1, default: 1 },
+    frames: { kind: 'number', min: 1, max: 240, step: 1, default: 1, help: 'How many frames late the output repeats the input (60 is about one second at 60 fps).' },
   },
   init: (params) => {
     const n = Math.max(1, Math.round(+(params.frames as number)));
@@ -442,10 +442,10 @@ register<EnvState>({
   inputs: [{ name: 'gate', kind: 'gate' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    attackMs:  { kind: 'number', min: 1, max: 10000, step: 1, default: 50 },
-    decayMs:   { kind: 'number', min: 1, max: 10000, step: 1, default: 200 },
-    sustain:   { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.6 },
-    releaseMs: { kind: 'number', min: 1, max: 10000, step: 1, default: 400 },
+    attackMs:  { kind: 'number', min: 1, max: 10000, step: 1, default: 50, help: 'Time to rise to full level when the gate opens, in milliseconds.' },
+    decayMs:   { kind: 'number', min: 1, max: 10000, step: 1, default: 200, help: 'Time to fall from full level to the Sustain level, in milliseconds.' },
+    sustain:   { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.6, help: 'Level held while the gate stays open, from 0 to 1.' },
+    releaseMs: { kind: 'number', min: 1, max: 10000, step: 1, default: 400, help: 'Time to fade back to 0 after the gate closes, in milliseconds.' },
   },
   init: () => ({ phase: 'idle' as EnvPhase, value: 0, gateWasHigh: false }),
   tick(ctx, state, ins, params, outputs) {
@@ -499,9 +499,9 @@ register<SvfState>({
   inputs: [{ name: 'in', kind: 'control' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    type:      { kind: 'enum', options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass' },
-    cutoffHz:  { kind: 'number', min: 0.01, max: 12, step: 0.01, default: 2 },
-    resonance: { kind: 'number', min: 0, max: 0.95, step: 0.01, default: 0 },
+    type:      { kind: 'enum', options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass', help: 'Lowpass smooths out fast wiggles, highpass keeps only the wiggles, bandpass keeps motion near the cutoff.' },
+    cutoffHz:  { kind: 'number', min: 0.01, max: 12, step: 0.01, default: 2, help: 'Frequency where the filter starts to act, in cycles per second (Hz).' },
+    resonance: { kind: 'number', min: 0, max: 0.95, step: 0.01, default: 0, help: 'Emphasis at the cutoff: higher values overshoot and ring like an analog filter.' },
   },
   init: () => ({ low: 0, band: 0 }),
   tick(ctx, state, ins, params, outputs) {

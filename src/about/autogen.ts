@@ -144,23 +144,21 @@ function portsList(ports: PortSpec[]): string {
     .join(', ');
 }
 
+/** One line per param: name, range/default, then its registry `help` (the same text as the
+ *  in-app hover tooltip). */
 function paramsList(params: Record<string, ParamSpec>): string {
-  const keys = Object.keys(params);
+  const keys = Object.keys(params).filter((k) => params[k].kind !== 'text');
   if (keys.length === 0) return '';
-  return keys
-    .map((k) => {
-      const p = params[k];
-      let r = '';
-      if (p.kind === 'number') {
-        r = `${p.min}…${p.max} (default ${p.default})`;
-      } else if (p.kind === 'enum') {
-        r = `${p.options.join(' | ')} (default ${p.default})`;
-      } else if (p.kind === 'boolean') {
-        r = `default ${p.default}`;
-      }
-      return `<code>${esc(k)}</code> <span class="about-dim">${esc(r)}</span>`;
-    })
-    .join('; ');
+  const items = keys.map((k) => {
+    const p = params[k];
+    let r = '';
+    if (p.kind === 'number') r = `${p.min}…${p.max} (default ${p.default})`;
+    else if (p.kind === 'enum') r = `${p.options.join(' | ')} (default ${p.default})`;
+    else if (p.kind === 'boolean') r = `default ${p.default}`;
+    const help = p.help ? ` — ${esc(p.help)}` : '';
+    return `<li><code>${esc(k)}</code> <span class="about-dim">${esc(r)}</span>${help}</li>`;
+  });
+  return `<ul class="about-param-list">${items.join('')}</ul>`;
 }
 
 // =====================================================================

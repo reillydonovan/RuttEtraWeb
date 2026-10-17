@@ -15,10 +15,10 @@ import { register } from '../registry';
 import { Rect } from '../types';
 
 const REGION_PARAMS = {
-  rx: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 0 },
-  ry: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 0 },
-  rw: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 1 },
-  rh: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 1 },
+  rx: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 0, help: 'Left edge of the region to watch, as a fraction of frame width (0 = left edge).' },
+  ry: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 0, help: 'Top edge of the region to watch, as a fraction of frame height (0 = top).' },
+  rw: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 1, help: 'Width of the region to watch, as a fraction of the frame (1 = full width).' },
+  rh: { kind: 'number' as const, min: 0, max: 1, step: 0.01, default: 1, help: 'Height of the region to watch, as a fraction of the frame (1 = full height).' },
 };
 
 function rectFrom(params: Record<string, number | string | boolean>): Rect {
@@ -41,8 +41,8 @@ register<{}>({
   outputs: [{ name: 'out', kind: 'video' }],
   params: {
     ...REGION_PARAMS,
-    bipolar: { kind: 'boolean', default: false },
-    gain:    { kind: 'number', min: 0, max: 4, step: 0.01, default: 1 },
+    bipolar: { kind: 'boolean', default: false, help: 'ON maps brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
+    gain:    { kind: 'number', min: 0, max: 4, step: 0.01, default: 1, help: 'Multiplies the brightness reading: above 1 makes dim video react more.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -63,8 +63,8 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'video' }],
   params: {
-    y:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5 },
-    bipolar: { kind: 'boolean', default: false },
+    y:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Which scanline to read, from 0 (top) to 1 (bottom).' },
+    bipolar: { kind: 'boolean', default: false, help: 'ON maps the line’s brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -85,8 +85,8 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'video' }],
   params: {
-    x:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5 },
-    bipolar: { kind: 'boolean', default: false },
+    x:       { kind: 'number', min: 0, max: 1, step: 0.001, default: 0.5, help: 'Which column to read, from 0 (left) to 1 (right).' },
+    bipolar: { kind: 'boolean', default: false, help: 'ON maps the column’s brightness to -1..+1 (black is -1); OFF keeps it 0 to 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -108,7 +108,7 @@ register<{}>({
   outputs: [{ name: 'out', kind: 'video' }],
   params: {
     ...REGION_PARAMS,
-    gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2 },
+    gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2, help: 'Boosts the motion reading so small movements register; the output tops out at 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {
@@ -152,7 +152,7 @@ register<{}>({
   outputs: [{ name: 'out', kind: 'video' }],
   params: {
     ...REGION_PARAMS,
-    gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2 },
+    gain: { kind: 'number', min: 0, max: 8, step: 0.01, default: 2, help: 'Boosts the edge-detail reading so softer images still register; the output tops out at 1.' },
   },
   init: () => ({}),
   tick(ctx, _s, _i, params, outputs) {

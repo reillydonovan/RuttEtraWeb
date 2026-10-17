@@ -11,7 +11,7 @@ import { CanvasRecorder } from '../../record/Recorder';
 import { Sequencer } from '../../sequencer/Sequencer';
 import { StereoCompositor } from '../../record/StereoCompositor';
 import { RESOLUTION_PRESETS } from '../../renderer/ResolutionManager';
-import { row, group, slider, toggle, dropdown, button, readout } from '../widgets';
+import { row, group, slider, toggle, dropdown, button, readout, markParamKey } from '../widgets';
 
 /**
  * Optional hook for the 3-second preview. main.ts owns the render-loop
@@ -143,7 +143,8 @@ export function createRecordSection(
     ])),
     row('FPS',     slider(settings, 'recordFps',          15, 120, 1)),
     row('Bitrate', slider(settings, 'recordBitrateMbps',   1, 200, 1), 'Mbps — target for Bitrate mode and Compatibility'),
-    row('Include Mic', toggle(settings, 'recordIncludeMic')),
+    row('Record Microphone', toggle(settings, 'recordIncludeMic', 'sound from your mic')),
+    row('Microphone', micPicker(settings)),
     row('Include Video Audio', toggle(settings, 'recordIncludeVideoAudio')),
   );
   root.appendChild(cfg.root);
@@ -162,6 +163,7 @@ export function createRecordSection(
         fps:               settings.get('recordFps'),
         bitsPerSecond:     settings.get('recordBitrateMbps') * 1_000_000,
         includeMic:        settings.get('recordIncludeMic'),
+        micDeviceId:       settings.get('recordMicDeviceId'),
         includeVideoAudio: settings.get('recordIncludeVideoAudio'),
         preferredFormat:   settings.get('recordPreferredFormat'),
         engine:   settings.get('recordEncoder'),
@@ -250,6 +252,7 @@ export function createRecordSection(
           fps:               settings.get('recordFps'),
           bitsPerSecond:     settings.get('recordBitrateMbps') * 1_000_000,
           includeMic:        settings.get('recordIncludeMic'),
+          micDeviceId:       settings.get('recordMicDeviceId'),
           includeVideoAudio: settings.get('recordIncludeVideoAudio'),
           preferredFormat:   settings.get('recordPreferredFormat'),
           engine:   settings.get('recordEncoder'),
@@ -413,4 +416,35 @@ export function createRecordSection(
   root.appendChild(list);
 
   return root;
+}
+
+/**
+ * Microphone for recordings. "Camera's microphone" (the default) is the mic built into the
+ * running webcam — the audio input in its device group — or a phone's own mic. The list is
+ * read from the browser when opened (names appear once the mic has been allowed once).
+ */
+function micPicker(settings: SettingsStore): HTMLSelectElement {
+  const sel = document.createElement('select');
+  sel.className = 'rw-select';
+  markParamKey(sel, 'recordMicDeviceId');
+  const fill = async (): Promise<void> => {
+    let mics: MediaDeviceInfo[] = [];
+    try {
+      mics = (await navigator.mediaDevices.enumerateDevices())
+        .filter((d) => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    } catch { /* no media devices */ }
+    const cur = settings.get('recordMicDeviceId');
+    const opts: [string, string][] = [['', 'Camera’s microphone'], ['default', 'System default']];
+    mics.forEach((d, i) => opts.push([d.deviceId, d.label || `Microphone ${i + 1}`]));
+    if (cur && !opts.some(([v]) => v === cur)) opts.push([cur, 'Saved microphone (not connected)']);
+    sel.replaceChildren(...opts.map(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; return o; }));
+    sel.value = cur;
+  };
+  void fill();
+  sel.addEventListener('pointerdown', () => void fill());
+  sel.addEventListener('focus', () => void fill());
+  try { navigator.mediaDevices.addEventListener('devicechange', () => void fill()); } catch { /* unsupported */ }
+  sel.addEventListener('change', () => settings.set('recordMicDeviceId', sel.value));
+  settings.subscribe('recordMicDeviceId', (v) => { if (sel.value !== v) sel.value = v; });
+  return sel;
 }

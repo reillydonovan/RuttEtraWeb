@@ -9,6 +9,7 @@
 
 import { GraphNode, GraphPatch, ParamSpec, TargetBinding } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
+import { attachTooltip } from '../tooltip';
 import { TARGETS } from '../targets';
 import { createRegionPicker } from './RegionPicker';
 import type { VideoTap } from '../../modulation/graph/VideoTap';
@@ -106,7 +107,9 @@ export function createInspector(opts: InspectorOptions): {
         // Region params are exposed via the picker above; hide them here
         // to avoid double-controls competing for the same value.
         if (REGION_NODE_TYPES.has(node.type) && (paramName === 'rx' || paramName === 'ry' || paramName === 'rw' || paramName === 'rh')) continue;
-        root.appendChild(createParamRow(node, paramName, spec));
+        const prow = createParamRow(node, paramName, spec);
+        if (spec.help) attachTooltip(prow, spec.help);
+        root.appendChild(prow);
       }
     }
 

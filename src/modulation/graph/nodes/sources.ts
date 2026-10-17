@@ -25,17 +25,17 @@ register<LFOState>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    shape:    { kind: 'enum', options: ['sine', 'triangle', 'saw', 'square', 'pulse'], default: 'sine' },
+    shape:    { kind: 'enum', options: ['sine', 'triangle', 'saw', 'square', 'pulse'], default: 'sine', help: 'Waveform shape: sine is smooth, triangle is linear, saw ramps up and drops, square and pulse jump.' },
     // Floor matches the Classic slot LFO (0.001 Hz = 1000 s period) so
     // subsonic sweeps are available in both engines.
-    rate:     { kind: 'number', min: 0.001, max: 30,  step: 0.001, default: 1 },
+    rate:     { kind: 'number', min: 0.001, max: 30,  step: 0.001, default: 1, help: 'Speed of the oscillation, in cycles per second (Hz), before the Range multiplier.' },
     // v21: Lo/Mid/Hi range switch — ×0.01 / ×1 / ×10 on `rate`, like the
     // range switch on the original hardware's oscillators. 'high' above
     // ~20 Hz effective aliases against the frame rate (stroboscopic).
-    range:    { kind: 'enum', options: ['low', 'mid', 'high'], default: 'mid' },
-    phase:    { kind: 'number', min: 0,    max: 1,   step: 0.001, default: 0 },
-    duty:     { kind: 'number', min: 0.05, max: 0.95, step: 0.01, default: 0.5 },
-    bipolar:  { kind: 'boolean', default: true },
+    range:    { kind: 'enum', options: ['low', 'mid', 'high'], default: 'mid', help: 'Multiplies Rate: low is x0.01 for slow sweeps, mid is x1, high is x10 (fast rates can strobe).' },
+    phase:    { kind: 'number', min: 0,    max: 1,   step: 0.001, default: 0, help: 'Shifts where in its cycle the wave starts, as a fraction of one cycle (0.5 = half a cycle later).' },
+    duty:     { kind: 'number', min: 0.05, max: 0.95, step: 0.01, default: 0.5, help: 'Pulse shape only: the fraction of each cycle the pulse stays high.' },
+    bipolar:  { kind: 'boolean', default: true, help: 'ON swings the output -1 to +1; OFF keeps it 0 to 1.' },
   },
   init: () => ({ phase: 0 }),
   tick(ctx, state, _ins, params, outputs) {
@@ -74,9 +74,9 @@ register<RampState>({
   inputs: [{ name: 'trigger', kind: 'trigger' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    mode:     { kind: 'enum', options: ['up', 'down', 'triangle', 'one-shot'], default: 'up' },
-    timeSec:  { kind: 'number', min: 0.05, max: 600, step: 0.05, default: 4 },
-    bipolar:  { kind: 'boolean', default: true },
+    mode:     { kind: 'enum', options: ['up', 'down', 'triangle', 'one-shot'], default: 'up', help: 'Ramp direction: up rises and repeats, down falls, triangle rises then falls, one-shot rises once and holds.' },
+    timeSec:  { kind: 'number', min: 0.05, max: 600, step: 0.05, default: 4, help: 'How long one ramp takes, in seconds. A pulse on the trigger input restarts it.' },
+    bipolar:  { kind: 'boolean', default: true, help: 'ON ramps from -1 to +1; OFF ramps from 0 to 1.' },
   },
   init: () => ({ startTime: 0, lastTrigger: 0, finished: false }),
   tick(ctx, state, ins, params, outputs) {
@@ -122,8 +122,8 @@ register<NoiseState>({
   inputs: [{ name: 'clock', kind: 'trigger' }],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    kind:    { kind: 'enum', options: ['white', 'pink', 'sample-and-hold'], default: 'white' },
-    bipolar: { kind: 'boolean', default: true },
+    kind:    { kind: 'enum', options: ['white', 'pink', 'sample-and-hold'], default: 'white', help: 'Noise type: white jitters every frame, pink drifts more smoothly, sample-and-hold steps on each clock pulse.' },
+    bipolar: { kind: 'boolean', default: true, help: 'ON centres the noise on 0 (-1 to +1); OFF keeps it 0 to 1.' },
   },
   init: () => ({ pinkLag: [0, 0, 0, 0, 0, 0, 0], shValue: 0, lastClock: 0 }),
   tick(_ctx, state, ins, params, outputs) {
@@ -167,7 +167,7 @@ register<{}>({
   inputs: [],
   outputs: [{ name: 'out', kind: 'control' }],
   params: {
-    value: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0 },
+    value: { kind: 'number', min: -2, max: 2, step: 0.001, default: 0, help: 'The fixed value this node always outputs.' },
   },
   init: () => ({}),
   tick(_ctx, _state, _ins, params, outputs) {
@@ -190,9 +190,9 @@ register<ClockState>({
     { name: 'phase', kind: 'control' },
   ],
   params: {
-    source:   { kind: 'enum', options: ['internal', 'midi'], default: 'internal' },
-    division: { kind: 'enum', options: [...ALL_DIVISIONS], default: '1/4' },
-    pulseMs:  { kind: 'number', min: 1, max: 200, step: 1, default: 16 },
+    source:   { kind: 'enum', options: ['internal', 'midi'], default: 'internal', help: 'Where the tempo comes from: internal follows the global Tempo, midi follows incoming MIDI clock.' },
+    division: { kind: 'enum', options: [...ALL_DIVISIONS], default: '1/4', help: 'Note length between pulses, e.g. 1/4 pulses every beat and 1/1 once per bar.' },
+    pulseMs:  { kind: 'number', min: 1, max: 200, step: 1, default: 16, help: 'How quickly each pulse fades back to 0, in milliseconds.' },
   },
   init: () => ({ phase: 0, lastPulse: 0 }),
   tick(ctx, state, _ins, params, outputs) {
@@ -257,6 +257,7 @@ register<{}>({
       kind: 'enum',
       options: PATTERN_OUTPUT_OPTIONS,
       default: PATTERN_OUTPUT_OPTIONS[0] ?? '',
+      help: 'Which Pattern Generator signal to read, e.g. Lissajous X; reads 0 unless that pattern is active.',
     },
   },
   init: () => ({}),
@@ -289,7 +290,7 @@ register<{ count: number }>({
     { name: 'phase', kind: 'control' },
   ],
   params: {
-    division: { kind: 'enum', options: ['1', '2', '4', '8', '16'], default: '1' },
+    division: { kind: 'enum', options: ['1', '2', '4', '8', '16'], default: '1', help: 'Fire a pulse every N rendered frames (1 = every frame).' },
   },
   init: () => ({ count: 0 }),
   tick(_ctx, state, _ins, params, outputs) {

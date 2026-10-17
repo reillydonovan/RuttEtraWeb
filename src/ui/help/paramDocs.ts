@@ -237,9 +237,10 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   recordPreferredFormat: { description: 'Preferred container/codec for recordings.', panel: 'Record' },
   recordFps:             { description: 'Capture frame rate.', panel: 'Record' },
   recordBitrateMbps:     { description: 'Video bitrate in Mbps (1–200, default 40). The target for Bitrate rate control and the Compatibility encoder. Line art needs more than ordinary video: 40+ for 1080p, 80–150 for 4K.', panel: 'Record' },
+  recordMicDeviceId:     { description: 'Which microphone a recording uses. Camera’s microphone (default) is the mic built into the running webcam, or a phone’s own mic; System default follows your OS input; or pick a specific mic.', panel: 'Record' },
   recordEncoder:         { description: 'High quality drives the browser encoder directly (H.264 High / VP9, no dropped frames, locked size and frame rate). Compatibility uses the browser’s realtime MediaRecorder; it is also the automatic fallback.', panel: 'Record' },
   recordRateControl:     { description: 'Constant quality spends bits where the picture needs them — best for thin scan lines; file size follows the content. Bitrate targets the Bitrate slider for a predictable size.', panel: 'Record' },
-  recordIncludeMic:      { description: 'Mix the microphone into the recording.', panel: 'Record' },
+  recordIncludeMic:      { description: 'Record sound from a microphone with the video (pick which one under Microphone). On a phone, the mic button beside the flip button in the capture dock does the same.', panel: 'Record' },
 
   // ----- Stereoscopic recording (v12) -----
   stereoRecordingEnabled: {

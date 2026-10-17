@@ -1024,6 +1024,10 @@ export interface Settings {
    *  spends bits where the picture needs them — best for thin scan lines), 'bitrate' = the
    *  Bitrate slider as a target. MediaRecorder always uses the bitrate. */
   recordRateControl: 'quality' | 'bitrate';
+  /** Which microphone "Record Microphone" uses (v38). '' = the camera's own mic (the
+   *  audio input in the running webcam's device group; on a phone, the phone's mic),
+   *  'default' = the system default input, anything else = a specific deviceId. */
+  recordMicDeviceId: string;
 
   // ---------- MIDI (v2) ----------
   midiInputId: string;
@@ -1490,6 +1494,7 @@ export const DEFAULTS: Settings = {
   recordFps: 60,
   recordEncoder: 'webcodecs',
   recordRateControl: 'quality',
+  recordMicDeviceId: '',
 
   midiInputId: '',
   midiOutputId: '',
@@ -1557,7 +1562,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 37;
+const CURRENT_VERSION = 38;
 /** The Settings schema version this build writes (`_v`). Stamp it on every
  *  settings snapshot you save (projects, user presets, exports) so a later
  *  load migrates FROM the right version instead of re-running every step
@@ -2238,6 +2243,12 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
     s.recordEncoder = (s.recordEncoder as Settings['recordEncoder'] | undefined) ?? 'webcodecs';
     s.recordRateControl = (s.recordRateControl as Settings['recordRateControl'] | undefined) ?? 'quality';
     s._v = 37;
+  }
+
+  // v37 -> v38: which microphone a recording uses. '' = the running camera's own mic.
+  if ((s._v ?? 1) < 38) {
+    s.recordMicDeviceId = (s.recordMicDeviceId as string | undefined) ?? '';
+    s._v = 38;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"
