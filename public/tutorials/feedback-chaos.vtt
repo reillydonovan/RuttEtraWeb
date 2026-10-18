@@ -9,65 +9,65 @@ Nodes can feed each other, and they can feed back.
 Start with Noise: a new random value on every frame.
 
 3
-00:00:07.518 --> 00:00:08.860
+00:00:07.515 --> 00:00:08.857
 Raw noise is jittery.
 
 4
-00:00:08.860 --> 00:00:12.951
+00:00:08.857 --> 00:00:12.948
 A resonant low-pass filter turns it into a slow, rubbery wobble.
 
 5
-00:00:15.532 --> 00:00:18.991
+00:00:15.562 --> 00:00:19.021
 Send the filtered noise to H Position, Rotation and Z Push.
 
 6
-00:00:18.991 --> 00:00:21.337
+00:00:19.021 --> 00:00:21.367
 The raster drifts like it is underwater.
 
 7
-00:00:21.791 --> 00:00:25.887
+00:00:21.818 --> 00:00:25.914
 Param Out reads any parameter's live value back into the graph.
 
 8
-00:00:25.887 --> 00:00:27.317
+00:00:25.914 --> 00:00:27.344
 This one reads Z Push.
 
 9
-00:00:27.773 --> 00:00:30.838
+00:00:27.801 --> 00:00:30.866
 Delay it by thirty frames, half a second, and scale it up.
 
 10
-00:00:41.458 --> 00:00:45.030
+00:00:41.413 --> 00:00:44.985
 Now close the loop: send the delayed copy back into Z Push.
 
 11
-00:00:45.030 --> 00:00:46.846
+00:00:44.985 --> 00:00:46.801
 The depth chases its own echo.
 
 12
-00:00:46.846 --> 00:00:49.631
+00:00:46.801 --> 00:00:49.586
 Keep the loop gain below one, or it runs away.
 
 13
-00:00:50.088 --> 00:00:50.958
+00:00:50.037 --> 00:00:50.907
 Probe the loop.
 
 14
-00:00:50.958 --> 00:00:52.874
+00:00:50.907 --> 00:00:52.823
 No two cycles are quite the same.
 
 15
-00:00:54.521 --> 00:00:56.610
+00:00:54.523 --> 00:00:56.612
 Restore the window, and let it run.
 
 16
-00:00:59.947 --> 00:01:02.519
+00:00:59.978 --> 00:01:02.550
 Feedback is where the strange stuff lives.
 
 17
-00:01:02.519 --> 00:01:04.602
+00:01:02.550 --> 00:01:04.633
 Keep the amounts small, and nudge.
 
 18
-00:01:04.602 --> 00:01:07.052
+00:01:04.633 --> 00:01:07.083
 Next: the camera as a modulation source.

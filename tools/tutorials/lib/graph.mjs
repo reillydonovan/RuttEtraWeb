@@ -77,8 +77,13 @@ export function graphHelpers(page, h) {
     /** Set an inspector param of the selected node (range input or select). */
     async param(name, value) {
       const pt = await page.evaluate((n) => {
+        // Labels are display names now ("cutoffHz" shows as "Cutoff Hz"): match either form.
+        const squash = (s) => s.toLowerCase().replace(/[\s_-]/g, '');
         const row = [...document.querySelectorAll('#panel-root .rw-graph-inspector-row')]
-          .find((r) => r.querySelector('.rw-graph-inspector-label')?.textContent.trim() === n);
+          .find((r) => {
+            const t = r.querySelector('.rw-graph-inspector-label')?.textContent.trim() ?? '';
+            return t === n || squash(t) === squash(n);
+          });
         const el = row?.querySelector('input[type=range], select, input[type=checkbox]');
         if (!el) return null;
         const b = el.getBoundingClientRect();
@@ -88,8 +93,12 @@ export function graphHelpers(page, h) {
       await h.glide(pt, 20);
       await h.wait(200);
       await page.evaluate(([n, v]) => {
+        const squash = (s) => s.toLowerCase().replace(/[\s_-]/g, '');
         const row = [...document.querySelectorAll('#panel-root .rw-graph-inspector-row')]
-          .find((r) => r.querySelector('.rw-graph-inspector-label')?.textContent.trim() === n);
+          .find((r) => {
+            const t = r.querySelector('.rw-graph-inspector-label')?.textContent.trim() ?? '';
+            return t === n || squash(t) === squash(n);
+          });
         const el = row.querySelector('input[type=range], select, input[type=checkbox]');
         if (el.type === 'checkbox') el.checked = !!v; else el.value = String(v);
         el.dispatchEvent(new Event('input', { bubbles: true }));

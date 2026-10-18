@@ -9,45 +9,45 @@ Modulation moves parameters for you, so the picture keeps changing on its own.
 Open the Modulation section.
 
 3
-00:00:07.516 --> 00:00:09.466
-Classic mode has four slots.
+00:00:07.519 --> 00:00:10.412
+Generators mode has four function generators.
 
 4
-00:00:09.466 --> 00:00:13.924
-Each is a function generator: a source, a target, and an amount.
+00:00:10.412 --> 00:00:13.370
+Each one is a source, a target, and an amount.
 
 5
-00:00:14.374 --> 00:00:17.056
+00:00:13.956 --> 00:00:16.638
 Slot one's source is already a sine wave.
 
 6
-00:00:17.056 --> 00:00:18.692
+00:00:16.638 --> 00:00:18.274
 Set its target to Z Push.
 
 7
-00:00:19.146 --> 00:00:20.492
+00:00:18.726 --> 00:00:20.072
 Switch the slot on.
 
 8
-00:00:20.946 --> 00:00:22.513
+00:00:20.525 --> 00:00:22.092
 Amount is how far it swings.
 
 9
-00:00:22.513 --> 00:00:25.032
+00:00:22.092 --> 00:00:24.611
 Turn it up, and the raster starts to breathe.
 
 10
-00:00:25.498 --> 00:00:27.272
+00:00:25.066 --> 00:00:26.840
 Expand the slot for more.
 
 11
-00:00:27.272 --> 00:00:30.467
+00:00:26.840 --> 00:00:30.035
 Rate sets how fast the wave cycles, in hertz.
 
 12
-00:00:30.920 --> 00:00:35.355
+00:00:30.760 --> 00:00:35.195
 This slot also appears in the Patch Bay as Function Generator one.
 
 13
-00:00:35.355 --> 00:00:36.632
+00:00:35.195 --> 00:00:36.472
 Next: the Timeline.

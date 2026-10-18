@@ -17,37 +17,37 @@ H Size and V Size stretch the raster.
 H Position and V Position slide it around.
 
 5
-00:00:16.170 --> 00:00:19.665
+00:00:16.353 --> 00:00:19.848
 Z Push is depth: how far bright areas lift toward you.
 
 6
-00:00:19.665 --> 00:00:22.578
+00:00:19.848 --> 00:00:22.761
 Z Bias moves the whole sheet forward or back.
 
 7
-00:00:24.582 --> 00:00:26.904
+00:00:24.610 --> 00:00:26.932
 Rotation turns the raster in its own plane.
 
 8
-00:00:29.810 --> 00:00:32.224
+00:00:29.583 --> 00:00:31.997
 V Spin turns it around its vertical axis.
 
 9
-00:00:34.649 --> 00:00:39.060
+00:00:34.429 --> 00:00:38.840
 Threshold hides the darkest parts of the picture, so only the brighter areas draw.
 
 10
-00:00:40.041 --> 00:00:42.513
+00:00:39.802 --> 00:00:42.274
 Intensity sets the brightness of the beam.
 
 11
-00:00:42.513 --> 00:00:44.220
+00:00:42.274 --> 00:00:43.981
 Focus softens or sharpens it.
 
 12
-00:00:50.049 --> 00:00:52.525
+00:00:49.869 --> 00:00:52.345
 Double-click any knob to put it back.
 
 13
-00:00:52.525 --> 00:00:54.600
+00:00:52.345 --> 00:00:54.420
 Next: color, glow, and presets.

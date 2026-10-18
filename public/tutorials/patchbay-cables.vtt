@@ -17,49 +17,49 @@ Along the top, the Sources bus offers signals: waveforms, audio, beats, MIDI, an
 Every parameter has an input jack, a knob, and an output jack.
 
 5
-00:00:18.093 --> 00:00:20.455
+00:00:18.095 --> 00:00:20.457
 Cables run from an output to an input.
 
 6
-00:00:20.455 --> 00:00:26.549
+00:00:20.457 --> 00:00:26.551
 Drag the triangle wave down onto Function Generator one, the same slot as in the Modulation panel.
 
 7
-00:00:26.549 --> 00:00:29.099
+00:00:26.551 --> 00:00:29.101
 Near an edge, the board scrolls with you.
 
 8
-00:00:29.553 --> 00:00:30.459
+00:00:29.555 --> 00:00:30.461
 Now its output.
 
 9
-00:00:30.459 --> 00:00:33.361
+00:00:30.461 --> 00:00:33.363
 Grab the output jack, and carry it up to H Size.
 
 10
-00:00:33.812 --> 00:00:34.864
+00:00:33.816 --> 00:00:34.868
 Restore the window.
 
 11
-00:00:34.864 --> 00:00:38.130
+00:00:34.868 --> 00:00:38.134
 The raster now stretches in and out with the triangle wave.
 
 12
-00:00:38.728 --> 00:00:42.272
+00:00:38.719 --> 00:00:42.263
 Back in the bay, grab a cable by its input end to move it.
 
 13
-00:00:42.272 --> 00:00:43.372
+00:00:42.263 --> 00:00:43.363
 Drop it on V Size.
 
 14
-00:00:43.825 --> 00:00:46.286
+00:00:43.814 --> 00:00:46.275
 Drop a cable in empty space to unplug it.
 
 15
-00:00:46.744 --> 00:00:51.181
+00:00:46.728 --> 00:00:51.165
 Cables and the Modulation panel are two views of one patch.
 
 16
-00:00:51.181 --> 00:00:52.084
+00:00:51.165 --> 00:00:52.068
 Next: nodes.

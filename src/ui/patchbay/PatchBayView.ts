@@ -3396,7 +3396,10 @@ export function createPatchBayView(
     for (const [nodeId, mod] of graphModuleEls) {
       const node = patch?.nodes.find((n) => n.id === nodeId);
       const bs = patch && node ? patch.bindings.filter((b) => b.sourceNodeId === nodeId) : [];
-      const row = patch && bs.length === 1 ? graphRowFor(patch, bs[0].id) : null;
+      // A node with a text param (the Note) keeps its own rows: the card has no text editor.
+      const def = node ? getDef(node.type) : null;
+      const cardable = !!def && !Object.values(def.params).some((s) => s.kind === 'text');
+      const row = patch && cardable && bs.length === 1 ? graphRowFor(patch, bs[0].id) : null;
       const want = node && row && !row.tooComplex ? `${bs[0].id}|${node.type}` : null;
       const have = graphCards.get(nodeId);
       if (have && have.sig !== want) { have.wrap.remove(); graphCards.delete(nodeId); }

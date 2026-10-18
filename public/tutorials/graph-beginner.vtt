@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:00.700 --> 00:00:03.078
-Classic mode gives you four fixed slots.
+00:00:00.700 --> 00:00:03.700
+Generators mode gives you four function generators.
 
 2
-00:00:03.078 --> 00:00:06.646
+00:00:03.700 --> 00:00:07.229
 Graph mode is a node engine with more than fifty node types.
 
 3
-00:00:06.646 --> 00:00:08.966
+00:00:07.229 --> 00:00:09.523
 Switch the Modulation section to Graph.
 
 4
-00:00:09.418 --> 00:00:15.067
-Beginner view looks like the Classic slots, but each row is a real node with a binding.
+00:00:09.975 --> 00:00:16.771
+Beginner view looks like the function generators, but each row is a real node with a binding.
 
 5
-00:00:15.067 --> 00:00:17.405
+00:00:16.771 --> 00:00:19.402
 Click Add patch: an LFO into Z Push.
 
 6
-00:00:17.862 --> 00:00:19.446
+00:00:19.853 --> 00:00:21.437
 Change its source to Noise.
 
 7
-00:00:19.446 --> 00:00:22.088
+00:00:21.437 --> 00:00:24.079
 White noise jitters the depth on every frame.
 
 8
-00:00:22.538 --> 00:00:25.509
+00:00:24.529 --> 00:00:27.500
 Point it at Rotation instead, and turn the amount up.
 
 9
-00:00:25.509 --> 00:00:27.135
+00:00:27.500 --> 00:00:29.126
 Now the whole raster shivers.
 
 10
-00:00:27.585 --> 00:00:28.665
+00:00:29.585 --> 00:00:30.665
 Add a second row.
 
 11
-00:00:28.665 --> 00:00:32.414
+00:00:30.665 --> 00:00:34.414
 A Ramp, sweeping H Size from narrow to wide, over and over.
 
 12
-00:00:32.868 --> 00:00:34.952
+00:00:34.873 --> 00:00:36.957
 The Library holds ready-made patches.
 
 13
-00:00:34.952 --> 00:00:38.951
+00:00:36.957 --> 00:00:40.956
 Load Getting Started, a slow breathing depth with a note explaining it.
 
 14
-00:00:39.402 --> 00:00:44.324
-Both mode runs Classic slots and the graph together, so switching never throws your slots away.
+00:00:41.408 --> 00:00:47.166
+Both mode runs the function generators and the graph together, so switching never throws your patches away.
 
 15
-00:00:44.777 --> 00:00:47.580
+00:00:47.616 --> 00:00:50.419
 Beginner view covers simple one-to-one patches.
 
 16
-00:00:47.580 --> 00:00:50.860
+00:00:50.419 --> 00:00:53.699
 Next, the Advanced canvas, where nodes feed each other.

@@ -17,57 +17,57 @@ Open the Synth tab.
 Source is near the top.
 
 5
-00:00:11.791 --> 00:00:15.571
+00:00:11.772 --> 00:00:15.552
 The Pattern Generator makes pictures with no camera at all.
 
 6
-00:00:15.571 --> 00:00:18.069
+00:00:15.552 --> 00:00:18.050
 Change its Kind to try another pattern.
 
 7
-00:00:18.069 --> 00:00:18.710
+00:00:18.050 --> 00:00:18.691
 Lissajous.
 
 8
-00:00:19.164 --> 00:00:19.633
+00:00:19.142 --> 00:00:19.611
 Spiral.
 
 9
-00:00:19.633 --> 00:00:20.772
+00:00:19.611 --> 00:00:20.750
 And Worley cells.
 
 10
-00:00:20.772 --> 00:00:23.854
+00:00:20.750 --> 00:00:23.832
 Each kind brings its own controls, just below.
 
 11
-00:00:24.306 --> 00:00:27.065
+00:00:24.288 --> 00:00:27.047
 To use your own footage, choose a video file.
 
 12
-00:00:27.065 --> 00:00:30.621
+00:00:27.047 --> 00:00:30.603
 Webcam, screen capture, and stream URLs work the same way.
 
 13
-00:00:31.076 --> 00:00:35.884
+00:00:31.056 --> 00:00:35.864
 The pattern was covering the whole picture, so loading a video switched it off.
 
 14
-00:00:35.884 --> 00:00:37.345
+00:00:35.864 --> 00:00:37.325
 This is the video alone.
 
 15
-00:00:37.795 --> 00:00:40.987
+00:00:37.776 --> 00:00:40.968
 Turn the pattern back on, and set Blend to Screen.
 
 16
-00:00:40.987 --> 00:00:42.392
+00:00:40.968 --> 00:00:42.373
 Now both show through.
 
 17
-00:00:42.841 --> 00:00:44.486
+00:00:42.823 --> 00:00:44.468
 Any source can feed the raster.
 
 18
-00:00:44.486 --> 00:00:47.299
+00:00:44.468 --> 00:00:47.281
 Next, we will find our way around the Controls panel.
