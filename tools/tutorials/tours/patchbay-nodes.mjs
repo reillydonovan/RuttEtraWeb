@@ -1,6 +1,6 @@
 // Lesson 11 — Patch Bay nodes: add an LFO and a Scope, wire them, delete one.
 import { bootPattern } from '../lib/helpers.mjs';
-import { findJack, findModule } from '../lib/bay.mjs';
+import { findJack, findModule, scrollToModule } from '../lib/bay.mjs';
 
 export const lines = [
   { id: 'intro', text: 'Nodes are extra modules: oscillators, envelopes, logic, and more. Right-click empty board space to add one. An LFO.' },
@@ -104,6 +104,10 @@ export async function run(page, seg, h) {
   });
 
   await seg('delete', async () => {
+    // The function generator cards are tall, so the Scope may sit below the fold: bring it up first.
+    await page.evaluate(scrollToModule, 'Scope');
+    await h.settle?.();
+    await h.wait(700);
     const del = await page.evaluate(() => {
       const m = [...document.querySelectorAll('.rw-pb-graphnode')].find((e) => e.querySelector('.rw-pb-module-head')?.textContent.trim().startsWith('Scope'));
       const b = m.querySelector('.rw-pb-graphnode-del').getBoundingClientRect();
