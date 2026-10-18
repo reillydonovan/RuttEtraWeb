@@ -22,6 +22,8 @@ import {
   CurveType, GraphNode, GraphPatch, NodeType, TargetBinding,
 } from '../../modulation/graph/types';
 import { allDefs, getDef } from '../../modulation/graph/registry';
+import { makeRangeAdapter } from '../shared/rangeAdapter';
+import { graphSpan } from '../../modulation/patchRange';
 import '../../modulation/graph/bootstrap';
 import { CLASSIC_SOURCE_NODE_TYPES } from '../../modulation/graph/convert';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
@@ -312,6 +314,17 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
         set: (v) => mutate((_cur, _src, b) => { if (b) b.paramKey = v as string; }),
         options: () => buildTargetOpts(settings) as ReadonlyArray<{ v: string; l: string }>,
       },
+      range: makeRangeAdapter(settings, {
+        target: () => liveBinding().paramKey,
+        span: () => graphSpan(getDef(liveSource().type) ?? undefined, liveBinding().sourcePort, liveSource().params),
+        stage: () => liveBinding(),
+        amount: () => liveBinding().amount,
+        mode: () => (liveBinding().mode === 'multiplicative' ? 'multiplicative' : 'additive'),
+        write: (sol) => mutate((_c, _s, b) => {
+          if (!b) return;
+          b.amount = sol.amount; b.outputMin = sol.outputMin; b.outputMax = sol.outputMax; b.outputOffset = sol.outputOffset;
+        }),
+      }),
       amount: {
         get: () => liveBinding().amount,
         set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-20, Math.min(20, v)); }, { skipRerender: true }),

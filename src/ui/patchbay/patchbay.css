@@ -858,3 +858,13 @@
 .rw-pb-rail > .rw-pb-unit--collapsed { max-width: 100%; }
 
 .rw-pb-unit--collapsed > .rw-pb-unit-handle > .rw-info-btn { margin-left: auto; }
+
+/* FUNCTION GEN modules host the same card as Controls ▸ Modulation (ModulationSection's
+   createGeneratorCard) — one implementation, so the two never differ. The header LED is the
+   bay's enable (like every module), so the card's own enable switch is hidden here, and the
+   rail is wide enough for the card. */
+.rw-pb-rail { flex-basis: 300px; }
+.rw-pb-gencard { min-width: 0; }
+.rw-pb-gencard .rw-mod-slot { margin: 0; }
+.rw-pb-gencard .rw-mod-slot-en { display: none; }
+.rw-pb-srcin-cap { white-space: nowrap; }

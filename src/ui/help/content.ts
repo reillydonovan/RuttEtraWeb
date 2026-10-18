@@ -246,6 +246,9 @@ Every slot is a small voltage-control chain:
 
   **source → (per-source shaping) → output stage → amount → target**
 
+The face of the card always shows **Rate** (wave sources) and **Range**: how far the patch moves its
+target, in the target's own units (from → to), with a dot at the live value. Type either end to set it.
+
 The expanded body of a slot exposes each link:
 
 - **LFO sources** get **Depth**, **Unipolar**, and a **Sync mode** dropdown.

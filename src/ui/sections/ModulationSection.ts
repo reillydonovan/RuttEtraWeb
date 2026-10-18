@@ -23,6 +23,8 @@ import { GamepadInput } from '../../input/GamepadInput';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { group, button } from '../widgets';
 import { TARGETS, cvOutputTargets } from '../targets';
+import { makeRangeAdapter } from '../shared/rangeAdapter';
+import { generatorSpan } from '../../modulation/patchRange';
 import {
   createSlotRow, SlotRowAdapter, SourceKind,
   getSlotClipboard, setSlotClipboard,
@@ -438,10 +440,22 @@ function buildTempoGroup(settings: SettingsStore): HTMLElement {
 // Per-slot row
 // =====================================================================
 
-interface SlotUi {
+export interface SlotUi {
   el: HTMLElement;
   refresh: () => void;
   rebuildTargetOptions?: () => void;
+}
+
+/** One function generator's card — the same component the Patch Bay's FUNCTION GEN module
+ *  hosts, so Controls and the bay show the identical controls (owner: parity 1:1). */
+export function createGeneratorCard(
+  settings: SettingsStore,
+  matrix: ModMatrix,
+  index: number,
+  cv?: CVInput,
+  gamepad?: GamepadInput,
+): SlotUi {
+  return createSlot(settings, matrix, index, cv, gamepad);
 }
 
 function createSlot(
@@ -506,6 +520,14 @@ function createSlot(
       set: (v) => update({ amount: v }),
       min: -5, max: 5, step: 0.001,
     },
+    range: makeRangeAdapter(settings, {
+      target: () => get().target,
+      span: () => generatorSpan(get()),
+      stage: () => get(),
+      amount: () => get().amount,
+      mode: () => get().mode ?? 'additive',
+      write: (sol) => update(sol),
+    }),
     expanded: { get: isExpanded, set: setExpanded },
     sourceKind: 'unsupported',
     lfo: {

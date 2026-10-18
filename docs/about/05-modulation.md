@@ -34,6 +34,9 @@ Each function generator is a complete patch. Walk through one end-to-end:
 5. **Amount** — master level. Function generator Amount range is ±5; Graph Amount range is ±20 (extreme for parameter sweeps).
 6. **Target** — the parameter this patch modulates. CV-output channels appear here too as `CV Out: Ch N`.
 7. **Copy / Paste / Reset / Delete** icon row at the right edge of the patch header.
+8. **Rate** and **Range** on the face of every patch (no need to expand). **Rate** is the wave's speed in Hz. **Range** is how far the patch moves its target, in the target's own units: *from* is where the target sits when the source is at its lowest, *to* where it sits at its highest (`H Position −0.3 → 0.4`), with a dot showing where it is right now. Type either end and the patch sets its Amount and Output Min / Max / Offset to land exactly there, through any curve. It follows the knob: turn the target's knob and the range moves with it. Graph rows have the same Range line, using each node's declared output span.
+
+The Patch Bay's **FUNCTION GEN** modules host this very same card, around their SRC IN and OUT jacks, so Controls and the Patch Bay always show identical controls for each generator; edit either and the other follows.
 
 #### Common function generator patches
 

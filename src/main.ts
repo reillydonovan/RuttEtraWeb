@@ -44,6 +44,7 @@ import { createSourceSection, createSourceBSection } from './ui/sections/SourceS
 import { createDcuSection, aspectForSource } from './ui/sections/DcuSection';
 import { createDualRasterSection } from './ui/sections/DualRasterSection';
 import { createModulationContainerSection } from './ui/sections/ModulationContainerSection';
+import { createGeneratorCard } from './ui/sections/ModulationSection';
 import { createCameraSection } from './ui/sections/CameraSection';
 import { createColorPostFxSection } from './ui/sections/ColorPostFxSection';
 import { createGeometrySection } from './ui/sections/GeometrySection';
@@ -900,7 +901,8 @@ async function bootSynth(): Promise<void> {
     const { createPatchBayView } = await import('./ui/patchbay/PatchBayView');
     // Factory: the bay is multi-instance — every window that tabs it
     // gets its own independent instance (all reading the same Settings).
-    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB, patternRenderer));
+    workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB, patternRenderer,
+      (i) => createGeneratorCard(settings, matrix, i, io.cv, io.gamepad)));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own

@@ -19,6 +19,7 @@
 
 import { OutputCurve } from '../../state/Settings';
 import { createRawKnob } from '../widgets';
+import { fmtSwing } from '../../modulation/patchRange';
 import { animateToggle } from '../motion';
 import { attachTooltip } from '../tooltip';
 
@@ -83,6 +84,20 @@ export function resolveOptions<T extends string>(
  * target dropdown, copy/paste/delete buttons. Whether `enabled` and
  * `midiOut` are shown is controlled by `caps`.
  */
+/** A patch's swing in the target's own units (src/modulation/patchRange.ts). */
+export interface RangeAdapter {
+  /** Name of the target param, or null when the patch has no target. */
+  label(): string | null;
+  /** Where the target goes at the source's low / high extreme, or null. */
+  swing(): { from: number; to: number } | null;
+  /** False when From/To can't be set independently (a source that doesn't move...). */
+  editable(): boolean;
+  /** Set the swing: writes the Output stage (Min/Max/Offset) and Amount to land there. */
+  set(from: number, to: number): void;
+  /** The target's live (modulated) value right now, for the marker. */
+  live(): number | null;
+}
+
 export interface SlotRowAdapter {
   // -------------------- collapsed header --------------------
 
@@ -92,6 +107,8 @@ export interface SlotRowAdapter {
   /** Target param key, or `'none'` for unbound. */
   target: EnumAdapter;
   amount: NumAdapter;
+  /** The Range line (target-unit From -> To). Omit to hide it. */
+  range?: RangeAdapter;
   /** Per-row expand state (UI-only; persisted by the adapter). */
   expanded: BoolAdapter;
 
@@ -792,7 +809,11 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   // (then the Copy/Paste · Reset/Remove footer, then the NO CLOCK badge)
   const line1 = el('div', 'rw-mod-slot-line rw-mod-slot-line--src');
   const line2 = el('div', 'rw-mod-slot-line rw-mod-slot-line--amt');
-  header.append(line1, line2);
+  // Rate (wave sources) and Range (target-unit swing) live on the face of the card, so the two
+  // things set most are never hidden in the expanded body, and the card matches the Patch Bay.
+  const lineRate = el('div', 'rw-mod-slot-line rw-mod-slot-line--rate');
+  const lineRange = el('div', 'rw-mod-slot-line rw-mod-slot-line--range');
+  header.append(line1, line2, lineRate, lineRange);
 
   // Enable toggle (Classic only)
   let enInput: HTMLInputElement | null = null;
@@ -930,6 +951,51 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   tgtSel.addEventListener('change', () => adapter.target.set(tgtSel.value));
   line2.appendChild(tgtSel);
 
+  // ---- Rate line (LFO-type sources) ----
+  const rateLbl = el('span', 'rw-mod-quick-cap', 'RATE');
+  const rateNum = el('input', 'rw-num rw-mod-quick-num') as HTMLInputElement;
+  rateNum.type = 'number';
+  const rateUnit = el('span', 'rw-mod-quick-unit', 'Hz');
+  lineRate.append(rateLbl, rateNum, rateUnit);
+  attachTooltip(lineRate, 'How fast the wave cycles, in Hz. Phase, Duty and Depth are in the expanded controls.');
+  const rateField = (): NumAdapter | undefined => (adapter.sourceKind === 'lfo' ? adapter.lfo?.frequency : undefined);
+  rateNum.addEventListener('input', () => {
+    const f = rateField(); const v = parseFloat(rateNum.value);
+    if (f && Number.isFinite(v)) f.set(Math.min(f.max, Math.max(f.min, v)));
+  });
+
+  // ---- Range line (target-unit From -> To) ----
+  const rangeLbl = el('span', 'rw-mod-quick-cap', 'RANGE');
+  const fromNum = el('input', 'rw-num rw-mod-quick-num') as HTMLInputElement;
+  const toNum = el('input', 'rw-num rw-mod-quick-num') as HTMLInputElement;
+  fromNum.type = 'number'; toNum.type = 'number';
+  fromNum.step = 'any'; toNum.step = 'any';
+  fromNum.setAttribute('aria-label', 'Range from');
+  toNum.setAttribute('aria-label', 'Range to');
+  const arrow = el('span', 'rw-mod-quick-unit', '\u2192');
+  const track = el('span', 'rw-mod-range-track');
+  const dot = el('span', 'rw-mod-range-dot');
+  track.appendChild(dot);
+  lineRange.append(rangeLbl, fromNum, arrow, toNum, track);
+  attachTooltip(lineRange, () => {
+    const r = adapter.range;
+    const name = r?.label();
+    if (!r || !name) return 'Pick a target to see how far this patch moves it.';
+    return r.editable()
+      ? `How far this patch moves ${name}, in its own units: from (source at its lowest) to (source at its highest). Type either end. It follows the knob; fine control is under Output in the expanded controls.`
+      : `How far this patch moves ${name}. This source doesn't swing (or Multiply is on with the knob at 0), so set it with Amount.`;
+  });
+  const commitRange = (): void => {
+    const r = adapter.range; const sw = r?.swing();
+    if (!r || !sw || !r.editable()) return;
+    const f = parseFloat(fromNum.value), t = parseFloat(toNum.value);
+    r.set(Number.isFinite(f) ? f : sw.from, Number.isFinite(t) ? t : sw.to);
+  };
+  for (const n of [fromNum, toNum]) {
+    n.addEventListener('change', commitRange);
+    n.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); n.blur(); } });
+  }
+
   // Footer tools: Copy / Paste on the left (clipboard actions), Reset and
   // Remove on the right (they change the slot) — grouped by meaning, so a
   // destructive button is never next to a harmless one.
@@ -1054,6 +1120,55 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // -------------------- refresh / render --------------------
 
+  function refreshQuick(): void {
+    const doc = card.ownerDocument;
+    const rf = rateField();
+    lineRate.hidden = !rf;
+    if (rf) {
+      rateNum.min = String(rf.min); rateNum.max = String(rf.max); rateNum.step = String(rf.step);
+      if (doc.activeElement !== rateNum) {
+        const v = String(+rf.get().toFixed(3));
+        if (rateNum.value !== v) rateNum.value = v;
+      }
+    }
+    const r = adapter.range;
+    lineRange.hidden = !r;
+    if (!r) return;
+    const sw = r.label() ? r.swing() : null;
+    lineRange.classList.toggle('rw-mod-range--off', !sw);
+    const editable = !!sw && r.editable();
+    fromNum.disabled = !editable; toNum.disabled = !editable;
+    if (!sw) {
+      fromNum.value = ''; toNum.value = '';
+      fromNum.placeholder = '\u2014'; toNum.placeholder = '\u2014';
+      lastSwing = null;
+      dot.hidden = true;
+      return;
+    }
+    if (doc.activeElement !== fromNum) fromNum.value = fmtSwing(sw.from);
+    if (doc.activeElement !== toNum) toNum.value = fmtSwing(sw.to);
+    lastSwing = sw;
+    placeDot();
+  }
+
+  // The live marker moves every frame; the card itself refreshes only on edits.
+  let lastSwing: { from: number; to: number } | null = null;
+  function placeDot(): void {
+    const r = adapter.range; const sw = lastSwing;
+    const lv = r && sw ? r.live() : null;
+    const span = sw ? sw.to - sw.from : 0;
+    const show = lv != null && !!sw && Math.abs(span) > 1e-12 && !lineRange.hidden;
+    if (dot.hidden === show) dot.hidden = !show;
+    if (show && sw && lv != null) dot.style.left = `${Math.max(0, Math.min(1, (lv - sw.from) / span)) * 100}%`;
+  }
+  let dotStarted = false;
+  const dotLoop = (): void => {
+    if (!card.isConnected && dotStarted) return;   // the card was removed: stop
+    if (card.isConnected) { dotStarted = true; placeDot(); }
+    (card.ownerDocument.defaultView ?? window).requestAnimationFrame(dotLoop);
+  };
+  requestAnimationFrame(dotLoop);
+
   function applyOpen(open: boolean): void {
     body.style.display = open ? '' : 'none';
     expandBtn.setAttribute('aria-expanded', String(open));
@@ -1072,6 +1187,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     if (amtNum.value !== av) amtNum.value = av;
     amtKnob.refresh();
     if (pasteBtn) pasteBtn.disabled = !canPaste();
+    refreshQuick();
 
     // Sync expand state (left alone while the expand spring is running).
     if (!expandAnimating) applyOpen(adapter.expanded.get());

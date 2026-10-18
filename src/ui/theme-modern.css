@@ -1073,6 +1073,9 @@ html body[data-theme="modern"][data-theme] {
   & .rw-mod-slot-amount-field:focus-within { box-shadow: var(--focus); }
   & .rw-mod-slot-amount-field .rw-num { background: transparent; box-shadow: none; border: none; font: 500 var(--fs-m) var(--mx-code); color: var(--a-text); }
   & .rw-mod-slot-line--amt .rw-select { height: var(--ctl-l); }
+  & .rw-mod-quick-cap { font: 600 var(--fs-xs) var(--mx-code); letter-spacing: var(--track-label); color: var(--t-dim); }
+  & .rw-mod-quick-num.rw-num { height: var(--ctl-m); font: 500 var(--fs-m) var(--mx-code); color: var(--a-text); }
+  & .rw-mod-quick-unit { color: var(--t-dim); font-size: var(--fs-s); }
   & .rw-mod-slot-tools { border-top-color: var(--c-hair); padding-top: var(--sp-2); }
   & .rw-mod-slot-tools .rw-btn { min-height: var(--ctl-s); height: var(--ctl-s); padding: 0 var(--sp-3); font: 500 var(--fs-xs) var(--mx-sans); border-radius: var(--pill); }
   & .rw-mod-slot-tools .rw-mod-slot-del { width: var(--ctl-s); padding: 0; }

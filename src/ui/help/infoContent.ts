@@ -84,7 +84,7 @@ interface ModuleText { summary: string; tips?: string[]; about?: string }
 /** Patch Bay hardware modules and faceplate fields, keyed by header text. */
 export const MODULE_INFO: Record<string, ModuleText> = {
   'FUNCTION GEN': {
-    summary: 'One of the four function generators, as a hardware module: a waveform running at RATE and scaled by AMT, sent from its OUT jack into any parameter.',
+    summary: 'One of the four function generators, as a hardware module: the same card as Controls ▸ Modulation (source, amount, target, Rate and Range) between its SRC IN and OUT jacks — edit it here or there, both follow.',
     tips: [
       'Drag OUT onto a parameter’s IN jack to modulate that parameter.',
       'Drag a waveform from the SOURCES bus into SRC IN to change its shape.',

@@ -1659,6 +1659,28 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
 }
 .rw-mod-slot-amount input[type="number"] { width: 64px; }
 
+/* RATE and RANGE lines on the face of the slot card (SlotRow.ts): caption, compact number
+   fields, and for Range a thin track whose dot is the target's live value. */
+.rw-mod-slot-line--rate, .rw-mod-slot-line--range { gap: 6px; }
+.rw-mod-slot-line[hidden] { display: none; }
+.rw-mod-quick-cap {
+  flex: 0 0 44px;
+  font-size: 10px; letter-spacing: 0.12em; line-height: 1;
+  color: var(--re-text-dim, rgba(95,255,133,0.55));
+}
+.rw-mod-quick-num.rw-num { flex: 0 1 64px; width: 64px; min-width: 44px; height: 26px; text-align: right; }
+.rw-mod-quick-unit { flex: none; font-size: 11px; color: var(--re-text-dim, rgba(95,255,133,0.55)); }
+.rw-mod-range-track {
+  position: relative; flex: 1 1 auto; min-width: 24px; height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(95,255,133,0.18), rgba(95,255,133,0.45));
+}
+.rw-mod-range-dot {
+  position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+  background: var(--re-accent, #5fff85); box-shadow: 0 0 6px rgba(95,255,133,0.8);
+}
+.rw-mod-range-dot[hidden] { display: none; }
+.rw-mod-range--off .rw-mod-range-track { opacity: 0.25; }
+
 /* Hide the AMT label DOM if anything still emits it (legacy). */
 .rw-mod-slot-amount-label { display: none; }
 

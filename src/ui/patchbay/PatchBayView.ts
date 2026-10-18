@@ -171,6 +171,9 @@ export function createPatchBayView(
   getEngine: () => Promise<GraphEngine>,
   sourceB: VideoSourceManager,
   patternRenderer: PatternRenderer,
+  /** Builds function generator `i`'s card (ModulationSection.createGeneratorCard). When given,
+   *  each FUNCTION GEN module hosts that same card instead of its own RATE/AMT fields. */
+  makeGeneratorCard?: (i: number) => { el: HTMLElement; refresh: () => void },
 ): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
@@ -1766,7 +1769,7 @@ export function createPatchBayView(
     settings.set('modSlots', slots);
   };
 
-  interface SlotRefs { en: HTMLInputElement; rate: HTMLInputElement; amount: HTMLInputElement; srcLcd: HTMLElement }
+  interface SlotRefs { en: HTMLInputElement; rate?: HTMLInputElement; amount?: HTMLInputElement; srcLcd?: HTMLElement; card?: { el: HTMLElement; refresh: () => void } }
   const slotRefs: SlotRefs[] = [];
 
   for (let i = 0; i < settings.get('modSlots').length; i++) {
@@ -1817,8 +1820,26 @@ export function createPatchBayView(
     };
 
     mod.append(head, srcRow);
-    const rate = mkNum('RATE', '0.01', 'LFO frequency in Hz (Free sync).', (v) => writeSlot(i, { frequency: v }));
-    const amount = mkNum('AMT', '0.01', 'Modulation amount (depth).', (v) => writeSlot(i, { amount: v }));
+    // The same card as Controls ▸ Modulation (source, amount, target, Rate, Range, and the
+    // expandable details), so the two never differ. Fallback: the bay's own RATE/AMT fields.
+    let card: { el: HTMLElement; refresh: () => void } | undefined;
+    let rate: HTMLInputElement | undefined;
+    let amount: HTMLInputElement | undefined;
+    if (makeGeneratorCard) {
+      card = makeGeneratorCard(i);
+      const wrap = document.createElement('div');
+      wrap.className = 'rw-pb-gencard';
+      wrap.appendChild(card.el);
+      mod.appendChild(wrap);
+      srcLcd.remove();   // the card's source dropdown shows it
+      const lbl = document.createElement('label');
+      lbl.className = 'rw-pb-srcin-cap';
+      lbl.textContent = 'SRC IN';
+      srcRow.appendChild(lbl);
+    } else {
+      rate = mkNum('RATE', '0.01', 'LFO frequency in Hz (Free sync).', (v) => writeSlot(i, { frequency: v }));
+      amount = mkNum('AMT', '0.01', 'Modulation amount (depth).', (v) => writeSlot(i, { amount: v }));
+    }
 
     const outRow = document.createElement('div');
     outRow.className = 'rw-pb-row rw-pb-row--out';
@@ -1832,7 +1853,7 @@ export function createPatchBayView(
 
     slotOutJacks.set(i, out);
     slotSrcJacks.set(i, srcIn);
-    slotRefs.push({ en, rate, amount, srcLcd });
+    slotRefs.push({ en, rate, amount, srcLcd: card ? undefined : srcLcd, card });
     rail.appendChild(mod);
   }
 
@@ -2233,7 +2254,7 @@ export function createPatchBayView(
     // "an uninteractable part of a patch bay node module"). Jacks, knobs,
     // the ✕ and the range ▾ also stop propagation on their own; headers
     // are the module-drag handle.
-    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-info-btn, .rw-range-menu-btn, .rw-pb-scrollbar, input, select, button, textarea, a, [contenteditable="true"]')) return;
+    if (t.closest('.rw-pb-unit-handle, .rw-rack-jack, .rw-pbknob, .rw-pb-graphnode-del, .rw-info-btn, .rw-range-menu-btn, .rw-pb-scrollbar, .rw-mod-slot, input, select, button, textarea, a, [contenteditable="true"]')) return;
     e.preventDefault();
     autoPan.stop();
     const pid = e.pointerId;
@@ -3566,12 +3587,14 @@ export function createPatchBayView(
       const s = slots[i];
       if (!s) return;
       r.en.checked = s.enabled;
-      if (document.activeElement !== r.rate) r.rate.value = String(s.frequency);
-      if (document.activeElement !== r.amount) r.amount.value = String(s.amount);
-      r.srcLcd.textContent = String(s.source).toUpperCase();
+      if (r.rate && document.activeElement !== r.rate) r.rate.value = String(s.frequency);
+      if (r.amount && document.activeElement !== r.amount) r.amount.value = String(s.amount);
+      if (r.srcLcd) r.srcLcd.textContent = String(s.source).toUpperCase();
+      r.card?.refresh();
     });
   }
   settings.subscribe('modSlots', refreshSlots);
+  settings.subscribe('modSlotExpanded', refreshSlots);
   refreshSlots();
 
   // ---------------- cable rendering -----------------------------------
