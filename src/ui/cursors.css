@@ -103,6 +103,10 @@ input[type="url"], input[type="email"], input[type="password"],
 textarea, [contenteditable="true"] {
   cursor: var(--rw-cur-text);
 }
+/* Number fields drag to change (numberScrub.ts): up/down arrows until you click in to type. */
+input[type="number"]:not(:focus):not(:disabled):not([readonly]) {
+  cursor: var(--rw-cur-resize-ns);
+}
 /* Read-only text you may want to copy (the project name, status lines,
    LCD readouts, the help manual): selectable, with the caret. */
 .rw-readout, .rw-help-md :is(p, li, blockquote, code, pre, td) {

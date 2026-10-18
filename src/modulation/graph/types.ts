@@ -147,11 +147,13 @@ export function splitInputRef(ref: string): { nodeId: string; port: string | nul
  *  tooltip (Beginner rows, Advanced inspector, Patch Bay), the node's ⓘ panel and the About
  *  Node Catalog. Every param of every registered node must have one (registry.test.ts). */
 export type ParamSpec =
-  | { kind: 'number'; min: number; max: number; step: number; default: number; help?: string }
-  | { kind: 'enum';   options: string[]; default: string; help?: string }
-  | { kind: 'boolean'; default: boolean; help?: string }
+  | { kind: 'number'; min: number; max: number; step: number; default: number; help?: string; label?: string }
+  | { kind: 'enum';   options: string[]; default: string; help?: string; label?: string;
+      /** Display text per option value; the value itself is shown when absent. */
+      optionLabels?: Record<string, string> }
+  | { kind: 'boolean'; default: boolean; help?: string; label?: string }
   /** Free multi-line text — currently only the 'note' node uses this. */
-  | { kind: 'text'; default: string; help?: string };
+  | { kind: 'text'; default: string; help?: string; label?: string };
 
 export interface PortSpec {
   name: string;

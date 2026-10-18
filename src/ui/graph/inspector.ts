@@ -7,6 +7,7 @@
  * (filled in during Stage 5b alongside `VideoTap`).
  */
 
+import { paramLabel, optionLabel } from '../../modulation/graph/paramLabel';
 import { GraphNode, GraphPatch, ParamSpec, TargetBinding } from '../../modulation/graph/types';
 import { getDef } from '../../modulation/graph/registry';
 import { attachTooltip } from '../tooltip';
@@ -164,7 +165,7 @@ export function createInspector(opts: InspectorOptions): {
     row.className = 'rw-graph-inspector-row';
     const label = document.createElement('span');
     label.className = 'rw-graph-inspector-label';
-    label.textContent = paramName;
+    label.textContent = paramLabel(paramName, spec);
     row.appendChild(label);
 
     if (spec.kind === 'number') {
@@ -195,7 +196,7 @@ export function createInspector(opts: InspectorOptions): {
       sel.className = 'rw-select';
       for (const opt of spec.options) {
         const o = document.createElement('option');
-        o.value = opt; o.textContent = opt;
+        o.value = opt; o.textContent = optionLabel(spec, opt);
         sel.appendChild(o);
       }
       sel.value = String(getParam(node, paramName, spec.default));

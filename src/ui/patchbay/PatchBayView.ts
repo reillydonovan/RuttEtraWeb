@@ -64,6 +64,8 @@ import { attachNumberStepper, openNumericModal } from '../widgets';
 import { clampRangeOverride, isDefaultRange } from '../../state/paramRanges';
 import { DEFAULTS } from '../../state/Settings';
 import { getDef } from '../../modulation/graph/registry';
+import { paramLabel, optionLabel } from '../../modulation/graph/paramLabel';
+import { createGraphRowCard, graphRowFor, type GraphRowHost } from '../graph/BeginnerView';
 import { splitInputRef, type GraphPatch, type NodeType } from '../../modulation/graph/types';
 import { createPalette } from '../graph/palette';
 import { PARAM_DOCS } from '../help/paramDocs';
@@ -174,6 +176,8 @@ export function createPatchBayView(
   /** Builds function generator `i`'s card (ModulationSection.createGeneratorCard). When given,
    *  each FUNCTION GEN module hosts that same card instead of its own RATE/AMT fields. */
   makeGeneratorCard?: (i: number) => { el: HTMLElement; refresh: () => void },
+  /** CV / gamepad readers for the graph node cards' live readouts. */
+  ioDeps: { cv?: GraphRowHost['cv']; gamepad?: GraphRowHost['gamepad'] } = {},
 ): HTMLElement {
   const root = document.createElement('div');
   root.className = 'rw-patchbay';
@@ -3095,7 +3099,7 @@ export function createPatchBayView(
           // module has no rows yet here, so its height would read
           // head-only and the push math would under-shoot.
           mod.classList.add('rw-pb-unit-free');
-          mod.style.width = '200px';
+          mod.style.width = '280px';   // room for the node's card
           mod.style.left = '20px';
           mod.style.top = '20px';
           unitHomes.push({ unit: mod, parent: rail, next: null });
@@ -3229,7 +3233,7 @@ export function createPatchBayView(
         const row = document.createElement('div');
         row.className = 'rw-pb-row';
         const rowLabel = document.createElement('label');
-        rowLabel.textContent = paramName;
+        rowLabel.textContent = paramLabel(paramName, spec);
         let ctl: HTMLInputElement | HTMLSelectElement;
         let kind: 'number' | 'enum' | 'boolean';
         let knob: MiniKnob | null = null;
@@ -3265,7 +3269,7 @@ export function createPatchBayView(
           sel.className = 'rw-select';
           for (const opt of spec.options) {
             const o = document.createElement('option');
-            o.value = opt; o.textContent = opt;
+            o.value = opt; o.textContent = optionLabel(spec, opt);
             sel.appendChild(o);
           }
           sel.addEventListener('change', () => writeGraphNodeParam(nodeId, paramName, sel.value));
@@ -3370,11 +3374,60 @@ export function createPatchBayView(
       else entry.el.value = String(val);
     }
     for (const knob of graphKnobs.values()) knob.refresh();
+    for (const c of graphCards.values()) c.card.refresh();
+  }
+
+  // ---- the node's card: the same one Controls ▸ Modulation shows ----
+  // When Controls shows a node as a Beginner row (one node → one binding, nothing wired into
+  // it), its bay module hosts that SAME card (createGraphRowCard), and the module's own param
+  // rows step aside, so both surfaces show identical controls (owner: parallel modules). The
+  // jacks stay; an LFO's shape jack keeps its row. Other nodes keep the module's own rows —
+  // Controls shows them only in the Advanced editor.
+  const graphCards = new Map<string, { sig: string; wrap: HTMLElement; card: { root: HTMLElement; refresh(): void } }>();
+  const cardHost: GraphRowHost = {
+    settings, cv: ioDeps.cv, gamepad: ioDeps.gamepad,
+    writePatch: (next) => { settings.set('modGraph', next); void getEngine().then((e) => e.setPatch(next)); },
+  };
+  function reconcileGraphCards(): void {
+    const patch = settings.get('modGraph');
+    for (const [nodeId, have] of Array.from(graphCards)) {
+      if (!graphModuleEls.has(nodeId)) { have.wrap.remove(); graphCards.delete(nodeId); }
+    }
+    for (const [nodeId, mod] of graphModuleEls) {
+      const node = patch?.nodes.find((n) => n.id === nodeId);
+      const bs = patch && node ? patch.bindings.filter((b) => b.sourceNodeId === nodeId) : [];
+      const row = patch && bs.length === 1 ? graphRowFor(patch, bs[0].id) : null;
+      const want = node && row && !row.tooComplex ? `${bs[0].id}|${node.type}` : null;
+      const have = graphCards.get(nodeId);
+      if (have && have.sig !== want) { have.wrap.remove(); graphCards.delete(nodeId); }
+      if (want && row && !graphCards.has(nodeId)) {
+        const card = createGraphRowCard(cardHost, row);
+        const wrap = document.createElement('div');
+        wrap.className = 'rw-pb-gencard';
+        wrap.appendChild(card.root);
+        mod.insertBefore(wrap, mod.querySelector('.rw-pb-row--out'));
+        graphCards.set(nodeId, { sig: want, wrap, card });
+      }
+      const carded = graphCards.has(nodeId);
+      for (const [key, entry] of graphParamInputs) {
+        if (!key.startsWith(`${nodeId}#`)) continue;
+        const prow = entry.el.closest<HTMLElement>('.rw-pb-row');
+        if (!prow) continue;
+        if (prow.querySelector('.rw-pb-jack--shape')) {
+          // Keep the shape jack (drag a waveform onto it); the card has the dropdown.
+          entry.el.style.display = carded ? 'none' : '';
+          prow.style.display = '';
+        } else {
+          prow.style.display = carded ? 'none' : '';   // inline: beats .rw-pb-row's display
+        }
+      }
+    }
   }
 
   rebuildGraphModules();
+  reconcileGraphCards();
   refreshGraphControls();
-  settings.subscribe('modGraph', () => { rebuildGraphModules(); refreshGraphControls(); });
+  settings.subscribe('modGraph', () => { rebuildGraphModules(); reconcileGraphCards(); refreshGraphControls(); });
 
   // ---------------- right-click: add a graph node ---------------------
   // Blender/Max-MSP convention: right-click empty board space opens a

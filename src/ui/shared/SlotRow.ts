@@ -98,6 +98,12 @@ export interface RangeAdapter {
   live(): number | null;
 }
 
+/** One of a graph node's own params, for the generic Node group (`SlotRowAdapter.nodeParams`). */
+export type NodeParamField =
+  | { kind: 'num'; label: string; a: NumAdapter }
+  | { kind: 'enum'; label: string; a: EnumAdapter }
+  | { kind: 'bool'; label: string; a: BoolAdapter };
+
 export interface SlotRowAdapter {
   // -------------------- collapsed header --------------------
 
@@ -203,6 +209,13 @@ export interface SlotRowAdapter {
     /** True for buttons (display 0..1), false for axes (-1..1). */
     isButton: boolean;
   };
+
+  /**
+   * Graph rows: EVERY param of the source node, straight from the node registry, shown as one
+   * group in place of the kind-specific group (so Controls shows exactly what the Patch Bay
+   * node shows). The CV / gamepad live readouts still show next to it.
+   */
+  nodeParams?: { title: string; fields: NodeParamField[] };
 
   // -------------------- shared output stage --------------------
 
@@ -488,7 +501,7 @@ function buildLfoGroup(lfo: NonNullable<SlotRowAdapter['lfo']>): BodyGroup {
   refreshers.push(freqUi.refresh);
   g.body.appendChild(freqUi.root);
   if (lfo.freqRange) {
-    const rangeUi = buildDropdownRow('Range', lfo.freqRange);
+    const rangeUi = buildDropdownRow('Rate range', lfo.freqRange);
     refreshers.push(rangeUi.refresh);
     g.body.appendChild(rangeUi.root);
   }
@@ -532,6 +545,19 @@ function buildLfoGroup(lfo: NonNullable<SlotRowAdapter['lfo']>): BodyGroup {
       for (const r of refreshers) r();
     },
   };
+}
+
+function buildNodeParamsGroup(np: NonNullable<SlotRowAdapter['nodeParams']>): BodyGroup {
+  const g = buildGroup(np.title);
+  const refreshers: Array<() => void> = [];
+  for (const f of np.fields) {
+    const ui = f.kind === 'num' ? buildNumField(f.label, f.a)
+      : f.kind === 'enum' ? buildDropdownRow(f.label, f.a)
+      : buildToggleRow(f.label, f.a);
+    refreshers.push(ui.refresh);
+    g.body.appendChild(ui.root);
+  }
+  return { root: g.root, refresh(): void { for (const r of refreshers) r(); } };
 }
 
 function buildRampGroup(ramp: NonNullable<SlotRowAdapter['ramp']>, showRetrigger: boolean): BodyGroup {
@@ -993,6 +1019,8 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   };
   for (const n of [fromNum, toNum]) {
     n.addEventListener('change', commitRange);
+    // Dragging the field (numberScrub) moves the range live, not only on release.
+    n.addEventListener('input', () => { if (n.ownerDocument.body.classList.contains('rw-num-scrubbing')) commitRange(); });
     n.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); n.blur(); } });
   }
 
@@ -1077,6 +1105,16 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
     }
 
     const kind = adapter.sourceKind;
+
+    if (adapter.nodeParams) {
+      // Graph row: the node's own params (all of them), then the live CV / gamepad readouts.
+      bodyGroups.push(buildNodeParamsGroup(adapter.nodeParams));
+      if ((kind === 'cvAudio' || kind === 'cvOsc') && adapter.cv) bodyGroups.push(buildCvGroup(adapter.cv));
+      if (kind === 'gamepad' && adapter.gamepad) bodyGroups.push(buildGamepadGroup(adapter.gamepad));
+      bodyGroups.push(buildOutputStageGroup(adapter.output));
+      for (const g of bodyGroups) body.appendChild(g.root);
+      return;
+    }
 
     if (kind === 'lfo' && adapter.lfo) {
       bodyGroups.push(buildLfoGroup(adapter.lfo));

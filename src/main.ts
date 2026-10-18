@@ -902,7 +902,7 @@ async function bootSynth(): Promise<void> {
     // Factory: the bay is multi-instance — every window that tabs it
     // gets its own independent instance (all reading the same Settings).
     workspace.registerView('patchbay', () => createPatchBayView(settings, source, ensureGraphEngine, sourceB, patternRenderer,
-      (i) => createGeneratorCard(settings, matrix, i, io.cv, io.gamepad)));
+      (i) => createGeneratorCard(settings, matrix, i, io.cv, io.gamepad), { cv: io.cv, gamepad: io.gamepad }));
   })();
 
   // Two-screen popout (v19): move the whole control panel into its own

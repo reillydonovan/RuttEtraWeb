@@ -32,7 +32,7 @@ register<LFOState>({
     // v21: Lo/Mid/Hi range switch — ×0.01 / ×1 / ×10 on `rate`, like the
     // range switch on the original hardware's oscillators. 'high' above
     // ~20 Hz effective aliases against the frame rate (stroboscopic).
-    range:    { kind: 'enum', options: ['low', 'mid', 'high'], default: 'mid', help: 'Multiplies Rate: low is x0.01 for slow sweeps, mid is x1, high is x10 (fast rates can strobe).' },
+    range:    { kind: 'enum', options: ['low', 'mid', 'high'], default: 'mid', label: 'Rate range', optionLabels: { low: 'Low (×0.01)', mid: 'Mid (×1)', high: 'High (×10)' }, help: 'Multiplies Rate: low is x0.01 for slow sweeps, mid is x1, high is x10 (fast rates can strobe).' },
     phase:    { kind: 'number', min: 0,    max: 1,   step: 0.001, default: 0, help: 'Shifts where in its cycle the wave starts, as a fraction of one cycle (0.5 = half a cycle later).' },
     duty:     { kind: 'number', min: 0.05, max: 0.95, step: 0.01, default: 0.5, help: 'Pulse shape only: the fraction of each cycle the pulse stays high.' },
     bipolar:  { kind: 'boolean', default: true, help: 'ON swings the output -1 to +1; OFF keeps it 0 to 1.' },

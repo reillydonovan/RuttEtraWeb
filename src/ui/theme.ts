@@ -18,6 +18,7 @@ import './theme-modern.css';
 import { attachGlow } from './themeGlow';
 
 import { installSelectMenus } from './dropdown';
+import { installNumberScrub } from './numberScrub';
 
 export type ThemeId = 'phosphor' | 'modern';
 
@@ -67,6 +68,7 @@ export function applyThemeToDocument(doc: Document): void {
   stampedDocs.add(doc);
   stamp(doc);
   installSelectMenus(doc);   // themed dropdown panels in this window (main or a popout)
+  installNumberScrub(doc);   // drag any number field up/down to change it
 }
 
 export function releaseThemeDocument(doc: Document): void {

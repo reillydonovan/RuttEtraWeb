@@ -17,22 +17,22 @@
  * fields. There is no parallel data structure for "beginner output stage".
  */
 
-import { ClockDivision, ModTarget, OutputCurve, SettingsStore } from '../../state/Settings';
+import { ModTarget, OutputCurve, SettingsStore } from '../../state/Settings';
 import {
   CurveType, GraphNode, GraphPatch, NodeType, TargetBinding,
 } from '../../modulation/graph/types';
 import { allDefs, getDef } from '../../modulation/graph/registry';
 import { makeRangeAdapter } from '../shared/rangeAdapter';
+import { paramLabel, optionLabel } from '../../modulation/graph/paramLabel';
 import { graphSpan } from '../../modulation/patchRange';
 import '../../modulation/graph/bootstrap';
 import { CLASSIC_SOURCE_NODE_TYPES } from '../../modulation/graph/convert';
-import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { TARGETS, cvOutputTargets } from '../targets';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import { clonePatch } from '../../modulation/graph/clonePatch';
 import {
   canPaste, createSlotRow, getSlotClipboard, setSlotClipboard,
-  SlotRowAdapter, SourceKind,
+  SlotRowAdapter, SourceKind, NodeParamField,
 } from '../shared/SlotRow';
 
 const MAX_BEGINNER_NODES = 6;
@@ -74,13 +74,6 @@ const CURVE_OPTS: { v: OutputCurve; l: string }[] = [
   { v: 'log',    l: 'Log' },
   { v: 's',      l: 'S-curve' },
   { v: 'step',   l: 'Step' },
-];
-
-const RAMP_MODE_OPTS = [
-  { v: 'up',       l: 'up' },
-  { v: 'down',     l: 'down' },
-  { v: 'triangle', l: 'triangle' },
-  { v: 'one-shot', l: 'one-shot' },
 ];
 
 /**
@@ -169,6 +162,409 @@ interface GraphRowSnapshot {
   sourceType: NodeType;
   sourceParams: Record<string, number | string | boolean>;
   binding: TargetBinding;
+}
+
+/** What a graph row card needs from its surface (Controls ▸ Beginner rows, Patch Bay modules). */
+export interface GraphRowHost {
+  settings: SettingsStore;
+  cv?: PatchSectionDeps['cv'];
+  gamepad?: PatchSectionDeps['gamepad'];
+  /** Write the patch (Settings + engine, the two-write rule). `skipRerender`: a drag is in progress. */
+  writePatch(next: GraphPatch, opts?: { skipRerender?: boolean }): void;
+  /** Called after the card opens or closes. */
+  onExpandChange?(): void;
+}
+
+export type GraphRow = BeginnerRow & { tooComplex?: boolean; reason?: string };
+
+function currentPatch(settings: SettingsStore): GraphPatch {
+  const p = settings.get('modGraph');
+  return p ? clonePatch(p) : { nodes: [], bindings: [] };
+}
+
+/** The Beginner row for binding `bindingId` in `patch`, or null when Beginner view can't show it
+ *  (no such binding, or a patch with too many nodes). Rows flagged `tooComplex` are returned. */
+export function graphRowFor(patch: GraphPatch, bindingId: string): GraphRow | null {
+  const { rows, outOfBudget } = rowsFromPatch(patch);
+  if (outOfBudget) return null;
+  return rows.find((r) => r.binding.id === bindingId) ?? null;
+}
+
+/**
+ * One graph patch's card (source node + its binding) — the SAME card in Controls ▸ Modulation
+ * (Beginner rows) and in the Patch Bay's graph node modules, so the two never differ.
+ */
+export function createGraphRowCard(host: GraphRowHost, row: GraphRow): { root: HTMLElement; refresh(): void } {
+  const { settings } = host;
+  // Helpers that always reach the LATEST patch via settings, so writes
+  // don't stomp on each other when multiple sliders fire in quick
+  // succession.
+  const mutate = (
+    mutator: (cur: GraphPatch, src: GraphNode | undefined, b: TargetBinding | undefined) => void,
+    opts: { skipRerender?: boolean } = {},
+  ): void => {
+    const cur = currentPatch(host.settings);
+    const src = cur.nodes.find((n) => n.id === row.source.id);
+    const b = cur.bindings.find((x) => x.id === row.binding.id);
+    mutator(cur, src, b);
+    host.writePatch(cur, opts);
+  };
+
+  const liveSource = (): GraphNode => {
+    const cur = settings.get('modGraph');
+    return cur?.nodes.find((n) => n.id === row.source.id) ?? row.source;
+  };
+  const liveBinding = (): TargetBinding => {
+    const cur = settings.get('modGraph');
+    return cur?.bindings.find((x) => x.id === row.binding.id) ?? row.binding;
+  };
+  const liveParam = <T extends number | string | boolean>(k: string, fallback: T): T => {
+    const v = liveSource().params[k];
+    return (v ?? fallback) as T;
+  };
+  /** Hover tooltip for a node param — the registry's `help` (one source for every surface). */
+  const ph = (k: string): string | undefined => getDef(liveSource().type)?.params[k]?.help;
+
+  const adapter: SlotRowAdapter = {
+    // Graph rows don't have a per-row enable toggle — the binding's
+    // existence IS the enable state. Hidden via caps.
+    source: {
+      get: () => liveSource().type,
+      set: (v) => mutate((_cur, src) => {
+        if (!src) return;
+        src.type = v as NodeType;
+        src.params = {};
+      }),
+      options: sourceOptions().map((o) => ({ v: o.type, l: o.label })),
+      // What the chosen node is — the registry's one-line description.
+      describe: () => {
+        return getDef(liveSource().type)?.description ?? null;
+      },
+    },
+    target: {
+      get: () => liveBinding().paramKey,
+      set: (v) => mutate((_cur, _src, b) => { if (b) b.paramKey = v as string; }),
+      options: () => buildTargetOpts(settings) as ReadonlyArray<{ v: string; l: string }>,
+    },
+    range: makeRangeAdapter(settings, {
+      target: () => liveBinding().paramKey,
+      span: () => graphSpan(getDef(liveSource().type) ?? undefined, liveBinding().sourcePort, liveSource().params),
+      stage: () => liveBinding(),
+      amount: () => liveBinding().amount,
+      mode: () => (liveBinding().mode === 'multiplicative' ? 'multiplicative' : 'additive'),
+      write: (sol) => mutate((_c, _s, b) => {
+        if (!b) return;
+        b.amount = sol.amount; b.outputMin = sol.outputMin; b.outputMax = sol.outputMax; b.outputOffset = sol.outputOffset;
+      }),
+    }),
+    amount: {
+      get: () => liveBinding().amount,
+      set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-20, Math.min(20, v)); }, { skipRerender: true }),
+      min: -20, max: 20, step: 0.001,
+    },
+    expanded: {
+      get: () => rowExpanded.get(row.binding.id) ?? false,
+      set: (v) => {
+        rowExpanded.set(row.binding.id, v);
+        host.onExpandChange?.();
+      },
+    },
+    sourceKind: row.tooComplex ? 'unsupported' : nodeTypeToKind(liveSource().type),
+    tooComplex: !!row.tooComplex,
+    tooComplexReason: row.reason,
+
+    // Every param the node has (registry), the same set the Patch Bay node module shows. The
+    // CV channel and gamepad index stay in their live-readout groups instead.
+    nodeParams: (() => {
+      const def = getDef(liveSource().type);
+      if (!def) return undefined;
+      const kind = nodeTypeToKind(def.type);
+      const skip = new Set(kind === 'cvAudio' ? ['channel'] : kind === 'gamepad' ? ['axis', 'button'] : []);
+      const fields: NodeParamField[] = [];
+      for (const [name, spec] of Object.entries(def.params)) {
+        if (skip.has(name) || spec.kind === 'text') continue;
+        const label = paramLabel(name, spec);
+        const write = (v: number | string | boolean, drag = false): void =>
+          mutate((_c, src) => { if (src) src.params[name] = v; }, { skipRerender: drag });
+        if (spec.kind === 'number') {
+          fields.push({ kind: 'num', label, a: {
+            help: spec.help, min: spec.min, max: spec.max, step: spec.step,
+            get: () => liveParam<number>(name, spec.default),
+            set: (v) => write(v, true),
+          } });
+        } else if (spec.kind === 'enum') {
+          fields.push({ kind: 'enum', label, a: {
+            help: spec.help,
+            get: () => String(liveParam<string>(name, spec.default)),
+            set: (v) => write(v),
+            options: spec.options.map((o) => ({ v: o, l: optionLabel(spec, o) })),
+          } });
+        } else {
+          fields.push({ kind: 'bool', label, a: {
+            help: spec.help,
+            get: () => !!liveParam<boolean>(name, spec.default),
+            set: (v) => write(v),
+          } });
+        }
+      }
+      return { title: def.label, fields };
+    })(),
+
+    // -------------------- LFO group (shape: rate, phase, duty, bipolar) --------------------
+    lfo: {
+      frequency: {
+        help: ph('rate'),
+        get: () => liveParam<number>('rate', 1),
+        set: (v) => mutate((_c, src) => { if (src) src.params.rate = v; }, { skipRerender: true }),
+        min: 0.01, max: 30, step: 0.01,
+      },
+      phase: {
+        help: ph('phase'),
+        get: () => liveParam<number>('phase', 0),
+        set: (v) => mutate((_c, src) => { if (src) src.params.phase = v; }, { skipRerender: true }),
+        min: 0, max: 1, step: 0.001,
+      },
+      duty: {
+        help: ph('duty'),
+        get: () => liveParam<number>('duty', 0.5),
+        set: (v) => mutate((_c, src) => { if (src) src.params.duty = v; }, { skipRerender: true }),
+        min: 0.05, max: 0.95, step: 0.01,
+      },
+      bipolar: {
+        help: ph('bipolar'),
+        get: () => liveParam<boolean>('bipolar', true),
+        set: (v) => mutate((_c, src) => { if (src) src.params.bipolar = v; }),
+      },
+      // Graph LFO doesn't (yet) have sync mode — beginner view hides
+      // these by leaving them off the adapter.
+      // (No `syncMode` / `clockDivision` passed in.)
+      // shape selection lives in the source dropdown — if a user wants
+      // a different waveform, they pick a different node. Beginner
+      // view's LFO is always 'lfo' kind regardless of shape; shape is
+      // exposed as a separate enum at the param level instead.
+    },
+
+    // -------------------- v9: CV input --------------------
+    cv: {
+      channel: {
+        help: ph('channel'),
+        get: () => liveParam<number>('channel', 0),
+        set: (v) => mutate((_c, src) => { if (src) src.params.channel = Math.max(0, Math.round(v)); }, { skipRerender: true }),
+        min: 0, max: 31, step: 1,
+      },
+      readVoltage: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route !== 'audio') return NaN;
+        return host.cv ? host.cv.getVoltage(liveParam<number>('channel', 0)) : NaN;
+      },
+      readNormalized: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route !== 'audio') return 0;
+        return host.cv ? host.cv.getNormalized(liveParam<number>('channel', 0)) : 0;
+      },
+      calibrate: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route === 'audio') host.cv?.calibrate(liveParam<number>('channel', 0));
+      },
+      resetCalibration: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route === 'audio') host.cv?.resetCalibration(liveParam<number>('channel', 0));
+      },
+      rangeLabel: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route !== 'audio') return route.toUpperCase();
+        const channels = settings.get('cvChannels');
+        return channels[liveParam<number>('channel', 0)]?.range ?? '+/-5V';
+      },
+      available: () => {
+        const route = liveParam<string>('route', 'audio');
+        if (route === 'audio') return !!(host.cv && host.cv.running);
+        return true;
+      },
+      get isOsc() { return liveParam<string>('route', 'audio') === 'osc'; },
+      readVariance: () => host.cv ? host.cv.getVariance(liveParam<number>('channel', 0)) : 0,
+    },
+
+    // -------------------- v9: Gamepad --------------------
+    gamepad: {
+      index: {
+        help: ph(liveSource().type === 'gamepad-button' ? 'button' : 'axis'),
+        get: () => liveParam<number>(liveSource().type === 'gamepad-button' ? 'button' : 'axis', 0),
+        set: (v) => mutate((_c, src) => {
+          if (!src) return;
+          const k = src.type === 'gamepad-button' ? 'button' : 'axis';
+          src.params[k] = Math.max(0, Math.round(v));
+        }, { skipRerender: true }),
+        min: 0, max: 31, step: 1,
+      },
+      readValue: () => {
+        if (!host.gamepad) return 0;
+        if (liveSource().type === 'gamepad-button') {
+          return host.gamepad.getButton(liveParam<number>('button', 0));
+        }
+        return host.gamepad.getAxis(liveParam<number>('axis', 0));
+      },
+      available: () => !!host.gamepad,
+      get isButton() { return liveSource().type === 'gamepad-button'; },
+    },
+
+    // -------------------- Output stage (writes to the BINDING) --------------------
+    output: {
+      curve: {
+        get: () => (liveBinding().outputCurve ?? mapLegacyCurve(liveBinding().curve)) as OutputCurve,
+        set: (v) => mutate((_c, _s, b) => {
+          if (!b) return;
+          b.outputCurve = v as OutputCurve;
+          // Drop the legacy curve field once the user touches the new
+          // one so they stack rather than fight.
+          delete b.curve;
+        }),
+        options: CURVE_OPTS,
+      },
+      min: {
+        get: () => liveBinding().outputMin ?? -1,
+        set: (v) => mutate((_c, _s, b) => { if (b) b.outputMin = v; }, { skipRerender: true }),
+        min: -2, max: 2, step: 0.001,
+      },
+      max: {
+        get: () => liveBinding().outputMax ?? 1,
+        set: (v) => mutate((_c, _s, b) => { if (b) b.outputMax = v; }, { skipRerender: true }),
+        min: -2, max: 2, step: 0.001,
+      },
+      offset: {
+        get: () => liveBinding().outputOffset ?? 0,
+        set: (v) => mutate((_c, _s, b) => { if (b) b.outputOffset = v; }, { skipRerender: true }),
+        min: -1, max: 1, step: 0.001,
+      },
+      invert: {
+        get: () => liveBinding().outputInvert ?? false,
+        set: (v) => mutate((_c, _s, b) => { if (b) b.outputInvert = v; }),
+      },
+      // v20: expose the binding's apply mode in Beginner view too —
+      // previously only the Advanced inspector could set it.
+      applyMode: {
+        get: () => liveBinding().mode ?? 'additive',
+        set: (v) => mutate((_c, _s, b) => { if (b) b.mode = v as 'additive' | 'multiplicative'; }),
+        options: [{ v: 'additive', l: 'Additive (+)' }, { v: 'multiplicative', l: 'Multiply (×)' }],
+      },
+    },
+
+    copy: () => {
+      const snap: GraphRowSnapshot = {
+        __kind: 'graphRow',
+        sourceType: liveSource().type,
+        sourceParams: { ...liveSource().params },
+        binding: { ...liveBinding() },
+      };
+      setSlotClipboard(snap);
+    },
+    paste: () => {
+      const snap = getSlotClipboard() as { __kind?: string } | null;
+      if (!snap || snap.__kind !== 'graphRow') return;
+      const g = snap as GraphRowSnapshot;
+      mutate((_c, src, b) => {
+        if (!src || !b) return;
+        src.type = g.sourceType;
+        src.params = { ...g.sourceParams };
+        // Preserve binding id + sourceNodeId; copy everything else.
+        const keepId = b.id;
+        const keepSrc = b.sourceNodeId;
+        Object.assign(b, g.binding, { id: keepId, sourceNodeId: keepSrc });
+      });
+    },
+    reset: () => {
+      mutate((cur, _src, b) => {
+        if (!b) return;
+        cur.bindings = cur.bindings.filter((x) => x.id !== row.binding.id);
+        cur.nodes = cur.nodes.filter((n) => n.id !== row.source.id);
+      });
+    },
+    softReset: () => {
+      // Type-defaults for the source node's params + identity output
+      // stage + amount=0. Source type, paramKey, and mode are kept —
+      // this is the "snap params back to neutral but keep my routing"
+      // affordance. Pulls each param's default from the registry so
+      // it stays accurate as the registry evolves.
+      mutate((_cur, src, b) => {
+        if (src) src.params = defaultsForNodeType(src.type);
+        if (b) {
+          b.amount = 0;
+          b.curve = undefined;
+          b.outputCurve = 'linear';
+          b.outputMin = -1;
+          b.outputMax = 1;
+          b.outputOffset = 0;
+          b.outputInvert = false;
+        }
+      });
+    },
+    hardReset: () => {
+      // Source back to default sine LFO, target back to "none". The
+      // binding stays in the patch — to fully delete the row, the user
+      // can click X. Hard reset is a "wipe my settings, keep the row".
+      mutate((_cur, src, b) => {
+        if (src) {
+          src.type = 'lfo';
+          src.params = defaultsForNodeType('lfo');
+          src.inputs = {};
+        }
+        if (b) {
+          b.paramKey = 'none';
+          b.amount = 0;
+          b.mode = 'additive';
+          b.sourcePort = undefined;
+          b.curve = undefined;
+          b.outputCurve = 'linear';
+          b.outputMin = -1;
+          b.outputMax = 1;
+          b.outputOffset = 0;
+          b.outputInvert = false;
+        }
+      });
+    },
+    caps: {
+      showEnable: false,
+      showCopyPaste: true,
+      showMidiOut: false,
+      resetLabel: 'Remove patch',
+      showRampRetrigger: false,
+    },
+  };
+
+  // Hook paste-disabled state — only allow paste when clipboard is a
+  // graph-row snapshot (or a Classic ModSlot? for now we keep them
+  // separate to avoid silent type mismatches).
+  void canPaste;
+
+  return createSlotRow(adapter);
+}
+
+/** Map legacy v1 binding `curve` enum to the v8 `OutputCurve` value. */
+function mapLegacyCurve(c: CurveType | undefined): OutputCurve {
+  if (!c || c === 'linear') return 'linear';
+  if (c === 'exp') return 'exp';
+  if (c === 'log') return 'log';
+  if (c === 'sCurve') return 's';
+  return 'linear';
+}
+
+/**
+ * Pull a node's "type-default" params from the registry. Used by the
+ * per-row Reset (↻) button: clicking Reset wipes user-tuned params
+ * (LFO Rate=1, Shape=Sine, Depth=1, ...) and restores the spec defaults
+ * without dropping the row.
+ *
+ * Returns an empty params object if the registry doesn't have the type
+ * (defensive against stale presets after registry edits).
+ */
+function defaultsForNodeType(type: NodeType): Record<string, number | string | boolean> {
+  const def = getDef(type);
+  if (!def) return {};
+  const out: Record<string, number | string | boolean> = {};
+  for (const [k, spec] of Object.entries(def.params)) {
+    out[k] = spec.default;
+  }
+  return out;
 }
 
 export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): () => void {
@@ -263,399 +659,12 @@ export function renderBeginnerView(host: HTMLElement, deps: PatchSectionDeps): (
     }
   }
 
-  function buildRowUi(row: BeginnerRow & { tooComplex?: boolean; reason?: string }): HTMLElement {
-    // Helpers that always reach the LATEST patch via settings, so writes
-    // don't stomp on each other when multiple sliders fire in quick
-    // succession.
-    const mutate = (
-      mutator: (cur: GraphPatch, src: GraphNode | undefined, b: TargetBinding | undefined) => void,
-      opts: { skipRerender?: boolean } = {},
-    ): void => {
-      const cur = currentPatch();
-      const src = cur.nodes.find((n) => n.id === row.source.id);
-      const b = cur.bindings.find((x) => x.id === row.binding.id);
-      mutator(cur, src, b);
-      writePatch(cur, opts);
-    };
-
-    const liveSource = (): GraphNode => {
-      const cur = settings.get('modGraph');
-      return cur?.nodes.find((n) => n.id === row.source.id) ?? row.source;
-    };
-    const liveBinding = (): TargetBinding => {
-      const cur = settings.get('modGraph');
-      return cur?.bindings.find((x) => x.id === row.binding.id) ?? row.binding;
-    };
-    const liveParam = <T extends number | string | boolean>(k: string, fallback: T): T => {
-      const v = liveSource().params[k];
-      return (v ?? fallback) as T;
-    };
-    /** Hover tooltip for a node param — the registry's `help` (one source for every surface). */
-    const ph = (k: string): string | undefined => getDef(liveSource().type)?.params[k]?.help;
-
-    const adapter: SlotRowAdapter = {
-      // Graph rows don't have a per-row enable toggle — the binding's
-      // existence IS the enable state. Hidden via caps.
-      source: {
-        get: () => liveSource().type,
-        set: (v) => mutate((_cur, src) => {
-          if (!src) return;
-          src.type = v as NodeType;
-          src.params = {};
-        }),
-        options: sourceOptions().map((o) => ({ v: o.type, l: o.label })),
-        // What the chosen node is — the registry's one-line description.
-        describe: () => {
-          return getDef(liveSource().type)?.description ?? null;
-        },
-      },
-      target: {
-        get: () => liveBinding().paramKey,
-        set: (v) => mutate((_cur, _src, b) => { if (b) b.paramKey = v as string; }),
-        options: () => buildTargetOpts(settings) as ReadonlyArray<{ v: string; l: string }>,
-      },
-      range: makeRangeAdapter(settings, {
-        target: () => liveBinding().paramKey,
-        span: () => graphSpan(getDef(liveSource().type) ?? undefined, liveBinding().sourcePort, liveSource().params),
-        stage: () => liveBinding(),
-        amount: () => liveBinding().amount,
-        mode: () => (liveBinding().mode === 'multiplicative' ? 'multiplicative' : 'additive'),
-        write: (sol) => mutate((_c, _s, b) => {
-          if (!b) return;
-          b.amount = sol.amount; b.outputMin = sol.outputMin; b.outputMax = sol.outputMax; b.outputOffset = sol.outputOffset;
-        }),
-      }),
-      amount: {
-        get: () => liveBinding().amount,
-        set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-20, Math.min(20, v)); }, { skipRerender: true }),
-        min: -20, max: 20, step: 0.001,
-      },
-      expanded: {
-        get: () => rowExpanded.get(row.binding.id) ?? false,
-        set: (v) => {
-          rowExpanded.set(row.binding.id, v);
-          // Re-render to apply expand state to the row.
-          render();
-        },
-      },
-      sourceKind: row.tooComplex ? 'unsupported' : nodeTypeToKind(liveSource().type),
-      tooComplex: !!row.tooComplex,
-      tooComplexReason: row.reason,
-
-      // -------------------- LFO group (shape: rate, phase, duty, bipolar) --------------------
-      lfo: {
-        frequency: {
-          help: ph('rate'),
-          get: () => liveParam<number>('rate', 1),
-          set: (v) => mutate((_c, src) => { if (src) src.params.rate = v; }, { skipRerender: true }),
-          min: 0.01, max: 30, step: 0.01,
-        },
-        phase: {
-          help: ph('phase'),
-          get: () => liveParam<number>('phase', 0),
-          set: (v) => mutate((_c, src) => { if (src) src.params.phase = v; }, { skipRerender: true }),
-          min: 0, max: 1, step: 0.001,
-        },
-        duty: {
-          help: ph('duty'),
-          get: () => liveParam<number>('duty', 0.5),
-          set: (v) => mutate((_c, src) => { if (src) src.params.duty = v; }, { skipRerender: true }),
-          min: 0.05, max: 0.95, step: 0.01,
-        },
-        bipolar: {
-          help: ph('bipolar'),
-          get: () => liveParam<boolean>('bipolar', true),
-          set: (v) => mutate((_c, src) => { if (src) src.params.bipolar = v; }),
-        },
-        // Graph LFO doesn't (yet) have sync mode — beginner view hides
-        // these by leaving them off the adapter.
-        // (No `syncMode` / `clockDivision` passed in.)
-        // shape selection lives in the source dropdown — if a user wants
-        // a different waveform, they pick a different node. Beginner
-        // view's LFO is always 'lfo' kind regardless of shape; shape is
-        // exposed as a separate enum at the param level instead.
-      },
-
-      // -------------------- Ramp group --------------------
-      ramp: {
-        timeSec: {
-          help: ph('timeSec'),
-          get: () => liveParam<number>('timeSec', 4),
-          set: (v) => mutate((_c, src) => { if (src) src.params.timeSec = v; }, { skipRerender: true }),
-          min: 0.05, max: 600, step: 0.05,
-        },
-        mode: {
-          help: ph('mode'),
-          get: () => liveParam<string>('mode', 'up'),
-          set: (v) => mutate((_c, src) => { if (src) src.params.mode = v; }),
-          options: RAMP_MODE_OPTS,
-        },
-        // Graph ramp uses 'one-shot' as a mode value — there's no separate
-        // loop boolean. Beginner view simply omits the loop adapter.
-      },
-
-      // -------------------- Audio group --------------------
-      audio: {
-        bandIndex: liveSource().type === 'audio-band' ? {
-          help: ph('band'),
-          get: () => liveParam<number>('band', 0),
-          set: (v) => mutate((_c, src) => { if (src) src.params.band = Math.round(v); }, { skipRerender: true }),
-          min: 0, max: 127, step: 1,
-        } : undefined,
-        gain: {
-          help: ph('gain'),
-          get: () => liveParam<number>('gain', 1),
-          set: (v) => mutate((_c, src) => { if (src) src.params.gain = v; }, { skipRerender: true }),
-          min: 0, max: 4, step: 0.01,
-        },
-      },
-
-      // Joystick: graph nodes have no per-node smoothing/deadzone — the
-      // beginner row exposes only an "invert" toggle via the output
-      // stage instead. Adapter omits the joystick group.
-
-      constant: {
-        value: {
-          help: ph('value'),
-          get: () => liveParam<number>('value', 0),
-          set: (v) => mutate((_c, src) => { if (src) src.params.value = v; }, { skipRerender: true }),
-          min: -1, max: 1, step: 0.001,
-        },
-      },
-
-      midiClock: {
-        clockDivision: {
-          help: ph('division'),
-          get: () => liveParam<string>('division', '1/4'),
-          set: (v) => mutate((_c, src) => { if (src) src.params.division = v as ClockDivision; }),
-          options: ALL_DIVISIONS.map((d) => ({ v: d, l: d })),
-        },
-      },
-
-      // -------------------- v9: CV input --------------------
-      cv: {
-        channel: {
-          help: ph('channel'),
-          get: () => liveParam<number>('channel', 0),
-          set: (v) => mutate((_c, src) => { if (src) src.params.channel = Math.max(0, Math.round(v)); }, { skipRerender: true }),
-          min: 0, max: 31, step: 1,
-        },
-        readVoltage: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route !== 'audio') return NaN;
-          return deps.cv ? deps.cv.getVoltage(liveParam<number>('channel', 0)) : NaN;
-        },
-        readNormalized: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route !== 'audio') return 0;
-          return deps.cv ? deps.cv.getNormalized(liveParam<number>('channel', 0)) : 0;
-        },
-        calibrate: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route === 'audio') deps.cv?.calibrate(liveParam<number>('channel', 0));
-        },
-        resetCalibration: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route === 'audio') deps.cv?.resetCalibration(liveParam<number>('channel', 0));
-        },
-        rangeLabel: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route !== 'audio') return route.toUpperCase();
-          const channels = settings.get('cvChannels');
-          return channels[liveParam<number>('channel', 0)]?.range ?? '+/-5V';
-        },
-        available: () => {
-          const route = liveParam<string>('route', 'audio');
-          if (route === 'audio') return !!(deps.cv && deps.cv.running);
-          return true;
-        },
-        get isOsc() { return liveParam<string>('route', 'audio') === 'osc'; },
-        readVariance: () => deps.cv ? deps.cv.getVariance(liveParam<number>('channel', 0)) : 0,
-      },
-
-      // -------------------- v9: Gamepad --------------------
-      gamepad: {
-        index: {
-          help: ph(liveSource().type === 'gamepad-button' ? 'button' : 'axis'),
-          get: () => liveParam<number>(liveSource().type === 'gamepad-button' ? 'button' : 'axis', 0),
-          set: (v) => mutate((_c, src) => {
-            if (!src) return;
-            const k = src.type === 'gamepad-button' ? 'button' : 'axis';
-            src.params[k] = Math.max(0, Math.round(v));
-          }, { skipRerender: true }),
-          min: 0, max: 31, step: 1,
-        },
-        readValue: () => {
-          if (!deps.gamepad) return 0;
-          if (liveSource().type === 'gamepad-button') {
-            return deps.gamepad.getButton(liveParam<number>('button', 0));
-          }
-          return deps.gamepad.getAxis(liveParam<number>('axis', 0));
-        },
-        available: () => !!deps.gamepad,
-        get isButton() { return liveSource().type === 'gamepad-button'; },
-      },
-
-      // -------------------- Output stage (writes to the BINDING) --------------------
-      output: {
-        curve: {
-          get: () => (liveBinding().outputCurve ?? mapLegacyCurve(liveBinding().curve)) as OutputCurve,
-          set: (v) => mutate((_c, _s, b) => {
-            if (!b) return;
-            b.outputCurve = v as OutputCurve;
-            // Drop the legacy curve field once the user touches the new
-            // one so they stack rather than fight.
-            delete b.curve;
-          }),
-          options: CURVE_OPTS,
-        },
-        min: {
-          get: () => liveBinding().outputMin ?? -1,
-          set: (v) => mutate((_c, _s, b) => { if (b) b.outputMin = v; }, { skipRerender: true }),
-          min: -2, max: 2, step: 0.001,
-        },
-        max: {
-          get: () => liveBinding().outputMax ?? 1,
-          set: (v) => mutate((_c, _s, b) => { if (b) b.outputMax = v; }, { skipRerender: true }),
-          min: -2, max: 2, step: 0.001,
-        },
-        offset: {
-          get: () => liveBinding().outputOffset ?? 0,
-          set: (v) => mutate((_c, _s, b) => { if (b) b.outputOffset = v; }, { skipRerender: true }),
-          min: -1, max: 1, step: 0.001,
-        },
-        invert: {
-          get: () => liveBinding().outputInvert ?? false,
-          set: (v) => mutate((_c, _s, b) => { if (b) b.outputInvert = v; }),
-        },
-        // v20: expose the binding's apply mode in Beginner view too —
-        // previously only the Advanced inspector could set it.
-        applyMode: {
-          get: () => liveBinding().mode ?? 'additive',
-          set: (v) => mutate((_c, _s, b) => { if (b) b.mode = v as 'additive' | 'multiplicative'; }),
-          options: [{ v: 'additive', l: 'Additive (+)' }, { v: 'multiplicative', l: 'Multiply (×)' }],
-        },
-      },
-
-      copy: () => {
-        const snap: GraphRowSnapshot = {
-          __kind: 'graphRow',
-          sourceType: liveSource().type,
-          sourceParams: { ...liveSource().params },
-          binding: { ...liveBinding() },
-        };
-        setSlotClipboard(snap);
-      },
-      paste: () => {
-        const snap = getSlotClipboard() as { __kind?: string } | null;
-        if (!snap || snap.__kind !== 'graphRow') return;
-        const g = snap as GraphRowSnapshot;
-        mutate((_c, src, b) => {
-          if (!src || !b) return;
-          src.type = g.sourceType;
-          src.params = { ...g.sourceParams };
-          // Preserve binding id + sourceNodeId; copy everything else.
-          const keepId = b.id;
-          const keepSrc = b.sourceNodeId;
-          Object.assign(b, g.binding, { id: keepId, sourceNodeId: keepSrc });
-        });
-      },
-      reset: () => {
-        mutate((cur, _src, b) => {
-          if (!b) return;
-          cur.bindings = cur.bindings.filter((x) => x.id !== row.binding.id);
-          cur.nodes = cur.nodes.filter((n) => n.id !== row.source.id);
-        });
-      },
-      softReset: () => {
-        // Type-defaults for the source node's params + identity output
-        // stage + amount=0. Source type, paramKey, and mode are kept —
-        // this is the "snap params back to neutral but keep my routing"
-        // affordance. Pulls each param's default from the registry so
-        // it stays accurate as the registry evolves.
-        mutate((_cur, src, b) => {
-          if (src) src.params = defaultsForNodeType(src.type);
-          if (b) {
-            b.amount = 0;
-            b.curve = undefined;
-            b.outputCurve = 'linear';
-            b.outputMin = -1;
-            b.outputMax = 1;
-            b.outputOffset = 0;
-            b.outputInvert = false;
-          }
-        });
-      },
-      hardReset: () => {
-        // Source back to default sine LFO, target back to "none". The
-        // binding stays in the patch — to fully delete the row, the user
-        // can click X. Hard reset is a "wipe my settings, keep the row".
-        mutate((_cur, src, b) => {
-          if (src) {
-            src.type = 'lfo';
-            src.params = defaultsForNodeType('lfo');
-            src.inputs = {};
-          }
-          if (b) {
-            b.paramKey = 'none';
-            b.amount = 0;
-            b.mode = 'additive';
-            b.sourcePort = undefined;
-            b.curve = undefined;
-            b.outputCurve = 'linear';
-            b.outputMin = -1;
-            b.outputMax = 1;
-            b.outputOffset = 0;
-            b.outputInvert = false;
-          }
-        });
-      },
-      caps: {
-        showEnable: false,
-        showCopyPaste: true,
-        showMidiOut: false,
-        resetLabel: 'Remove patch',
-        showRampRetrigger: false,
-      },
-    };
-
-    // Hook paste-disabled state — only allow paste when clipboard is a
-    // graph-row snapshot (or a Classic ModSlot? for now we keep them
-    // separate to avoid silent type mismatches).
-    void canPaste;
-
-    const ui = createSlotRow(adapter);
+  function buildRowUi(row: GraphRow): HTMLElement {
+    const ui = createGraphRowCard({ settings, cv: deps.cv, gamepad: deps.gamepad, writePatch, onExpandChange: render }, row);
     activeRefreshers.push(ui.refresh);
     return ui.root;
   }
 
-  /** Map legacy v1 binding `curve` enum to the v8 `OutputCurve` value. */
-  function mapLegacyCurve(c: CurveType | undefined): OutputCurve {
-    if (!c || c === 'linear') return 'linear';
-    if (c === 'exp') return 'exp';
-    if (c === 'log') return 'log';
-    if (c === 'sCurve') return 's';
-    return 'linear';
-  }
-
-  /**
-   * Pull a node's "type-default" params from the registry. Used by the
-   * per-row Reset (↻) button: clicking Reset wipes user-tuned params
-   * (LFO Rate=1, Shape=Sine, Depth=1, ...) and restores the spec defaults
-   * without dropping the row.
-   *
-   * Returns an empty params object if the registry doesn't have the type
-   * (defensive against stale presets after registry edits).
-   */
-  function defaultsForNodeType(type: NodeType): Record<string, number | string | boolean> {
-    const def = getDef(type);
-    if (!def) return {};
-    const out: Record<string, number | string | boolean> = {};
-    for (const [k, spec] of Object.entries(def.params)) {
-      out[k] = spec.default;
-    }
-    return out;
-  }
 
   // Re-render whenever modGraph changes from outside (preset apply,
   // advanced view edit, MIDI learn, etc.). `suppressRender` lets
