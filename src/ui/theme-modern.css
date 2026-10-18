@@ -763,6 +763,11 @@ html body[data-theme="modern"][data-theme] {
      less room than VT323, and the knob row (knob · readout · IN · OUT)
      needs every pixel to stay inside the card. */
   & .rw-row { gap: var(--sp-2); padding: 3px 0; grid-template-columns: 96px minmax(0, 1fr); }
+  /* The ▸ live value / ◆ strip sits above the slider: keep its space (the padding above would
+     otherwise cancel panel.css's, and the badge would cover the group head). */
+  & .rw-row:is(.rw-row--live, .rw-row--keyable) { padding-top: 22px; }
+  /* Collapsed-group cable socket: right next to the ⓘ (the head's right padding already clears it). */
+  & .rw-group-head > .rw-rack-proxy { margin-right: 0; }
   & :is(.rw-label, .rw-toggle-txt) { font-size: var(--fs-m); color: var(--t-body); letter-spacing: 0; }
   & .rw-hint { font-size: var(--fs-s); color: var(--t-dim); line-height: 1.45; }
   & .rw-help-md :is(h1, h2, h3) { color: var(--t-max); text-shadow: none; font-family: var(--mx-sans); letter-spacing: -0.01em; }
