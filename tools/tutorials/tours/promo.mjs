@@ -107,6 +107,34 @@ async function mcpCall(page, h, cmd, args, note) {
   return r;
 }
 
+/** Bloom kept subtle (owner: "if using bloom make it subtle"). The built-in looks bring heavy bloom
+ *  (Lissajous Scope 1.2 at threshold 0.05) that buried the raster, so this runs after every look
+ *  change: the boot pattern, each preset chip, the sample video. */
+async function subtleBloom() {
+  await mcp.request('set_param', { key: 'bloomIntensity', value: 0.2 });
+  await mcp.request('set_param', { key: 'bloomRadius', value: 0.35 });
+  await mcp.request('set_param', { key: 'bloomThreshold', value: 0.55 });
+}
+
+/** Turn the last two Amount knobs inside the page (one evaluate, its own rAF loop): driving them
+ *  with simulated mouse moves competed with the screen capture and the recording froze on a
+ *  rhythm. The film hides the pointer, so nothing on screen changes but the smoothness. */
+async function turnAmounts(page, by, ms) {
+  await page.evaluate(([d, dur]) => new Promise((done) => {
+    const rows = [...document.querySelectorAll('#panel-root .rw-beginner-view .rw-mod-slot')].slice(-2);
+    const fields = rows.map((r) => r.querySelector('.rw-mod-slot-amount input.rw-num'));
+    const from = fields.map((f) => +f.value);
+    const t0 = performance.now();
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;   // ease in-out, like a hand on a knob
+      fields.forEach((f, i) => { f.value = String(Math.round((from[i] + d * e) * 100) / 100); f.dispatchEvent(new Event('input', { bubbles: true })); });
+      if (k < 1) requestAnimationFrame(step); else done();
+    };
+    requestAnimationFrame(step);
+  }), [by, ms]);
+}
+
 /** The picture full-bleed (every other window hidden) or the whole workspace. */
 async function maxCenter(page, h, on) {
   const now = await page.evaluate(() => document.body.classList.contains('rw-center-max'));
@@ -186,6 +214,7 @@ export async function run(page, seg, h) {
   await seg('name', async () => {
     await caption(page, '1973', 'Rutt/Etra Scan Processor', 4200);
     await h.click('#boot-pattern', null, { steps: 14, pause: 200 });
+    await subtleBloom();
     await h.drag({ x: 900, y: 500 }, { x: 1100, y: 430 }, 90);
   });
 
@@ -208,10 +237,12 @@ export async function run(page, seg, h) {
     if (VARIANT === 'pattern') {
       // The native Pattern Generator, through two of its built-in looks (Presets chips).
       await quiet.chip(page, 'Worley Cells');
+      await subtleBloom();
       await h.check(() => [...document.querySelectorAll('select')].some((s) => s.value === 'worleyNoise'), 'Worley Cells pattern on');
       await caption(page, 'no video needed', 'a pattern generator built in', 4200);
       await h.drag({ x: 760, y: 480 }, { x: 1020, y: 520 }, 120);
       await quiet.chip(page, 'Lissajous Scope');
+      await subtleBloom();
       await h.check(() => [...document.querySelectorAll('select')].some((s) => s.value === 'lissajous'), 'Lissajous pattern on');
       await h.drag({ x: 1020, y: 520 }, { x: 820, y: 470 }, 120);
       return;
@@ -242,13 +273,18 @@ export async function run(page, seg, h) {
       throw new Error(`promo: no sample video button — ${why}`);
     }
     await h.check(() => /samples\/sample\.mp4/.test(document.getElementById('src-video')?.currentSrc || ''), 'sample video loaded');
-    // The sample is a bright clip: the stock bloom (0.85, threshold 0.15) washed it out to white
-    // (owner). Bloom down and the threshold up, so only the brightest lines glow.
-    await mcp.request('set_param', { key: 'bloomIntensity', value: 0.25 });
-    await mcp.request('set_param', { key: 'bloomThreshold', value: 0.5 });
-    await h.wait(1200);
+    // The video on a clean scan processor (owner): nothing carried over from the Noise Terrain
+    // start (its pattern layer, scanlines, vignette, focus blur, depth). Pattern off, the Default
+    // look (every colour, depth, bloom and post-FX value at factory), the default camera view;
+    // then the video's own colour and a subtle bloom (the stock bloom washed this bright clip out).
+    const patternOn = await page.evaluate(() => !!document.querySelector('#panel-root .rw-toggle[data-param-key="patternEnabled"] input')?.checked);
+    if (patternOn) await quiet.toggle(page, 'patternEnabled');
+    await quiet.chip(page, 'Default');
+    await h.resetView();
     await quiet.select(page, 'colorMode', 'video');
-    await quiet.ramp(page, h, 'zPush', 1.6, 1200);
+    await subtleBloom();
+    await h.check(() => !document.querySelector('#panel-root .rw-toggle[data-param-key="patternEnabled"] input')?.checked, 'pattern layer off for the video');
+    await h.wait(1200);
     await caption(page, 'colour from the source', 'every scan line painted by the video', 4200);
     await h.drag({ x: 760, y: 480 }, { x: 1020, y: 520 }, 150);
   });
@@ -326,11 +362,13 @@ export async function run(page, seg, h) {
     }
     const rows = await page.evaluate(() => document.querySelectorAll('#panel-root .rw-beginner-view .rw-mod-slot').length);
     const amt = (i) => `#panel-root .rw-beginner-view .rw-mod-slot:nth-of-type(${i}) .rw-mod-slot-amount .rw-knob`;
+    await h.at(amt(rows));   // scrolls the knobs into view
     for (let i = 0; i < 3; i++) {
-      await h.knob(await h.at(amt(rows - 1)), 24, 30);
-      await h.knob(await h.at(amt(rows)), 24, 30);
-      await h.wait(900);
+      await turnAmounts(page, 6, 2200);
+      await h.wait(700);
     }
+    await h.check(() => [...document.querySelectorAll('#panel-root .rw-beginner-view .rw-mod-slot')].slice(-2)
+      .every((r) => +r.querySelector('.rw-mod-slot-amount input.rw-num').value > 15), 'amounts turned up');
     await maxCenter(page, h, true);
     await h.drag({ x: 900, y: 520 }, { x: 1080, y: 430 }, 130);
     await h.wait(1500);
@@ -357,7 +395,7 @@ export async function run(page, seg, h) {
   // 7 — an AI at the controls, over MCP (a real connection; the log is its real traffic).
   await seg('mcp', async () => {
     await quiet.toggle(page, 'anaglyphEnabled');
-    await mcp.request('set_param', { key: 'bloomIntensity', value: 0.35 });
+    await subtleBloom();
     await mcp.request('set_param', { key: 'zPush', value: 1.2 });
     await h.wait(500);
     await mcpCall(page, h, 'describe', {}, 'what can I drive?');
