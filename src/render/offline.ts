@@ -136,7 +136,7 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
   tex.magFilter = THREE.LinearFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.generateMipmaps = false;
-  tex.flipY = false; // the bitmap is decoded flipped instead, matching VideoTexture's orientation
+  tex.flipY = false; // UNPACK_FLIP_Y is not applied to ImageBitmaps; decoded upright this reads right side up (checked against testsrc2 2026-10-18). mirrorH defaults ON: a patch sets it off for an unmirrored read
   const pad = job.pad ?? 5;
   let lastBitmap: ImageBitmap | null = null;
   const timeline = job.playTimeline !== false ? d.playTimelineFromStart() : false;
@@ -149,7 +149,7 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
     async renderFrame(i: number): Promise<{ png: string; sha256: string }> {
       const src = Math.min(i, job.frameCount - 1) + 1;
       const blob = await (await fetch(job.frames.replace('{i}', String(src).padStart(pad, '0')))).blob();
-      const bmp = await createImageBitmap(blob, { imageOrientation: 'flipY', colorSpaceConversion: 'none' });
+      const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image', colorSpaceConversion: 'none' });
       tex.image = bmp;
       tex.needsUpdate = true;
       d.ruttEtra.setExternalVideoTexture(tex, bmp.width, bmp.height);
