@@ -2227,6 +2227,10 @@ async function bootSynth(): Promise<void> {
         sequencer.play();
         return true;
       },
+      seekTimeline: (seconds) => {
+        const tl = sequencer.timeline;
+        if (tl) sequencer.seek((seconds * settings.get('internalBpm')) / 60 / tl.beatsPerBar);
+      },
       step: (dt, t) => frame(dt, t),
     });
   } else {
