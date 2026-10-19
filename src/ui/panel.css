@@ -665,6 +665,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .rw-toggle input { display: none; }
 .rw-toggle-sw {
+  flex: none;   /* never squeezed when the text beside it wraps */
   width: 32px; height: 16px;
   border: 1px solid var(--re-line);
   background: rgba(0,0,0,0.4);

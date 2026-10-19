@@ -178,7 +178,7 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
 
   // Test Tone + Mute Briefly buttons.
   const btnRow = document.createElement('div');
-  btnRow.className = 'rw-row';
+  btnRow.className = 'rw-btn-row';   // not rw-row: its label column would squeeze the first button
   btnRow.appendChild(button('Test Tone (440 Hz, 1s)', () => {
     void sonification.testTone();
   }));
@@ -332,7 +332,7 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
 
   // Reset-to-defaults helper.
   const resetRow = document.createElement('div');
-  resetRow.className = 'rw-row';
+  resetRow.className = 'rw-btn-row';
   resetRow.appendChild(button('Reset to default mapping', () => {
     updateConfig({
       waveform: DEFAULT_SONIFICATION.waveform,
