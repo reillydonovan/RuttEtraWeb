@@ -31,7 +31,7 @@ import { TARGETS, cvOutputTargets } from '../targets';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import { clonePatch } from '../../modulation/graph/clonePatch';
 import {
-  canPaste, createSlotRow, getSlotClipboard, setSlotClipboard,
+  canPaste, createSlotRow, getSlotClipboard, setSlotClipboard, AMOUNT_SWEEP,
   SlotRowAdapter, SourceKind, NodeParamField,
 } from '../shared/SlotRow';
 
@@ -259,8 +259,9 @@ export function createGraphRowCard(host: GraphRowHost, row: GraphRow): { root: H
     }),
     amount: {
       get: () => liveBinding().amount,
-      set: (v) => mutate((_cur, _src, b) => { if (b) b.amount = Math.max(-20, Math.min(20, v)); }, { skipRerender: true }),
-      min: -20, max: 20, step: 0.001,
+      // Any finite amount (a typed value may go past the knob's sweep); min/max are the knob's travel.
+      set: (v) => mutate((_cur, _src, b) => { if (b && Number.isFinite(v)) b.amount = v; }, { skipRerender: true }),
+      min: -AMOUNT_SWEEP, max: AMOUNT_SWEEP, step: 0.001,
     },
     expanded: {
       get: () => rowExpanded.get(row.binding.id) ?? false,

@@ -260,7 +260,7 @@ export function createInspector(opts: InspectorOptions): {
 
     const amount = document.createElement('input');
     amount.type = 'number';
-    amount.step = '0.01'; amount.min = '-20'; amount.max = '20';
+    amount.step = '0.01';   // no min/max: any amount can be typed (the engine takes any finite value)
     amount.value = String(binding.amount);
     amount.className = 'rw-num';
     amount.addEventListener('input', () => mutateBinding(

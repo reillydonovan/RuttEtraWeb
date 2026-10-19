@@ -26,7 +26,7 @@ import { TARGETS, cvOutputTargets } from '../targets';
 import { makeRangeAdapter } from '../shared/rangeAdapter';
 import { generatorSpan } from '../../modulation/patchRange';
 import {
-  createSlotRow, SlotRowAdapter, SourceKind,
+  createSlotRow, SlotRowAdapter, SourceKind, AMOUNT_SWEEP,
   getSlotClipboard, setSlotClipboard,
 } from '../shared/SlotRow';
 import { listPatternOutputs } from '../../renderer/patterns/PatternRegistry';
@@ -517,8 +517,8 @@ function createSlot(
     },
     amount: {
       get: () => get().amount,
-      set: (v) => update({ amount: v }),
-      min: -5, max: 5, step: 0.001,
+      set: (v) => { if (Number.isFinite(v)) update({ amount: v }); },
+      min: -AMOUNT_SWEEP, max: AMOUNT_SWEEP, step: 0.001,
     },
     range: makeRangeAdapter(settings, {
       target: () => get().target,

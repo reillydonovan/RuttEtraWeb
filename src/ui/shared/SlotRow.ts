@@ -23,6 +23,10 @@ import { fmtSwing } from '../../modulation/patchRange';
 import { animateToggle } from '../motion';
 import { attachTooltip } from '../tooltip';
 
+/** How far the Amount knob/slider travels either side of 0, the same for function generators
+ *  and Graph patches. A typed Amount isn't limited by it (the engines take any finite amount). */
+export const AMOUNT_SWEEP = 10;
+
 // ====================================================================
 // Adapter interfaces
 // ====================================================================
@@ -920,8 +924,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   amtRange.step = String(adapter.amount.step);
   const amtNum = el('input', 'rw-num') as HTMLInputElement;
   amtNum.type = 'number';
-  amtNum.min = String(adapter.amount.min);
-  amtNum.max = String(adapter.amount.max);
+  // No min/max on the typed field: any amount can be entered (the knob/slider keep their sweep).
   amtNum.step = String(adapter.amount.step);
   const amtLabel = el('label', 'rw-mod-slot-amount-cap', 'AMT');
   amtLabel.title = 'Amount — how strongly this source moves the target';
@@ -949,7 +952,7 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
   const amtKnob = createRawKnob({
     get: adapter.amount.get, set: adapter.amount.set,
     min: adapter.amount.min, max: adapter.amount.max, step: adapter.amount.step,
-    ariaLabel: 'Amount',
+    ariaLabel: 'Amount', softLimits: true,
   });
   amtWrap.appendChild(amtKnob.el);
   line2.appendChild(amtWrap);

@@ -1021,6 +1021,10 @@ export interface RawKnobOpts {
   max: number;
   step: number;
   ariaLabel: string;
+  /** min/max are the knob's travel, not a limit on the value: a value already past them (typed
+   *  in) isn't pulled back when the knob is touched — a drag or arrow key can only move it toward
+   *  (and then within) the travel. */
+  softLimits?: boolean;
 }
 
 export interface RawKnob {
@@ -1070,7 +1074,13 @@ export function createRawKnob(opts: RawKnobOpts): RawKnob {
   svg.append(track, fill, cap, ptr);
   el.appendChild(svg);
 
-  const clamp = (v: number): number => Math.min(opts.max, Math.max(opts.min, v));
+  /** Clamp to the travel; with softLimits, widened to include `from` (the value before the gesture). */
+  const clamp = (v: number, from = Number.NaN): number => {
+    const soft = opts.softLimits && Number.isFinite(from);
+    const lo = soft ? Math.min(opts.min, from) : opts.min;
+    const hi = soft ? Math.max(opts.max, from) : opts.max;
+    return Math.min(hi, Math.max(lo, v));
+  };
   const snap = (v: number): number => (opts.step > 0 ? Math.round(v / opts.step) * opts.step : v);
   const angleFor = (v: number): number => {
     const span = opts.max - opts.min;
@@ -1101,7 +1111,7 @@ export function createRawKnob(opts: RawKnobOpts): RawKnob {
       e.preventDefault();
       const fine = e.shiftKey ? 0.1 : 1;
       const span = opts.max - opts.min;
-      opts.set(clamp(snap(startVal + ((startY - e.clientY) / 160) * span * fine)));
+      opts.set(clamp(snap(startVal + ((startY - e.clientY) / 160) * span * fine), startVal));
       refresh();
     };
     const onUp = (e: PointerEvent): void => {
@@ -1115,7 +1125,8 @@ export function createRawKnob(opts: RawKnobOpts): RawKnob {
     doc.addEventListener('pointercancel', onUp);
   });
   el.addEventListener('keydown', (ev) => {
-    let v = opts.get();
+    const from = opts.get();
+    let v = from;
     switch (ev.key) {
       case 'ArrowUp': case 'ArrowRight': v += opts.step; break;
       case 'ArrowDown': case 'ArrowLeft': v -= opts.step; break;
@@ -1126,7 +1137,7 @@ export function createRawKnob(opts: RawKnobOpts): RawKnob {
       default: return;
     }
     ev.preventDefault();
-    opts.set(clamp(snap(v)));
+    opts.set(clamp(snap(v), from));
     refresh();
   });
 
