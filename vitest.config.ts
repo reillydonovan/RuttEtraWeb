@@ -40,6 +40,10 @@ export default defineConfig({
       // Keyframing v2 full UI: pure lane-editor geometry (bar/value ↔
       // pixel mapping, drag math) and the panel diamond's decision logic.
       'src/ui/**/*.test.ts',
+      // Offline render (?render=offline): the render clock + seeded chance, and the
+      // precomputed-spectrum file parser. Pure logic, no WebGL.
+      'src/platform/**/*.test.ts',
+      'src/render/**/*.test.ts',
     ],
     globals: false,
     reporters: ['default'],

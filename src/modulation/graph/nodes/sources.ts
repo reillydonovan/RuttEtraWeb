@@ -10,6 +10,7 @@
 import { register } from '../registry';
 import { divisionToBeats, ALL_DIVISIONS } from '../../tempo';
 import type { ClockDivision } from '../../../state/Settings';
+import { random } from '../../../platform/determinism';
 
 const TWO_PI = Math.PI * 2;
 
@@ -132,10 +133,10 @@ register<NoiseState>({
     const kind = params.kind as string;
     let v = 0;
     if (kind === 'white') {
-      v = Math.random() * 2 - 1;
+      v = random() * 2 - 1;
     } else if (kind === 'pink') {
       // Voss-McCartney-ish: average a few decaying low-passed white sources.
-      const r = Math.random() * 2 - 1;
+      const r = random() * 2 - 1;
       const lag = state.pinkLag;
       lag[0] = 0.99886 * lag[0] + r * 0.0555179;
       lag[1] = 0.99332 * lag[1] + r * 0.0750759;
@@ -149,7 +150,7 @@ register<NoiseState>({
     } else {
       const trig = ins.clock ?? 0;
       if (trig > 0.5 && state.lastClock <= 0.5) {
-        state.shValue = Math.random() * 2 - 1;
+        state.shValue = random() * 2 - 1;
       }
       state.lastClock = trig;
       v = state.shValue;

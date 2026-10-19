@@ -10,6 +10,7 @@
  */
 
 import { FFTAnalyzer } from './FFTAnalyzer';
+import { nowMs } from '../platform/determinism';
 
 const HISTORY_MS = 1500;       // adaptive-threshold window
 const REFRACTORY_MS = 120;     // min gap between detected beats
@@ -58,7 +59,7 @@ export class BeatDetector {
     }
     this.prevBands.set(bands);
 
-    const now = performance.now();
+    const now = nowMs();
     this.fluxHistory.push({ t: now, v: flux });
     while (this.fluxHistory.length > 0 && now - this.fluxHistory[0].t > HISTORY_MS) {
       this.fluxHistory.shift();

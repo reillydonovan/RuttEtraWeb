@@ -24,6 +24,7 @@ import { OutputCurve, SettingsStore } from '../../state/Settings';
 import { activeTargetsBus } from '../ActiveTargetsBus';
 import { LiveValuesStore } from '../LiveValues';
 import { applyOutputStage, OutputStageParams } from '../outputStage';
+import { nowMs } from '../../platform/determinism';
 import './bootstrap';
 import { allDefs, getDef } from './registry';
 import { topoSort } from './topo';
@@ -47,7 +48,7 @@ export class GraphEngine {
   private compiled: CompiledPatch | null = null;
   private patch: GraphPatch = { nodes: [], bindings: [] };
   private joystick = { x: 0, y: 0, z: 0 };
-  private startTime = performance.now() / 1000;
+  private startTime = nowMs() / 1000;
   private frame = 0;
   private deps: NodeDeps;
   private liveValues: LiveValuesStore;
@@ -174,7 +175,7 @@ export class GraphEngine {
     // current `Settings.internalBpm` without subscribing to it.
     this.deps.bpm = this.settings.get('internalBpm');
     const ctx: NodeContext = {
-      timeSec: performance.now() / 1000 - this.startTime,
+      timeSec: nowMs() / 1000 - this.startTime,
       dt: safeDt,
       frame: this.frame++,
       deps: this.deps,
