@@ -259,3 +259,35 @@ describe('per-port input refs (v25)', () => {
     expect(live.getLive('zPush')).toBeCloseTo(1 - 0.5, 6);
   });
 });
+
+describe('GraphEngine — state survives patch writes', () => {
+  const lfoPatch = (amount: number, rate = 1): GraphPatch => ({
+    nodes: [{ id: 'l', type: 'lfo', params: { rate, shape: 'saw' }, inputs: {} }],
+    bindings: [{ id: 'b', paramKey: 'zPush', sourceNodeId: 'l', amount, mode: 'additive' }],
+  });
+
+  it('an Amount change keeps the LFO phase (no jump on each knob tick)', () => {
+    const { engine } = makeEngine(lfoPatch(0.5));
+    for (let i = 0; i < 20; i++) engine.tick(1 / 60);
+    const before = engine.probe('l');
+    engine.setPatch(lfoPatch(0.6));
+    expect(engine.probe('l')).toBe(before);
+    engine.tick(1 / 60);
+    expect(Math.abs(engine.probe('l') - before)).toBeLessThan(0.1);
+  });
+
+  it('a param change on the LFO keeps its phase too', () => {
+    const { engine } = makeEngine(lfoPatch(0.5, 1));
+    for (let i = 0; i < 20; i++) engine.tick(1 / 60);
+    const before = engine.probe('l');
+    engine.setPatch(lfoPatch(0.5, 1.2));
+    expect(engine.probe('l')).toBe(before);
+  });
+
+  it('a changed type or a new node starts fresh', () => {
+    const { engine } = makeEngine(lfoPatch(0.5));
+    for (let i = 0; i < 20; i++) engine.tick(1 / 60);
+    engine.setPatch({ nodes: [{ id: 'l', type: 'constant', params: { value: 0.25 }, inputs: {} }], bindings: [] });
+    expect(engine.probe('l')).toBe(0);
+  });
+});

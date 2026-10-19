@@ -37,10 +37,13 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(95, 255, 133, 0.35);
 }
 /* Keep the axis cursor for the whole drag, even off the thumb. */
-.rw-edge-scroller:has(> .rw-pb-scrollbar--v.rw-pb-scrollbar--drag),
-.rw-edge-scroller:has(> .rw-pb-scrollbar--v.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ns) !important; }
-.rw-edge-scroller:has(> .rw-pb-scrollbar--h.rw-pb-scrollbar--drag),
-.rw-edge-scroller:has(> .rw-pb-scrollbar--h.rw-pb-scrollbar--drag) * { cursor: var(--rw-cur-resize-ew) !important; }
+/* A class set by edgeScrollbars.ts during a thumb drag, NOT :has(): a :has() on the scroller made
+   Chrome re-check it on every change inside the panel and restyle the whole panel body each
+   frame (~2 ms/frame with the workspace on screen, enough to drop renderer frames). */
+.rw-edge-scroller.rw-edge-drag-v,
+.rw-edge-scroller.rw-edge-drag-v * { cursor: var(--rw-cur-resize-ns) !important; }
+.rw-edge-scroller.rw-edge-drag-h,
+.rw-edge-scroller.rw-edge-drag-h * { cursor: var(--rw-cur-resize-ew) !important; }
 
 
 /* The Controls body reserves the rail's track as a right gutter, so the

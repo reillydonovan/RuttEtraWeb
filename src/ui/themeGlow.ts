@@ -57,6 +57,10 @@ export function attachGlow(doc: Document): () => void {
     el.style.setProperty('--my', `${p.y.toFixed(0)}px`);
   };
   const onMove = (e: PointerEvent): void => {
+    // Not while a button is held: a knob turn, cable or window drag moves the pointer every
+    // frame, and the glow's rect read + restyle cost frames the renderer needed (the promo's
+    // raster stuttered while a knob turned).
+    if (e.buttons !== 0) return;
     lx = e.clientX;
     ly = e.clientY;
     target = e.target;

@@ -43,7 +43,11 @@ const DEST_ARG = (() => { const i = process.argv.indexOf('--dest'); return i >= 
 // The promo can share a run with lessons: lessons still go to public/tutorials (and the manifest
 // is written for them), the promo to out/promo. (Once, every lesson in a run that included the promo
 // landed in out/promo, and the promo's own scratch folder — the same out/promo — then wiped them.)
-const PROMO_LESSON = { id: 'promo', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo' };
+const isPromo = (id) => id === 'promo' || id === 'promo-pattern';
+const PROMO_LESSONS = {
+  promo: { id: 'promo', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo' },
+  'promo-pattern': { id: 'promo-pattern', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo (pattern cut)' },
+};
 const DEST = DEST_ARG ?? path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
 const W = 1920, H = 1080;
 const PAD_MS = 450;          // breath after each line
@@ -73,13 +77,13 @@ const DRY = args.includes('--dry');
 const HQ = !args.includes('--playwright-video');   // validate a tour fast: no TTS, recording or encoding
 const ids = args.filter((a) => !a.startsWith('--'));
 const todo = indexOnly ? [] : ids.length ? ids.map((id) => {
-  const l = id === 'promo' ? PROMO_LESSON : LESSONS.find((x) => x.id === id);
+  const l = isPromo(id) ? PROMO_LESSONS[id] : LESSONS.find((x) => x.id === id);
   if (!l) throw new Error(`unknown lesson ${id}`);
   return l;
 }) : LESSONS;
 
 const PROMO_DEST = DEST_ARG ?? path.join(HERE, 'out', 'promo');
-const destFor = (lesson) => (lesson.id === 'promo' ? PROMO_DEST : DEST);
+const destFor = (lesson) => (isPromo(lesson.id) ? PROMO_DEST : DEST);
 fs.mkdirSync(DEST, { recursive: true });
 fs.mkdirSync(PROMO_DEST, { recursive: true });
 const ffmpeg = execFileSync(PY, ['-c', 'import imageio_ffmpeg as f; print(f.get_ffmpeg_exe())']).toString().trim();
@@ -212,7 +216,7 @@ addEventListener('DOMContentLoaded', () => {
 
 async function record(lesson) {
   const tour = await import(`./tours/${lesson.id}.mjs?t=${Date.now()}`);
-  const work = path.join(HERE, 'out', lesson.id === 'promo' ? 'promo-work' : lesson.id);   // never the output folder
+  const work = path.join(HERE, 'out', isPromo(lesson.id) ? `${lesson.id}-work` : lesson.id);   // never the output folder
   fs.rmSync(work, { recursive: true, force: true });
   fs.mkdirSync(work, { recursive: true });
 
@@ -245,12 +249,30 @@ async function record(lesson) {
   // Per-lesson hooks: page scripts (e.g. a fake MIDI device) and setup for
   // helper servers (e.g. a WebSocket standing in for the OSC/MCP bridge).
   for (const script of tour.initScripts ?? []) await ctx.addInitScript(script);
+  // RW_TRACE=1: log every Modulation row's Amount change and every pointer press (debugging a tour).
+  if (process.env.RW_TRACE) await ctx.addInitScript(() => {
+    const t0 = performance.now(); const last = new Map();
+    const name = (n) => n ? `${n.tagName.toLowerCase()}.${String(n.className?.baseVal ?? n.className).split(' ').join('.')}` : '-';
+    addEventListener('pointerdown', (e) => console.log(`[trace] ${((performance.now() - t0) / 1000).toFixed(2)} down ${name(e.target)} < ${name(e.target?.parentElement)}`), true);
+    addEventListener('pointerup', () => console.log(`[trace] ${((performance.now() - t0) / 1000).toFixed(2)} up`), true);
+    const tick = () => {
+      document.querySelectorAll('#panel-root .rw-beginner-view .rw-mod-slot').forEach((r, i) => {
+        const k = `${i}:${r.querySelector('.rw-mod-slot-tgt')?.value}`;
+        const v = r.querySelector('.rw-mod-slot-amount input.rw-num')?.value;
+        const kn = r.querySelector('.rw-mod-slot-amount .rw-knob')?.getAttribute('aria-valuenow');
+        const sig = `${v}/${kn}`;
+        if (last.get(k) !== sig) { last.set(k, sig); console.log(`[trace] ${((performance.now() - t0) / 1000).toFixed(2)} row ${k} field=${v} knob=${kn}`); }
+      });
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   const teardown = tour.setup ? await tour.setup({ ctx }) : null;
   const page = await ctx.newPage();
   const cap = !DRY && HQ ? await startScreencast(ctx, page, work, vp) : null;
   const t0 = Date.now();
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); if (process.env.RW_TRACE && m.text().startsWith('[trace]')) console.log(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('dialog', (d) => d.type() === 'prompt' ? d.accept(tour.promptAnswer ?? 'Tutorial') : d.accept());
 
@@ -392,7 +414,7 @@ function writeVtt(id, stamps, byId, trimMs) {
       a += d;
     }
   }
-  fs.writeFileSync(path.join(id === 'promo' ? PROMO_DEST : DEST, `${id}.vtt`), `WEBVTT\n\n${cues.join('\n')}`);
+  fs.writeFileSync(path.join(isPromo(id) ? PROMO_DEST : DEST, `${id}.vtt`), `WEBVTT\n\n${cues.join('\n')}`);
 }
 
 /** --vtt: rewrite captions from saved timings (no re-recording; TTS is cached). */
@@ -483,5 +505,5 @@ for (const l of todo) {
   try { await (VTT_ONLY ? rewriteVtt(l) : record(l)); } catch (e) { failed.push(l.id); console.error(`[${l.id}] FAILED: ${e.message}`); }
 }
 // The manifest/About list change only for real lessons into public/tutorials (not a promo-only run).
-if (!DRY && DEST_ARG == null && (indexOnly || todo.some((l) => l.id !== 'promo'))) { await writeManifest(); writeIndex(); }
+if (!DRY && DEST_ARG == null && (indexOnly || todo.some((l) => !isPromo(l.id)))) { await writeManifest(); writeIndex(); }
 if (failed.length) { console.error(`failed: ${failed.join(', ')}`); process.exitCode = 1; }

@@ -49,6 +49,11 @@
 /* ============================================================ 1 TOKENS */
 
 @property --glow { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* The glow's position is read only by the surface that sets it (its own background), so it
+   must not inherit: an inherited --mx/--my restyled the WHOLE card subtree on every pointer
+   move (a big Controls section is hundreds of elements) and cost a frame budget's worth. */
+@property --mx { syntax: "<length-percentage>"; inherits: false; initial-value: 50%; }
+@property --my { syntax: "<length-percentage>"; inherits: false; initial-value: 50%; }
 
 :root[data-theme="modern"],
 body[data-theme="modern"] {

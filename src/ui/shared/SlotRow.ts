@@ -1191,13 +1191,17 @@ export function createSlotRow(adapter: SlotRowAdapter): SlotRowUi {
 
   // The live marker moves every frame; the card itself refreshes only on edits.
   let lastSwing: { from: number; to: number } | null = null;
+  let lastDotTf = '';
   function placeDot(): void {
     const r = adapter.range; const sw = lastSwing;
     const lv = r && sw ? r.live() : null;
     const span = sw ? sw.to - sw.from : 0;
     const show = lv != null && !!sw && Math.abs(span) > 1e-12 && !lineRange.hidden;
     if (dot.hidden === show) dot.hidden = !show;
-    if (show && sw && lv != null) dot.style.left = `${Math.max(0, Math.min(1, (lv - sw.from) / span)) * 100}%`;
+    if (show && sw && lv != null) {
+      const tf = `translateX(${(Math.max(0, Math.min(1, (lv - sw.from) / span)) * 100).toFixed(2)}%)`;
+      if (tf !== lastDotTf) { lastDotTf = tf; dot.style.transform = tf; }
+    }
   }
   let dotStarted = false;
   const dotLoop = (): void => {

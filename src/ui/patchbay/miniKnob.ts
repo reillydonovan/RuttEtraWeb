@@ -113,12 +113,13 @@ export function createMiniKnob(opts: MiniKnobOpts): MiniKnob {
   let lastLive: number | null = null;
   function setLive(v: number | null): void {
     if (v === lastLive || (v !== null && lastLive !== null && Object.is(v, lastLive))) return;
+    const wasShown = lastLive !== null;
     lastLive = v;
     if (v === null) {
       livePtr.setAttribute('visibility', 'hidden');
       return;
     }
-    livePtr.setAttribute('visibility', 'visible');
+    if (!wasShown) livePtr.setAttribute('visibility', 'visible');
     livePtr.setAttribute('transform', `rotate(${angleFor(v).toFixed(2)} 20 20)`);
   }
 

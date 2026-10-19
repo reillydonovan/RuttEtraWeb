@@ -134,11 +134,14 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   const ro = readout();
   ro.style.marginTop = '6px';
   root.appendChild(ro);
+  let lastTxt = '';
   function tick() {
     const c = rig.camera.position;
-    ro.textContent =
+    const txt =
       `pos  ${c.x.toFixed(2)}, ${c.y.toFixed(2)}, ${c.z.toFixed(2)}\n` +
       `fov  ${rig.camera.fov.toFixed(1)}°  near ${rig.camera.near}  far ${rig.camera.far}`;
+    // Only when it changed: rewriting the text every frame relaid out the page each frame.
+    if (txt !== lastTxt) { lastTxt = txt; ro.textContent = txt; }
     requestAnimationFrame(tick);
   }
   tick();
@@ -165,7 +168,12 @@ function buildTransformGroup(settings: SettingsStore, rig: CameraRig): HTMLEleme
 
   const note = document.createElement('div');
   note.className = 'rw-hint';
+  // Only on a change: the rig can report the preview state every frame, and rewriting the
+  // text each frame relaid out the page each frame.
+  let noteKey = '';
   const setNote = (text: string, warn = false): void => {
+    if (noteKey === `${warn}|${text}`) return;
+    noteKey = `${warn}|${text}`;
     note.textContent = text;
     note.style.color = warn ? 'var(--re-accent-2)' : '';
   };

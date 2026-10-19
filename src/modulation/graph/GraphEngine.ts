@@ -69,8 +69,12 @@ export class GraphEngine {
   // -------------------- public API --------------------
 
   /**
-   * Replace the patch. Re-sorts topology and re-initializes per-node
-   * state. If `patch` is null the engine clears and `tick` is a no-op.
+   * Replace the patch. Re-sorts topology. A node that is still there (same id and
+   * type) keeps its running state and last outputs, so an edit — an Amount knob turn,
+   * a param tweak — doesn't restart its LFO phase: re-initializing on every write
+   * made the raster jump on each knob tick. State is rebuilt only for new nodes, a
+   * changed type, or a node whose init reads params that changed (e.g. Delay's
+   * frame count). If `patch` is null the engine clears and `tick` is a no-op.
    */
   setPatch(patch: GraphPatch | null): void {
     if (!patch || patch.nodes.length === 0) {
@@ -79,7 +83,7 @@ export class GraphEngine {
       return;
     }
     this.patch = patch;
-    this.compiled = compile(patch);
+    this.compiled = compile(patch, this.compiled);
     if (this.compiled.cycleEdges.length > 0 && !this.warnedAboutCycle) {
       this.warnedAboutCycle = true;
       // eslint-disable-next-line no-console
@@ -295,7 +299,7 @@ export class GraphEngine {
 // Helpers
 // --------------------------------------------------------------------
 
-function compile(patch: GraphPatch): CompiledPatch {
+function compile(patch: GraphPatch, prev: CompiledPatch | null = null): CompiledPatch {
   const byId = new Map<string, CompiledNode>();
   for (const n of patch.nodes) {
     const def = getDef(n.type);
@@ -305,6 +309,11 @@ function compile(patch: GraphPatch): CompiledPatch {
       continue;
     }
     const params = withParamDefaults(def, n.params);
+    const old = prev?.byId.get(n.id);
+    if (old && canKeepState(old, n.type, def, params)) {
+      byId.set(n.id, { node: { ...n, params }, def, state: old.state, outputs: old.outputs, prevOutputs: old.prevOutputs });
+      continue;
+    }
     const outputs: Record<string, number> = {};
     for (const p of def.outputs) outputs[p.name] = 0;
     byId.set(n.id, {
@@ -321,6 +330,22 @@ function compile(patch: GraphPatch): CompiledPatch {
   // Bindings to unknown nodes are dropped silently.
   const bindings = patch.bindings.filter((b) => byId.has(b.sourceNodeId));
   return { byId, order, cycleEdges: t.cycleEdges, bindings };
+}
+
+/** A node's running state survives a patch write when it is the same node: same type,
+ *  and either its init ignores params (`init()` takes none) or the params are unchanged. */
+function canKeepState(
+  old: CompiledNode,
+  type: string,
+  def: { init: (...a: never[]) => unknown; outputs: { name: string }[] },
+  params: Record<string, number | string | boolean>,
+): boolean {
+  if (old.node.type !== type || old.def !== def) return false;
+  if (def.outputs.some((p) => !(p.name in old.outputs))) return false;
+  if (def.init.length === 0) return true;
+  const a = old.node.params, keys = new Set([...Object.keys(a), ...Object.keys(params)]);
+  for (const k of keys) if (a[k] !== params[k]) return false;
+  return true;
 }
 
 function withParamDefaults(

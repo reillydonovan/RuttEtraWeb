@@ -1675,8 +1675,14 @@ body[data-layout="compact"] .rw-kf-diamond { display: none; }
   position: relative; flex: 1 1 auto; min-width: 24px; height: 4px; border-radius: 2px;
   background: linear-gradient(90deg, rgba(95,255,133,0.18), rgba(95,255,133,0.45));
 }
+/* The live marker moves every frame, so it moves by transform (no relayout): a full-width layer
+   slid by a percentage of its own width (= the track's), the dot drawn at its left edge. Moving
+   it with `left` relaid out the page each frame and cost the renderer frames. */
 .rw-mod-range-dot {
-  position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+  position: absolute; inset: 0; pointer-events: none; will-change: transform;
+}
+.rw-mod-range-dot::before {
+  content: ''; position: absolute; left: 0; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
   background: var(--re-accent, #5fff85); box-shadow: 0 0 6px rgba(95,255,133,0.8);
 }
 .rw-mod-range-dot[hidden] { display: none; }

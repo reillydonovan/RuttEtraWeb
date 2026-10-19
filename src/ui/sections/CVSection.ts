@@ -334,16 +334,20 @@ export function createCVSection(deps: CVSectionDeps): HTMLElement {
         }
         padLive.appendChild(btns);
       } else {
-        padStatus.textContent = `No gamepad at index ${idx}.`;
-        padLive.innerHTML = '';
+        idleStatus(`No gamepad at index ${idx}.`);
       }
     } else {
-      padStatus.textContent = 'No gamepad selected.';
-      padLive.innerHTML = '';
+      idleStatus('No gamepad selected.');
     }
     requestAnimationFrame(padPoll);
   };
   requestAnimationFrame(padPoll);
+  // No pad: write only on a change. This poll runs every frame, and rewriting the status text
+  // (and clearing the readouts) each frame relaid out the page each frame.
+  function idleStatus(text: string): void {
+    if (padStatus.textContent !== text) padStatus.textContent = text;
+    if (padLive.firstChild) padLive.replaceChildren();
+  }
 
   // ===================================================================
   // Help blurb (Route B + general guidance)

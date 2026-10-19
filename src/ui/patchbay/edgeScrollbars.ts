@@ -79,12 +79,19 @@ export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
     hideTimer = window.setTimeout(refreshVisibility, HIDE_MS);
   };
 
+  let lastSig = '';
   const update = (): void => {
     const cw = scroller.clientWidth, ch = scroller.clientHeight;
     const sl = scroller.scrollLeft, st = scroller.scrollTop;
     const OFF = RAIL + EDGE_GAP;
     const gv = thumbGeometry(ch, scroller.scrollHeight, st, ch - OFF);
     const gh = thumbGeometry(cw, scroller.scrollWidth, sl, cw - OFF);
+    // Called every frame by the Patch Bay: write nothing when nothing moved, or each frame's
+    // style writes dirty layout and the next read forces a full relayout (it profiled at ~23%
+    // of the main thread with the workspace on screen, and the renderer dropped frames).
+    const sig = `${cw},${ch},${sl},${st},${gv?.size},${gv?.offset},${gh?.size},${gh?.offset}`;
+    if (sig === lastSig) return;
+    lastSig = sig;
     v.rail.style.display = gv ? '' : 'none';
     h.rail.style.display = gh ? '' : 'none';
     if (gv) {
@@ -123,6 +130,7 @@ export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
       e.preventDefault(); e.stopPropagation();
       dragging = axis;
       parts.rail.classList.add('rw-pb-scrollbar--drag');
+      scroller.classList.add(`rw-edge-drag-${axis}`);
       const r = parts.rail.getBoundingClientRect();
       const k = (isV ? r.height / (parts.rail.offsetHeight || r.height) : r.width / (parts.rail.offsetWidth || r.width)) || 1;
       const start = isV ? e.clientY : e.clientX;
@@ -140,6 +148,7 @@ export function attachEdgeScrollbars(scroller: HTMLElement): EdgeScrollbars {
       const up = (): void => {
         dragging = null;
         parts.rail.classList.remove('rw-pb-scrollbar--drag');
+        scroller.classList.remove(`rw-edge-drag-${axis}`);
         doc.removeEventListener('pointermove', move);
         doc.removeEventListener('pointerup', up);
         doc.removeEventListener('pointercancel', up);

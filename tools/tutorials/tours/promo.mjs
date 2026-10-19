@@ -15,6 +15,11 @@ import path from 'node:path';
 import { bridgeServer } from '../lib/fakeio.mjs';
 import { findJack } from '../lib/bay.mjs';
 
+// Two cuts of the same film, for an A/B: `promo` puts the site's sample video through the beam in
+// its own colours; `promo-pattern` (tours/promo-pattern.mjs imports this file as ?variant=pattern)
+// uses the built-in Pattern Generator instead — no video at all in that beat.
+const VARIANT = new URL(import.meta.url).searchParams.get('variant') === 'pattern' ? 'pattern' : 'video';
+
 export const fakeMedia = true;
 export const noCursor = true;        // a film, not a tutorial: no painted pointer
 export const noCard = true;
@@ -40,7 +45,9 @@ export const lines = [
   { id: 'cold', text: 'In 1973, a small company in New York built a machine that could bend television.' },
   { id: 'name', text: 'It was called the Rutt Etra Scan Processor. It did not filter a picture. It reached inside the tube, and steered the beam.' },
   { id: 'height', text: 'Brighter became higher. Darker became lower. A flat image turned into a landscape, drawn in light.' },
-  { id: 'color', text: "Feed it real video, and the beam carries the picture's own colour. Every line is painted by the source." },
+  VARIANT === 'pattern'
+    ? { id: 'color', text: 'Or feed it nothing at all. A built-in pattern generator draws its own signal, and the beam turns it into form.' }
+    : { id: 'color', text: "Feed it real video, and the beam carries the picture's own colour. Every line is painted by the source." },
   { id: 'few', text: 'Only about seventeen to twenty-one were ever built, and the tube inside each one burned out. When the hardware goes, the practice goes with it.' },
   { id: 'rebuilt', text: 'So it was rebuilt, from its own documentation. An AI was pointed at the archive: the brochure, the manual, the panel diagram. It read all of it, wrote a specification, and built the instrument against it. A person directed every decision.' },
   { id: 'web', text: 'It runs in a browser. Nothing to install. No waiting list. One link.' },
@@ -141,6 +148,14 @@ export async function pre(page, h) {
   for (let i = 0; i < 30 && !mcp.connected; i++) await h.wait(100);
   if (!mcp.connected) throw new Error('promo: the MCP stand-in never connected');
   await page.click('#panel-root .rw-tab[data-tab="synth"]');
+  // Boot the phone (a second app instance) here, in the trimmed setup: booting it mid-film made
+  // the main page drop frames through the whole push beat (the raster appeared to stutter).
+  await ensurePhone(page);
+  let frame = null;
+  for (let i = 0; i < 200 && !frame; i++) { frame = page.frames().find((f) => f.url().includes('layout=compact')) ?? null; if (!frame) await h.wait(100); }
+  if (!frame) throw new Error('promo: the phone frame never appeared');
+  await frame.waitForFunction(() => !!document.body.dataset.layout, null, { timeout: 120000 });
+  await h.wait(1500);
   await maxCenter(page, h, true);
 }
 
@@ -190,6 +205,17 @@ export async function run(page, seg, h) {
   // Sampled Video). Loaded with the real Load Sample Video button (Video Source A ▸ File).
   // Owner: from here on the film stays on the video's own colour — no phosphor tints.
   await seg('color', async () => {
+    if (VARIANT === 'pattern') {
+      // The native Pattern Generator, through two of its built-in looks (Presets chips).
+      await quiet.chip(page, 'Worley Cells');
+      await h.check(() => [...document.querySelectorAll('select')].some((s) => s.value === 'worleyNoise'), 'Worley Cells pattern on');
+      await caption(page, 'no video needed', 'a pattern generator built in', 4200);
+      await h.drag({ x: 760, y: 480 }, { x: 1020, y: 520 }, 120);
+      await quiet.chip(page, 'Lissajous Scope');
+      await h.check(() => [...document.querySelectorAll('select')].some((s) => s.value === 'lissajous'), 'Lissajous pattern on');
+      await h.drag({ x: 1020, y: 520 }, { x: 820, y: 470 }, 120);
+      return;
+    }
     // Any Video Source A instance (the panel can hold a hidden duplicate) whose sample row the
     // file check has revealed — that check is an async HEAD request, so give it a moment.
     let sample = false;
@@ -216,6 +242,10 @@ export async function run(page, seg, h) {
       throw new Error(`promo: no sample video button — ${why}`);
     }
     await h.check(() => /samples\/sample\.mp4/.test(document.getElementById('src-video')?.currentSrc || ''), 'sample video loaded');
+    // The sample is a bright clip: the stock bloom (0.85, threshold 0.15) washed it out to white
+    // (owner). Bloom down and the threshold up, so only the brightest lines glow.
+    await mcp.request('set_param', { key: 'bloomIntensity', value: 0.25 });
+    await mcp.request('set_param', { key: 'bloomThreshold', value: 0.5 });
     await h.wait(1200);
     await quiet.select(page, 'colorMode', 'video');
     await quiet.ramp(page, h, 'zPush', 1.6, 1200);
@@ -284,7 +314,6 @@ export async function run(page, seg, h) {
 
   // 5 — push it: two LFOs on the linearity, the amount turned up. Real knobs, real panel.
   await seg('push', async () => {
-    await ensurePhone(page);   // boots in the background, revealed in the phone segment
     await h.section('Modulation');
     await h.click('#panel-root .rw-mod-mode-switch button[data-mode="graph"]', null, { steps: 12, pause: 80 });
     await h.wait(500);

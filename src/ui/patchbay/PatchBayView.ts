@@ -3824,11 +3824,13 @@ export function createPatchBayView(
       const spec = node ? getDef(node.type)?.params[param] : undefined;
       const val = String(node?.params[param] ?? (spec?.kind === 'enum' ? spec.default : ''));
       const src = OPTION_TO_WAVE_SOURCE[val];
-      if (!src) { sj.classList.remove('rw-rack-jack--plugged'); continue; }
+      // contains() first: classList.remove always rewrites the attribute (a restyle) even when the
+      // class isn't there, and this runs every frame.
+      if (!src) { if (sj.classList.contains('rw-rack-jack--plugged')) sj.classList.remove('rw-rack-jack--plugged'); continue; }
       const a = anchor(srcJacks.get(src));
       const b = anchor(sj);
       if (!a || !b) continue;
-      sj.classList.add('rw-rack-jack--plugged');
+      if (!sj.classList.contains('rw-rack-jack--plugged')) sj.classList.add('rw-rack-jack--plugged');
       const id = `shape:${key}`;
       const la = local(a), lb = local(b);
       drawPatchCable(ctx, la, lb, SOURCE_COLOR, {
@@ -3956,7 +3958,11 @@ export function createPatchBayView(
         lastRubber = { a: local(a), b: local(pending.pos), color };
       }
     } else {
-      root.classList.remove('rw-pb-cursor-accept', 'rw-pb-cursor-reject');
+      // Every frame: only touch the class list when one is there (remove() always rewrites the
+      // attribute, which restyled the whole bay each frame and cost the renderer frames).
+      if (root.classList.contains('rw-pb-cursor-accept') || root.classList.contains('rw-pb-cursor-reject')) {
+        root.classList.remove('rw-pb-cursor-accept', 'rw-pb-cursor-reject');
+      }
     }
 
     // Unplug ghosts: a cable you just dropped into empty space doesn't
