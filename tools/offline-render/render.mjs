@@ -11,7 +11,7 @@
 // The app is the BUILT app in ../../dist (run `npm run build` first).
 //
 // Headed Chrome on purpose: headless can fall back to SwiftShader. The run FAILS if the
-// WebGL renderer is not a real GPU. Frames go to ffmpeg as PNGs (lossless) on stdin.
+// WebGL renderer is not a real GPU. Frames go to ffmpeg ($FFMPEG, needs libx264) as PNGs on stdin.
 //
 // ANGLE on OpenGL by default (ANGLE=d3d11|vulkan to override). Measured on node-b's 3090 Ti,
 // 2026-10-18, 60 frames rendered twice: OpenGL bit-identical (0 of 60 differ); D3D11 27 of 60
@@ -111,7 +111,13 @@ if (verify) {
 const out = resolve(opt('out'));
 const { browser, page, info, errors } = await openRenderer();
 console.log(`gpu: ${info.gpu}; ${job.width}x${job.height} @ ${job.fps} fps; frames ${from}-${to}; timeline ${info.timeline}`);
-const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(job.fps), '-i', '-',
+const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
+{ // fail naming the binary, not with ffmpeg's exit code, when it has no libx264 (e.g. a Topaz build on PATH)
+  const { execFileSync } = await import('node:child_process');
+  const enc = execFileSync(FFMPEG, ['-hide_banner', '-encoders'], { encoding: 'utf8' });
+  if (!/ libx264 /.test(enc)) throw new Error(`${FFMPEG} has no libx264; set FFMPEG to a full build`);
+}
+const ff = spawn(FFMPEG, ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(job.fps), '-i', '-',
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '12', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out],
   { stdio: ['pipe', 'inherit', 'inherit'] });
 const write = (buf) => new Promise((res, rej) => ff.stdin.write(buf, (e) => (e ? rej(e) : res())));
