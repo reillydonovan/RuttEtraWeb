@@ -154,6 +154,12 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   // ----- Camera -----
   cameraMode:       { description: 'Orbit (mouse drag, quaternion-based — full 360° in any axis) or fly-through (WASD + mouse, unclamped pitch/roll).', panel: 'Camera' },
   cameraFov:        { description: 'Field of view in degrees.', range: '20..120', panel: 'Camera' },
+  camPosX:          { description: 'Camera position, left (−) to right (+). Orbiting or flying moves it; keyframe it to animate the camera. (Moves the camera, not the raster — the DCU’s H Position moves the picture.)', range: '-10..10', panel: 'Camera' },
+  camPosY:          { description: 'Camera position, down (−) to up (+).', range: '-10..10', panel: 'Camera' },
+  camPosZ:          { description: 'Camera position, toward (−) or away from (+) the raster. The raster faces +Z.', range: '-10..10', panel: 'Camera' },
+  camRotX:          { description: 'Camera pitch in degrees: + tilts the view up, − down. Applied after yaw (Unity order: Y, then X, then Z).', range: '-360..360', panel: 'Camera' },
+  camRotY:          { description: 'Camera yaw in degrees: + turns the view left. Keys past ±180 keep spinning the same way (no snap back).', range: '-360..360', panel: 'Camera' },
+  camRotZ:          { description: 'Camera roll in degrees: + rolls the camera counter-clockwise, so the picture turns clockwise. (Turns the camera — the DCU’s Rotation turns the raster.)', range: '-360..360', panel: 'Camera' },
   cameraNear:       { description: 'Near clipping plane.', panel: 'Camera' },
   cameraFar:        { description: 'Far clipping plane.', panel: 'Camera' },
   autoOrbit:        { description: 'Slowly orbit the scene with no input.', panel: 'Camera' },

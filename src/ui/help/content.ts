@@ -1205,6 +1205,8 @@ export function generateControlsMarkdown(filter?: string): string {
       out += '| **Reset View** [R] | Snaps to your saved default view. |\n';
       out += '| **Save Default View** | Captures the current camera as the new saved default. |\n';
       out += '| **Reset Up** | Snaps the up-vector back to +Y without changing position. Use after orbiting through the poles. |\n';
+      out += '| **Transform** (Pos / Rot X Y Z) | Where the camera is, as keyframable values. Moving the camera updates them; typing places it. Once keyframed, a drag only previews until you key it. |\n';
+      out += '| **◆ Key camera** | Keys all six transform values at the playhead, from where the camera is now. |\n';
       out += '| **Hard Reset Camera** [Shift+R] | Resets camera to factory defaults and clears your saved default view. Use this if the camera gets stuck or behaves unexpectedly. |\n';
       out += '| Drag | Orbit around the target — fully unconstrained, including over the top, behind, and inverted. |\n';
       out += '| Right-drag | Pan |\n';

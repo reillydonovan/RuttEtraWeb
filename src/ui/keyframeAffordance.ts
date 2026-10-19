@@ -200,8 +200,56 @@ export function setKeyedValueAtPlayhead(
   return true;
 }
 
-function executeToggle(key: string): void {
+/** True if the param has at least one lane in the current timeline. */
+export function hasLane(key: string): boolean {
+  return (laneIndex.get(key)?.length ?? 0) > 0;
+}
+
+/**
+ * Something other than the knob can say what a param's value is right now — the Virtual Camera
+ * while a drag previews over its keyframes. When the source returns a number, the ◆ keys that
+ * value at the playhead (adding or overwriting a point) instead of toggling.
+ */
+const keySources = new Map<string, () => number | null>();
+export function registerKeySource(key: string, value: () => number | null): void {
+  keySources.set(key, value);
+}
+
+/**
+ * Key absolute values for several params at the playhead in ONE edit (one undo step). A param
+ * with no lane gets one; otherwise the point at the playhead is rewritten or a new one added,
+ * like an auto-keyed knob edit. Values are absolute (what the param should read), not offsets.
+ */
+export function keyValuesAtPlayhead(settings: SettingsStore, entries: { key: string; value: number }[]): boolean {
+  if (!seq?.timeline) return false;
+  const head = seq.playheadBar;
+  seq.editLanes((t) => {
+    for (const { key, value } of entries) {
+      const base = settings.get(key as never) as unknown;
+      if (typeof base !== 'number') continue;
+      const keyLanes = t.lanes.filter((l) => l.paramKey === key);
+      if (keyLanes.length === 0) {
+        t.lanes.push({ id: newLaneId(), paramKey: key, enabled: true, points: [{ bar: head, value: value - base }] });
+        continue;
+      }
+      let lane = keyLanes[0];
+      let hit = null as ReturnType<typeof findPointAt>;
+      for (const l of keyLanes) {
+        const h = findPointAt(l.points, head);
+        if (h) { lane = l; hit = h; break; }
+      }
+      let other = 0;
+      for (const l of keyLanes) if (l !== lane) other += evalLane(l.points, head);
+      lane.points = upsertPoint(lane.points, { bar: head, value: value - base - other, easing: hit?.easing });
+    }
+  });
+  return true;
+}
+
+function executeToggle(key: string, settings: SettingsStore, useSource = true): void {
   if (!seq?.timeline) return;
+  const sourced = useSource ? keySources.get(key)?.() : null;
+  if (typeof sourced === 'number') { keyValuesAtPlayhead(settings, [{ key, value: sourced }]); return; }
   const plan = planToggle(laneIndex.get(key) ?? [], seq.playheadBar);
   seq.editLanes((t) => {
     if (plan.kind === 'createLane') {
@@ -252,7 +300,7 @@ function openMenu(btn: HTMLButtonElement, key: string, settings: SettingsStore, 
       dockActions?.revealLane(keyLanes[0].id);
     },
   );
-  item('Remove point at playhead', state !== 'point', () => executeToggle(key));
+  item('Remove point at playhead', state !== 'point', () => executeToggle(key, settings, false));
   item(
     keyLanes.length > 1 ? `Remove automation (${keyLanes.length} lanes)` : 'Remove automation',
     keyLanes.length === 0,
@@ -304,7 +352,7 @@ export function attachKeyframeDiamond(
 
   btn.addEventListener('click', (ev) => {
     ev.stopPropagation();
-    executeToggle(paramKey);
+    executeToggle(paramKey, settings);
   });
   btn.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();

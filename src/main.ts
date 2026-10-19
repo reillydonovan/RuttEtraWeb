@@ -17,7 +17,7 @@ import { settings, presetPatch } from './state/Settings';
 import { PRESETS, NO_CAMERA_PRESET_ID } from './ui/presets';
 import { VideoSourceManager } from './input/sources';
 import { RuttEtraScene } from './renderer/RuttEtra';
-import { CameraRig } from './renderer/CameraRig';
+import { CameraRig, CAM_KEYS } from './renderer/CameraRig';
 import { PostFX } from './renderer/Postfx';
 import { ResolutionManager } from './renderer/ResolutionManager';
 import { PatternRenderer } from './renderer/patterns/PatternRenderer';
@@ -527,6 +527,9 @@ async function bootSynth(): Promise<void> {
   });
   // Panel keyframe diamonds (◆) observe the sequencer from here on.
   keyframeAffordance.registerSequencer(sequencer);
+  // Camera transform: keyframes win while playing; moving the playhead ends a drag preview.
+  cameraRig.setTimelineHooks({ hasLane: keyframeAffordance.hasLane, isPlaying: () => sequencer.isPlaying });
+  sequencer.addPlayheadListener(() => { if (!sequencer.isPlaying) cameraRig.endPreview(); });
 
   // Restore last-active timeline (if any).
   {
@@ -536,12 +539,24 @@ async function bootSynth(): Promise<void> {
     if (tl) sequencer.load(tl);
   }
 
+  // A new saved view (preset / project load) moves the camera there — unless the same load also
+  // carried the camera transform (v39), which is the more exact pose and wins.
   let lastDefault = JSON.stringify(settings.get('defaultView'));
+  // "Same load" = the same task: the flag clears on a timer, the check runs in a microtask, so
+  // the order of keys within the load doesn't matter.
+  let transformTouched = false;
+  for (const k of CAM_KEYS) {
+    settings.subscribe(k, () => {
+      if (transformTouched) return;
+      transformTouched = true;
+      setTimeout(() => { transformTouched = false; }, 0);
+    });
+  }
   settings.subscribe('defaultView', (v) => {
     const cur = JSON.stringify(v);
     if (cur === lastDefault) return;
     lastDefault = cur;
-    cameraRig.applySavedView(v);
+    queueMicrotask(() => { if (!transformTouched) cameraRig.applySavedView(v); });
   });
 
   // Recorder + broadcaster — both lazy.

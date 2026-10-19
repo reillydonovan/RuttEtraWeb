@@ -245,3 +245,30 @@ describe('migrateSettings v35 -> v36 (left/center windows collapse like the othe
     expect(migrateSettings(once)._v).toBe(once._v);
   });
 });
+
+describe('migrateSettings v38 -> v39 (camera transform)', () => {
+  it('starts the transform from the saved default view', () => {
+    const out = migrateSettings({
+      _v: 38,
+      defaultView: { posX: 2.6, posY: 0, posZ: 0, targetX: 0, targetY: 0, targetZ: 0, upX: 0, upY: 1, upZ: 0, fov: 50 },
+    });
+    expect(out._v ?? 0).toBeGreaterThanOrEqual(39);
+    expect(out.camPosX).toBe(2.6);
+    expect(out.camPosZ).toBe(0);
+    expect(out.camRotX).toBeCloseTo(0, 3);
+    expect(out.camRotY).toBeCloseTo(90, 3);   // looking down −X from +X
+    expect(out.camRotZ).toBeCloseTo(0, 3);
+  });
+
+  it('uses the factory view when none was saved, and keeps explicit values', () => {
+    const fresh = migrateSettings({ _v: 38 });
+    expect(fresh.camPosY).toBe(0.4);
+    expect(fresh.camRotX).toBeCloseTo(-8.746, 2);
+    expect(migrateSettings({ _v: 38, camPosX: 3 }).camPosX).toBe(3);
+  });
+
+  it('is idempotent', () => {
+    const once = migrateSettings({ _v: 38 });
+    expect(migrateSettings(once)).toEqual(once);
+  });
+});

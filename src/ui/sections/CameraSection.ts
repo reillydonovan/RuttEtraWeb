@@ -5,9 +5,11 @@
  */
 
 import { SettingsStore } from '../../state/Settings';
-import { CameraRig } from '../../renderer/CameraRig';
+import { CameraRig, CAM_KEYS, CamKey } from '../../renderer/CameraRig';
 import { RESOLUTION_PRESETS } from '../../renderer/ResolutionManager';
 import { row, group, slider, toggle, dropdown, button, readout } from '../widgets';
+import { keyValuesAtPlayhead, registerKeySource } from '../keyframeAffordance';
+import { attachTooltip } from '../tooltip';
 
 export function createCameraSection(settings: SettingsStore, rig: CameraRig): HTMLElement {
   const root = document.createElement('div');
@@ -32,6 +34,8 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   obs.observe(document.body, { attributes: true, attributeFilter: ['data-layout'] });
   modeRow.body.append(row('Mode', modeDd));
   root.appendChild(modeRow.root);
+
+  root.appendChild(buildTransformGroup(settings, rig));
 
   // ---- Resolution group ----
   root.appendChild(buildResolutionGroup(settings));
@@ -140,6 +144,50 @@ export function createCameraSection(settings: SettingsStore, rig: CameraRig): HT
   tick();
 
   return root;
+}
+
+// ---------------------------------------------------------------------------
+// Transform group — the camera's position + rotation as keyframable values
+// ---------------------------------------------------------------------------
+
+function buildTransformGroup(settings: SettingsStore, rig: CameraRig): HTMLElement {
+  const grp = group('Transform');
+  const labels: Record<CamKey, string> = {
+    camPosX: 'Pos X', camPosY: 'Pos Y', camPosZ: 'Pos Z',
+    camRotX: 'Rot X', camRotY: 'Rot Y', camRotZ: 'Rot Z',
+  };
+  for (const k of CAM_KEYS) {
+    const rot = k.startsWith('camRot');
+    grp.body.append(row(labels[k], rot ? slider(settings, k, -360, 360, 0.1) : slider(settings, k, -10, 10, 0.01)));
+    // While a drag previews over the keyframes, the ◆ keys the previewed value.
+    registerKeySource(k, () => (rig.isPreviewing() ? rig.transformForKeying()[k] : null));
+  }
+
+  const note = document.createElement('div');
+  note.className = 'rw-hint';
+  const setNote = (text: string, warn = false): void => {
+    note.textContent = text;
+    note.style.color = warn ? 'var(--re-accent-2)' : '';
+  };
+  const idle = 'Orbit or fly to move the camera and these follow; type a value to place it. '
+    + 'Once the camera has keyframes, moving it only previews until you key it.';
+  setNote(idle);
+  rig.onPreviewChange((on) => setNote(on
+    ? 'Previewing over the camera’s keyframes. ◆ Key camera keeps this view; play or move the playhead to go back to the keys.'
+    : idle, on));
+
+  const btns = document.createElement('div');
+  btns.className = 'rw-btn-row';
+  const keyBtn = button('◆ Key camera', () => {
+    const t = rig.transformForKeying();
+    const ok = keyValuesAtPlayhead(settings, CAM_KEYS.map((k) => ({ key: k, value: t[k] })));
+    if (!ok) { setNote('Make a timeline first (Timeline ▸ +), then key the camera at the playhead.', true); return; }
+    rig.endPreview();
+  });
+  attachTooltip(keyBtn, 'Keyframe all six transform values at the playhead, from where the camera is now.');
+  btns.append(keyBtn);
+  grp.body.append(btns, note);
+  return grp.root;
 }
 
 // ---------------------------------------------------------------------------

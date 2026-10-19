@@ -25,6 +25,13 @@ import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { CameraView, CameraMode, SettingsStore } from '../state/Settings';
 import { LiveValuesStore } from '../modulation/LiveValues';
+import { continuousEuler, normalizeDeg } from './cameraMath';
+
+/** The camera transform keys (Settings v39), in pos-then-rot order. */
+export const CAM_KEYS = ['camPosX', 'camPosY', 'camPosZ', 'camRotX', 'camRotY', 'camRotZ'] as const;
+export type CamKey = typeof CAM_KEYS[number];
+const RAD2DEG = 180 / Math.PI;
+const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
 /**
  * The original built-in starting position before any user customization.
@@ -107,6 +114,9 @@ export class CameraRig {
     // its initial update() left behind. Camera ends up at the saved position,
     // up-vector, and looking at the saved target.
     this.applyView(s.defaultView);
+    const dv = s.defaultView;
+    this.pivotDist = THREE.MathUtils.clamp(
+      Math.hypot(dv.posX - dv.targetX, dv.posY - dv.targetY, dv.posZ - dv.targetZ), 0.05, 50);
 
     this.flyControls = new PointerLockControls(this.camera, domElement);
     this.flyControls.enabled = false;
@@ -263,8 +273,175 @@ export class CameraRig {
     this.trackball.enabled = true;
   }
 
+  // -------------------- transform (v39) --------------------
+  //
+  // The camera's pose IS Settings camPosX..camRotZ (base) + modulation / keyframe lanes (live).
+  // Each frame, after the controls step:
+  //   - the controls moved the camera (drag, fly, auto-orbit, Reset View)
+  //       · no keyframes on the transform → write the new pose to the base values, so the panel
+  //         numbers follow the mouse (minus any modulation offset, so it never sticks);
+  //       · keyframed → PREVIEW: the camera stays where you put it, nothing is written, until the
+  //         timeline plays or the playhead moves (or ◆ / Key camera writes the pose as keys);
+  //   - otherwise the camera follows the live transform (typed values, LFOs, lanes).
+  // While a keyframed timeline plays, the keys always win.
+
+  private hasLane: (key: string) => boolean = () => false;
+  private isPlaying: () => boolean = () => false;
+  private previewing = false;
+  private previewListeners = new Set<(on: boolean) => void>();
+  /** Pose last applied or written; a difference means the controls moved the camera. */
+  private lastPos = new THREE.Vector3();
+  private lastQuat = new THREE.Quaternion();
+  private havePose = false;
+  /** Live transform last applied; re-applied only when it changes. */
+  private lastLive: number[] | null = null;
+  /** Orbit pivot distance in front of the camera (kept from the last drag). */
+  private pivotDist = 2.6;
+  private euler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+  /** Timeline hooks, wired by main.ts once the sequencer exists. */
+  setTimelineHooks(h: { hasLane: (key: string) => boolean; isPlaying: () => boolean }): void {
+    this.hasLane = h.hasLane;
+    this.isPlaying = h.isPlaying;
+  }
+
+  /** True while a drag is previewing over the camera's keyframes. */
+  isPreviewing(): boolean { return this.previewing; }
+
+  onPreviewChange(fn: (on: boolean) => void): () => void {
+    this.previewListeners.add(fn);
+    return () => this.previewListeners.delete(fn);
+  }
+
+  /** Drop the preview: the camera returns to its keyframes on the next frame. */
+  endPreview(): void {
+    // Also after keying: a fling still running would otherwise move the camera off the new keys
+    // on the next frame and start a fresh preview.
+    this.stopMomentum();
+    if (!this.previewing) return;
+    this.previewing = false;
+    this.lastLive = null;
+    for (const fn of this.previewListeners) fn(false);
+  }
+
+  /** The camera's current pose as transform values, ready to key: rotation continues from the
+   *  value the timeline has at the playhead, so a key never takes the long way round. */
+  transformForKeying(): Record<CamKey, number> {
+    const ref = (k: CamKey): number => this.live.getBase(k) + this.live.getNamespaceOffset('timeline', k);
+    const rot = this.poseRotation([ref('camRotX'), ref('camRotY'), ref('camRotZ')]);
+    const p = this.camera.position;
+    return {
+      camPosX: round4(p.x), camPosY: round4(p.y), camPosZ: round4(p.z),
+      camRotX: round4(rot[0]), camRotY: round4(rot[1]), camRotZ: round4(rot[2]),
+    };
+  }
+
+  private poseRotation(ref: [number, number, number]): [number, number, number] {
+    this.euler.setFromQuaternion(this.camera.quaternion, 'YXZ');
+    return continuousEuler([this.euler.x * RAD2DEG, this.euler.y * RAD2DEG, this.euler.z * RAD2DEG], ref);
+  }
+
+  private capturePose(): void {
+    this.lastPos.copy(this.camera.position);
+    this.lastQuat.copy(this.camera.quaternion);
+    this.havePose = true;
+  }
+
+  private poseMoved(): boolean {
+    if (!this.havePose) return false;
+    return this.camera.position.distanceToSquared(this.lastPos) > 1e-10
+      || 1 - Math.abs(this.camera.quaternion.dot(this.lastQuat)) > 1e-9;
+  }
+
+  /** Cancel the trackball's leftover fling (rotate / zoom / pan momentum). Without this, a camera
+   *  placed by the transform (a key, a typed value) keeps drifting on a drag's old momentum —
+   *  which then reads as a new drag. TrackballControls keeps this state in underscore fields. */
+  private stopMomentum(): void {
+    const t = this.trackball as unknown as {
+      _lastAngle: number;
+      _movePrev: THREE.Vector2; _moveCurr: THREE.Vector2;
+      _zoomStart: THREE.Vector2; _zoomEnd: THREE.Vector2;
+      _panStart: THREE.Vector2; _panEnd: THREE.Vector2;
+    };
+    t._lastAngle = 0;
+    t._movePrev?.copy(t._moveCurr);
+    t._zoomStart?.copy(t._zoomEnd);
+    t._panStart?.copy(t._panEnd);
+  }
+
+  private applyTransform(v: number[]): void {
+    this.stopMomentum();
+    this.camera.position.set(v[0], v[1], v[2]);
+    this.euler.set(v[3] / RAD2DEG, v[4] / RAD2DEG, v[5] / RAD2DEG, 'YXZ');
+    this.camera.quaternion.setFromEuler(this.euler);
+    this.camera.up.set(0, 1, 0).applyQuaternion(this.camera.quaternion);
+    if (this.mode === 'orbit') {
+      const fwd = this.moveDir;
+      this.camera.getWorldDirection(fwd);
+      this.trackball.target.copy(this.camera.position).addScaledVector(fwd, this.pivotDist);
+    }
+  }
+
+  /** Write the camera's pose to the base values (inverting modulation so it never sticks). */
+  private writeBase(): void {
+    const s = this.settings;
+    const baseRot: [number, number, number] = [s.get('camRotX'), s.get('camRotY'), s.get('camRotZ')];
+    const rot = this.poseRotation(baseRot).map(normalizeDeg);
+    const p = this.camera.position;
+    const pose = [p.x, p.y, p.z, rot[0], rot[1], rot[2]];
+    const next: Partial<Record<CamKey, number>> = {};
+    CAM_KEYS.forEach((k, i) => {
+      const f = this.live.getFactor(k);
+      let b = (Math.abs(f) > 1e-6 ? pose[i] / f : pose[i]) - this.live.getOffset(k);
+      if (i >= 3) b = normalizeDeg(b);
+      b = round4(b);
+      if (Math.abs(b - s.get(k)) > (i >= 3 ? 1e-3 : 1e-4)) next[k] = b;
+    });
+    if (Object.keys(next).length) s.batchUpdate(next);
+  }
+
+  private syncTransform(): void {
+    const keyed = CAM_KEYS.some((k) => this.hasLane(k));
+    const live = CAM_KEYS.map((k) => this.live.getLive(k));
+    if (keyed && this.isPlaying()) {
+      this.endPreview();
+      this.applyTransform(live);
+      this.lastLive = live;
+      this.capturePose();
+      return;
+    }
+    if (this.poseMoved()) {
+      if (this.mode === 'orbit') {
+        this.pivotDist = THREE.MathUtils.clamp(this.camera.position.distanceTo(this.trackball.target), 0.05, 50);
+      }
+      if (keyed) {
+        if (!this.previewing) {
+          this.previewing = true;
+          for (const fn of this.previewListeners) fn(true);
+        }
+      } else {
+        this.previewing = false;
+        this.writeBase();
+        this.lastLive = CAM_KEYS.map((k) => this.live.getLive(k));
+      }
+      this.capturePose();
+      return;
+    }
+    if (this.previewing) return;
+    if (!this.lastLive || live.some((v, i) => Math.abs(v - this.lastLive![i]) > 1e-6)) {
+      this.applyTransform(live);
+      this.lastLive = live;
+      this.capturePose();
+    }
+  }
+
   /** Step the controls. Call every frame with deltaTime in seconds. */
   tick(dtSec: number): void {
+    this.stepControls(dtSec);
+    this.syncTransform();
+  }
+
+  private stepControls(dtSec: number): void {
     if (this.mode === 'orbit') {
       if (this.settings.get('autoOrbit')) {
         const speed = this.live.getLive('autoOrbitSpeed');

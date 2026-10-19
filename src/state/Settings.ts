@@ -16,6 +16,7 @@
  */
 
 import type { GraphPatch } from '../modulation/graph/types';
+import { lookAtEuler } from '../renderer/cameraMath';
 
 export type ColorMode = 'grayscale' | 'phosphorGreen' | 'phosphorAmber' | 'phosphorCustom' | 'video';
 export type ModMode = 'classic' | 'graph' | 'both';
@@ -207,6 +208,8 @@ export type ModTarget =
   | 'feedbackShapeX' | 'feedbackShapeY' | 'feedbackShapeRadius' | 'feedbackShapeSoftness'
   | 'analogNoise' | 'analogDropout' | 'analogHum'
   | 'cameraFov'
+  // v39: camera transform
+  | 'camPosX' | 'camPosY' | 'camPosZ' | 'camRotX' | 'camRotY' | 'camRotZ'
   // v2: I/O-routable targets
   | 'audioGain' | 'audioFloor' | 'beatSensitivity'
   | 'spectrumAmount' | 'spectrumStride'
@@ -869,6 +872,11 @@ export interface Settings {
   flySpeed: number;
   flyBoost: number;
   defaultView: CameraView;
+  /** v39: the camera's transform (Virtual Camera ▸ Transform) — position, and Euler rotation in
+   *  degrees (Y yaw, X pitch, Z roll; see renderer/cameraMath.ts). Base values: orbiting / flying
+   *  writes them unless the camera is keyframed, when a drag only previews (CameraRig). */
+  camPosX: number; camPosY: number; camPosZ: number;
+  camRotX: number; camRotY: number; camRotZ: number;
 
   // ---------- Render resolution ----------
   /**
@@ -1225,6 +1233,16 @@ export const DEFAULT_VIEW: CameraView = {
   fov: 50,
 };
 
+/** The camera transform (v39 keys) that a saved view describes. */
+export function viewTransform(v: CameraView): Pick<Settings, 'camPosX' | 'camPosY' | 'camPosZ' | 'camRotX' | 'camRotY' | 'camRotZ'> {
+  const r = lookAtEuler([v.posX, v.posY, v.posZ], [v.targetX, v.targetY, v.targetZ], [v.upX, v.upY, v.upZ]);
+  const round = (n: number): number => Math.round(n * 1000) / 1000;
+  return {
+    camPosX: round(v.posX), camPosY: round(v.posY), camPosZ: round(v.posZ),
+    camRotX: round(r[0]), camRotY: round(r[1]), camRotZ: round(r[2]),
+  };
+}
+
 export const DEFAULT_MOD_SLOT: ModSlot = {
   enabled: false,
   source: 'sine',
@@ -1428,6 +1446,7 @@ export const DEFAULTS: Settings = {
   flySpeed: 1.5,
   flyBoost: 4,
   defaultView: { ...DEFAULT_VIEW },
+  ...viewTransform(DEFAULT_VIEW),
 
   renderResolutionId: 'match',
   renderFitMode: 'letterbox',
@@ -1562,7 +1581,7 @@ export const DEFAULTS: Settings = {
 // --------------------------------------------------------------------
 
 const STORAGE_KEY = 'ruttetra.settings.v1';
-const CURRENT_VERSION = 38;
+const CURRENT_VERSION = 39;
 /** The Settings schema version this build writes (`_v`). Stamp it on every
  *  settings snapshot you save (projects, user presets, exports) so a later
  *  load migrates FROM the right version instead of re-running every step
@@ -2249,6 +2268,17 @@ export function migrateSettings(rawIn: unknown): Partial<Settings> & Versioned {
   if ((s._v ?? 1) < 38) {
     s.recordMicDeviceId = (s.recordMicDeviceId as string | undefined) ?? '';
     s._v = 38;
+  }
+
+  // v38 -> v39: the camera transform became settings. Start from the saved default view, which is
+  // where the camera opened before (the transform didn't exist, so the view was the only pose).
+  if ((s._v ?? 1) < 39) {
+    const v = (s.defaultView as CameraView | undefined) ?? DEFAULT_VIEW;
+    const t = viewTransform(v);
+    for (const k of Object.keys(t) as (keyof typeof t)[]) {
+      if (typeof s[k] !== 'number') s[k] = t[k];
+    }
+    s._v = 39;
   }
 
   // Video audio safety: force disabled on every load. A saved "enabled"

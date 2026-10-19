@@ -42,6 +42,8 @@ export const TARGETS: TargetOption[] = [
   { v: 'analogDropout', l: 'Analog: Dropout' },
   { v: 'analogHum', l: 'Analog: Hum' },
   { v: 'cameraFov', l: 'Camera FOV' },
+  { v: 'camPosX', l: 'Camera Pos X' }, { v: 'camPosY', l: 'Camera Pos Y' }, { v: 'camPosZ', l: 'Camera Pos Z' },
+  { v: 'camRotX', l: 'Camera Rot X' }, { v: 'camRotY', l: 'Camera Rot Y' }, { v: 'camRotZ', l: 'Camera Rot Z' },
   { v: 'cameraNear', l: 'Camera Near' }, { v: 'cameraFar', l: 'Camera Far' },
   { v: 'autoOrbitSpeed', l: 'Auto-Orbit Speed' },
   { v: 'flySpeed', l: 'Fly Speed' }, { v: 'flyBoost', l: 'Fly Boost' },

@@ -218,3 +218,9 @@ The viewport's 3D camera operates in two modes:
 The **Resolution** dropdown picks a target render frame size: SD / HD / FHD / QHD / 4K, plus Custom and Fit modes (Match window, Fit to window). Recordings inherit this size — set it before clicking Record if you want the file to be exactly 1920×1080.
 
 **FOV / Near / Far** sliders cover the projection envelope. **Reset View** restores the saved default view; **Hard Reset Camera** wipes the saved view too and rebuilds the original Rutt/Etra default.
+
+#### Camera transform
+
+**Virtual Camera ▸ Transform** shows where the camera is, Unity-style: **Pos X / Y / Z** and **Rot X / Y / Z** (degrees, applied yaw → pitch → roll like Unity's). Orbiting, flying and auto-orbit update them as the camera moves; type or drag a value to place the camera exactly. They're ordinary parameters, so you can keyframe them, patch an LFO into them, or map them to MIDI / OSC. There's no scale — FOV is the camera's zoom. These move the *camera*; the DCU's position, size and rotation move the *picture*.
+
+To animate the camera, make a timeline, put the camera where you want it, and press **◆ Key camera** (all six values at the playhead, one undo step) — or the ◆ on a single row. Once the camera has keyframes, dragging the view only **previews**: the camera stays where you put it and nothing is written, and the panel says so. Press **◆ Key camera** to keep that view as a key; press play or move the playhead to go back to the keys. While a keyframed timeline plays, the keys always drive the camera. Rotation keys take the short way round, and keep counting past ±180° so a spin can be keyed (0° → 360°).

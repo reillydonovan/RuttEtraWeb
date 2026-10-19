@@ -85,6 +85,8 @@ export const DEFAULT_EXCLUDED_PARAMS: string[] = [
   // Camera
   'defaultView', 'cameraMode', 'cameraFov', 'cameraNear', 'cameraFar',
   'autoOrbit', 'autoOrbitSpeed', 'flySpeed', 'flyBoost',
+  // The transform is animated with keyframe lanes, not scene snapshots.
+  'camPosX', 'camPosY', 'camPosZ', 'camRotX', 'camRotY', 'camRotZ',
 
   // Source
   'sourceKind', 'deviceId', 'requestedWidth', 'requestedHeight', 'requestedFps',
