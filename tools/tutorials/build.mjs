@@ -43,11 +43,12 @@ const DEST_ARG = (() => { const i = process.argv.indexOf('--dest'); return i >= 
 // The promo can share a run with lessons: lessons still go to public/tutorials (and the manifest
 // is written for them), the promo to out/promo. (Once, every lesson in a run that included the promo
 // landed in out/promo, and the promo's own scratch folder — the same out/promo — then wiped them.)
-const isPromo = (id) => id === 'promo' || id === 'promo-pattern';
 const PROMO_LESSONS = {
   promo: { id: 'promo', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo' },
   'promo-pattern': { id: 'promo-pattern', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo (pattern cut)' },
+  'promo-landing': { id: 'promo-landing', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo (landing-pattern cut)' },
 };
+const isPromo = (id) => Object.hasOwn(PROMO_LESSONS, id);
 const DEST = DEST_ARG ?? path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
 const W = 1920, H = 1080;
 const PAD_MS = 450;          // breath after each line

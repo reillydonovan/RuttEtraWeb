@@ -17,8 +17,12 @@ import { findJack } from '../lib/bay.mjs';
 
 // Two cuts of the same film, for an A/B: `promo` puts the site's sample video through the beam in
 // its own colours; `promo-pattern` (tours/promo-pattern.mjs imports this file as ?variant=pattern)
-// uses the built-in Pattern Generator instead — no video at all in that beat.
-const VARIANT = new URL(import.meta.url).searchParams.get('variant') === 'pattern' ? 'pattern' : 'video';
+// uses the built-in Pattern Generator instead — no video at all in that beat; `promo-landing`
+// (?variant=landing) never leaves the landing page's PATTERN start (Noise Terrain).
+const VARIANT = (() => {
+  const v = new URL(import.meta.url).searchParams.get('variant');
+  return v === 'pattern' || v === 'landing' ? v : 'video';
+})();
 
 export const fakeMedia = true;
 export const noCursor = true;        // a film, not a tutorial: no painted pointer
@@ -47,7 +51,9 @@ export const lines = [
   { id: 'height', text: 'Brighter became higher. Darker became lower. A flat image turned into a landscape, drawn in light.' },
   VARIANT === 'pattern'
     ? { id: 'color', text: 'Or feed it nothing at all. A built-in pattern generator draws its own signal, and the beam turns it into form.' }
-    : { id: 'color', text: "Feed it real video, and the beam carries the picture's own colour. Every line is painted by the source." },
+    : VARIANT === 'landing'
+      ? { id: 'color', text: 'No camera needed. A built-in pattern generator draws its own signal, slowly drifting noise, and the beam reads it as terrain.' }
+      : { id: 'color', text: "Feed it real video, and the beam carries the picture's own colour. Every line is painted by the source." },
   { id: 'few', text: 'Only about seventeen to twenty-one were ever built, and the tube inside each one burned out. When the hardware goes, the practice goes with it.' },
   { id: 'rebuilt', text: 'So it was rebuilt, from its own documentation. An AI was pointed at the archive: the brochure, the manual, the panel diagram. It read all of it, wrote a specification, and built the instrument against it. A person directed every decision.' },
   { id: 'web', text: 'It runs in a browser. Nothing to install. No waiting list. One link.' },
@@ -220,7 +226,7 @@ export async function run(page, seg, h) {
 
   // 3 — brightness becomes height (on a face, if one was supplied).
   await seg('height', async () => {
-    if (HAS_FACE) {
+    if (HAS_FACE && VARIANT !== 'landing') {
       const chooser = page.waitForEvent('filechooser');
       await page.evaluate(() => document.getElementById('boot-file-input')?.click());
       await (await chooser).setFiles(FACE);
@@ -234,6 +240,13 @@ export async function run(page, seg, h) {
   // Sampled Video). Loaded with the real Load Sample Video button (Video Source A ▸ File).
   // Owner: from here on the film stays on the video's own colour — no phosphor tints.
   await seg('color', async () => {
+    if (VARIANT === 'landing') {
+      // Stay on the landing page's PATTERN start: no look change, just the camera moving over it.
+      await h.check(() => [...document.querySelectorAll('select')].some((s) => s.value === 'perlinNoise'), 'Noise Terrain pattern still on');
+      await caption(page, 'no camera needed', 'a pattern generator built in', 4200);
+      await h.drag({ x: 760, y: 480 }, { x: 1020, y: 520 }, 150);
+      return;
+    }
     if (VARIANT === 'pattern') {
       // The native Pattern Generator, through two of its built-in looks (Presets chips).
       await quiet.chip(page, 'Worley Cells');
