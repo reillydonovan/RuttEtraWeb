@@ -18,7 +18,9 @@ export async function startScreencast(ctx, page, work, vp) {
     const file = path.join(dir, `${String(frames.length).padStart(6, '0')}.jpg`);
     frames.push({ t: f.metadata.timestamp * 1000, file });
     if (closed) return;   // a frame that was already in flight when we stopped
-    writes.push(fs.promises.writeFile(file, Buffer.from(f.data, 'base64')));
+    // One write at a time: firing them all at once ran out of file handles (EMFILE) on a long take.
+    const buf = Buffer.from(f.data, 'base64');
+    writes[0] = (writes[0] ?? Promise.resolve()).then(() => fs.promises.writeFile(file, buf));
     cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
   });
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 100, maxWidth: vp.width, maxHeight: vp.height, everyNthFrame: 1 });

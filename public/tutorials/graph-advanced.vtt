@@ -13,73 +13,73 @@ Maximize the Controls window to give it room.
 The palette on the left lists every node by category.
 
 4
-00:00:08.869 --> 00:00:11.261
+00:00:08.859 --> 00:00:11.251
 Click a palette item to add a node.
 
 5
-00:00:11.261 --> 00:00:11.740
+00:00:11.251 --> 00:00:11.730
 An LFO.
 
 6
-00:00:11.740 --> 00:00:12.287
+00:00:11.730 --> 00:00:12.277
 A Clock.
 
 7
-00:00:12.287 --> 00:00:13.791
+00:00:12.277 --> 00:00:13.781
 And a Sample and Hold.
 
 8
-00:00:16.135 --> 00:00:19.803
+00:00:16.360 --> 00:00:20.028
 Drag nodes by their headers to lay the patch out, left to right.
 
 9
-00:00:20.260 --> 00:00:22.646
+00:00:20.481 --> 00:00:22.867
 Drag from an output dot to an input dot.
 
 10
-00:00:22.646 --> 00:00:25.091
+00:00:22.867 --> 00:00:25.312
 The LFO into the Sample and Hold's input.
 
 11
-00:00:25.091 --> 00:00:27.179
+00:00:25.312 --> 00:00:27.400
 The Clock's pulse into its trigger.
 
 12
-00:00:27.629 --> 00:00:30.014
+00:00:27.852 --> 00:00:30.237
 Click a node to edit it in the inspector.
 
 13
-00:00:30.014 --> 00:00:33.155
+00:00:30.237 --> 00:00:33.378
 Speed the LFO up, so every sample lands somewhere new.
 
 14
-00:00:33.607 --> 00:00:35.452
+00:00:33.828 --> 00:00:35.673
 Bindings send a node to the synth.
 
 15
-00:00:35.452 --> 00:00:38.111
+00:00:35.673 --> 00:00:38.332
 Add a binding from the Sample and Hold to Z Push.
 
 16
-00:00:38.563 --> 00:00:41.055
+00:00:38.783 --> 00:00:41.275
 Probe draws a live trace of any output.
 
 17
-00:00:41.055 --> 00:00:44.507
+00:00:41.275 --> 00:00:44.727
 Stepped values: the classic sample and hold staircase.
 
 18
-00:00:44.966 --> 00:00:46.142
+00:00:45.179 --> 00:00:46.355
 Restore the window.
 
 19
-00:00:46.142 --> 00:00:49.610
+00:00:46.355 --> 00:00:49.823
 The depth now jumps to a new random level on every beat.
 
 20
-00:00:50.059 --> 00:00:54.147
+00:00:50.276 --> 00:00:54.364
 Every node works this way: outputs to inputs, bindings to the synth.
 
 21
-00:00:54.147 --> 00:00:56.792
+00:00:54.364 --> 00:00:57.009
 Next, two pictures at once with Dual Raster.

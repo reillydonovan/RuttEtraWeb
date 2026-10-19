@@ -31,52 +31,53 @@ Short narrated lessons, each building on the one before, on the
 
 9. [Keyframes](./tutorials.html#timeline-keyframes) — Create a timeline, key a parameter at two bars, and play it back.
 10. [Scenes](./tutorials.html#timeline-scenes) — Snapshot whole looks as scenes and let the timeline move between them.
+11. [Keyframing the camera](./tutorials.html#timeline-camera) — The camera transform, Key camera at two bars, preview a drag over the keys, and play the move.
 
 **The Patch Bay**
 
-11. [Reading the Patch Bay](./tutorials.html#patchbay-tour) — The faceplate: sources, parameter cells, the ⓘ diagrams, zoom and pan, free layout, and why a cable will not connect.
-12. [Cables](./tutorials.html#patchbay-cables) — Waveforms into a function generator, its output into a parameter; move and unplug.
-13. [Nodes and the Scope](./tutorials.html#patchbay-nodes) — Add nodes with a right-click, watch signals on a Scope, delete what you do not need.
-14. [Video routing](./tutorials.html#patchbay-video) — Composite a video file with the Pattern Generator and feed the renderer.
-15. [Patch Bay power moves](./tutorials.html#patchbay-power) — One parameter driving another, Note nodes, the same patch in the Controls panel, and a window of its own.
+12. [Reading the Patch Bay](./tutorials.html#patchbay-tour) — The faceplate: sources, parameter cells, the ⓘ diagrams, zoom and pan, free layout, and why a cable will not connect.
+13. [Cables](./tutorials.html#patchbay-cables) — Waveforms into a function generator, its output into a parameter; move and unplug.
+14. [Nodes and the Scope](./tutorials.html#patchbay-nodes) — Add nodes with a right-click, watch signals on a Scope, delete what you do not need.
+15. [Video routing](./tutorials.html#patchbay-video) — Composite a video file with the Pattern Generator and feed the renderer.
+16. [Patch Bay power moves](./tutorials.html#patchbay-power) — One parameter driving another, Note nodes, the same patch in the Controls panel, and a window of its own.
 
 #### Intermediate
 
 **The Graph engine**
 
-16. [Graph mode and the Library](./tutorials.html#graph-beginner) — Beginner view rows, Noise and Ramp sources, ready-made patches, and Both mode.
-17. [The Advanced canvas](./tutorials.html#graph-advanced) — Add nodes, wire them, edit them in the inspector, bind to the synth, and probe a signal.
+17. [Graph mode and the Library](./tutorials.html#graph-beginner) — Beginner view rows, Noise and Ramp sources, ready-made patches, and Both mode.
+18. [The Advanced canvas](./tutorials.html#graph-advanced) — Add nodes, wire them, edit them in the inspector, bind to the synth, and probe a signal.
 
 **Video and sound**
 
-18. [Dual Raster](./tutorials.html#dual-raster) — A second raster with its own geometry, wipe and interleave modes, and its own picture from the Patch Bay.
-19. [Audio-reactive](./tutorials.html#audio-reactive) — The Audio section, beat detector, spectrum displacement, and an audio-reactive graph patch.
-20. [The Oscilloscope](./tutorials.html#oscilloscope) — Draw any signal as a trace and let the raster turn it into terrain.
+19. [Dual Raster](./tutorials.html#dual-raster) — A second raster with its own geometry, wipe and interleave modes, and its own picture from the Patch Bay.
+20. [Audio-reactive](./tutorials.html#audio-reactive) — The Audio section, beat detector, spectrum displacement, and an audio-reactive graph patch.
+21. [The Oscilloscope](./tutorials.html#oscilloscope) — Draw any signal as a trace and let the raster turn it into terrain.
 
 **Looks and output**
 
-21. [Render modes and Post FX](./tutorials.html#looks-deep) — Wireframe and dot rasters, custom tint, shaped feedback, analog character, chroma, scanlines.
-22. [Save, record, share](./tutorials.html#save-share) — User presets, project files, recording a clip, and live sharing with a link and QR code.
+22. [Render modes and Post FX](./tutorials.html#looks-deep) — Wireframe and dot rasters, custom tint, shaped feedback, analog character, chroma, scanlines.
+23. [Save, record, share](./tutorials.html#save-share) — User presets, project files, recording a clip, and live sharing with a link and QR code.
 
 #### Advanced
 
 **Deep patching**
 
-23. [Clocks, sequencers, envelopes](./tutorials.html#clocks-sequencer) — A tempo clock driving a step sequencer, a divided clock firing an ADSR envelope, probed live.
-24. [Feedback and chaos](./tutorials.html#feedback-chaos) — Resonant filtered noise, Param Out, a frame delay, and a patch that feeds on itself.
-25. [The camera as a source](./tutorials.html#video-modulation) — Video Luma with a picked region, Video Motion through a Slew, and the motion-glitch patch.
+24. [Clocks, sequencers, envelopes](./tutorials.html#clocks-sequencer) — A tempo clock driving a step sequencer, a divided clock firing an ADSR envelope, probed live.
+25. [Feedback and chaos](./tutorials.html#feedback-chaos) — Resonant filtered noise, Param Out, a frame delay, and a patch that feeds on itself.
+26. [The camera as a source](./tutorials.html#video-modulation) — Video Luma with a picked region, Video Motion through a Slew, and the motion-glitch patch.
 
 **I/O**
 
-26. [MIDI and OSC](./tutorials.html#io-midi-osc) — Connect a controller, learn a mapping, MIDI clock in and out, and OSC over the network.
-27. [CV, gamepads and MCP](./tutorials.html#io-cv-mcp) — Control voltage inputs, OSC CV, gamepads, and an AI assistant driving the synth over MCP.
-28. [Outputs](./tutorials.html#io-outputs) — Sonification and the Sonify node, CV Out to a modular, MIDI clock out, and the safety stack.
+27. [MIDI and OSC](./tutorials.html#io-midi-osc) — Connect a controller, learn a mapping, MIDI clock in and out, and OSC over the network.
+28. [CV, gamepads and MCP](./tutorials.html#io-cv-mcp) — Control voltage inputs, OSC CV, gamepads, and an AI assistant driving the synth over MCP.
+29. [Outputs](./tutorials.html#io-outputs) — Sonification and the Sonify node, CV Out to a modular, MIDI clock out, and the safety stack.
 
 **Performance**
 
-29. [Stereo and 3D](./tutorials.html#stereo-3d) — Red-cyan anaglyph, side-by-side stereo recording, and WebXR headsets.
-30. [A performance rig](./tutorials.html#performance-rig) — Layouts, HUD, shortcuts, performance profiles, output resolution, fly mode, timecode and popouts.
-31. [Showcase: getting weird](./tutorials.html#showcase) — Five strange setups: a feedback tunnel, interleaved worlds, resonant chaos, sound terrain, anaglyph Lissajous.
+30. [Stereo and 3D](./tutorials.html#stereo-3d) — Red-cyan anaglyph, side-by-side stereo recording, and WebXR headsets.
+31. [A performance rig](./tutorials.html#performance-rig) — Layouts, HUD, shortcuts, performance profiles, output resolution, fly mode, timecode and popouts.
+32. [Showcase: getting weird](./tutorials.html#showcase) — Five strange setups: a feedback tunnel, interleaved worlds, resonant chaos, sound terrain, anaglyph Lissajous.
 
 <!-- video-course:end -->
 

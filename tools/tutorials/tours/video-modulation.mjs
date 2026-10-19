@@ -60,7 +60,10 @@ export async function run(page, seg, h) {
 
   await seg('library', async () => {
     await h.click('#panel-root .rw-graph-library-btn');
-    await h.wait(500);
+    // The library opens with an animation: wait until the card has a size (a fixed 500 ms was too short under recording load).
+    await page.waitForFunction(() => [...document.querySelectorAll('#panel-root .rw-graph-library-card')]
+      .some((c) => /Motion-Triggered Glitch/.test(c.textContent || '') && c.getBoundingClientRect().height > 20), null, { timeout: 8000 });
+    await h.wait(300);
     await h.glide(await h.at('#panel-root .rw-graph-library-card', 'Motion-Triggered Glitch'), 30);
     await h.wait(1500);
     await h.click('#panel-root .rw-graph-library-btn');

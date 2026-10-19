@@ -186,14 +186,37 @@ export async function run(page, seg, h) {
     await h.drag({ x: 1000, y: 600 }, { x: 760, y: 480 }, 100);
   });
 
-  // 3b — the colour channel: real video, coloured by its own pixels.
+  // 3b — the colour channel: the site's own sample video, coloured by its own pixels (Color ▸
+  // Sampled Video). Loaded with the real Load Sample Video button (Video Source A ▸ File).
+  // Owner: from here on the film stays on the video's own colour — no phosphor tints.
   await seg('color', async () => {
-    if (!HAS_FACE) {
-      const chooser = page.waitForEvent('filechooser');
-      await page.evaluate(() => document.getElementById('boot-file-input')?.click());
-      await (await chooser).setFiles(path.resolve('fixtures', 'color.mp4'));
-      await h.wait(1200);
+    // Any Video Source A instance (the panel can hold a hidden duplicate) whose sample row the
+    // file check has revealed — that check is an async HEAD request, so give it a moment.
+    let sample = false;
+    for (let i = 0; i < 50 && !sample; i++) {
+      sample = await page.evaluate(() => {
+        const btns = [...document.querySelectorAll('#panel-root .rw-section')]
+          .filter((s) => /Video Source A/.test(s.querySelector('.rw-section-head')?.textContent || ''))
+          .flatMap((s) => [...s.querySelectorAll('.rw-btn')])
+          .filter((x) => x.textContent.trim() === 'Load Sample Video' && !x.closest('div[style*="display: none"]'));
+        if (!btns.length) return false;
+        btns[0].click();
+        return true;
+      });
+      if (!sample) await h.wait(100);
     }
+    if (!sample) {
+      const why = await page.evaluate(async () => {
+        const secs = [...document.querySelectorAll('#panel-root .rw-section')].filter((s) => /Video Source A/.test(s.querySelector('.rw-section-head')?.textContent || ''));
+        const btns = [...document.querySelectorAll('.rw-btn')].filter((x) => x.textContent.trim() === 'Load Sample Video');
+        let head = 'n/a';
+        try { const r = await fetch('/samples/sample.mp4', { method: 'HEAD' }); head = `${r.status} ${r.headers.get('content-type')}`; } catch (e) { head = String(e); }
+        return `sections ${secs.length}, buttons ${btns.length} (${btns.map((b) => b.closest('div[style*="display: none"]') ? 'hidden' : 'shown').join(',')}), HEAD ${head}`;
+      });
+      throw new Error(`promo: no sample video button — ${why}`);
+    }
+    await h.check(() => /samples\/sample\.mp4/.test(document.getElementById('src-video')?.currentSrc || ''), 'sample video loaded');
+    await h.wait(1200);
     await quiet.select(page, 'colorMode', 'video');
     await quiet.ramp(page, h, 'zPush', 1.6, 1200);
     await caption(page, 'colour from the source', 'every scan line painted by the video', 4200);
@@ -201,13 +224,11 @@ export async function run(page, seg, h) {
   });
 
   await seg('few', async () => {
-    await quiet.select(page, 'colorMode', 'phosphorAmber');
     await caption(page, 'Rutt/Etra · built', 'about seventeen to twenty-one', 4200);
     await h.drag({ x: 760, y: 480 }, { x: 1000, y: 560 }, 130);
   });
 
   await seg('rebuilt', async () => {
-    await quiet.select(page, 'colorMode', 'phosphorGreen');
     await caption(page, 'rebuilt from its own documentation', 'brochure · manual · panel diagram → specification → instrument', 7500);
     await h.drag({ x: 1000, y: 560 }, { x: 800, y: 470 }, 200);
   });
@@ -290,12 +311,10 @@ export async function run(page, seg, h) {
   await seg('montage', async () => {
     await mcp.request('set_graph_patch', { patch: null });
     await h.resetView();
-    await quiet.select(page, 'colorMode', 'phosphorAmber');
     await quiet.toggle(page, 'feedbackEnabled');
     await quiet.select(page, 'feedbackShape', 'circle');
     await h.drag({ x: 880, y: 500 }, { x: 1040, y: 440 }, 110);
     await quiet.toggle(page, 'feedbackEnabled');
-    await quiet.select(page, 'colorMode', 'phosphorGreen');
     await quiet.toggle(page, 'dualRasterEnabled');
     await quiet.select(page, 'dualMode', 'alternate');
     await quiet.ramp(page, h, 'bZPush', -0.8, 900);
@@ -309,7 +328,6 @@ export async function run(page, seg, h) {
   // 7 — an AI at the controls, over MCP (a real connection; the log is its real traffic).
   await seg('mcp', async () => {
     await quiet.toggle(page, 'anaglyphEnabled');
-    await quiet.chip(page, 'Phosphor Green');
     await mcp.request('set_param', { key: 'bloomIntensity', value: 0.35 });
     await mcp.request('set_param', { key: 'zPush', value: 1.2 });
     await h.wait(500);

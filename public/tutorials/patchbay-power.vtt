@@ -9,61 +9,61 @@ A few moves turn the Patch Bay into an instrument.
 First: one parameter driving another.
 
 3
-00:00:06.770 --> 00:00:10.322
+00:00:06.769 --> 00:00:10.321
 Every parameter has an output jack as well as an input.
 
 4
-00:00:10.322 --> 00:00:13.616
+00:00:10.321 --> 00:00:13.615
 Drag the output of Z Push onto the input of H Size.
 
 5
-00:00:13.616 --> 00:00:19.494
+00:00:13.615 --> 00:00:19.493
 Now the width follows the depth, and a Param Out node carries the signal behind the scenes.
 
 6
-00:00:19.953 --> 00:00:22.193
+00:00:19.943 --> 00:00:22.183
 Right-click empty space, and add a Note.
 
 7
-00:00:22.193 --> 00:00:22.809
+00:00:22.183 --> 00:00:22.799
 Type on it.
 
 8
-00:00:22.809 --> 00:00:27.290
+00:00:22.799 --> 00:00:27.280
 Notes are labels that live in the patch, so you can explain what a patch is for.
 
 9
-00:00:27.742 --> 00:00:31.127
+00:00:27.739 --> 00:00:31.124
 Restore the window, and open Modulation in the Controls panel.
 
 10
-00:00:31.127 --> 00:00:33.256
+00:00:31.124 --> 00:00:33.253
 The cable you just made is a row there.
 
 11
-00:00:33.256 --> 00:00:36.751
+00:00:33.253 --> 00:00:36.748
 The Patch Bay and the Controls panel are two views of one patch.
 
 12
-00:00:37.203 --> 00:00:42.294
+00:00:37.206 --> 00:00:42.297
 For two displays, the pop-out button on a window sends it to a browser window of its own.
 
 13
-00:00:42.294 --> 00:00:45.097
+00:00:42.297 --> 00:00:45.100
 It stays live, and the main window keeps working.
 
 14
-00:00:45.558 --> 00:00:49.535
+00:00:45.555 --> 00:00:49.532
 Save a preset or a project, and every cable and note goes with it.
 
 15
-00:00:49.535 --> 00:00:53.452
+00:00:49.532 --> 00:00:53.449
 Open it later, here or on another machine, and it all comes back.
 
 16
-00:00:53.904 --> 00:00:55.164
+00:00:53.912 --> 00:00:55.172
 That is the Patch Bay.
 
 17
-00:00:55.164 --> 00:00:57.340
+00:00:55.172 --> 00:00:57.348
 The next level up is the Graph engine.

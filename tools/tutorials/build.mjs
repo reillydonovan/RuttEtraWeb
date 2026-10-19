@@ -40,10 +40,11 @@ const DEST_ARG = (() => { const i = process.argv.indexOf('--dest'); return i >= 
 // `node build.mjs promo` builds tours/promo.mjs — the 2–3 minute showpiece film. It is
 // NOT part of the course: it never touches the manifest or the About list and lands in
 // out/promo/ (copy it where it is needed).
-const PROMO_ONLY = process.argv.includes('promo');
-const NO_INDEX = DEST_ARG != null || PROMO_ONLY;
+// The promo can share a run with lessons: lessons still go to public/tutorials (and the manifest
+// is written for them), the promo to out/promo. (Once, every lesson in a run that included the promo
+// landed in out/promo, and the promo's own scratch folder — the same out/promo — then wiped them.)
 const PROMO_LESSON = { id: 'promo', number: '', level: '', track: '', title: 'Rutt/Etra Web — promo' };
-const DEST = DEST_ARG ?? (PROMO_ONLY ? path.join(HERE, 'out', 'promo') : path.join(REPO, 'public', 'tutorials'));   // served at /tutorials/ (MP4s are gitignored; upload them separately)
+const DEST = DEST_ARG ?? path.join(REPO, 'public', 'tutorials');   // served at /tutorials/ (MP4s are gitignored; upload them separately)
 const W = 1920, H = 1080;
 const PAD_MS = 450;          // breath after each line
 const LEAD_MS = 700;         // picture before the first word
@@ -77,7 +78,10 @@ const todo = indexOnly ? [] : ids.length ? ids.map((id) => {
   return l;
 }) : LESSONS;
 
+const PROMO_DEST = DEST_ARG ?? path.join(HERE, 'out', 'promo');
+const destFor = (lesson) => (lesson.id === 'promo' ? PROMO_DEST : DEST);
 fs.mkdirSync(DEST, { recursive: true });
+fs.mkdirSync(PROMO_DEST, { recursive: true });
 const ffmpeg = execFileSync(PY, ['-c', 'import imageio_ffmpeg as f; print(f.get_ffmpeg_exe())']).toString().trim();
 
 // ---- fixtures ---------------------------------------------------------------
@@ -208,7 +212,7 @@ addEventListener('DOMContentLoaded', () => {
 
 async function record(lesson) {
   const tour = await import(`./tours/${lesson.id}.mjs?t=${Date.now()}`);
-  const work = path.join(HERE, 'out', lesson.id);
+  const work = path.join(HERE, 'out', lesson.id === 'promo' ? 'promo-work' : lesson.id);   // never the output folder
   fs.rmSync(work, { recursive: true, force: true });
   fs.mkdirSync(work, { recursive: true });
 
@@ -270,19 +274,25 @@ async function record(lesson) {
     await page.mouse.move(vp.width / 2, vp.height / 2);
     await page.waitForTimeout(400);
 
+    let current = '(before the first segment)';
     const seg = async (id, fn) => {
       const line = byId.get(id);
       if (!line) throw new Error(`segment ${id} has no narration line`);
       const start = Date.now() - t0;
       stamps.push({ id, start });
+      current = id;
       if (stamps.length === 1 && !tour.noCard) await h.card(`LESSON ${lesson.number} · ${lesson.level.toUpperCase()} · ${lesson.track.toUpperCase()}`, lesson.title, Math.min(2600, line.ms - 300));
       await fn();
       const left = start + line.ms + PAD_MS - (Date.now() - t0);
       if (left > 0) await page.waitForTimeout(left);
     };
     await page.waitForTimeout(LEAD_MS);
-    try { await tour.run(page, seg, h); }
+    // Watchdog: a tour that stalls must fail, not record for hours (the promo once ran 90 min).
+    let dog;
+    const limit = new Promise((_, rej) => { dog = setTimeout(() => rej(new Error(`tour stalled in segment "${current}" (over 10 min)`)), 10 * 60_000); });
+    try { await Promise.race([tour.run(page, seg, h), limit]); }
     catch (e) { await page.screenshot({ path: path.join(HERE, "out", `fail-${lesson.id}.png`) }).catch(() => {}); throw e; }
+    finally { clearTimeout(dog); }
     await page.waitForTimeout(TAIL_MS);
   } catch (e) {
     failure = e;
@@ -315,7 +325,7 @@ async function record(lesson) {
     filters.push(`[${i + 1}:a]aresample=48000,adelay=${d}|${d}[a${i}]`);
   });
   filters.push(`${stamps.map((_, i) => `[a${i}]`).join('')}amix=inputs=${stamps.length}:normalize=0,apad[aout]`);
-  const mp4 = path.join(DEST, `${lesson.id}.mp4`);
+  const mp4 = path.join(destFor(lesson), `${lesson.id}.mp4`);
   execFileSync(ffmpeg, [
     '-y', '-hide_banner', '-loglevel', 'error',
     ...inputs,
@@ -335,7 +345,7 @@ async function record(lesson) {
     // written next to the plain cut as <id>-music.mp4 so either can be used.
     const dur = Number(durS);
     const tone = (f) => `sine=f=${f}:d=${dur}:r=48000`;
-    const out = path.join(DEST, `${lesson.id}-music.mp4`);
+    const out = path.join(destFor(lesson), `${lesson.id}-music.mp4`);
     execFileSync(ffmpeg, [
       '-y', '-hide_banner', '-loglevel', 'error',
       '-i', mp4,
@@ -349,7 +359,7 @@ async function record(lesson) {
   const posterId = tour.poster ?? stamps[Math.floor(stamps.length / 2)].id;
   const ps = stamps.find((s) => s.id === posterId) ?? stamps[0];
   execFileSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-ss', ((ps.start - trimMs + 2500) / 1000).toFixed(2),
-    '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(DEST, `${lesson.id}.jpg`)]);
+    '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(destFor(lesson), `${lesson.id}.jpg`)]);
   fs.writeFileSync(path.join(work, 'timings.json'), JSON.stringify({ trimMs, tEnd, stamps }, null, 1));
   built.set(lesson.id, {
     duration: Math.round((tEnd - trimMs) / 100) / 10,
@@ -382,7 +392,7 @@ function writeVtt(id, stamps, byId, trimMs) {
       a += d;
     }
   }
-  fs.writeFileSync(path.join(DEST, `${id}.vtt`), `WEBVTT\n\n${cues.join('\n')}`);
+  fs.writeFileSync(path.join(id === 'promo' ? PROMO_DEST : DEST, `${id}.vtt`), `WEBVTT\n\n${cues.join('\n')}`);
 }
 
 /** --vtt: rewrite captions from saved timings (no re-recording; TTS is cached). */
@@ -472,5 +482,6 @@ const failed = [];
 for (const l of todo) {
   try { await (VTT_ONLY ? rewriteVtt(l) : record(l)); } catch (e) { failed.push(l.id); console.error(`[${l.id}] FAILED: ${e.message}`); }
 }
-if (!DRY && !NO_INDEX) { await writeManifest(); writeIndex(); }
+// The manifest/About list change only for real lessons into public/tutorials (not a promo-only run).
+if (!DRY && DEST_ARG == null && (indexOnly || todo.some((l) => l.id !== 'promo'))) { await writeManifest(); writeIndex(); }
 if (failed.length) { console.error(`failed: ${failed.join(', ')}`); process.exitCode = 1; }

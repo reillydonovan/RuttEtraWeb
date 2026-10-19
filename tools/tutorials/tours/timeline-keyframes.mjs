@@ -8,7 +8,7 @@ export const lines = [
   { id: 'diamond', text: "Every knob has a small diamond above it. Click Z Push's diamond to set a keyframe at the playhead." },
   { id: 'seek3', text: 'Move to bar three, and turn Z Push up. Once a parameter has a lane, every change is keyed automatically.' },
   { id: 'lane', text: 'The lane below draws the curve, in the same numbers as the knob.' },
-  { id: 'play', text: 'Press Play. The depth rises from bar one to bar three, holds, and the timeline loops.' },
+  { id: 'play', text: 'Press Stop to go back to the start, then Play. The depth rises from bar one to bar three, holds, and the timeline loops.' },
   { id: 'outro', text: 'Key as many parameters as you like. Next: scenes, which capture a whole look at once.' },
 ];
 export const poster = 'play';
@@ -60,9 +60,12 @@ export async function run(page, seg, h) {
   });
 
   await seg('play', async () => {
+    // Back to the start first: playing from the last key would never show the move between keys.
+    await h.click('#timeline-dock [data-tl="stop"]');
+    await h.check(() => /bar 0\.00/.test(document.querySelector('#timeline-dock')?.textContent ?? ''), 'playhead at the start');
     await h.click('#timeline-dock [data-tl="play"]');
     await h.glide({ x: 980, y: 420 }, 40);
-    await h.wait(6000);
+    await h.wait(8000);
   });
 
   await seg('outro', async () => {});

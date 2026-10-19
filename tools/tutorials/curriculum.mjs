@@ -31,6 +31,7 @@ export const TRACKS = [
     lessons: [
       { id: 'timeline-keyframes', title: 'Keyframes', blurb: 'Create a timeline, key a parameter at two bars, and play it back.' },
       { id: 'timeline-scenes', title: 'Scenes', blurb: 'Snapshot whole looks as scenes and let the timeline move between them.' },
+      { id: 'timeline-camera', title: 'Keyframing the camera', blurb: 'The camera transform, Key camera at two bars, preview a drag over the keys, and play the move.' },
     ],
   },
   {

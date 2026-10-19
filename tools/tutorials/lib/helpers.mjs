@@ -31,7 +31,18 @@ export function helpers(page) {
       };
       let pt = await page.evaluate(find, [sel, text ?? null, exact, scroll]);
       if (pt === 'scrolled') { await h.settle(); pt = await page.evaluate(find, [sel, text ?? null, exact, false]); }
-      if (!pt) throw new Error(`tour: nothing on screen for ${sel} ${text ?? ''}`);
+      if (!pt) {
+        // Say what is in the way, so a failure names its cause.
+        const why = await page.evaluate(([s, t]) => {
+          const e = [...document.querySelectorAll(s)].find((x) => (t == null || x.textContent.includes(t)) && x.getBoundingClientRect().width > 0);
+          if (!e) return 'no match with a size';
+          const b = e.getBoundingClientRect();
+          const top = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+          const name = (n) => n ? `${n.tagName.toLowerCase()}${n.id ? '#' + n.id : ''}.${String(n.className?.baseVal ?? n.className).split(' ').join('.')}` : 'nothing';
+          return `at ${Math.round(b.x + b.width / 2)},${Math.round(b.y + b.height / 2)} covered by ${name(top)} (parent ${name(top?.parentElement)})`;
+        }, [sel, text ?? null]);
+        throw new Error(`tour: nothing on screen for ${sel} ${text ?? ''} — ${why}`);
+      }
       return pt;
     },
 

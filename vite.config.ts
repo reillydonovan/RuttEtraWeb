@@ -89,6 +89,9 @@ export default defineConfig({
     host: true,
     // Allow Bonjour names (http://<mac-name>.local:5190/) besides raw IPs.
     allowedHosts: ['.local'],
+    // Don't watch tool output: a tutorial recording writes hundreds of thousands of frames under
+    // tools/tutorials/out, which flooded the watcher and stalled the dev server mid-recording.
+    watch: { ignored: ['**/tools/**', '**/dist/**', '**/screenshots/**'] },
   },
   preview: {
     port: 4190,

@@ -13,61 +13,61 @@ Add a Clock.
 It ticks in step with the tempo, which the Timeline sets.
 
 4
-00:00:06.867 --> 00:00:11.287
+00:00:06.868 --> 00:00:11.288
 Add a Sequencer, and patch the Clock's pulse into its clock input.
 
 5
-00:00:11.287 --> 00:00:13.229
+00:00:11.288 --> 00:00:13.230
 Every tick advances one step.
 
 6
-00:00:13.688 --> 00:00:15.245
+00:00:13.686 --> 00:00:15.243
 Each step holds a value.
 
 7
-00:00:15.245 --> 00:00:19.075
+00:00:15.243 --> 00:00:19.073
 Shape the pattern: a spike on step two, a dip on step four.
 
 8
-00:00:19.531 --> 00:00:23.106
+00:00:19.525 --> 00:00:23.100
 Bind the sequencer to Z Push, and the depth steps in rhythm.
 
 9
-00:00:23.569 --> 00:00:25.791
+00:00:23.555 --> 00:00:25.777
 Clock divide by N slows a clock down.
 
 10
-00:00:25.791 --> 00:00:28.073
+00:00:25.777 --> 00:00:28.059
 Here it passes only every fourth tick.
 
 11
-00:00:29.958 --> 00:00:32.970
+00:00:30.084 --> 00:00:33.096
 Trigger to Gate stretches each tick into a gate.
 
 12
-00:00:32.970 --> 00:00:36.924
+00:00:33.096 --> 00:00:37.050
 The ADSR envelope turns that gate into a swell and a slow fade.
 
 13
-00:00:42.416 --> 00:00:46.131
+00:00:42.784 --> 00:00:46.499
 Send the envelope to Bloom Intensity: the glow swells once a bar.
 
 14
-00:00:46.595 --> 00:00:51.517
+00:00:46.950 --> 00:00:51.872
 Probe the envelope to see its shape: attack, decay, sustain, release.
 
 15
-00:00:51.970 --> 00:00:53.117
+00:00:52.326 --> 00:00:53.473
 Restore the window.
 
 16
-00:00:53.117 --> 00:00:56.799
+00:00:53.473 --> 00:00:57.155
 Stepped depth, and a breathing glow, both locked to the beat.
 
 17
-00:00:57.253 --> 00:01:00.127
+00:00:57.604 --> 00:01:00.478
 Change the tempo, and the whole patch follows.
 
 18
-00:01:00.127 --> 00:01:02.314
+00:01:00.478 --> 00:01:02.665
 Next: feedback, and a little chaos.

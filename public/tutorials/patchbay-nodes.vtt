@@ -13,45 +13,45 @@ Right-click empty board space to add one.
 An LFO.
 
 4
-00:00:09.283 --> 00:00:10.625
+00:00:09.290 --> 00:00:10.632
 Add a Scope beside it.
 
 5
-00:00:10.625 --> 00:00:13.555
+00:00:10.632 --> 00:00:13.562
 A scope draws whatever signal passes through it.
 
 6
-00:00:14.010 --> 00:00:16.807
+00:00:14.024 --> 00:00:16.821
 Drag the LFO's output into the Scope's input.
 
 7
-00:00:16.807 --> 00:00:17.864
+00:00:16.821 --> 00:00:17.878
 There's the wave.
 
 8
-00:00:18.325 --> 00:00:20.198
+00:00:18.336 --> 00:00:20.209
 The Scope passes its signal on.
 
 9
-00:00:20.198 --> 00:00:23.944
+00:00:20.209 --> 00:00:23.955
 Patch its output into Z Push, and the raster follows the wave.
 
 10
-00:00:24.394 --> 00:00:27.459
+00:00:24.412 --> 00:00:27.477
 Turn the LFO's rate knob, and watch the trace speed up.
 
 11
-00:00:27.912 --> 00:00:30.532
+00:00:27.928 --> 00:00:30.548
 To remove a node, click its X and confirm.
 
 12
-00:00:30.532 --> 00:00:31.905
+00:00:30.548 --> 00:00:31.921
 Its cables go with it.
 
 13
-00:00:32.369 --> 00:00:36.579
+00:00:32.373 --> 00:00:36.583
 Every node type is listed in the Node Catalog on the About page.
 
 14
-00:00:36.579 --> 00:00:37.895
+00:00:36.583 --> 00:00:37.899
 Next: routing video.
