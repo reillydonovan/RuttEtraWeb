@@ -25,16 +25,27 @@ import type { RuttEtraScene } from '../renderer/RuttEtra';
 import { useOfflineDeterminism } from '../platform/determinism';
 
 export interface OfflineJob {
-  /** Source frame URL with `{i}` = 1-based zero-padded index, e.g. `/reel/frames/{i}.png`. */
-  frames: string;
+  /** Source frame URL with `{i}` = 1-based zero-padded index, e.g. `/reel/frames/{i}.png`.
+   *  Either this or `video`. */
+  frames?: string;
+  /** A video file decoded IN ORDER, frame-exactly, with WebCodecs (mediabunny's CanvasSink):
+   *  no extracted frames, and unlike <video> seeking every render frame i gets source frame
+   *  i -- the property a channel that must stay in sync with another channel depends on. */
+  video?: string;
+  /** Clockwise rotation applied while decoding (e.g. 90 for a file stored rotated left). */
+  videoRotation?: 0 | 90 | 180 | 270;
+  /** Size of the decoded frame handed to the raster (default: the track's own, after rotation).
+   *  The raster samples a grid of a few hundred points, so 1080 wide is plenty for 4K output. */
+  videoWidth?: number;
+  videoHeight?: number;
   /** Digits of zero padding in `{i}` (default 5). */
   pad?: number;
   frameCount: number;
   fps: number;
   width: number;
   height: number;
-  /** fft_frames.bin URL. */
-  fft: string;
+  /** fft_frames.bin URL. Omit for a silent source: the analyser stays empty, every band 0. */
+  fft?: string;
   /** Optional .synth.json project applied before the first frame. */
   project?: string;
   seed?: number;
@@ -121,8 +132,8 @@ function gpuString(renderer: THREE.WebGLRenderer): string {
 
 export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promise<void> {
   const job: OfflineJob = await (await fetch(jobUrl)).json();
-  const fft = parseFftFrames(await (await fetch(job.fft)).arrayBuffer());
-  if (fft.fps !== job.fps) throw new Error(`fft file is ${fft.fps} fps, job is ${job.fps}`);
+  const fft = job.fft ? parseFftFrames(await (await fetch(job.fft)).arrayBuffer()) : null;
+  if (fft && fft.fps !== job.fps) throw new Error(`fft file is ${fft.fps} fps, job is ${job.fps}`);
 
   if (job.project) await d.openProject(await (await fetch(job.project)).text());
   // The output size is the job's, at scale 1, whatever the project or this machine prefers.
@@ -131,7 +142,7 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
   d.settings.set('renderResolutionCustomH', job.height);
   d.settings.set('renderScale', 1);
   d.resize();
-  d.fft.attachOfflineSpectrum(fft);
+  if (fft) d.fft.attachOfflineSpectrum(fft);
 
   const tex = new THREE.Texture();
   tex.minFilter = THREE.LinearFilter;
@@ -141,6 +152,37 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
   tex.flipY = false; // UNPACK_FLIP_Y is not applied to ImageBitmaps; decoded upright this reads right side up (checked against testsrc2 2026-10-18). mirrorH defaults ON: a patch sets it off for an unmirrored read
   const pad = job.pad ?? 5;
   let lastBitmap: ImageBitmap | null = null;
+  if (!job.frames === !job.video) throw new Error('offline job: give exactly one of frames / video');
+
+  // Video source: one decoder, consumed in presentation order. A render that starts at frame N
+  // (or jumps) restarts the iterator at N's timestamp; each frame's timestamp is checked.
+  type Wrapped = { canvas: HTMLCanvasElement | OffscreenCanvas; timestamp: number };
+  let sink: { canvases(start?: number): AsyncGenerator<Wrapped, void, unknown> } | null = null;
+  let frames: AsyncGenerator<Wrapped, void, unknown> | null = null;
+  let nextVideoFrame = -1;
+  if (job.video) {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.UrlSource(job.video), formats: mb.ALL_FORMATS });
+    const track = await input.getPrimaryVideoTrack();
+    if (!track) throw new Error(`no video track in ${job.video}`);
+    sink = new mb.CanvasSink(track, {
+      width: job.videoWidth, height: job.videoHeight, fit: 'fill',
+      rotation: job.videoRotation ?? 0, poolSize: 2,
+    }) as unknown as typeof sink;
+  }
+  async function videoFrame(i: number): Promise<Wrapped> {
+    const t = i / job.fps;
+    if (!frames || i !== nextVideoFrame) frames = sink!.canvases(t);
+    nextVideoFrame = i + 1;
+    for (;;) {
+      const r = await frames.next();
+      if (r.done) throw new Error(`video ended before frame ${i} (t=${t.toFixed(3)} s)`);
+      const dt = r.value.timestamp - t;
+      if (dt < -0.5 / job.fps) continue; // a frame before i (only at a restart): skip it
+      if (dt > 0.5 / job.fps) throw new Error(`frame ${i}: decoder gave t=${r.value.timestamp.toFixed(4)}, wanted ${t.toFixed(4)}`);
+      return r.value;
+    }
+  }
   const timeline = job.playTimeline !== false ? d.playTimelineFromStart() : false;
   let nextFrame = 0;
 
@@ -150,13 +192,21 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
     timeline,
     size: () => [d.canvas.width, d.canvas.height],
     async renderFrame(i: number): Promise<{ png: string; sha256: string }> {
-      const src = Math.min(i, job.frameCount - 1) + 1;
-      const blob = await (await fetch(job.frames.replace('{i}', String(src).padStart(pad, '0')))).blob();
-      const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image', colorSpaceConversion: 'none' });
-      tex.image = bmp;
-      tex.needsUpdate = true;
-      d.ruttEtra.setExternalVideoTexture(tex, bmp.width, bmp.height);
-      fft.setFrame(i);
+      let bmp: ImageBitmap | null = null;
+      if (job.video) {
+        const w = await videoFrame(i);
+        tex.image = w.canvas;
+        tex.needsUpdate = true;
+        d.ruttEtra.setExternalVideoTexture(tex, w.canvas.width, w.canvas.height);
+      } else {
+        const src = Math.min(i, job.frameCount - 1) + 1;
+        const blob = await (await fetch(job.frames!.replace('{i}', String(src).padStart(pad, '0')))).blob();
+        bmp = await createImageBitmap(blob, { imageOrientation: 'from-image', colorSpaceConversion: 'none' });
+        tex.image = bmp;
+        tex.needsUpdate = true;
+        d.ruttEtra.setExternalVideoTexture(tex, bmp.width, bmp.height);
+      }
+      fft?.setFrame(i);
       renderTimeMs = (i / job.fps) * 1000;
       // The timeline advances by dt each step; a render that starts at frame N (or jumps)
       // seeks it so frame N shows what it shows in a full render.
