@@ -19,7 +19,7 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { resolve, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,14 +40,35 @@ const from = Number(opt('from', 0));
 const to = Number(opt('to', Math.round(job.frameCount) - 1));
 
 // What the page sees: the same job, with local paths turned into /__job/ URLs.
-const local = { frames: resolve(dirname(jobPath), job.frames), fft: resolve(dirname(jobPath), job.fft),
+const ext = job.ext ?? 'png'; // source frames may be jpg: 78 min of 4K PNGs would be ~1 TB
+const local = { video: job.video ? resolve(dirname(jobPath), job.video) : null,
+  frames: job.frames ? resolve(dirname(jobPath), job.frames) : null, fft: job.fft ? resolve(dirname(jobPath), job.fft) : null,
   project: job.project ? resolve(dirname(jobPath), job.project) : null };
-const pageJob = { ...job, frames: '/__job/frames/{i}.png', fft: '/__job/fft.bin',
+const pageJob = { ...job, frames: local.frames ? `/__job/frames/{i}.${ext}` : undefined,
+  video: local.video ? '/__job/video.mp4' : undefined, fft: local.fft ? '/__job/fft.bin' : undefined,
   project: local.project ? '/__job/project.json' : undefined };
+
+// The source video can be tens of GB: serve it by byte range (mediabunny's UrlSource reads
+// ranges), never whole.
+function serveRange(route, file) {
+  const size = statSync(file).size;
+  const req = route.request();
+  const m = /bytes=(\d+)-(\d*)/.exec(req.headers()['range'] ?? '');
+  const headers = { 'Accept-Ranges': 'bytes', 'Content-Type': 'video/mp4' };
+  if (req.method() === 'HEAD') return route.fulfill({ status: 200, headers: { ...headers, 'Content-Length': String(size) }, body: '' });
+  const start = m ? Number(m[1]) : 0;
+  const end = Math.min(size - 1, m && m[2] ? Number(m[2]) : start + 64 * 1024 * 1024 - 1);
+  const buf = Buffer.alloc(end - start + 1);
+  const fd = openSync(file, 'r');
+  try { readSync(fd, buf, 0, buf.length, start); } finally { closeSync(fd); }
+  return route.fulfill({ status: 206, body: buf,
+    headers: { ...headers, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(buf.length) } });
+}
 
 function serve(route) {
   const url = new URL(route.request().url());
   let file;
+  if (url.pathname === '/__job/video.mp4' && local.video) return serveRange(route, local.video);
   if (url.pathname === '/__job/job.json') return route.fulfill({ body: JSON.stringify(pageJob), contentType: 'application/json' });
   if (url.pathname === '/__job/fft.bin') file = local.fft;
   else if (url.pathname === '/__job/project.json') file = local.project;
