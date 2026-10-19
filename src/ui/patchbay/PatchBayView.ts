@@ -2339,8 +2339,9 @@ export function createPatchBayView(
   zoomBar.className = 'rw-pb-zoombar';
   const zoomOut = document.createElement('button');
   zoomOut.type = 'button';
-  zoomOut.className = 'rw-pb-tidy';
-  zoomOut.textContent = '-';
+  // − / + are drawn by CSS (rw-pb-zoomstep), not text: a font's "-" and "+" never sit centred.
+  zoomOut.className = 'rw-pb-tidy rw-pb-zoomstep rw-pb-zoomstep--out';
+  zoomOut.setAttribute('aria-label', 'Zoom out');
   attachTooltip(zoomOut, 'Zoom out (scroll wheel works anywhere on the board too).');
   zoomOut.addEventListener('click', () => applyZoom(zoom / 1.2));
   const zoomLabel = document.createElement('button');
@@ -2351,8 +2352,8 @@ export function createPatchBayView(
   zoomLabel.addEventListener('click', () => applyZoom(1));
   const zoomIn = document.createElement('button');
   zoomIn.type = 'button';
-  zoomIn.className = 'rw-pb-tidy';
-  zoomIn.textContent = '+';
+  zoomIn.className = 'rw-pb-tidy rw-pb-zoomstep rw-pb-zoomstep--in';
+  zoomIn.setAttribute('aria-label', 'Zoom in');
   attachTooltip(zoomIn, 'Zoom in (scroll wheel works anywhere on the board too).');
   zoomIn.addEventListener('click', () => applyZoom(zoom * 1.2));
   zoomBar.append(zoomOut, zoomLabel, zoomIn);

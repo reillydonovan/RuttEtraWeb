@@ -766,6 +766,13 @@ html body[data-theme="modern"][data-theme] {
   /* The ▸ live value / ◆ strip sits above the slider: keep its space (the padding above would
      otherwise cancel panel.css's, and the badge would cover the group head). */
   & .rw-row:is(.rw-row--live, .rw-row--keyable) { padding-top: 22px; }
+  /* Groups with an ⓘ lay out as a grid (infoModal.css) so the ⓘ centres on the head; the head's
+     top margin here is --sp-2, so the ⓘ's matches. */
+  /* Patch Bay zoom − / +: true circles, the same height as the % pill beside them. */
+  & .rw-pb-zoombar > .rw-pb-zoomstep { width: var(--ctl-s); height: var(--ctl-s); min-height: 0; padding: 0; border-radius: 50%; }   /* the bar sits in the bus head: dense size */
+  & .rw-pb-zoomstep::before, & .rw-pb-zoomstep--in::after { width: 10px; height: 2px; }
+  & .rw-group.rw-group:has(> .rw-group-info) { display: grid; }   /* doubled class: the flex rule above takes its :is() list's strongest entry */
+  & .rw-group > .rw-group-info { margin: calc(-1 * var(--sp-2)) 0 0 0; }   /* head bleeds --sp-3 (12px) past the padding */
   /* Collapsed-group cable socket: right next to the ⓘ (the head's right padding already clears it). */
   & .rw-group-head > .rw-rack-proxy { margin-right: 0; }
   & :is(.rw-label, .rw-toggle-txt) { font-size: var(--fs-m); color: var(--t-body); letter-spacing: 0; }

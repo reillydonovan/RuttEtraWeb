@@ -25,7 +25,16 @@
 /* Controls GROUP (a headed block inside a section): the ⓘ floats at the
    head's right edge, outside the head so its text stays exactly the title. */
 .rw-group { position: relative; }
-.rw-group > .rw-group-info { position: absolute; top: 10px; right: 12px; margin: 0; }   /* (36px head − 16px button) ÷ 2: centred on the head, 12px in: mirrors the caret on the left */
+/* The ⓘ shares the head's grid cell, so it stays vertically centred on the head however tall the
+   head gets (a long title wraps to two lines in a narrow panel). 12px in mirrors the caret on the
+   left. The negative top margin matches the head's own, so both centre on the same box. */
+.rw-group:has(> .rw-group-info) { display: grid; grid-template-columns: minmax(0, 1fr); }
+.rw-group:has(> .rw-group-info) > * { grid-column: 1; }
+.rw-group > .rw-group-head { grid-row: 1; }
+.rw-group > .rw-group-info {
+  grid-row: 1; justify-self: end; align-self: center; z-index: 1;
+  margin: -6px 4px 0 0;   /* the head bleeds 8px past the group's padding: 4 + 8 = 12px from its edge */
+}
 /* Controls section head: ⓘ sits just left of the chevron. */
 .rw-section-head .rw-info-btn { margin-right: 8px; }
 /* Patch Bay: field titles become a row so the ⓘ can sit at the right. */

@@ -634,7 +634,26 @@
   gap: 4px;
   align-items: center;
 }
-.rw-pb-zoombar { display: inline-flex; gap: 2px; }
+.rw-pb-zoombar { display: inline-flex; gap: 2px; align-items: center; }
+/* Zoom − / +: square buttons with the symbol drawn as bars, so it sits exactly in the middle
+   (a font glyph rides on the baseline). Modern makes them circles (theme-modern.css). */
+.rw-pb-zoombar > .rw-pb-zoomstep {
+  position: relative;
+  width: 16px; height: 16px;   /* the % button's height */
+  box-sizing: border-box;
+  padding: 0;
+  flex: none;
+}
+.rw-pb-zoomstep::before, .rw-pb-zoomstep--in::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 8px; height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.rw-pb-zoomstep--in::after { transform: translate(-50%, -50%) rotate(90deg); }
 
 /* Stack-reorder insertion line + lifted unit while dragging in tidy mode. */
 .rw-pb-insertline {
