@@ -38,6 +38,19 @@ export interface FftAnalyzerListener {
   (s: { running: boolean; kind: string }): void;
 }
 
+/**
+ * Offline render (`?render=offline`, src/render/offline.ts): precomputed spectra stand in for
+ * the AnalyserNode, one frame's worth per `tick`. `frequency` writes bytes exactly as
+ * `getByteFrequencyData` would for the given dB range, so band grouping, smoothing and every
+ * consumer downstream run unchanged.
+ */
+export interface OfflineSpectrumSource {
+  fftSize: number;
+  sampleRate: number;
+  frequency(out: Uint8Array, minDb: number, maxDb: number): void;
+  timeDomain(out: Float32Array): void;
+}
+
 export class FFTAnalyzer {
   /** Smoothed band values, one per band, in 0..1. */
   bands: Float32Array;
@@ -60,6 +73,7 @@ export class FFTAnalyzer {
   private shape: BandShape = { attackMs: 25, releaseMs: 180, gain: 1, floor: 0.02, thresholdDb: -90 };
   private kind: string = 'none';
   private listeners = new Set<FftAnalyzerListener>();
+  private offline: OfflineSpectrumSource | null = null;
 
   constructor() {
     this.bands = new Float32Array(this.bandCount);
@@ -67,7 +81,17 @@ export class FFTAnalyzer {
   }
 
   get running(): boolean {
-    return this.source != null;
+    return this.source != null || this.offline != null;
+  }
+
+  /** Offline render only: read spectra from `src` instead of an AnalyserNode. */
+  attachOfflineSpectrum(src: OfflineSpectrumSource): void {
+    this.offline = src;
+    this.fftSize = src.fftSize as FftSize;
+    this.fftBuffer = new Uint8Array(src.fftSize / 2);
+    this.kind = 'file';
+    this.recomputeBandIndices();
+    this.notify();
   }
 
   subscribe(fn: FftAnalyzerListener): () => void {
@@ -208,6 +232,10 @@ export class FFTAnalyzer {
    * oscilloscope mode for audio-source scope traces.
    */
   getTimeDomain(out: Float32Array): boolean {
+    if (this.offline) {
+      this.offline.timeDomain(out);
+      return true;
+    }
     if (!this.analyser) {
       out.fill(0);
       return false;
@@ -230,8 +258,16 @@ export class FFTAnalyzer {
 
   /** Sample the analyser, group into bands, smooth. Call once per frame. */
   tick(dtSec: number): void {
-    if (!this.analyser || !this.fftBuffer) return;
-    this.analyser.getByteFrequencyData(this.fftBuffer as Uint8Array<ArrayBuffer>);
+    if (this.offline) {
+      if (!this.fftBuffer || this.fftBuffer.length * 2 !== this.offline.fftSize) {
+        throw new Error(`offline render: the project's FFT size (${this.fftSize}) differs from the `
+          + `precomputed spectra (${this.offline.fftSize}); recompute fft_frames.bin at ${this.fftSize}`);
+      }
+      this.offline.frequency(this.fftBuffer, this.shape.thresholdDb, -10);
+    } else {
+      if (!this.analyser || !this.fftBuffer) return;
+      this.analyser.getByteFrequencyData(this.fftBuffer as Uint8Array<ArrayBuffer>);
+    }
 
     const N = this.bandCount;
     const buf = this.fftBuffer;
@@ -309,8 +345,8 @@ export class FFTAnalyzer {
   }
 
   private recomputeBandIndices(): void {
-    if (!this.analyser) return;
-    const bins = this.analyser.frequencyBinCount;
+    const bins = this.analyser?.frequencyBinCount ?? (this.offline ? this.offline.fftSize / 2 : 0);
+    if (!bins) return;
     const N = this.bandCount;
     const indices: { lo: number; hi: number }[] = [];
 
@@ -322,7 +358,7 @@ export class FFTAnalyzer {
       }
     } else if (this.spacing === 'log') {
       const minHz = 30;
-      const sampleRate = this.ctx?.sampleRate ?? 48000;
+      const sampleRate = this.ctx?.sampleRate ?? this.offline?.sampleRate ?? 48000;
       const nyquist = sampleRate / 2;
       const minBin = Math.max(1, Math.floor((minHz * bins) / nyquist));
       const ratio = Math.log(bins / minBin) / N;
@@ -332,7 +368,7 @@ export class FFTAnalyzer {
         indices.push({ lo, hi: Math.min(hi, bins) });
       }
     } else if (this.spacing === 'mel') {
-      const sampleRate = this.ctx?.sampleRate ?? 48000;
+      const sampleRate = this.ctx?.sampleRate ?? this.offline?.sampleRate ?? 48000;
       const nyquist = sampleRate / 2;
       const melMax = 2595 * Math.log10(1 + nyquist / 700);
       for (let b = 0; b < N; b++) {

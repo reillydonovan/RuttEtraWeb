@@ -62,6 +62,7 @@ import { attachHaptics, haptic } from './platform/HapticFeedback';
 import * as keyframeAffordance from './ui/keyframeAffordance';
 import { registerLiveValues } from './ui/liveValueBus';
 import { resetSavedState, BACKUP_KEY } from './state/resetSavedState';
+import { installOfflineClock, isOfflineRender, startOfflineRender } from './render/offline';
 import { showStatusBadge } from './ui/statusBadge';
 // Self-hosted UI fonts (were a render-blocking Google Fonts stylesheet).
 import '@fontsource/vt323';
@@ -74,6 +75,10 @@ const UI_STATE_KEY_SET: ReadonlySet<string> = new Set(UI_STATE_KEYS);
 const params = new URLSearchParams(window.location.search);
 const viewTarget = params.get('view');
 const RESET_NOTICE_KEY = 'rw-reset-notice';
+// Offline render (src/render/offline.ts): the render clock and seeded chance must be in place
+// BEFORE any engine is built, because engines read the clock in their constructors.
+const offlineRender = isOfflineRender(params);
+if (offlineRender) installOfflineClock(Number(params.get('seed') ?? 1) | 0);
 
 // A tab left open across a deploy asks for code-split chunks the new build
 // no longer has. Reload once (at most once a minute) to pick up the new
@@ -1971,10 +1976,12 @@ async function bootSynth(): Promise<void> {
   let fps = 0;
   let lastDraw = performance.now();
 
-  function frame() {
-    const now = performance.now();
-    const dt = clock.getDelta();
-    const t = clock.elapsedTime;
+  // Offline render passes a fixed step and time (t = frame / fps); live mode passes nothing.
+  function frame(stepDt?: number, stepT?: number) {
+    const stepped = stepDt !== undefined && stepT !== undefined;
+    const now = stepped ? stepT * 1000 : performance.now();
+    const dt = stepped ? stepDt : clock.getDelta();
+    const t = stepped ? stepT : clock.elapsedTime;
     // WebXR (v11): three.js drives the loop from the XR session's RAF
     // when `renderer.xr.isPresenting` is true, and from the standard
     // window RAF otherwise — `renderer.setAnimationLoop(frame)` below
@@ -2027,7 +2034,7 @@ async function bootSynth(): Promise<void> {
     // Ignored in XR: the headset's compositor sets the cadence; we MUST
     // submit a frame each time three.js calls us or the runtime reprojects
     // our last frame and the user sees judder.
-    if (!presenting && now - lastDraw + 0.5 < currentFrameInterval) {
+    if (!stepped && !presenting && now - lastDraw + 0.5 < currentFrameInterval) {
       return;
     }
     lastDraw = now;
@@ -2156,7 +2163,7 @@ async function bootSynth(): Promise<void> {
     } else {
       postfx.render(dt);
     }
-    watcher.onFrame(dt);
+    if (!stepped) watcher.onFrame(dt); // offline frames are slow by design: never adapt quality
     // High-quality recording reads the canvas right after it is drawn (no-op unless recording).
     recorder.captureRenderedFrame();
 
@@ -2204,13 +2211,33 @@ async function bootSynth(): Promise<void> {
   };
   // Output popouts can drive this same frame when the main window's rAF
   // stops (hidden behind a fullscreen popout) — renderer/frameDriver.ts.
-  setFrameRunner(() => { if (!renderer.xr.isPresenting) guardedFrame(); });
-  let splashShown = true;
-  renderer.setAnimationLoop(() => {
-    noteMainFrame();
-    guardedFrame();
-    if (splashShown) { splashShown = false; hideSplash(); } // first frame is up
-  });
+  if (offlineRender) {
+    // No animation loop: the offline driver steps every frame itself, and a frame error
+    // fails the render loudly instead of being sampled into the console.
+    hideSplash();
+    const jobUrl = params.get('job');
+    if (!jobUrl) throw new Error('?render=offline needs &job=<url of the job JSON>');
+    await startOfflineRender(jobUrl, {
+      settings, fft: io.fft, ruttEtra, renderer, canvas, resize,
+      openProject: (text) => projectStore.openFromText(text, 'offline-job'),
+      playTimelineFromStart: () => {
+        if (!sequencer.timeline) return false;
+        sequencer.setLoopOverride(false);
+        sequencer.seek(0);
+        sequencer.play();
+        return true;
+      },
+      step: (dt, t) => frame(dt, t),
+    });
+  } else {
+    setFrameRunner(() => { if (!renderer.xr.isPresenting) guardedFrame(); });
+    let splashShown = true;
+    renderer.setAnimationLoop(() => {
+      noteMainFrame();
+      guardedFrame();
+      if (splashShown) { splashShown = false; hideSplash(); } // first frame is up
+    });
+  }
 
   // GPU context loss (driver reset, phone backgrounding, sleep). three
   // already calls preventDefault on 'webglcontextlost' so the browser may

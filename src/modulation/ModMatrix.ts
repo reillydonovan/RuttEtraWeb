@@ -46,6 +46,7 @@ import { activeTargetsBus } from './ActiveTargetsBus';
 import { divisionToHz } from './tempo';
 import { applyOutputStage, slewToward } from './outputStage';
 import { LiveValuesStore } from './LiveValues';
+import { nowMs } from '../platform/determinism';
 
 /**
  * Diagnostic toggle. Set `localStorage.RW_MOD_DEBUG = '1'` (or open the
@@ -136,7 +137,7 @@ export interface ModMatrixDeps {
 }
 
 export class ModMatrix {
-  private startTime = performance.now() / 1000;
+  private startTime = nowMs() / 1000;
   private joystick: JoystickState = { x: 0, y: 0, z: 0 };
   private slotStates: SlotState[] = [];
   private liveValues: LiveValuesStore;
@@ -255,7 +256,7 @@ export class ModMatrix {
    *  "params stick at last modulated value" bug.
    */
   tick(dtSec: number): void {
-    const now = performance.now() / 1000 - this.startTime;
+    const now = nowMs() / 1000 - this.startTime;
     const slots = this.settings.get('modSlots');
     const internalBpm = this.settings.get('internalBpm');
     const safeDt = Math.max(0, Math.min(0.5, dtSec));
