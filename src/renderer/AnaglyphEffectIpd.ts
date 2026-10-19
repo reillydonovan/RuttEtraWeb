@@ -2,6 +2,10 @@
  * Vendored port of three.js's `examples/jsm/effects/AnaglyphEffect.js`
  * (r169) with one behavioral fix: **eye separation is actually settable.**
  *
+ * Upstream code: Copyright © 2010-2024 three.js authors. Released under the
+ * MIT License (https://github.com/mrdoob/three.js/blob/dev/LICENSE); this
+ * notice is kept as that license requires.
+ *
  * The upstream effect creates its `StereoCamera` as a `const` inside the
  * constructor closure and never reads any instance property for eye
  * separation — assigning `effect.eyeSep = x` on the upstream class sets a

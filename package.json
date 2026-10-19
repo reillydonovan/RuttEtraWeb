@@ -4,6 +4,19 @@
   "version": "1.34.0",
   "type": "module",
   "description": "Web-based Rutt/Etra video synthesizer with full native controls, free-flight 3D camera, recording, and WebRTC peer-to-peer share links",
+  "license": "AGPL-3.0-only",
+  "author": "Reilly Donovan",
+  "homepage": "https://ruttetraweb.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reillydonovan/RuttEtraWeb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/reillydonovan/RuttEtraWeb/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

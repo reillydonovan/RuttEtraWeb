@@ -14,7 +14,9 @@ This project is built on a small number of high-quality open source libraries:
 - **[Vite](https://vitejs.dev/)** — build tooling and dev server. MIT license.
 - **[Vitest](https://vitest.dev/)** — unit test runner. MIT license.
 - **[marked](https://marked.js.org/)** — used at build time only to render this manual's markdown sources. MIT license.
-- **VT323** font by Peter Hull — the in-app monospace face. SIL Open Font License.
+- **[hls.js](https://github.com/video-dev/hls.js)** — HLS stream-URL playback in browsers without native HLS. Apache-2.0 license.
+- **[Mediabunny](https://mediabunny.dev/)** — MP4/WebM muxing for the WebCodecs recorder. MPL-2.0 license.
+- **VT323** font by Peter Hull and **Share Tech Mono** font by Carrois Apostrophe, via [Fontsource](https://fontsource.org/). SIL Open Font License.
 
 ### License
 
@@ -22,8 +24,8 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 
 ### Project links
 
-- **GitHub** — [github.com/reillyspitzfaden/RuttEtraWeb](https://github.com/reillyspitzfaden/RuttEtraWeb)
-- **Issues / bug reports** — file at the repository above.
-- **Discussion / patches** — pull requests welcome; see `CONTRIBUTING.md` if present, otherwise open an issue first to discuss design.
+- **GitHub** — [github.com/reillydonovan/RuttEtraWeb](https://github.com/reillydonovan/RuttEtraWeb)
+- **Issues / bug reports** — [github.com/reillydonovan/RuttEtraWeb/issues](https://github.com/reillydonovan/RuttEtraWeb/issues)
+- **Patches** — pull requests welcome; see [`CONTRIBUTING.md`](https://github.com/reillydonovan/RuttEtraWeb/blob/HEAD/CONTRIBUTING.md). For a bigger change, open an issue first to talk through the design.
 
 If this software finds its way into a piece of art you make, the author would be glad to hear about it.

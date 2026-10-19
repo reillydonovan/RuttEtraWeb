@@ -11,7 +11,6 @@
 // instance for the phone) — nothing is mocked up — and every state the
 // narration describes is asserted with h.check / the harness guards.
 import fs from 'node:fs';
-import path from 'node:path';
 import { bridgeServer } from '../lib/fakeio.mjs';
 import { findJack } from '../lib/bay.mjs';
 
@@ -34,9 +33,10 @@ export const music = true;           // also writes promo-music.mp4
 const HIDE_TOASTS = `(() => { const add = () => { const st = document.createElement('style'); st.textContent = '#rw-toast-host{visibility:hidden!important}'; document.documentElement.appendChild(st); }; if (document.documentElement) add(); else document.addEventListener('DOMContentLoaded', add); })();`;
 export const initScripts = ['Object.defineProperty(Navigator.prototype, "canShare", { value: undefined, configurable: true });', HIDE_TOASTS];
 
-const FACE = process.env.PROMO_FACE
-  ?? path.resolve('..', '..', '..', 'ruttetraweb-presentation', 'media', 'demo', 'face.mp4');
-const HAS_FACE = fs.existsSync(FACE);
+// Optional: a face clip for the "height" beat (PROMO_FACE=/path/to/face.mp4). Without it the beat
+// stays on the boot pattern.
+const FACE = process.env.PROMO_FACE ?? '';
+const HAS_FACE = !!FACE && fs.existsSync(FACE);
 
 let mcp = null;
 export async function setup({ ctx }) {
