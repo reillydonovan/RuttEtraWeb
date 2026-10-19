@@ -65,6 +65,7 @@ export const lines = [
   { id: 'mcp', text: 'It can be played by an AI, too. These are commands arriving over M C P, and this is the instrument answering.' },
   { id: 'phone', text: 'And it fits in a pocket: a camera, a shutter, and a look for every mood.' },
   { id: 'close', text: 'A machine that survived as documentation, rebuilt from that documentation, for the next generation of media artists. Rutt Etra web dot com.' },
+  { id: 'open', text: "And it's open source. The code is on GitHub, free for anyone to read, fork, and build on. Patch it, bend it, add to it, and show us what you come up with." },
 ];
 export const poster = 'push';
 
@@ -82,6 +83,25 @@ async function caption(page, kicker, title, ms = 3000) {
     setTimeout(() => { c.style.opacity = '0'; }, d);
     setTimeout(() => c.remove(), d + 800);
   }, [kicker, title, ms]);
+}
+
+/** The closing card: centred over the (still moving) picture, held to the end of the film. */
+async function endCard(page) {
+  await page.evaluate(() => {
+    const c = document.createElement('div');
+    c.innerHTML = `<div style="font:700 64px -apple-system,'Segoe UI',system-ui,sans-serif;letter-spacing:-.02em;color:#5fff85">Rutt/Etra Web</div>`
+      + `<div style="font:600 15px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.24em;text-transform:uppercase;color:#9bb;margin-top:10px">open source · AGPL-3.0 · contributions welcome</div>`
+      + `<div style="display:flex;gap:18px;justify-content:center;margin-top:30px;font:500 26px ui-monospace,Menlo,Consolas,monospace;color:#fff">`
+      +   `<span style="padding:12px 22px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)">ruttetraweb.com</span>`
+      +   `<span style="padding:12px 22px;border-radius:999px;background:rgba(95,255,133,.12);border:1px solid rgba(95,255,133,.4)">github.com/reillydonovan/RuttEtraWeb</span>`
+      + `</div>`
+      + `<div style="font:500 22px -apple-system,'Segoe UI',system-ui,sans-serif;color:#cfe;margin-top:26px">Fork it, patch it, and show us what you make.</div>`;
+    Object.assign(c.style, { position: 'fixed', left: '50%', top: '50%', zIndex: '2147483000', pointerEvents: 'none', textAlign: 'center',
+      padding: '44px 60px', borderRadius: '24px', background: 'rgba(0,0,0,.66)', backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,.12)', opacity: '0', transform: 'translate(-50%, calc(-50% + 12px))', transition: 'opacity .8s ease, transform .8s ease' });
+    document.documentElement.appendChild(c);
+    requestAnimationFrame(() => { c.style.opacity = '1'; c.style.transform = 'translate(-50%, -50%)'; });
+  });
 }
 
 async function logLine(page, html) {
@@ -464,4 +484,12 @@ export async function run(page, seg, h) {
     await h.drag({ x: 880, y: 450 }, { x: 1080, y: 400 }, 160);
     await h.wait(1200);
   });
+
+  await seg('open', async () => {
+    await h.wait(400);
+    await endCard(page);
+    await h.drag({ x: 1080, y: 400 }, { x: 900, y: 470 }, 200);
+  });
+  // Hold the card a beat after the last word.
+  await h.wait(2500);
 }
