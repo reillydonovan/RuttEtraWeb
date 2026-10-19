@@ -50,6 +50,8 @@ export interface OfflineDeps {
   canvas: HTMLCanvasElement;
   openProject: (text: string) => Promise<unknown>;
   playTimelineFromStart: () => boolean;
+  /** Put the playing timeline at `seconds` (a render that starts mid-job, or skips). */
+  seekTimeline: (seconds: number) => void;
   resize: () => void;
   /** One pass of main.ts's frame body with a fixed step. */
   step: (dt: number, t: number) => void;
@@ -140,6 +142,7 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
   const pad = job.pad ?? 5;
   let lastBitmap: ImageBitmap | null = null;
   const timeline = job.playTimeline !== false ? d.playTimelineFromStart() : false;
+  let nextFrame = 0;
 
   (window as unknown as { __ruttOffline: unknown }).__ruttOffline = {
     job,
@@ -155,6 +158,10 @@ export async function startOfflineRender(jobUrl: string, d: OfflineDeps): Promis
       d.ruttEtra.setExternalVideoTexture(tex, bmp.width, bmp.height);
       fft.setFrame(i);
       renderTimeMs = (i / job.fps) * 1000;
+      // The timeline advances by dt each step; a render that starts at frame N (or jumps)
+      // seeks it so frame N shows what it shows in a full render.
+      if (timeline && i !== nextFrame) d.seekTimeline(i / job.fps);
+      nextFrame = i + 1;
       d.step(1 / job.fps, i / job.fps);
       lastBitmap?.close();
       lastBitmap = bmp;
