@@ -2056,9 +2056,8 @@ body[data-layout="compact"] .rw-mod-slot-expand { width: 40px; height: 40px; }
 .rw-group--collapsed > .rw-group-body { display: none !important; }
 .rw-group--collapsed > .rw-group-head { margin-bottom: 0; }
 .rw-group-head:hover { color: var(--re-accent); }
-/* Phone sheets: always expanded (the sheet is already one section at a time). */
-body[data-layout="compact"] .rw-group--collapsed > .rw-group-body { display: block !important; }
-body[data-layout="compact"] .rw-group-head::before { display: none; }
+/* Phone sheets collapse and expand child groups exactly like desktop (owner: the head
+   animated but the body was forced open, so tapping it did nothing). */
 
 /* Child group states (Classic): hover and open. Modern restyles these in theme-modern.css. */
 .rw-group:hover { border-color: var(--re-line-hi); }

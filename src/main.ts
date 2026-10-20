@@ -1438,7 +1438,6 @@ async function bootSynth(): Promise<void> {
         const { aspect: _keep, ...patch } = presetPatch(p.values);
         void _keep;
         settings.patch(patch);
-        responsive.setPresetName(p.name);
       },
       takePhoto: () => new Promise<Blob>((resolve, reject) => {
         // Composite inside a rAF so the GL frame is freshly drawn.
@@ -1490,6 +1489,10 @@ async function bootSynth(): Promise<void> {
         library: () => { bootClearErr(); bootFileInput.click(); },
         activeKind: () => source.getState().kind,
         facing: () => settings.get('cameraFacing'),
+        sourceSize: () => {
+          const st = source.getState();
+          return st.kind !== 'none' && st.width > 0 && st.height > 0 ? { w: st.width, h: st.height } : null;
+        },
       },
     },
   });

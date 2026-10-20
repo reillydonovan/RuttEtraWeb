@@ -8,6 +8,7 @@
 
 import { SettingsStore } from '../../state/Settings';
 import type { CaptureDockDeps } from './CaptureDock';
+import { aspectForSource } from '../sections/DcuSection';
 
 type Quick = NonNullable<CaptureDockDeps['quickSource']>;
 
@@ -63,6 +64,45 @@ export function buildSourceQuick(settings: SettingsStore, q: Quick, toast: (m: s
   refresh();
   const offs = (['sourceKind', 'cameraFacing', 'patternEnabled'] as const).map((k) => settings.subscribe(k, refresh));
 
-  el.append(h, grid);
+  // ---- Aspect: the raster's shape (the DCU's Aspect value). "Fit picture" matches the
+  // camera or video; the rest are fixed shapes — 9:16 fills a portrait phone screen.
+  const ah = document.createElement('div');
+  ah.className = 'rw-quicksrc-title';
+  ah.textContent = 'Aspect';
+  const chips = document.createElement('div');
+  chips.className = 'rw-quicksrc-aspects';
+  const fit = (): number | null => { const s = q.sourceSize(); return s ? aspectForSource(s.w, s.h) : null; };
+  const ASPECTS: { id: string; label: string; value: () => number | null }[] = [
+    { id: 'fit', label: 'Fit picture', value: fit },
+    { id: '4:3', label: '4:3', value: () => 4 / 3 },
+    { id: '16:9', label: '16:9', value: () => 16 / 9 },
+    { id: '1:1', label: '1:1', value: () => 1 },
+    { id: '9:16', label: '9:16', value: () => 9 / 16 },
+  ];
+  const aspectBtns = new Map<string, HTMLButtonElement>();
+  for (const a of ASPECTS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rw-quicksrc-aspect';
+    b.textContent = a.label;
+    b.addEventListener('click', () => {
+      const v = a.value();
+      if (v == null) { toast('Start a camera or video first — then Fit picture matches its shape.'); return; }
+      settings.set('aspect', v);
+    });
+    aspectBtns.set(a.id, b);
+    chips.appendChild(b);
+  }
+  const refreshAspect = (): void => {
+    const cur = settings.get('aspect');
+    const near = (v: number | null) => v != null && Math.abs(cur - v) < 0.002;
+    // A fixed shape that happens to equal the picture lights only the fixed chip.
+    const lit = ASPECTS.slice(1).find((a) => near(a.value()))?.id ?? (near(fit()) ? 'fit' : null);
+    for (const [id, b] of aspectBtns) b.classList.toggle('active', id === lit);
+  };
+  refreshAspect();
+  offs.push(settings.subscribe('aspect', refreshAspect));
+
+  el.append(h, grid, ah, chips);
   return { el, dispose: () => { for (const off of offs) off?.(); } };
 }

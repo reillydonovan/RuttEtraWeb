@@ -81,11 +81,6 @@ body[data-layout="compact"] #top-strip { display: flex; }
   font-size: 12px;
   flex-shrink: 0;
 }
-.rw-top-preset-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .rw-top-actions { display: flex; gap: 4px; }
 .rw-top-btn {
   min-width: 44px; min-height: 36px;

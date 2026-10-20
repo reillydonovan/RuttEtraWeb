@@ -132,10 +132,10 @@ The custom cursor treatment isn't limited to the Patch Bay — every clickable c
 
 On a phone the app switches to a **camera-style layout**: the picture fills the screen and the controls float over it.
 
-- **Top strip** — the current look's name and a help button.
+- **Top strip** — the Rutt/Etra Web wordmark and a help button.
 - **Capture dock** — swipe the **looks** carousel and tap a look to apply it. Below it: **flip camera** (front/back), the **shutter**, and a **Photo / Video** switch. In Photo mode the shutter saves a PNG (through the phone's share sheet where available); in Video mode it starts and stops a recording, with a running timer, and offers **Share** when the file is saved.
-- **Tab bar** — **Source**, **Shape**, **Motion**, **Color**, **More**. A tab opens a sheet of real controls; drag the sheet down to peek at the picture, or long-press the picture to hide everything.
-- **Source** leads with four big choices: front camera, back camera, a video from your library, or the built-in pattern. The picture's shape follows the camera, so a portrait selfie fills a portrait screen.
+- **Tab bar** — **Source**, **Shape**, **Motion**, **Color**, **More**. A tab opens a sheet of real controls; tap a group's heading to open or close it. While a sheet is open, a small **live preview** of the picture sits in the corner so you can watch each change as you make it — drag it out of the way, or tap it to tuck it into a **Preview** button. Drag the sheet down to see the whole picture, or long-press the picture to hide everything.
+- **Source** leads with four big choices: front camera, back camera, a video from your library, or the built-in pattern. The picture's shape follows the camera, so a portrait selfie fills a portrait screen; the **Aspect** buttons below them set it by hand (**Fit picture**, 4:3, 16:9, 1:1, 9:16).
 - Turn the phone sideways and the dock becomes a rail on the right edge.
 
 The phone deliberately leaves out what needs a mouse, a keyboard or hardware: the **Patch Bay**, the **Timeline**, the node-graph editor, MIDI, OSC, CV, MCP, XR, Dual Raster, Video Source B and live broadcasting. They are all still there on a desktop browser, and your saved looks and projects open on either.

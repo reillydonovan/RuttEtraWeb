@@ -19,6 +19,7 @@ import { TabBar, TabBarTabId } from './TabBar';
 import { TopStrip } from './TopStrip';
 import { CaptureDock, CaptureDockDeps } from './CaptureDock';
 import { buildSourceQuick } from './SourceQuick';
+import { SheetPreview } from './SheetPreview';
 import { COMPACT_TABS, CompactTabSpec } from './LayoutGroups';
 
 export interface ResponsivePanelDeps {
@@ -41,6 +42,8 @@ export class ResponsivePanel {
   private tabBar: TabBar | null = null;
   private dock: CaptureDock | null = null;
   private sheetDisposers: Array<() => void> = [];
+  /** Live picture-in-picture of the render while a tab sheet covers it. */
+  private preview: SheetPreview | null = null;
   /** Sheet currently presenting compact tab content, if any. */
   private activeSheet: BottomSheet | null = null;
   /** Container the sheet's content panel re-parents to when dismissed. */
@@ -190,13 +193,18 @@ export class ResponsivePanel {
       title: tab.label.toUpperCase(),
       initialSnap: tab.id === 'more' ? '90' : '60',
       onDismiss: () => {
+        this.preview?.hide();
         this.reparkActiveSheetSections();
         this.activeSheet = null;
         this.tabBar?.setActive(null);
       },
+      // Pulled down to the lowest snap the picture itself shows — no need for the preview.
+      onSnapChange: (snap) => this.preview?.setSuppressed(snap === '30'),
     });
     sheet.open(content);
     this.activeSheet = sheet;
+    const stage = document.getElementById('stage');
+    if (stage instanceof HTMLCanvasElement) (this.preview ??= new SheetPreview(stage)).show();
   }
 
   /** Called by main.ts when the (lazy-loaded) Manual section is in place. */
@@ -252,7 +260,6 @@ export class ResponsivePanel {
 
   setRecordingIndicator(on: boolean): void { this.topStrip?.setRecording(on); }
   setBroadcastIndicator(on: boolean): void { this.topStrip?.setBroadcasting(on); }
-  setPresetName(name: string): void { this.topStrip?.setPresetName(name); }
   /** Highlight a look in the capture dock's carousel (null clears it). */
   setActiveLook(id: string | null): void { this.dock?.setActiveLook(id); }
   /** Offer the native share sheet for a just-saved recording. */

@@ -40,6 +40,8 @@ export interface CaptureDockDeps {
     library: () => void;
     activeKind: () => string;
     facing: () => 'user' | 'environment';
+    /** The live picture's pixel size (null before a source plays) — for "Fit picture". */
+    sourceSize: () => { w: number; h: number } | null;
   };
   toast: (msg: string, action?: { label: string; onClick: () => void }) => void;
   haptic: (kind: 'tap' | 'click' | 'success' | 'error') => void;

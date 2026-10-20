@@ -16,7 +16,9 @@ A tab opens a `BottomSheet` of the real panel sections (re-parented from the des
 - `SourceQuick.ts` — front/back camera, library video, pattern — the same start paths as the boot screen (`startWebcam`,
   `startWithPattern`, the boot file input).
 - Looks in the dock apply `presetPatch(values)` **minus `aspect`**, so a look never undoes the picture-fit aspect.
-- In compact, `aspect` follows each new webcam/file source once (`main.ts`); desktop keeps the 4:3 default.
+- In compact, `aspect` follows each new webcam/file source once (`main.ts`); desktop keeps the 4:3 default. The Source sheet's **Aspect** chips (`SourceQuick.ts`: Fit picture · 4:3 · 16:9 · 1:1 · 9:16) set it by hand.
+- Child groups in a sheet collapse and expand exactly like desktop (all start collapsed).
+- While a tab sheet is open, `SheetPreview.ts` shows a live picture-in-picture of the centre of `#stage` (drawImage per frame, never a second renderer): drag to move, tap to tuck into a "Preview" pill; hidden at the sheet's lowest snap. The top strip shows only the wordmark.
 
 ## Boundaries (what is desktop-only)
 

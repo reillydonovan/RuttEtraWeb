@@ -1,5 +1,5 @@
 /**
- * Compact-mode top strip: preset name (tap to open Presets), record toggle,
+ * Compact-mode top strip: the wordmark (tap to open Presets), record toggle,
  * broadcast toggle, help button. ~48px tall, respects safe-area-inset-top.
  */
 
@@ -12,7 +12,6 @@ export interface TopStripActions {
 
 export class TopStrip {
   el: HTMLElement;
-  private presetLabel: HTMLSpanElement;
   private recordBtn: HTMLButtonElement;
   private broadcastBtn: HTMLButtonElement;
 
@@ -27,10 +26,9 @@ export class TopStrip {
     const presetIcon = document.createElement('span');
     presetIcon.className = 'rw-top-icon';
     presetIcon.textContent = 'RUTT/ETRA WEB';
-    this.presetLabel = document.createElement('span');
-    this.presetLabel.className = 'rw-top-preset-name';
-    this.presetLabel.textContent = 'Pick a look';
-    presetBtn.append(presetIcon, this.presetLabel);
+    // Just the wordmark (owner: no "Pick a look" / look name beside it — the looks
+    // carousel above the shutter already shows which look is on).
+    presetBtn.append(presetIcon);
     presetBtn.addEventListener('click', () => actions.onOpenPresets());
 
     const right = document.createElement('div');
@@ -45,10 +43,6 @@ export class TopStrip {
     right.append(this.recordBtn, this.broadcastBtn, helpBtn);
 
     this.el.append(presetBtn, right);
-  }
-
-  setPresetName(name: string): void {
-    this.presetLabel.textContent = name;
   }
 
   setRecording(on: boolean): void {
