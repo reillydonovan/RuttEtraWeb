@@ -16,7 +16,7 @@ export interface Preset {
   desktopOnly?: boolean;
 }
 
-const LOOKS: Preset[] = [
+const RAW_LOOKS: Preset[] = [
   {
     id: 'classic-1974',
     name: 'Classic 1974',
@@ -210,6 +210,10 @@ const LOOKS: Preset[] = [
     },
   },
 ];
+
+/** Feedback trails belong only to the looks that ask for them: every other look switches
+ *  feedback off, so picking a new look after Burn-In doesn't keep burning in. */
+const LOOKS: Preset[] = RAW_LOOKS.map((p) => ({ ...p, values: { feedbackEnabled: false, ...p.values } }));
 
 /** Keys a "look" owns: everything any built-in look sets, minus the Pattern Generator
  *  (pressing Default must never switch off the picture currently on screen). */
