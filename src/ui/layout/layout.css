@@ -539,3 +539,7 @@ body[data-layout="compact"] .rw-toggle-txt {
 
 body[data-layout="compact"] .rw-select { min-height: 44px; font-size: 14px; }
 body[data-layout="compact"] .rw-btn    { min-height: 44px; padding: 8px 12px; font-size: 13px; }
+
+/* Built-in presets marked desktopOnly (presets.ts) are left off the phone. The
+   !important beats the Modern compact chip rule, which sets display itself. */
+body[data-layout="compact"] .rw-preset-chip[data-desktop-only] { display: none !important; }

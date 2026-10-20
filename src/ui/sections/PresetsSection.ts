@@ -18,6 +18,7 @@ import { row, group, button, textInput, readout } from '../widgets';
 import { exportEverything, importEverything } from '../../state/exportEverything';
 import { haptic } from '../../platform/HapticFeedback';
 import { isFactoryView } from '../../renderer/CameraRig';
+import { layoutManager } from '../layout/LayoutManager';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
 
@@ -55,7 +56,9 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   const builtins = group('Built-in Presets');
   const builtinSel = document.createElement('select');
   builtinSel.className = 'rw-select';
+  const compact = layoutManager().current() === 'compact';
   for (const p of PRESETS) {
+    if (p.desktopOnly && compact) continue;
     const o = document.createElement('option');
     o.value = p.id; o.textContent = p.name;
     builtinSel.appendChild(o);
@@ -84,6 +87,7 @@ export function createPresetsSection(settings: SettingsStore): HTMLElement {
   for (const p of PRESETS) {
     const c = document.createElement('div');
     c.className = 'rw-preset-chip';
+    if (p.desktopOnly) c.dataset.desktopOnly = 'true';
     c.textContent = p.name;
     c.title = `${p.description}\n(drag onto timeline to add keyframe)`;
     c.draggable = true;

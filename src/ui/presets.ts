@@ -11,6 +11,9 @@ export interface Preset {
   name: string;
   description: string;
   values: Partial<Settings>;
+  /** Left out of the phone (compact) layout: e.g. a look that moves the virtual camera
+   *  somewhere a touch user can't easily get back from. */
+  desktopOnly?: boolean;
 }
 
 const LOOKS: Preset[] = [
@@ -133,6 +136,7 @@ const LOOKS: Preset[] = [
     id: 'diving',
     name: 'Diving',
     description: 'Camera tucked low and inside the raster — fly-through view.',
+    desktopOnly: true,
     values: {
       colorMode: 'phosphorGreen',
       backgroundColor: '#000000',

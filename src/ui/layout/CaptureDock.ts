@@ -74,6 +74,7 @@ export class CaptureDock {
     strip.setAttribute('role', 'listbox');
     strip.setAttribute('aria-label', 'Looks');
     for (const p of PRESETS) {
+      if (p.desktopOnly) continue;
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'rw-look';
