@@ -395,6 +395,11 @@ export class PostFX {
 
   private timeSec = 0;
 
+  /** Restart the CRT/analog clock at 0 (offline stills: every still starts from the same time). */
+  resetClock(): void {
+    this.timeSec = 0;
+  }
+
   render(dt: number): void {
     // Feedback accumulation happens inside FeedbackAccumulatorPass at its
     // point in the chain — no post-render snapshot needed (the old

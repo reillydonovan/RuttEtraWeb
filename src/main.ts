@@ -2232,6 +2232,8 @@ async function bootSynth(): Promise<void> {
         if (tl) sequencer.seek((seconds * settings.get('internalBpm')) / 60 / tl.beatsPerBar);
       },
       step: (dt, t) => frame(dt, t),
+      setPerformanceProfile: (id) => { perfMgr.setOverride(id); perfMgr.applyForMode(layout.current()); },
+      resetClocks: () => postfx.resetClock(),
     });
   } else {
     setFrameRunner(() => { if (!renderer.xr.isPresenting) guardedFrame(); });

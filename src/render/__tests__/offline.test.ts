@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseFftFrames } from '../offline';
+import { applyLook, lumaStats, parseFftFrames } from '../offline';
+import { DEFAULTS, SettingsStore } from '../../state/Settings';
 import { FFTAnalyzer } from '../../audio/FFTAnalyzer';
 
 /** A tiny RWFF v1 file: fftSize 8 (4 bins), 2 frames, every bin of frame f at dbOf(f, k). */
@@ -56,5 +57,55 @@ describe('offline spectra (fft_frames.bin)', () => {
     expect(fft.bands[0]).toBeGreaterThan(0);
     fft.setFftSize(2048);
     expect(() => fft.tick(1 / 30)).toThrow(/FFT size/);
+  });
+});
+
+describe('offline stills: applyLook', () => {
+  it('puts every key an earlier look touched back to default, and leaves the rest alone', () => {
+    const s = new SettingsStore();
+    s.set('internalBpm', 97); // not a look key: no still may touch it
+    const touched = new Set<string>();
+    applyLook(s, { skip: 0.5, zPush: 2, colorMode: 'phosphorAmber' }, touched);
+    expect(s.get('skip')).toBe(0.5);
+    applyLook(s, { zPush: 1.5 }, touched);
+    expect(s.get('skip')).toBe(DEFAULTS.skip);
+    expect(s.get('colorMode')).toBe(DEFAULTS.colorMode);
+    expect(s.get('zPush')).toBe(1.5);
+    expect(s.get('internalBpm')).toBe(97);
+  });
+
+  it('switches a gate that stays on off and on again (that is what clears feedback history)', () => {
+    const s = new SettingsStore();
+    const seen: boolean[] = [];
+    s.subscribe('feedbackEnabled', (v) => seen.push(v));
+    const touched = new Set<string>();
+    applyLook(s, { feedbackEnabled: true, feedbackDecay: 0.99 }, touched);
+    applyLook(s, { feedbackEnabled: true, feedbackDecay: 0.9 }, touched);
+    expect(seen).toEqual([false, true, false, true]); // subscribe() reports the current value first
+  });
+
+  it('returns the camera transform to its default pose', () => {
+    const s = new SettingsStore();
+    s.set('camPosX', 3);
+    s.set('camRotY', 45);
+    applyLook(s, { zPush: 1 }, new Set());
+    expect(s.get('camPosX')).toBe(DEFAULTS.camPosX);
+    expect(s.get('camRotY')).toBe(DEFAULTS.camRotY);
+  });
+
+  it('fails loudly on an unknown or mistyped key instead of dropping it', () => {
+    const s = new SettingsStore();
+    expect(() => applyLook(s, { zPushh: 1 }, new Set())).toThrow(/unknown setting "zPushh"/);
+    expect(() => applyLook(s, { zPush: '1' }, new Set())).toThrow(/"zPush" was rejected/);
+  });
+});
+
+describe('offline stills: lumaStats', () => {
+  it('reports mean and max luma 0..1, so a blank still is visible in the manifest', () => {
+    expect(lumaStats(new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255]))).toEqual({ mean: 0, max: 0 });
+    const s = lumaStats(new Uint8Array([255, 255, 255, 255, 0, 0, 0, 255]));
+    expect(s.mean).toBeCloseTo(0.5);
+    expect(s.max).toBeCloseTo(1);
+    expect(lumaStats(new Uint8Array([0, 255, 0, 255])).max).toBeCloseTo(0.7152);
   });
 });

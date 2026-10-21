@@ -57,6 +57,17 @@ window, |X|/fftSize. dB → bytes happens in the app with the patch's own thresh
 `audioThresholdDb` can change without a recompute; `audioFftSize` cannot (the render fails
 naming both sizes). A generator: `RuttEtraWebNIN/pipeline/fft_precompute.py`.
 
+## Stills (look copilot)
+
+A job with `"stills": true` (no frames / video) renders one still per call instead of a
+sequence: `__ruttOffline.still({ patch, image, seed, frames })` resets every key an earlier
+still touched (and the camera transform) to its default, applies `patch` the way a built-in
+preset loads (`settings.patch(presetPatch(...))`; unknown or mistyped keys throw), binds
+`image` if given, reseeds chance, zeroes the post-FX clock, steps `frames` frames from t = 0
+and returns the PNG, the pixel SHA-256 and mean/max luma. `"profile"` pins a performance
+profile for any job (otherwise the window width picks one). Driver:
+`tools/copilot/stills.mjs`; see `tools/copilot/README.md`.
+
 ## Not covered
 
 Graph video nodes (`video-luma`, `video-motion`, ...) read the `<video>` element, which is
