@@ -5,31 +5,15 @@
 //   node render.mjs --job job.json --verify 60        (determinism test: render 60 frames twice)
 //
 // job.json (local file): { frames: "<dir of 00001.png...>", pad: 5, frameCount, fps, width, height,
-// fft: "<fft_frames.bin>", project: "<.synth.json>" (optional), seed, playTimeline }
-// Local paths in the job are served to the page through Playwright request interception at
-// http://localhost:5199 (a secure context, so crypto.subtle works); no server is started.
-// The app is the BUILT app in ../../dist (run `npm run build` first).
-//
-// Headed Chrome on purpose: headless can fall back to SwiftShader. The run FAILS if the
-// WebGL renderer is not a real GPU. Frames go to ffmpeg ($FFMPEG, needs libx264) as PNGs on stdin.
-//
-// ANGLE on OpenGL by default (ANGLE=d3d11|vulkan to override). Measured on node-b's 3090 Ti,
-// 2026-10-18, 60 frames rendered twice: OpenGL bit-identical (0 of 60 differ); D3D11 27 of 60
-// and Vulkan 24 of 60 differ by +-1 in up to ~150 px a frame. Not MSAA (same with it off).
-import { chromium } from 'playwright';
+// fft: "<fft_frames.bin>", project: "<.synth.json>" (optional), seed, playTimeline, profile }
+// Local paths in the job are served to the page as /__job/ URLs. Browser, GPU check, ANGLE
+// choice and the built app: ./browser.mjs. Frames go to ffmpeg ($FFMPEG, needs libx264) as
+// PNGs on stdin.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
-import { resolve, dirname, extname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const DIST = resolve(HERE, '../../dist');
-const ORIGIN = 'http://localhost:5199';
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
-  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-  '.woff2': 'font/woff2', '.woff': 'font/woff', '.wasm': 'application/wasm', '.bin': 'application/octet-stream' };
-const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|microsoft basic|software/i;
+import { readFileSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { openOfflinePage, fulfillFile } from './browser.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : d; };
@@ -65,37 +49,19 @@ function serveRange(route, file) {
     headers: { ...headers, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(buf.length) } });
 }
 
-function serve(route) {
-  const url = new URL(route.request().url());
-  let file;
+function serve(route, url) {
+  if (!url.pathname.startsWith('/__job/')) return undefined; // the built app
   if (url.pathname === '/__job/video.mp4' && local.video) return serveRange(route, local.video);
   if (url.pathname === '/__job/job.json') return route.fulfill({ body: JSON.stringify(pageJob), contentType: 'application/json' });
+  let file = null;
   if (url.pathname === '/__job/fft.bin') file = local.fft;
   else if (url.pathname === '/__job/project.json') file = local.project;
-  else if (url.pathname.startsWith('/__job/frames/')) file = join(local.frames, url.pathname.slice('/__job/frames/'.length));
-  else file = join(DIST, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname));
-  if (!file || !existsSync(file) || !statSync(file).isFile()) return route.fulfill({ status: 404, body: 'not found' });
-  return route.fulfill({ body: readFileSync(file), contentType: MIME[extname(file)] ?? 'application/octet-stream' });
+  else if (url.pathname.startsWith('/__job/frames/') && local.frames) file = join(local.frames, url.pathname.slice('/__job/frames/'.length));
+  return fulfillFile(route, file);
 }
 
-async function openRenderer() {
-  if (!existsSync(join(DIST, 'index.html'))) throw new Error(`no build at ${DIST}: run npm run build`);
-  const browser = await chromium.launch({ channel: 'chrome', headless: false,
-    args: [`--use-angle=${process.env.ANGLE ?? 'gl'}`, '--ignore-gpu-blocklist', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
-      '--disable-background-timer-throttling', `--window-size=${Math.min(job.width, 1600) + 40},${Math.min(job.height, 1000) + 160}`] });
-  const ctx = await browser.newContext({ viewport: { width: Math.min(job.width, 1600), height: Math.min(job.height, 1000) }, deviceScaleFactor: 1 });
-  await ctx.route(`${ORIGIN}/**`, serve);
-  const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(`${ORIGIN}/?render=offline&job=/__job/job.json&seed=${job.seed ?? 1}`);
-  await page.waitForFunction(() => document.title === 'ready' || !!window.__ruttOfflineError, null, { timeout: 120000 })
-    .catch(() => { throw new Error(`renderer never became ready: ${errors.slice(0, 5).join(' | ')}`); });
-  const info = await page.evaluate(() => ({ gpu: window.__ruttOffline.gpu, size: window.__ruttOffline.size(), timeline: window.__ruttOffline.timeline }));
-  if (SOFTWARE_GL.test(info.gpu)) throw new Error(`WebGL is on a software renderer (${info.gpu}); refusing to render`);
-  if (info.size[0] !== job.width || info.size[1] !== job.height) throw new Error(`canvas is ${info.size.join('x')}, job wants ${job.width}x${job.height}`);
-  return { browser, page, info, errors };
+function openRenderer() {
+  return openOfflinePage({ width: job.width, height: job.height, jobUrl: '/__job/job.json', seed: job.seed ?? 1, serve });
 }
 
 async function renderRange(page, a, b, onFrame) {
