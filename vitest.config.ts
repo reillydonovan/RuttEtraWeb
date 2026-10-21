@@ -44,6 +44,8 @@ export default defineConfig({
       // precomputed-spectrum file parser. Pure logic, no WebGL.
       'src/platform/**/*.test.ts',
       'src/render/**/*.test.ts',
+      // Look copilot: the settings sampler (pure JS) checked against the app's DEFAULTS/PRESETS.
+      'tools/copilot/**/*.test.mjs',
     ],
     globals: false,
     reporters: ['default'],
