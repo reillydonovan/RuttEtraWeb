@@ -8,7 +8,8 @@
  *   audio / envelope   amber  #ffb347
  *   video              cyan   #5fffd0
  *   gate / trigger     green  #5fff85
- *   control (default)  white
+ *   control (default)  blue   #8ec5ff  (was white — it read as "selected" and
+ *                      gave the ports' plug dots no colour)
  *
  * Animated dash flow on signal-carrying cables is gated on
  * `prefers-reduced-motion`.
@@ -56,7 +57,7 @@ const PORT_COLORS: Record<string, string> = {
   video:   '#5fffd0',
   gate:    '#5fff85',
   trigger: '#5fff85',
-  control: '#ffffff',
+  control: '#8ec5ff',
 };
 
 export function createCableLayer(): CableLayer {
@@ -178,6 +179,7 @@ export function createCableLayer(): CableLayer {
       hovered,
       dashed: !reduceMotion,
       dashOffset,
+      plugs: true, // a coloured dot on both ports, like the Patch Bay
     });
   }
 

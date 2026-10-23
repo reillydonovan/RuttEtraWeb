@@ -170,6 +170,10 @@ export interface CableDrawOpts {
    * rather than replacing it.
    */
   gradientEnd?: string;
+  /** Draw plug dots in the cable's colour at both ends. Default: on for
+   *  'sag' (physical) cables, off for 'flow'; the graph editor turns them on
+   *  for connected cables so each port shows what's plugged into it. */
+  plugs?: boolean;
 }
 
 /**
@@ -259,11 +263,10 @@ export function drawPatchCable(
   ctx.lineWidth = opts.highlight ? 3 : opts.selected ? 3 : opts.hovered ? 2.5 : 2;
   tracePath();
   ctx.stroke();
-  // Physical cables get plug dots so start/end points read at a glance
-  // even where several cables overlap (owner feedback on the bay's
-  // left rail). Editor-flow cables keep bare ends (ports draw their own
-  // dots).
-  if ((opts.style ?? 'flow') === 'sag') {
+  // Plug dots so start/end points read at a glance even where several
+  // cables overlap (owner feedback on the bay's left rail). On by default
+  // for physical cables; flow cables opt in with `plugs`.
+  if (opts.plugs ?? (opts.style ?? 'flow') === 'sag') {
     ctx.setLineDash([]);
     ctx.fillStyle = color;
     ctx.beginPath();

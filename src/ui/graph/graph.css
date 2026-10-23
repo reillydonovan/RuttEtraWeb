@@ -430,7 +430,7 @@
 .rw-graph-port-dot--video   { border-color: #5fffd0; }
 .rw-graph-port-dot--gate,
 .rw-graph-port-dot--trigger { border-color: #5fff85; }
-.rw-graph-port-dot--control { border-color: #ffffff; }
+.rw-graph-port-dot--control { border-color: #8ec5ff; }
 .rw-graph-port-label {
   font-size: 10px;
   color: var(--re-text-dim);

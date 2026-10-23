@@ -26,9 +26,13 @@ const wired = new WeakSet<Document>();
 function wire(doc: Document): void {
   if (wired.has(doc)) return;
   wired.add(doc);
-  doc.addEventListener('click', (ev) => {
+  // Any press outside the menu closes it — a press, not a click: pressing a
+  // graph node re-renders it, so press and release land on different
+  // elements and no `click` ever fired (the menu stayed open over the node).
+  // Capture phase so a handler that stops propagation can't keep it open.
+  doc.addEventListener('pointerdown', (ev) => {
     if (openMenu && !openMenu.contains(ev.target as Node)) dismiss();
-  });
+  }, true);
   doc.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && openMenu) dismiss();
   });
