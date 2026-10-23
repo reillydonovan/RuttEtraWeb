@@ -112,7 +112,7 @@ export function createXrSection(settings: SettingsStore, xr: XRManager): HTMLEle
           'This browser has no WebXR. Use Chrome or Edge on the PC, or the Meta Quest Browser in the headset.';
       } else {
         capEl.textContent =
-          'No headset found. For a PC-tethered Quest: start Quest Link / Air Link, set Meta Quest Link as the active OpenXR runtime (Meta Quest Link app ▸ Settings ▸ General), then Check again.';
+          'No headset found. For a PC-tethered Quest: start Quest Link / Air Link, set Meta Quest Link as the active OpenXR runtime (Meta Quest Link app ▸ Settings ▸ General), then quit and reopen the browser (it looks for a headset only when it starts).';
       }
       return;
     }
