@@ -1361,7 +1361,7 @@
      "number": 32,
      "title": "Showcase: getting weird",
      "blurb": "Five strange setups: a feedback tunnel, interleaved worlds, resonant chaos, sound terrain, anaglyph Lissajous.",
-     "duration": 173.7,
+     "duration": 118.5,
      "chapters": [
       {
        "t": 0.7,
@@ -1372,31 +1372,31 @@
        "text": "One. A feedback tunnel. The camera, amber phosphor, circular burn-in with a long decay, and the camera slowly orbiting."
       },
       {
-       "t": 22.4,
+       "t": 18.1,
        "text": "Every frame smears into the next, so the picture leaves a trail of itself."
       },
       {
-       "t": 27.2,
+       "t": 22.9,
        "text": "Two. Interleaved worlds. Dual Raster, alternate lines, with raster B pushed the opposite way and turned. Two copies of the same camera, woven together. One pushes toward you, the other falls away, and every other scan line flips between them, so the picture seems to argue with itself. Orbit around it, and the two layers slide apart."
       },
       {
-       "t": 53.8,
+       "t": 42.7,
        "text": "Three. Resonant chaos, loaded from a saved patch: filtered noise wobbling the rotation, and a feedback loop chasing the depth. Wireframe mode makes it a sculpture."
       },
       {
-       "t": 64.8,
+       "t": 53.1,
        "text": "Four. Sound terrain. The microphone drives spectrum displacement, so every frequency band lifts its own scan lines. Magenta, with heavy bloom."
       },
       {
-       "t": 84.8,
+       "t": 67.1,
        "text": "Five. The raster, turned inside out. One low frequency oscillator on horizontal linearity, another on vertical, and then we turn the amount up. The lines pinch, fold, and flip over themselves, and all of it is the same camera."
       },
       {
-       "t": 150.2,
+       "t": 101.5,
        "text": "Six. A Lissajous figure, in red and cyan anaglyph, drifting in 3D. Put on the glasses."
       },
       {
-       "t": 162.6,
+       "t": 111.7,
        "text": "That's the instrument. Now go make something nobody has seen before."
       }
      ]
