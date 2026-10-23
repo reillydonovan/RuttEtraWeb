@@ -757,6 +757,11 @@ input[type="range"]::-moz-range-thumb {
    of a paired range picker — should stay its natural compact width
    instead of also claiming 100%, or the two would fight over space. */
 .rw-inline-group > select:not(:first-child) { flex: 0 0 auto; width: auto; }
+/* A FROM → TO pair of equal controls (Sonification's pitch range): both
+   halves share the row equally and may shrink, so neither collapses to its
+   chevron nor pushes the row past its card. */
+.rw-inline-group.rw-inline-group--pair > select { flex: 1 1 0; width: auto; min-width: 0; }
+.rw-inline-group.rw-inline-group--pair > span { flex: none; }
 
 /* Text input */
 .rw-text {
@@ -1028,11 +1033,14 @@ body.viewer-mode #stage { background: #000; }
 }
 .rw-learn-head, .rw-learn-row {
   display: grid;
-  grid-template-columns: 1.5fr 1.5fr 1fr 60px 60px 28px;
+  /* minmax(0, …): the text columns may shrink, so a narrow panel can't push
+     the last column past the card (it stuck out 12px in MIDI and OSC). */
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) 52px 52px 24px;
   gap: 4px;
   padding: 4px 6px;
   align-items: center;
 }
+.rw-learn-head > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rw-learn-head {
   font-size: 11px;
   color: var(--re-text-dim);

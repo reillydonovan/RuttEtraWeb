@@ -78,7 +78,9 @@ const PARAM_ROWS: { p: SonificationParam; label: string; hint: string }[] = [
 const PITCH_RANGE_NOTES: { midi: number; label: string }[] = (() => {
   const out: { midi: number; label: string }[] = [];
   for (let m = 24; m <= 108; m += 1) {
-    out.push({ midi: m, label: `${midiToName(m)}  (${m})` });
+    // Note name only: two of these share one row, and "C2  (36)" got cut
+    // off mid-label; the MIDI number is in each select's tooltip.
+    out.push({ midi: m, label: midiToName(m) });
   }
   return out;
 })();
@@ -212,8 +214,8 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
       updateConfig({ pitchRangeMidi: [m, high] });
     });
   const sep = document.createElement('span');
-  sep.textContent = ' to ';
-  sep.style.padding = '0 6px';
+  sep.textContent = 'to';
+  sep.style.padding = '0 2px';
   const highSel = makePitchSelect(
     () => settings.get('sonification').pitchRangeMidi[1],
     (m) => {
@@ -222,7 +224,7 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
       updateConfig({ pitchRangeMidi: [low, m] });
     });
   const rangeGroup = document.createElement('div');
-  rangeGroup.className = 'rw-inline-group';
+  rangeGroup.className = 'rw-inline-group rw-inline-group--pair';
   rangeGroup.append(lowSel, sep, highSel);
   voiceGrp.body.appendChild(row('Pitch Range', rangeGroup));
 
@@ -361,6 +363,7 @@ export function createSonificationSection(deps: SonificationSectionDeps): HTMLEl
     filterSel.value = cfg.filterType;
     lowSel.value = String(cfg.pitchRangeMidi[0]);
     highSel.value = String(cfg.pitchRangeMidi[1]);
+    for (const sel of [lowSel, highSel]) sel.title = `${midiToName(parseInt(sel.value, 10))} = MIDI note ${sel.value}`;
     quantCb.checked = cfg.quantize;
     smoothRange.value = String(cfg.smoothingMs);
     smoothReadout.textContent = `${cfg.smoothingMs} ms`;
@@ -420,6 +423,8 @@ function makePitchSelect(get: () => number, set: (m: number) => void): HTMLSelec
     sel.appendChild(opt);
   }
   sel.value = String(get());
-  sel.addEventListener('change', () => set(parseInt(sel.value, 10)));
+  const tip = (): void => { sel.title = `${midiToName(parseInt(sel.value, 10))} = MIDI note ${sel.value}`; };
+  tip();
+  sel.addEventListener('change', () => { set(parseInt(sel.value, 10)); tip(); });
   return sel;
 }
