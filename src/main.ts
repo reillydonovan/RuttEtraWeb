@@ -2034,6 +2034,7 @@ async function bootSynth(): Promise<void> {
     // pre-XR view is stashed by XRManager and restored on session end.
     if (!presenting) cameraRig.tick(dt);
     ruttEtra.updateSpectrum(io.fft.bands);
+    ruttEtra.setSize(renderer.domElement.width, renderer.domElement.height);
     ruttEtra.tick(dt, t);
 
     // Honor profile's frameIntervalMs (battery profile caps to 30 fps).

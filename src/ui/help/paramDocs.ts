@@ -147,7 +147,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   analogHum:        { description: 'Depth of the slow-rolling horizontal hum bar (mains interference on an old monitor).', range: '0..1', panel: 'Color/PostFX' },
 
   // ----- Geometry / render -----
-  renderMode:       { description: 'Wireframe (lines) vs filled triangles vs points.', panel: 'Geometry' },
+  renderMode:       { description: 'Scan Lines (additive glow), Wireframe (opaque lines), or Dot Raster (one round dot per sample, sized to the sample spacing — lower Cols / Scan Rate for bigger dots).', panel: 'Geometry' },
   thickLines:       { description: 'Use a thicker line technique (heavier on GPU).', panel: 'Geometry' },
   lineWidth:        { description: 'Line thickness when thickLines is on.', panel: 'Geometry' },
 

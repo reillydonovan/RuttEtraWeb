@@ -12,6 +12,7 @@ uniform float     uIntensity;
 uniform vec3      uTint;
 uniform int       uColorMode;
 uniform float     uAlphaFalloff; // 0..1 — fade lines below threshold
+uniform float     uDots;         // 1 = Dot Raster mode: draw round, soft-edged dots
 
 varying float vLum;
 varying vec2  vUv;
@@ -35,6 +36,15 @@ void main() {
   // "dark areas drop out" look without fully discarding (which would break
   // line continuity in a confusing way).
   float a = mix(1.0, vLum, clamp(uAlphaFalloff, 0.0, 1.0));
+
+  if (uDots > 0.5) {
+    vec2 d = gl_PointCoord - 0.5;
+    float r2 = dot(d, d);
+    if (r2 > 0.25) discard;
+    float edge = 1.0 - smoothstep(0.09, 0.25, r2);
+    col *= edge;
+    a *= edge;
+  }
 
   gl_FragColor = vec4(col, a);
 }

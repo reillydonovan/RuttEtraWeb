@@ -47,6 +47,13 @@ export class RuttEtraScene {
   private meshB: THREE.LineSegments | null = null;
   private uniformsB!: { [key: string]: THREE.IUniform };
 
+  // Dot Raster render mode: the same samples drawn as round dots, one per
+  // (row, col) — a separate Points geometry, because the line geometry holds
+  // every interior sample twice (once per segment end), which would stack two
+  // additive dots on each spot. Only one of lines / dots is visible at a time.
+  private points: THREE.Points | null = null;
+  private pointsB: THREE.Points | null = null;
+
   private spectrumTexture: THREE.DataTexture | null = null;
   private spectrumData: Float32Array = new Float32Array(32);
   private spectrumBandCount = 32;
@@ -137,8 +144,12 @@ export class RuttEtraScene {
     (this.uniformsB.uVideoTexel.value as THREE.Vector2).set(1 / w, 1 / h);
   }
 
-  setSize(_width: number, _height: number): void {
-    /* placeholder for future thick-line resolution updates */
+  /** Drawing-buffer size, for Dot Raster's pixel-sized dots. Cheap; call per frame. */
+  setSize(_width: number, height: number): void {
+    if (height > 0) {
+      this.uniforms.uViewportH.value = height;
+      this.uniformsB.uViewportH.value = height;
+    }
   }
 
   /** Update time-driven uniforms; call every frame. */
@@ -170,6 +181,7 @@ export class RuttEtraScene {
     this.material?.dispose();
     this.materialB?.dispose();
     this.mesh?.geometry.dispose();
+    this.points?.geometry.dispose();
     this.videoTexture?.dispose();
     this.spectrumTexture?.dispose();
   }
@@ -268,6 +280,17 @@ export class RuttEtraScene {
       uDualMode:     { value: 0 },
       uDualSide:     { value: side },
       uWipe:         { value: 0 },
+
+      // Dot Raster mode: each dot is sized to a fraction of the on-screen
+      // gap between neighbouring samples (so dots never merge into lines at
+      // high density, nor shrink to specks when zoomed in); uViewportH is the
+      // drawing-buffer height that turns world spacing into pixels. uDots
+      // switches the fragment shader to round dots (gl_PointCoord only means
+      // something when drawing points).
+      uDotScale:     { value: 0.7 },
+      uViewportH:    { value: 1080 },
+      uCols:         { value: 2 },
+      uDots:         { value: 0 },
     };
   }
 
@@ -281,6 +304,8 @@ export class RuttEtraScene {
     this.currentRows = rows;
     this.uniforms.uRows.value = rows;
     this.uniformsB.uRows.value = rows;
+    this.uniforms.uCols.value = cols;
+    this.uniformsB.uCols.value = cols;
 
     if (this.mesh) {
       this.group.remove(this.mesh);
@@ -291,6 +316,15 @@ export class RuttEtraScene {
       // Shares mesh A's geometry (already disposed above) — just detach.
       this.group.remove(this.meshB);
       this.meshB = null;
+    }
+    if (this.points) {
+      this.group.remove(this.points);
+      this.points.geometry.dispose();
+      this.points = null;
+    }
+    if (this.pointsB) {
+      this.group.remove(this.pointsB);
+      this.pointsB = null;
     }
 
     const segPerRow = cols - 1;
@@ -328,9 +362,47 @@ export class RuttEtraScene {
     // dual-raster flag is on.
     const meshB = new THREE.LineSegments(geom, this.materialB);
     meshB.frustumCulled = false;
-    meshB.visible = this.settings.get('dualRasterEnabled');
     this.group.add(meshB);
     this.meshB = meshB;
+
+    // Dot Raster: one vertex per sample, same positions/uvs as the lines.
+    const pPos = new Float32Array(rows * cols * 3);
+    const pUv = new Float32Array(rows * cols * 2);
+    let qi = 0, qu = 0;
+    for (let r = 0; r < rows; r++) {
+      const v = r / (rows - 1);
+      const y = (v - 0.5) * 1.5;
+      for (let c = 0; c < cols; c++) {
+        const u = c / (cols - 1);
+        pPos[qi++] = (u - 0.5) * 2.0; pPos[qi++] = y; pPos[qi++] = 0;
+        pUv[qu++] = u; pUv[qu++] = 1 - v;
+      }
+    }
+    const pGeom = new THREE.BufferGeometry();
+    pGeom.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    pGeom.setAttribute('uv', new THREE.BufferAttribute(pUv, 2));
+    const points = new THREE.Points(pGeom, this.material);
+    points.frustumCulled = false;
+    this.group.add(points);
+    this.points = points;
+    const pointsB = new THREE.Points(pGeom, this.materialB);
+    pointsB.frustumCulled = false;
+    this.group.add(pointsB);
+    this.pointsB = pointsB;
+
+    this.applyVisibility();
+  }
+
+  /** Lines or dots (render mode), raster B only while Dual Raster is on. */
+  private applyVisibility(): void {
+    const dots = this.settings.get('renderMode') === 'dots';
+    const dual = this.settings.get('dualRasterEnabled');
+    if (this.mesh) this.mesh.visible = !dots;
+    if (this.points) this.points.visible = dots;
+    if (this.meshB) this.meshB.visible = dual && !dots;
+    if (this.pointsB) this.pointsB.visible = dual && dots;
+    this.uniforms.uDots.value = dots ? 1 : 0;
+    this.uniformsB.uDots.value = dots ? 1 : 0;
   }
 
   // -------------------- settings -> uniforms --------------------
@@ -419,7 +491,7 @@ export class RuttEtraScene {
       const mode = enabled ? (s.get('dualMode') === 'alternate' ? 2 : 1) : 0;
       u.uDualMode.value = mode;
       uB.uDualMode.value = mode;
-      if (this.meshB) this.meshB.visible = enabled;
+      this.applyVisibility();
     };
     s.subscribe('dualRasterEnabled', applyDualMode);
     s.subscribe('dualMode', applyDualMode);
@@ -449,6 +521,7 @@ export class RuttEtraScene {
         m.blending = wire ? THREE.NormalBlending : THREE.AdditiveBlending;
         m.depthWrite = wire;
       }
+      this.applyVisibility();
     });
 
     s.subscribe('audioSpectrum', (spec) => {

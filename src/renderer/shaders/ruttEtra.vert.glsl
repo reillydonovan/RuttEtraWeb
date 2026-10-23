@@ -53,7 +53,10 @@ uniform float uDualMode;
 uniform float uDualSide;       // 0 = raster A, 1 = raster B
 uniform float uWipe;           // 0..1 — B occupies the top uWipe fraction
 
-uniform float uTime;           // seconds (for any time-driven shader effects)
+uniform float uTime;
+uniform float uDotScale;       // Dot Raster: dot diameter as a fraction of the sample spacing
+uniform float uViewportH;      // drawing-buffer height (px), for gl_PointSize
+uniform float uCols;           // samples per row (uRows is the row count)           // seconds (for any time-driven shader effects)
 
 uniform sampler2D uSpectrum;       // 1xN texture of FFT bands (R channel)
 uniform float     uSpectrumAmount; // gain applied to spectrum -> Z
@@ -168,4 +171,11 @@ void main() {
   vLum = l;
   vUv  = uvT;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  // Dot Raster: the world gap between neighbouring samples (the tighter of
+  // row and column spacing, after H/V Size and Aspect), projected to pixels at
+  // this depth. Lines ignore gl_PointSize.
+  float gapY = 1.5 / max(1.0, uRows - 1.0) * max(0.02, abs(uSize.y));
+  float gapX = 2.0 / max(1.0, uCols - 1.0) * max(0.02, abs(uSize.x * uAspect));
+  float pxPerUnit = 0.5 * uViewportH * projectionMatrix[1][1] / max(1e-4, gl_Position.w);
+  gl_PointSize = clamp(uDotScale * min(gapX, gapY) * pxPerUnit, 1.5, 32.0);
 }

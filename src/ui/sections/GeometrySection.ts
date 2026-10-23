@@ -14,7 +14,7 @@ export function createGeometrySection(settings: SettingsStore): HTMLElement {
     row('Mode', dropdown(settings, 'renderMode', [
       { value: 'scanlines', label: 'Scan Lines (additive)' },
       { value: 'wireframe', label: 'Wireframe (opaque)' },
-      { value: 'dots',      label: 'Dot Raster (experimental)' },
+      { value: 'dots',      label: 'Dot Raster' },
     ])),
   );
   root.appendChild(mode.root);
@@ -22,7 +22,7 @@ export function createGeometrySection(settings: SettingsStore): HTMLElement {
   const note = document.createElement('div');
   note.className = 'rw-hint';
   note.style.padding = '6px 0';
-  note.innerHTML = 'Resolution lives in the <b>DCU > Scan</b> group: <i>Scan Rate</i> = rows, <i>Cols</i> = samples per row. Total verts = rows × cols × 2.';
+  note.innerHTML = 'Resolution lives in the <b>DCU > Scan</b> group: <i>Scan Rate</i> = rows, <i>Cols</i> = samples per row. Total verts = rows × cols × 2. <b>Dot Raster</b> draws one dot per sample, sized to the gap between samples: lower Cols and Scan Rate for bigger, more separate dots.';
   root.appendChild(note);
 
   return root;
