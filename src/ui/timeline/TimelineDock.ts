@@ -15,6 +15,7 @@ import { LaneEditor } from './LaneEditor';
 import { LanePointSel } from './LaneRow';
 import { setDockActions } from '../keyframeAffordance';
 import { attachTooltip } from '../tooltip';
+import { localX } from './laneGeometry';
 
 /** One document-level keydown for ALL timeline instances (see ctor). */
 let keydownInstalled = false;
@@ -186,11 +187,14 @@ export class TimelineDock {
       this.laneEditor.updatePlayhead(bar);
       this.transport.updateReadout(bar);
     };
-    this.seq.onTimelineChange = () => {
+    // addTimelineListener, not onTimelineChange: only the listener also
+    // fires when the timeline is cleared (Delete timeline → load(null)), so
+    // the dock empties instead of still showing the deleted score.
+    this.seq.addTimelineListener(() => {
       this.refreshAll();
       // Persistence lives in main.ts (addTimelineListener) so edits made
       // without the dock mounted also save.
-    };
+    });
     this.seq.onSelectionChange = (id) => {
       // Scene and lane selection are mutually exclusive.
       if (id && this.laneSelection) this.setLaneSelection(null);
@@ -413,8 +417,7 @@ export class TimelineDock {
     this.scroller.addEventListener('wheel', (e) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const rect = this.scroller.getBoundingClientRect();
-        const cursorX = e.clientX - rect.left;
+        const cursorX = localX(this.scroller, e.clientX);
         const barUnderCursor = (this.scroller.scrollLeft + cursorX) / this.pixelsPerBar;
         const next = this.pixelsPerBar * Math.exp(-e.deltaY * 0.0012);
         this.setZoom(next);

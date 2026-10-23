@@ -94,7 +94,7 @@ export class LaneEditor {
     for (const row of this.rows.values()) row.dispose();
     this.rows.clear();
     const t = this.seq.timeline;
-    if (!t) return;
+    if (!t) { this.el.style.width = ''; return; }
 
     this.el.style.width = `${t.lengthBars * this.pixelsPerBarValue}px`;
     this.el.appendChild(this.playheadEl);

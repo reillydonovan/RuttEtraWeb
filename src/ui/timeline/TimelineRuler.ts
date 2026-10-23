@@ -19,6 +19,7 @@ import { Sequencer } from '../../sequencer/Sequencer';
 import { SettingsStore } from '../../state/Settings';
 import { formatRulerTick } from '../../sequencer/timecode';
 import { attachTooltip } from '../tooltip';
+import { localX } from './laneGeometry';
 
 export class TimelineRuler {
   el: HTMLElement;
@@ -47,7 +48,7 @@ export class TimelineRuler {
   render(): void {
     const t = this.seq.timeline;
     this.el.innerHTML = '';
-    if (!t) return;
+    if (!t) { this.el.style.width = ''; return; }
     const w = t.lengthBars * this.pixelsPerBar;
     this.el.style.width = `${w}px`;
     const format = this.settings.get('timelineReadoutFormat');
@@ -74,8 +75,7 @@ export class TimelineRuler {
 
   /** Resolve a client X to a bar, clamped to the timeline length. */
   private barFromClientX(clientX: number): number {
-    const rect = this.el.getBoundingClientRect();
-    const x = clientX - rect.left + this.el.scrollLeft;
+    const x = localX(this.el, clientX);
     const len = this.seq.timeline?.lengthBars ?? 0;
     return Math.max(0, Math.min(len, x / this.pixelsPerBar));
   }

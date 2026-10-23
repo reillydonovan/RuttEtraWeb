@@ -26,7 +26,7 @@ import { getDesignedRange } from '../paramRangeRegistry';
 import { showContextMenu } from './contextMenu';
 import { attachTooltip } from '../tooltip';
 import {
-  LaneAxis, laneAxisAbs, barToX, valueToY, snapBarToBeat, sampleLane, dragResult,
+  LaneAxis, laneAxisAbs, barToX, valueToY, snapBarToBeat, sampleLane, dragResult, localX, screenScale,
 } from './laneGeometry';
 
 const EASINGS: EasingType[] = ['linear', 'easeIn', 'easeOut', 'easeInOut', 'step', 'hold'];
@@ -261,9 +261,10 @@ export class LaneRow {
     const startAbs = base + p.value;
     let last = { bar: startBar, value: p.value };
     let moved = false;
+    const scale = screenScale(this.el);
 
     const onMove = (mv: PointerEvent) => {
-      const r = dragResult(startBar, startAbs, mv.clientX - startX, mv.clientY - startY, {
+      const r = dragResult(startBar, startAbs, (mv.clientX - startX) / scale, (mv.clientY - startY) / scale, {
         pixelsPerBar: this.host.pixelsPerBar(),
         rowHeight: this.rowHeight(),
         axis: this.axis,
@@ -337,8 +338,7 @@ export class LaneRow {
     const t = this.seq.timeline;
     if (!t) return null;
     if ((ev.target as HTMLElement).closest('.rw-tl-lane-pt, .rw-tl-lane-chip')) return null;
-    const rect = this.el.getBoundingClientRect();
-    let bar = (ev.clientX - rect.left) / this.host.pixelsPerBar();
+    let bar = localX(this.el, ev.clientX) / this.host.pixelsPerBar();
     if (!ev.altKey) bar = snapBarToBeat(bar, t.beatsPerBar);
     bar = Math.max(0, Math.min(t.lengthBars, bar));
     // New points PIN the curve's current value at that bar — adding a

@@ -9,6 +9,7 @@ import { Keyframe } from '../../sequencer/types';
 import { showContextMenu, dismissContextMenu } from './contextMenu';
 import type { Preset } from '../presets';
 import { attachTooltip } from '../tooltip';
+import { localX, screenScale } from './laneGeometry';
 
 const PRESET_MIME = 'application/x-ruttetra-preset';
 
@@ -46,7 +47,7 @@ export class TimelineTrack {
     const t = this.seq.timeline;
     this.el.innerHTML = '';
     this.kfElems.clear();
-    if (!t) return;
+    if (!t) { this.el.style.width = ''; return; }
     this.el.style.width = `${t.lengthBars * this.pixelsPerBar}px`;
     // Sticky gutter label: this row holds SCENES (full-settings
     // snapshots); the per-param lanes live in the rows below.
@@ -128,7 +129,7 @@ export class TimelineTrack {
     let lastBar = startBar;
 
     const onMove = (mv: PointerEvent) => {
-      const dx = mv.clientX - startX;
+      const dx = (mv.clientX - startX) / screenScale(this.el);
       const dBars = dx / this.pixelsPerBar;
       let newBar = startBar + dBars;
       const free = mv.altKey || !beatSnap;
@@ -167,8 +168,7 @@ export class TimelineTrack {
     if (!t) return null;
     // Ignore events that bubble up from a diamond — they have their own handlers.
     if ((ev.target as HTMLElement).closest('.rw-tl-kf')) return null;
-    const rect = this.el.getBoundingClientRect();
-    const x = ev.clientX - rect.left + this.el.scrollLeft;
+    const x = localX(this.el, ev.clientX);
     return Math.max(0, Math.min(t.lengthBars, x / this.pixelsPerBar));
   }
 
@@ -194,8 +194,7 @@ export class TimelineTrack {
     const t = this.seq.timeline;
     if (!t) return;
     ev.preventDefault();
-    const rect = this.el.getBoundingClientRect();
-    const x = ev.clientX - rect.left + this.el.scrollLeft;
+    const x = localX(this.el, ev.clientX);
     const bar = Math.max(0, Math.min(t.lengthBars, x / this.pixelsPerBar));
     showContextMenu(ev.clientX, ev.clientY, [
       { label: `Add scene at bar ${bar.toFixed(2)}`, onClick: () => {
@@ -251,8 +250,7 @@ export class TimelineTrack {
     } catch {
       return;
     }
-    const rect = this.el.getBoundingClientRect();
-    const x = ev.clientX - rect.left + this.el.scrollLeft;
+    const x = localX(this.el, ev.clientX);
     let bar = x / this.pixelsPerBar;
     // Snap to beat unless Alt is held.
     if (!ev.altKey) {
