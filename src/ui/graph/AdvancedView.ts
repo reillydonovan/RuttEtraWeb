@@ -51,6 +51,7 @@ const DEFAULT_NODE_Y = 60;
 export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): () => void {
   const root = document.createElement('div');
   root.className = 'rw-graph-advanced';
+  host.classList.add('rw-graph-advanced-host'); // container for the width-based layout (graph.css)
   host.appendChild(root);
 
   // ---------- Layout ----------
@@ -545,10 +546,12 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     cur.nodes.push({
       id, type, params: {},
       inputs,
-      // v25: place inside the visible viewport regardless of pan/zoom.
+      // v25: place inside the visible viewport regardless of pan/zoom — and
+      // regardless of the canvas's width (a narrow Controls window used to
+      // spawn nodes past its right edge).
       position: {
-        x: Math.max(0, (DEFAULT_NODE_X - panX) / zoom + cur.nodes.length * 12),
-        y: Math.max(0, (DEFAULT_NODE_Y - panY) / zoom + cur.nodes.length * 12),
+        x: Math.max(0, (Math.min(DEFAULT_NODE_X, Math.max(8, center.clientWidth - 150)) - panX) / zoom + (cur.nodes.length % 6) * 12),
+        y: Math.max(0, (DEFAULT_NODE_Y - panY) / zoom + (cur.nodes.length % 6) * 12),
       },
     });
     selectedId = id;
@@ -736,5 +739,6 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     document.removeEventListener('keydown', onKey);
     unsubscribe();
     root.remove();
+    host.classList.remove('rw-graph-advanced-host');
   };
 }

@@ -233,11 +233,37 @@
    Advanced node-graph editor
    ============================================================ */
 
+/* The editor lays itself out by ITS OWN width (a container query on the
+   host), not the browser window's: in the Controls window it used to keep
+   three columns, so the canvas was squeezed out and the inspector ran past
+   the card. Wide: palette | canvas | inspector. Medium: canvas on top,
+   palette and inspector side by side under it. Narrow: one column. */
+.rw-graph-advanced-host { container-type: inline-size; }
 .rw-graph-advanced {
   display: grid;
-  grid-template-columns: 140px 1fr 220px;
+  grid-template-columns: 140px minmax(0, 1fr) 220px;
+  grid-template-areas: "palette canvas inspector";
   gap: 6px;
   min-height: 360px;
+}
+.rw-graph-advanced > .rw-graph-palette   { grid-area: palette; min-width: 0; }
+.rw-graph-advanced > .rw-graph-canvas    { grid-area: canvas; min-width: 0; }
+.rw-graph-advanced > .rw-graph-inspector { grid-area: inspector; min-width: 0; }
+@container (max-width: 760px) {
+  .rw-graph-advanced {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas: "canvas canvas" "palette inspector";
+  }
+  .rw-graph-advanced > .rw-graph-canvas { min-height: 320px; }
+  .rw-graph-advanced > .rw-graph-palette,
+  .rw-graph-advanced > .rw-graph-inspector { max-height: 320px; }
+}
+@container (max-width: 420px) {
+  .rw-graph-advanced {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "canvas" "inspector" "palette";
+  }
+  .rw-graph-advanced > .rw-graph-palette { max-height: 220px; }
 }
 
 /* Palette */
@@ -582,7 +608,8 @@
 /* Compact: one-column stack so the editor remains tappable. */
 @media (max-width: 720px) {
   .rw-graph-advanced {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "canvas" "inspector" "palette";
   }
   .rw-graph-palette { max-height: 200px; }
   .rw-graph-canvas  { min-height: 280px; }
