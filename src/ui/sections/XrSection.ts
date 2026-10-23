@@ -89,7 +89,8 @@ export function createXrSection(settings: SettingsStore, xr: XRManager): HTMLEle
   const capGroup = group('Device');
   const capEl = readout();
   capEl.textContent = 'Detecting…';
-  capGroup.body.append(row('WebXR', capEl));
+  const recheckBtn = button('Check again', () => probe());
+  capGroup.body.append(row('WebXR', capEl), recheckBtn);
   root.appendChild(capGroup.root);
 
   let support: XRSupport = { vr: false, ar: false };
@@ -102,8 +103,17 @@ export function createXrSection(settings: SettingsStore, xr: XRManager): HTMLEle
 
   function refreshCapLine(): void {
     if (!support.vr && !support.ar) {
-      capEl.textContent =
-        'No WebXR-capable device detected. Connect a headset (or use Chrome / Edge) to enable XR.';
+      // Say WHY, most specific first (Principle 3).
+      if (!window.isSecureContext) {
+        capEl.textContent =
+          'WebXR needs a secure page: open the app over https:// or http://localhost (not a LAN IP over http).';
+      } else if (!(navigator as Navigator & { xr?: unknown }).xr) {
+        capEl.textContent =
+          'This browser has no WebXR. Use Chrome or Edge on the PC, or the Meta Quest Browser in the headset.';
+      } else {
+        capEl.textContent =
+          'No headset found. For a PC-tethered Quest: start Quest Link / Air Link, set Meta Quest Link as the active OpenXR runtime (Meta Quest Link app ▸ Settings ▸ General), then Check again.';
+      }
       return;
     }
     const parts: string[] = [];
@@ -132,11 +142,15 @@ export function createXrSection(settings: SettingsStore, xr: XRManager): HTMLEle
     refreshButtons();
   }
 
-  // Initial probe. If support changes later (headset plugged in
-  // mid-session), the user can re-open the section; a periodic
-  // re-probe was considered and rejected for v1 — explicit user
-  // action is fine.
-  void xr.getSupport().then(applySupport);
+  // Probe on build, on the browser's XR devicechange event (a headset
+  // connected or Link started after the page loaded), and on demand
+  // through Check again.
+  function probe(): void {
+    capEl.textContent = 'Detecting…';
+    void xr.getSupport().then(applySupport);
+  }
+  probe();
+  (navigator as Navigator & { xr?: EventTarget }).xr?.addEventListener?.('devicechange', probe);
 
   xr.onSessionStart(refreshStatus);
   xr.onSessionEnd(refreshStatus);
