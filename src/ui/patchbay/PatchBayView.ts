@@ -1185,6 +1185,13 @@ export function createPatchBayView(
       fileInput.value = '';
     });
     mkBtn('FILE', 'Load a local video file.', () => fileInput.click());
+    // Unload whatever is loaded (file / sample / stream), or stop the camera
+    // or screen share. Same stop() the Controls picker and New Project use.
+    const stopBtn = mkBtn('UNLOAD', 'Unload this video (or stop the camera / screen share).', () => {
+      mgr.stop();
+      if (kindKey === 'sourceKind') settings.set('sourceKind', 'none');
+      else settings.set('sourceBKind', 'none');
+    });
     const outRow = document.createElement('div');
     outRow.className = 'rw-pb-row rw-pb-row--out';
     const outLabel = document.createElement('label');
@@ -1203,6 +1210,8 @@ export function createPatchBayView(
     rail.appendChild(mod);
     mgr.subscribe((state) => {
       lcd.textContent = state.kind === 'none' ? 'NONE' : `${state.kind.toUpperCase()}: ${state.label || '—'}`;
+      stopBtn.disabled = state.kind === 'none';
+      stopBtn.textContent = state.kind === 'webcam' || state.kind === 'screen' ? 'STOP' : 'UNLOAD';
     });
   }
   mkVideoSourceModule('VIDEO SOURCE A', source, 'sourceA-out', 'sourceKind');

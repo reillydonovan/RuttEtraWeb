@@ -19,6 +19,8 @@ import {
 } from '../../state/Settings';
 import { VideoSourceManager } from '../../input/sources';
 import { layoutManager } from '../layout/LayoutManager';
+import { attachTooltip } from '../tooltip';
+import type { SourceKind } from '../../input/sources';
 import { row, group, toggle, button, readout, slider, dropdown, markParamKey } from '../widgets';
 
 /**
@@ -183,11 +185,7 @@ export function createSourceSection(settings: SettingsStore, source: VideoSource
   // pre-configure a patch before flipping the layer on.
   root.appendChild(buildPatternGeneratorGroup(settings));
 
-  // Stop
-  root.appendChild(button('Stop Source', () => {
-    source.stop();
-    settings.set('sourceKind', 'none');
-  }, 'danger'));
+  // (Stop / Unload lives at the top of the picker — see buildVideoSourcePicker.)
 
   // Status readout
   info.style.marginTop = '8px';
@@ -236,9 +234,32 @@ export interface VideoSourcePickerOpts {
  * Pattern Generator stay Source-A-specific concepts in
  * `createSourceSection` itself.
  */
+const KIND_NAME: Record<SourceKind, string> = {
+  webcam: 'Webcam', screen: 'Screen', file: 'Video file', stream: 'Stream', none: 'Nothing',
+};
+
 export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement {
   const { settings, source, kindKey, deviceIdKey, info } = opts;
   const wrap = document.createElement('div');
+
+  // ---- What's loaded now, with a way to unload it ----
+  // Sits above the groups (which start collapsed) so the way out is always
+  // in view. Webcam / screen say Stop; a file, the sample or a stream say Unload.
+  const nowLabel = readout();
+  const unloadBtn = button('Unload', () => {
+    source.stop();
+    settings.set(kindKey, 'none');
+  });
+  attachTooltip(unloadBtn, 'Unload this video (or stop the camera / screen share). The raster stays, with no picture feeding it.');
+  const nowRow = row('Now', nowLabel);
+  const unloadRow = row('', unloadBtn);
+  wrap.append(nowRow, unloadRow);
+  source.subscribe((st) => {
+    const live = st.kind !== 'none';
+    nowLabel.textContent = live ? `${KIND_NAME[st.kind]}${st.label ? ` · ${st.label}` : ''}` : 'Nothing loaded';
+    unloadBtn.textContent = st.kind === 'webcam' || st.kind === 'screen' ? 'Stop' : 'Unload';
+    unloadRow.style.display = live ? '' : 'none';
+  });
 
   // ---- Webcam device selector ----
   const wc = group('Webcam');
@@ -358,6 +379,7 @@ export function buildVideoSourcePicker(opts: VideoSourcePickerOpts): HTMLElement
 
   // Reactive to any file source activation (panel picker OR boot overlay).
   source.subscribe((st) => {
+    if (st.kind !== 'file') fileInp.value = ''; // so picking the same file again loads it
     if (st.kind === 'file') {
       fileLabel.textContent = st.label || '';
       fileLabel.style.display = st.label ? '' : 'none';
@@ -494,11 +516,6 @@ export function createSourceBSection(settings: SettingsStore, sourceB: VideoSour
   root.appendChild(buildVideoSourcePicker({
     settings, source: sourceB, kindKey: 'sourceBKind', deviceIdKey: 'deviceIdB', info,
   }));
-
-  root.appendChild(button('Stop Source B', () => {
-    sourceB.stop();
-    settings.set('sourceBKind', 'none');
-  }, 'danger'));
 
   info.style.marginTop = '8px';
   root.appendChild(info);

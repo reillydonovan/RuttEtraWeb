@@ -635,6 +635,16 @@ async function bootSynth(): Promise<void> {
   video.addEventListener('loadedmetadata', () => {
     ruttEtra.attachVideo();
   });
+  // Unloading Source A (Controls ▸ Unload, the Patch Bay's UNLOAD/STOP, New
+  // Project) has to clear the picture too: the bound VideoTexture keeps the
+  // last frame it uploaded, so the raster froze on it. A fresh texture that
+  // has never had a frame draws black. (Source B needs nothing: its texture
+  // is only used while its video has frames — `videoB.readyState >= 2`.)
+  let lastSourceKind = source.getState().kind;
+  source.subscribe((st) => {
+    if (st.kind === 'none' && lastSourceKind !== 'none') ruttEtra.attachVideo();
+    lastSourceKind = st.kind;
+  });
   // The overlay is a one-time welcome screen, not a persistent "no source"
   // indicator. Once dismissed (by connecting any source or clicking skip) it
   // never re-shows — the HUD line already reports the active source state.
