@@ -16,6 +16,8 @@
  *   - 'mic'   — getUserMedia
  *   - 'tab'   — getDisplayMedia({audio:true})  (browsers that support it)
  *   - 'file'  — supplied later via `attachAudioElement(<audio>)`
+ *   - 'demo'  — a built-in drum + bass loop at the current BPM (demoBeat.ts),
+ *               for trying audio-reactive features with no mic or file
  *   - 'none'  — no input, bands stay zeroed
  *
  * Monitor (optional, default OFF) routes the input to the destination so you
@@ -23,8 +25,9 @@
  */
 
 import { BandCount, BandSpacing, FftSize } from '../state/Settings';
+import { renderDemoBeat } from './demoBeat';
 
-export type AudioInput = 'mic' | 'tab' | 'file' | 'none' | MediaStream;
+export type AudioInput = 'mic' | 'tab' | 'file' | 'demo' | 'none' | MediaStream;
 
 export interface BandShape {
   attackMs: number;
@@ -51,6 +54,8 @@ export class FFTAnalyzer {
   private mediaStream: MediaStream | null = null;
   private audioElement: HTMLAudioElement | null = null;
   private elementSource: MediaElementAudioSourceNode | null = null;
+  private demoNode: AudioBufferSourceNode | null = null;
+  private demoBpm = 120;
 
   private bandIndices: { lo: number; hi: number }[] = [];
   private fftBuffer: Uint8Array | null = null;     // 0..255 byte data
@@ -68,6 +73,18 @@ export class FFTAnalyzer {
 
   get running(): boolean {
     return this.source != null;
+  }
+
+  /** What's feeding the analyser now: 'mic' | 'tab' | 'file' | 'demo' | 'stream' | 'none'. */
+  get currentKind(): string {
+    return this.kind;
+  }
+
+  /** Tempo of the demo beat; a running demo restarts at the new tempo. */
+  setDemoBpm(bpm: number): void {
+    if (!Number.isFinite(bpm) || Math.abs(bpm - this.demoBpm) < 0.01) return;
+    this.demoBpm = bpm;
+    if (this.kind === 'demo') void this.start('demo');
   }
 
   subscribe(fn: FftAnalyzerListener): () => void {
@@ -107,6 +124,20 @@ export class FFTAnalyzer {
       this.kind = 'file';
       this.notify();
       return;
+    } else if (input === 'demo') {
+      const data = renderDemoBeat(ctx.sampleRate, this.demoBpm);
+      const buf = ctx.createBuffer(1, data.length, ctx.sampleRate);
+      buf.copyToChannel(data as Float32Array<ArrayBuffer>, 0);
+      const node = ctx.createBufferSource();
+      node.buffer = buf;
+      node.loop = true;
+      // Started from a click (the dropdown / Demo beat button), so the
+      // context may resume; analysed silently unless Monitor is on.
+      void ctx.resume().catch(() => {});
+      node.start();
+      this.demoNode = node;
+      src = node;
+      kindLabel = 'demo';
     } else if (input instanceof MediaStream) {
       this.mediaStream = input;
       src = ctx.createMediaStreamSource(input);
@@ -147,6 +178,10 @@ export class FFTAnalyzer {
       try { this.source.disconnect(); } catch { /* noop */ }
     }
     this.source = null;
+    if (this.demoNode) {
+      try { this.demoNode.stop(); } catch { /* noop */ }
+      this.demoNode = null;
+    }
     if (this.monitorGain) {
       try { this.monitorGain.disconnect(); } catch { /* noop */ }
       this.monitorGain = null;

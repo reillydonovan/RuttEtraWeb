@@ -536,7 +536,7 @@ export const DEFAULT_CV_BRIDGE_CHANNEL: CVBridgeChannel = {
 // Audio
 // --------------------------------------------------------------------
 
-export type AudioInputKind = 'mic' | 'file' | 'tab' | 'none';
+export type AudioInputKind = 'mic' | 'file' | 'tab' | 'demo' | 'none';
 export type FftSize = 512 | 1024 | 2048 | 4096;
 export type BandCount = 8 | 16 | 32 | 64 | 128;
 export type BandSpacing = 'linear' | 'log' | 'mel';

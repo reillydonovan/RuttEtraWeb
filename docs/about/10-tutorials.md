@@ -112,7 +112,10 @@ other as you go.
 2. Turn the mic on: open **CONTROLS → Synth tab → Modulation**, and under
    *Audio Interface (mic)* click **Enable Mic**. Grant the browser
    permission. (Audio analysis is opt-in per session, on purpose —
-   the synth never listens by default.)
+   the synth never listens by default.) **No microphone?** Click
+   **Demo Beat** instead: a built-in drum and bass loop at the tempo BPM
+   drives everything below exactly like a mic would. It is silent; turn
+   on I/O ▸ Audio ▸ Monitor if you want to hear it.
 
 **The Patch Bay way**
 
@@ -124,7 +127,7 @@ other as you go.
    cable enables the generator; that's what the gesture means).
 5. Drag **GEN 1's OUT** jack onto the **Z Push** jack (DEPTH field, in
    the DCU column). Second cable. The patch is live.
-6. Make some noise. The mesh should pump. Too subtle or too wild? GEN 1's
+6. Make some noise (or let the demo beat play). The mesh should pump. Too subtle or too wild? GEN 1's
    **AMT** field is the modulation depth — try 0.5 to 2.
 7. Open **CONTROLS → Modulation** and look at slot 1: Source = `Audio
    level (mic)`, Target = `Z Push`, exactly what you patched. Change

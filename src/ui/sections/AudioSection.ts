@@ -33,6 +33,7 @@ export function createAudioSection(
     { value: 'mic',  label: 'Microphone' },
     { value: 'file', label: 'Audio file' },
     { value: 'tab',  label: 'Tab / system audio' },
+    { value: 'demo', label: 'Demo beat (no mic needed)' },
   ]);
   inputGroup.body.appendChild(row('Source', inputSel));
 
@@ -88,6 +89,8 @@ export function createAudioSection(
 
   root.appendChild(inputGroup.root);
 
+  const DEMO_NOTE = 'Demo beat playing (drums and bass at the tempo BPM). It is silent: turn on Monitor below to hear it.';
+
   // Helper to translate the assorted DOMException names from getUserMedia /
   // getDisplayMedia into actionable copy.
   const explainMediaError = (err: unknown, source: 'mic' | 'tab'): string => {
@@ -125,16 +128,26 @@ export function createAudioSection(
   let lastKind: AudioInputKind = settings.get('audioInputKind');
   // If the persisted source needs a gesture, reset to 'none' so the dropdown
   // doesn't lie about what's actually running.
-  if (lastKind === 'mic' || lastKind === 'tab') {
+  if (lastKind === 'mic' || lastKind === 'tab' || lastKind === 'demo') {
     queueMicrotask(() => settings.set('audioInputKind', 'none'));
   }
   fileWrap.style.display = lastKind === 'file' ? '' : 'none';
+
+  // The demo beat plays at the shared tempo.
+  fft.setDemoBpm(settings.get('internalBpm'));
+  settings.subscribe('internalBpm', (bpm) => fft.setDemoBpm(bpm));
 
   settings.subscribe('audioInputKind', async (kind) => {
     if (kind === lastKind) return;
     lastKind = kind;
     fileWrap.style.display = kind === 'file' ? '' : 'none';
     statusLine.textContent = '';
+    // Already running (started by Modulation's Enable Mic / Demo beat, or by
+    // another panel instance): don't start it a second time.
+    if ((kind === 'mic' || kind === 'demo' || kind === 'tab') && fft.currentKind === kind) {
+      statusLine.textContent = kind === 'demo' ? DEMO_NOTE : '';
+      return;
+    }
     try {
       if (kind === 'mic') {
         statusLine.textContent = 'Requesting microphone…';
@@ -144,6 +157,9 @@ export function createAudioSection(
         statusLine.textContent = 'Requesting tab/system audio…';
         await fft.start('tab');
         statusLine.textContent = 'Tab audio connected.';
+      } else if (kind === 'demo') {
+        await fft.start('demo');
+        statusLine.textContent = DEMO_NOTE;
       } else if (kind === 'file') {
         await fft.start('file');
         if (audioEl.src) fft.attachAudioElement(audioEl);

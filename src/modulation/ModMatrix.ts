@@ -191,18 +191,25 @@ export class ModMatrix {
    * `AudioSection` UI, but legacy callers can still flip the mic.
    */
   async setAudioEnabled(on: boolean): Promise<void> {
+    await this.setAudioInput(on ? 'mic' : 'none');
+  }
+
+  /**
+   * Start the mic or the built-in demo beat (or stop audio). Throws when the
+   * mic can't start (none plugged in, permission denied) so the caller can
+   * say so — it used to swallow the error and the button read "Disable Mic"
+   * with nothing listening.
+   */
+  async setAudioInput(kind: 'mic' | 'demo' | 'none'): Promise<void> {
     if (!this.fft) return;
-    if (on) {
-      try {
-        await this.fft.start('mic');
-        this.settings.set('audioInputKind', 'mic');
-      } catch (err) {
-        console.warn('mic start failed', err);
-      }
-    } else {
+    if (kind === 'none') {
       await this.fft.stop();
       this.settings.set('audioInputKind', 'none');
+      return;
     }
+    if (kind === 'demo') this.fft.setDemoBpm(this.settings.get('internalBpm'));
+    await this.fft.start(kind);
+    this.settings.set('audioInputKind', kind);
   }
 
   /** Reset all ramp generators to time zero (re-trigger). */

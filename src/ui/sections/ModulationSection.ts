@@ -22,6 +22,7 @@ import { CVInput } from '../../audio/CVInput';
 import { GamepadInput } from '../../input/GamepadInput';
 import { ALL_DIVISIONS } from '../../midi/MidiClock';
 import { group, button } from '../widgets';
+import { attachTooltip } from '../tooltip';
 import { TARGETS, cvOutputTargets } from '../targets';
 import { makeRangeAdapter } from '../shared/rangeAdapter';
 import { generatorSpan } from '../../modulation/patchRange';
@@ -156,27 +157,48 @@ export function createModulationSection(
   // -----------------------------------------------------------------
   // Audio mic shortcut
   // -----------------------------------------------------------------
+  // Mic, or the built-in demo beat for a computer with no microphone. Both
+  // buttons follow audioInputKind, so they also reflect a choice made in
+  // I/O ▸ Audio.
   const audioGroup = group('Audio Interface (mic)');
-  const audioBtn = document.createElement('button');
-  audioBtn.className = 'rw-btn';
-  audioBtn.textContent = 'Enable Mic';
-  let audioOn = false;
-  audioBtn.addEventListener('click', async () => {
-    audioOn = !audioOn;
-    try {
-      await matrix.setAudioEnabled(audioOn);
-      audioBtn.textContent = audioOn ? 'Disable Mic' : 'Enable Mic';
-      audioBtn.classList.toggle('primary', audioOn);
-    } catch (err) {
-      audioOn = false;
-      audioBtn.textContent = `Error: ${(err as Error).message}`;
-    }
-  });
-  audioGroup.body.appendChild(audioBtn);
+  const micBtn = document.createElement('button');
+  micBtn.className = 'rw-btn';
+  const demoBtn = document.createElement('button');
+  demoBtn.className = 'rw-btn';
+  const audioBtns = document.createElement('div');
+  audioBtns.className = 'rw-inline-group';
+  audioBtns.append(micBtn, demoBtn);
   const audioHint = document.createElement('div');
   audioHint.className = 'rw-hint';
-  audioHint.textContent = 'For full FFT control, use the Audio panel under the I/O tab.';
-  audioGroup.body.appendChild(audioHint);
+  const HINT = 'No microphone? Demo beat plays a drum and bass loop at the tempo BPM (silent; turn on I/O ▸ Audio ▸ Monitor to hear it). For full FFT control, use the Audio panel under the I/O tab.';
+  audioHint.textContent = HINT;
+  const reflect = (kind: string): void => {
+    micBtn.textContent = kind === 'mic' ? 'Disable Mic' : 'Enable Mic';
+    demoBtn.textContent = kind === 'demo' ? 'Stop Demo Beat' : 'Demo Beat';
+    micBtn.classList.toggle('primary', kind === 'mic');
+    demoBtn.classList.toggle('primary', kind === 'demo');
+  };
+  settings.subscribe('audioInputKind', (k) => reflect(k));
+  reflect(settings.get('audioInputKind'));
+  const pick = async (kind: 'mic' | 'demo'): Promise<void> => {
+    const next = settings.get('audioInputKind') === kind ? 'none' : kind;
+    audioHint.textContent = HINT;
+    try {
+      await matrix.setAudioInput(next);
+    } catch (err) {
+      const name = (err as { name?: string }).name ?? '';
+      audioHint.textContent = name === 'NotFoundError'
+        ? 'No microphone found. Use Demo Beat instead, or plug one in and try again.'
+        : name === 'NotAllowedError'
+          ? 'Microphone blocked by the browser (lock icon in the address bar → Site settings → Microphone). Demo Beat works without one.'
+          : `Microphone failed: ${(err as Error).message}. Demo Beat works without one.`;
+      reflect(settings.get('audioInputKind'));
+    }
+  };
+  micBtn.addEventListener('click', () => { void pick('mic'); });
+  demoBtn.addEventListener('click', () => { void pick('demo'); });
+  attachTooltip(demoBtn, 'A built-in drum and bass loop at the tempo BPM — try audio modulation with no microphone.');
+  audioGroup.body.append(audioBtns, audioHint);
   root.appendChild(audioGroup.root);
 
   // -----------------------------------------------------------------

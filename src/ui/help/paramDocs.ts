@@ -209,7 +209,7 @@ export const PARAM_DOCS: Record<string, ParamDoc> = {
   oscBindings:    { description: 'OSC address → settings target bindings.', panel: 'OSC' },
 
   // ----- Audio -----
-  audioInputKind:    { description: 'Audio source: microphone, audio file, or browser tab capture.', panel: 'Audio' },
+  audioInputKind:    { description: 'Audio source: microphone, audio file, browser tab capture, or the built-in demo beat (a drum and bass loop at the current BPM, for trying audio features without a mic).', panel: 'Audio' },
   audioFftSize:      { description: 'FFT window size. Larger = finer frequency resolution.', panel: 'Audio' },
   audioBandCount:    { description: 'How many bands to derive from the spectrum.', panel: 'Audio' },
   audioBandSpacing:  { description: 'Band layout: linear, log, or mel.', panel: 'Audio' },
