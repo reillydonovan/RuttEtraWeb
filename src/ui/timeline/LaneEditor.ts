@@ -112,6 +112,12 @@ export class LaneEditor {
     addRow.className = 'rw-tl-lane-add';
     const sel = document.createElement('select');
     sel.className = 'rw-select';
+    // A placeholder, not the first param: a picker sitting on "H Position"
+    // under an empty timeline read as an H Pos lane that appeared by itself.
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'Add a lane…';
+    sel.appendChild(none);
     for (const opt of TARGETS) {
       const o = document.createElement('option');
       o.value = opt.v as string;
@@ -124,7 +130,10 @@ export class LaneEditor {
     addBtn.textContent = '+ Lane';
     attachTooltip(addBtn, 'Add an automation lane for the chosen parameter — every param with a slider is available here');
     attachTooltip(sel, 'Parameter to automate — any slider-backed param in the panel');
+    addBtn.disabled = true;
+    sel.addEventListener('change', () => { addBtn.disabled = !sel.value; });
     addBtn.addEventListener('click', () => {
+      if (!sel.value) return;
       this.seq.editLanes((tl) => {
         tl.lanes.push({ id: newLaneId(), paramKey: sel.value, enabled: true, points: [] });
       });

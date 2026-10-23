@@ -249,14 +249,35 @@ export class TimelineDock {
       return;
     }
 
+    // Space = play / pause whenever a timeline is open, wherever the mouse
+    // is (DAW convention). Without this, Space fell through to the browser,
+    // which "clicks" the last-clicked button — a param's ◆ toggled its
+    // keyframe off, the timeline's + made another timeline. Left alone:
+    // something that already handled the key (section heads, the dropdown
+    // menu), and fly mode (pointer lock, Space = up).
+    if (ev.code === 'Space' && this.seq.timeline && !ev.defaultPrevented
+        && !ev.repeat && !document.pointerLockElement
+        && (this.hovered || this.settings.get('timelineDock') !== 'hidden')) {
+      ev.preventDefault();
+      // A focused button activates on keyup; swallow that one keyup too.
+      const tgtEl = tgt;
+      if (tgtEl && tgtEl.tagName === 'BUTTON') {
+        const eat = (up: KeyboardEvent): void => {
+          if (up.code !== 'Space') return;
+          up.preventDefault();
+          document.removeEventListener('keyup', eat, true);
+        };
+        document.addEventListener('keyup', eat, true);
+      }
+      if (this.seq.isPlaying) this.seq.pause(); else this.seq.play();
+      return;
+    }
+
     if (!this.hovered && this.settings.get('timelineDock') === 'hidden') return;
 
     const t = this.seq.timeline;
     if (!t) return;
-    if (ev.code === 'Space' && this.hovered) {
-      ev.preventDefault();
-      if (this.seq.isPlaying) this.seq.pause(); else this.seq.play();
-    } else if (ev.code === 'ArrowLeft' && this.hovered) {
+    if (ev.code === 'ArrowLeft' && this.hovered) {
       ev.preventDefault();
       const step = ev.shiftKey ? 1 : 1 / t.beatsPerBar;
       this.seq.seek(this.seq.playheadBar - step);
