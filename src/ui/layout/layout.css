@@ -274,7 +274,7 @@ body[data-layout="standard"] .rw-section-head {
 
 /* ============================================================
    Help section in compact mode — horizontal scroll-snap sub-tabs,
-   sticky search, full body height (90% sheet handles outer height).
+   search box, full body height (90% sheet handles outer height).
    ============================================================ */
 body[data-layout="compact"] .rw-help-subtabs {
   flex-wrap: nowrap;
@@ -294,14 +294,15 @@ body[data-layout="compact"] .rw-help-subtab {
   padding: 10px 14px;
   min-height: 44px;
 }
+/* In the flow, not sticky: the bottom sheet's scroller is always part-way
+   scrolled (its snap spacers live inside it), so a sticky `top: 44px` box
+   was always pushed down over the "Controls" heading, which showed through
+   its translucent fill. */
 body[data-layout="compact"] .rw-help-search {
-  position: sticky;
-  top: 44px;
-  z-index: 2;
-  font-size: 14px;
+  font-size: 16px; /* 16px: iOS doesn't zoom the page on focus */
   padding: 10px;
   min-height: 44px;
-  margin: 0;
+  margin: 8px 0 12px;
 }
 body[data-layout="compact"] .rw-help-body {
   max-height: none;
