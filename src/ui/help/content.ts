@@ -285,8 +285,8 @@ end of each chain and write into a Settings key.
    params and bindings.
 4. Connect ports by clicking an output dot, then an input dot. Click an input
    dot alone to disconnect.
-5. Drag a node by its header. Right-click (or press **Backspace** when focused)
-   to delete it.
+5. Drag a node by its header. Click a node and press **Delete** or **Backspace**
+   to remove it, or right-click it for a menu (Mute / Delete).
 6. Hit the **Probe** button, then click any output port to scope its value
    over time.
 7. Click **Library** to drop in a starter patch (audio ring mod, beat-synced

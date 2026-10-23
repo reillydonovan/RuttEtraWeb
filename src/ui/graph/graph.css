@@ -297,12 +297,14 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1;
+  /* Above the nodes, like the Patch Bay: a cable ends ON its socket, not
+     behind the node card. Clicks pass through (pointer-events: none). */
+  z-index: 2;
 }
 .rw-graph-nodes-layer {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 1;
 }
 .rw-graph-canvas-toolbar {
   position: absolute;

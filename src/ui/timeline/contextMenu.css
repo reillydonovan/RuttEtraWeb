@@ -1,0 +1,21 @@
+/* Shared context menu (contextMenu.ts): timeline dock + graph editor nodes. */
+.rw-tl-ctx {
+  position: fixed;
+  z-index: 100;
+  background: var(--re-bg-2);
+  border: 1px solid var(--re-accent);
+  box-shadow: var(--re-glow), 0 0 16px rgba(0,0,0,0.6);
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  min-width: 180px;
+  font-size: 12px;
+  color: var(--re-text);
+}
+.rw-tl-ctx li {
+  padding: 6px 10px;
+  cursor: var(--rw-cur-pointer);
+}
+.rw-tl-ctx li:hover { background: rgba(95,255,133,0.1); color: var(--re-accent); }
+.rw-tl-ctx li.sep { padding: 0; height: 1px; background: var(--re-line); cursor: var(--rw-cur-default); }
+.rw-tl-ctx li.disabled { color: var(--re-text-dim); cursor: var(--rw-cur-not-allowed); }

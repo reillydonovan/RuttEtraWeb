@@ -15,7 +15,8 @@
  *   - Multi-output nodes connect per-port: refs are stored as
  *     `nodeId#port` when a non-default output is picked (v25).
  *   - Click an existing input port circle to disconnect.
- *   - Right-click a node to delete (also Backspace when focused).
+ *   - Right-click a node for its menu (mute, delete); select a node and press
+ *     Delete or Backspace to remove it.
  *   - Drag a node by its header.
  *
  * All drag/drop behaviors have keyboard equivalents (focus + arrows +
@@ -37,6 +38,7 @@ import '../rack/jackRipple.css';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
 import { screenScale } from '../screenScale';
+import { showContextMenu } from '../timeline/contextMenu';
 
 interface InProgressConnection {
   fromNodeId: string;
@@ -152,6 +154,8 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     const hit = cable.hitTest({ x: e.clientX - cr0.left, y: e.clientY - cr0.top });
     selectedCable = hit; cable.setSelected(hit);
     if (hit) { panning = null; selectedId = null; e.preventDefault(); return; }
+    // Empty canvas deselects (so Delete can't remove a node you clicked away from).
+    if (selectedId) { selectedId = null; render(); }
     e.preventDefault();
   });
 
@@ -319,16 +323,26 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
       if (e.key === 'ArrowRight') { (target.position ??= { x: 0, y: 0 }).x += step; e.preventDefault(); writePatch(cur); }
       if (e.key === 'ArrowUp')    { (target.position ??= { x: 0, y: 0 }).y -= step; e.preventDefault(); writePatch(cur); }
       if (e.key === 'ArrowDown')  { (target.position ??= { x: 0, y: 0 }).y += step; e.preventDefault(); writePatch(cur); }
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        e.preventDefault();
-        deleteNode(node.id);
-      }
+      // Delete / Backspace are handled document-wide in onKey: render()
+      // rebuilds every node on click, so this element loses focus at once
+      // and a key handler here never saw them.
     });
     el.addEventListener('contextmenu', (e) => {
       // Let the note's textarea show its native context menu (paste, etc.)
       if ((e.target as HTMLElement).closest('.rw-graph-note-text')) return;
       e.preventDefault();
-      if (confirm(`Delete node "${def.label}"?`)) deleteNode(node.id);
+      selectedId = node.id;
+      render();
+      const muted = node.enabled === false;
+      showContextMenu(e.clientX, e.clientY, [
+        { label: muted ? 'Unmute node' : 'Mute node', onClick: () => {
+          const cur = currentPatch();
+          const n = cur.nodes.find((x) => x.id === node.id);
+          if (n) { n.enabled = muted; writePatch(cur); }
+        } },
+        { separator: true, label: '' },
+        { label: `Delete ${def.label}`, onClick: () => deleteNode(node.id) },
+      ], root.ownerDocument);
     });
 
     return el;
@@ -656,17 +670,32 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   // scope `document` would stop receiving events there. The `attachDocs`
   // set tracks which documents already have the listeners.
   const attachedDocs = new WeakSet<Document>();
+  /** Was the last pointer press inside this editor? Gates Delete/Backspace. */
+  let editorActive = false;
   function attachDocListeners(doc: Document): void {
     if (attachedDocs.has(doc)) return;
     attachedDocs.add(doc);
     doc.addEventListener('mousemove', onMouseMove);
     doc.addEventListener('mouseup', onMouseUp);
     doc.addEventListener('keydown', onKey);
+    doc.addEventListener('pointerdown', (e) => {
+      editorActive = root.contains(e.target as Node);
+    }, true);
   }
 
   // Cancel pending connection on Esc.
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape' && pending) { cancelPending(false); return; }
+    // Delete / Backspace remove the selected node — only while this editor
+    // was the last thing clicked, so a key meant for another window (or a
+    // Controls row) never deletes a node you can't see.
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !selectedCable && selectedId
+        && editorActive && root.isConnected && !isTyping(e.target)) {
+      e.preventDefault();
+      deleteNode(selectedId);
+      render();
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCable && !isTyping(e.target)) {
       const [nid, port] = selectedCable.split('#');
       const cur = currentPatch();
