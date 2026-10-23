@@ -36,6 +36,7 @@ import { nodeInfo } from '../help/infoContent';
 import '../rack/jackRipple.css';
 import { PatchSectionDeps } from '../sections/PatchSection';
 import type { GraphEngine } from '../../modulation/graph/GraphEngine';
+import { screenScale } from '../screenScale';
 
 interface InProgressConnection {
   fromNodeId: string;
@@ -117,7 +118,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   let zoom = 1;
   let panX = 0;
   let panY = 0;
-  let panning: { startX: number; startY: number; panX: number; panY: number } | null = null;
+  let panning: { startX: number; startY: number; panX: number; panY: number; scale: number } | null = null;
   nodesLayer.style.transformOrigin = '0 0';
   function applyViewport(): void {
     nodesLayer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
@@ -126,8 +127,11 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   center.addEventListener('wheel', (e) => {
     e.preventDefault();
     const cr = center.getBoundingClientRect();
-    const cx = e.clientX - cr.left;
-    const cy = e.clientY - cr.top;
+    // pan/zoom live in the editor's own CSS pixels; the pointer is in screen
+    // pixels, which Text Size scales (screenScale).
+    const ts = screenScale(center);
+    const cx = (e.clientX - cr.left) / ts;
+    const cy = (e.clientY - cr.top) / ts;
     const next = Math.min(2.5, Math.max(0.4, zoom * Math.exp(-e.deltaY * 0.0012)));
     // Keep the point under the cursor stationary.
     panX = cx - (cx - panX) * (next / zoom);
@@ -140,7 +144,7 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     // with stopPropagation-equivalent checks below).
     const target = e.target as HTMLElement;
     if (target !== center && target !== cable.el && target !== nodesLayer) return;
-    panning = { startX: e.clientX, startY: e.clientY, panX, panY };
+    panning = { startX: e.clientX, startY: e.clientY, panX, panY, scale: screenScale(center) };
     // Clicking empty canvas also cancels an in-progress connection.
     cancelTooltip(root.ownerDocument);
     if (pending) cancelPending(false);
@@ -575,8 +579,8 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
   function onMouseMove(e: MouseEvent): void {
     // v25: background pan.
     if (panning) {
-      panX = panning.panX + (e.clientX - panning.startX);
-      panY = panning.panY + (e.clientY - panning.startY);
+      panX = panning.panX + (e.clientX - panning.startX) / panning.scale;
+      panY = panning.panY + (e.clientY - panning.startY) / panning.scale;
       applyViewport();
       return;
     }
@@ -611,11 +615,13 @@ export function renderAdvancedView(host: HTMLElement, deps: PatchSectionDeps): (
     const node = cur.nodes.find((n) => n.id === dragging!.id);
     if (!node) return;
     const cr = nodesLayer.getBoundingClientRect();
-    // The layer rect is in screen (scaled) space — divide by zoom to get
-    // layout coordinates.
+    // The layer rect is in screen space — scaled by the editor zoom AND the
+    // Text Size zoom (measured on `center`, which has no transform of its
+    // own); divide both out to get layout coordinates.
+    const k = zoom * screenScale(center);
     node.position = {
-      x: Math.max(0, (e.clientX - cr.left - dragging.offsetX) / zoom),
-      y: Math.max(0, (e.clientY - cr.top - dragging.offsetY) / zoom),
+      x: Math.max(0, (e.clientX - cr.left - dragging.offsetX) / k),
+      y: Math.max(0, (e.clientY - cr.top - dragging.offsetY) / k),
     };
     writePatch(cur);
   }

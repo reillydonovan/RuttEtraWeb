@@ -53,30 +53,15 @@ export function laneAxisAbs(
   return { min: lo, max: hi };
 }
 
+// Pointer → local-pixel helpers live in ui/screenScale.ts (shared with the graph editor).
+export { screenScale, localX } from '../screenScale';
+
 export function barToX(bar: number, pixelsPerBar: number): number {
   return bar * pixelsPerBar;
 }
 
 export function xToBar(x: number, pixelsPerBar: number, lengthBars: number): number {
   return Math.max(0, Math.min(lengthBars, x / pixelsPerBar));
-}
-
-/**
- * How much bigger an element draws on screen than its own CSS pixels — the
- * Text Size `zoom` on the window shells. Pointer coordinates are screen
- * pixels and bar positions are CSS pixels, so every pointer → bar
- * conversion divides by this (at 110% a click 400px in used to land 40px
- * further right).
- */
-export function screenScale(el: HTMLElement): number {
-  const w = el.offsetWidth;
-  const r = el.getBoundingClientRect().width;
-  return w > 0 && r > 0 ? r / w : 1;
-}
-
-/** A pointer's clientX as an x in the element's own CSS pixels. */
-export function localX(el: HTMLElement, clientX: number): number {
-  return (clientX - el.getBoundingClientRect().left) / screenScale(el);
 }
 
 export function valueToY(value: number, axis: LaneAxis, rowHeight: number): number {
